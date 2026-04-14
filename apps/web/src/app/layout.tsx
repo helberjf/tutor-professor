@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Baloo_2 } from 'next/font/google';
 
+
 import './globals.css';
+import { Navbar } from '@/components/navbar';
 
 const baloo = Baloo_2({
   subsets: ['latin'],
@@ -20,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={baloo.variable}>{children}</body>
+      <body className={baloo.variable}>
+        <Navbar />
+        <div className="pt-14">{children}</div>
+      </body>
     </html>
   );
 }
