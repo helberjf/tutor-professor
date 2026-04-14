@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./apps/api
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./apps/api/.env
+    volumes:
+      - ./apps/api/audio_cache:/app/audio_cache
+      - ./apps/api/kids_tutor.sqlite:/app/kids_tutor.sqlite
+    networks:
+      - kids-tutor-net
+
+  web:
+    build: ./apps/web
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./apps/web/.env
+    depends_on:
+      - api
+    networks:
+      - kids-tutor-net
+
+  # Optional local Kokoro TTS server
+  # kokoro-tts:
+  #   image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+  #   ports:
+  #     - "8888:8888"
+  #   networks:
+  #     - kids-tutor-net
+
+  # Cloudflare Tunnel (requires configuration)
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+  #   networks:
+  #     - kids-tutor-net
+
+networks:
+  kids-tutor-net:
+    driver: bridge

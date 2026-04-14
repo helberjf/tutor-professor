@@ -1,235 +1,160 @@
 # English Kids Tutor
 
-## Overview
+English Kids Tutor e um monorepo com frontend em Next.js e backend em FastAPI para aulas curtas de ingles infantil, com quiz, revisao por repeticao espacada, chat guiado e suporte a audio.
 
-English Kids Tutor is a full-stack monorepo project designed to provide a simple, beautiful, and safe English learning experience for children through a web browser. The system features a Next.js frontend for an interactive user interface, a FastAPI backend for business logic and data management, and integrates with Kokoro for local text-to-speech capabilities. It's built with a focus on ease of local development, deployment to Vercel for the frontend, and Cloudflare Tunnel for securely exposing the local backend.
+## Stack
 
-## Features
+- Frontend: Next.js 14, React, TypeScript, Tailwind CSS
+- Backend: FastAPI, SQLModel, SQLite, Pydantic
+- Audio: Kokoro TTS local com fallback
+- Infra: Vercel no frontend e Cloudflare Tunnel para expor o backend local
 
-*   **Interactive Lessons:** Daily lessons with new vocabulary, phrases, and mini-activities.
-*   **Spaced Repetition Review:** Intelligent review system to reinforce learning.
-*   **Progress Tracking:** Monitor learned words, completed themes, and daily streaks.
-*   **Parental Area:** Simple login for parents to manage child profiles and settings.
-*   **Kokoro TTS Integration:** Local text-to-speech for natural audio pronunciation.
-*   **Responsive Design:** Optimized for both mobile and desktop devices.
-*   **Modular Architecture:** Clean and organized monorepo structure for scalability.
-*   **Docker Support:** Optional Docker setup for easy environment management.
-*   **Comprehensive Documentation:** Detailed guides for setup, deployment, and usage.
+## Funcionalidades atuais
 
-## Architecture
+- Licao do dia com mini-atividade
+- Quiz com pontuacao e feedback infantil
+- Revisao com palavras dificeis salvas no banco
+- Chat simples com tutor e prompt de sistema
+- Area de pais com configuracoes basicas
+- Estados amigaveis de loading, vazio e backend offline
 
-The project follows a monorepo structure, organizing the frontend, backend, and shared components within a single repository. This approach facilitates code sharing, consistent tooling, and streamlined development workflows.
+## Estrutura do projeto
 
-### Folder Structure
-
-```
+```text
 english-kids-tutor/
   apps/
-    web/              # Next.js frontend application
-    api/              # FastAPI backend application
-  packages/
-    shared/           # Shared utilities, types, or components (currently empty, ready for expansion)
+    api/                  # FastAPI
+    web/                  # Next.js
   content/
-    lessons/          # JSON files for lesson content
-    quizzes/          # JSON files for quiz content
-    stories/          # Markdown files for short stories
-  infra/
-    docker/           # Docker-related files (e.g., Dockerfiles)
-    cloudflare/       # Cloudflare Tunnel configuration examples
-  docs/               # Project documentation files
-  scripts/            # Utility scripts for development and operations
-  .gitignore          # Git ignore file
-  README.md           # This README file
-  docker-compose.yml  # Docker Compose configuration
+    lessons/              # Conteudo das licoes
+    quizzes/              # Conteudo dos quizzes
+    stories/              # Historias
+  docs/                   # Documentacao adicional
+  infra/cloudflare/       # Exemplo de config do tunnel
+  scripts/init_db.py      # Seed inicial do banco
 ```
 
-*   **`apps/web/`**: Contains the Next.js frontend application. This is where all the user-facing components, pages, and client-side logic reside.
-*   **`apps/api/`**: Houses the FastAPI backend application. It includes API routes, database models, business logic, and integration with external services like Kokoro TTS.
-*   **`packages/shared/`**: Intended for shared code, such as TypeScript types, utility functions, or UI components that could be used by both `web` and `api` applications. Currently empty but ready for future use.
-*   **`content/`**: Stores all the educational content for the tutor, organized into `lessons`, `quizzes`, and `stories` in JSON or Markdown format.
-*   **`infra/`**: Contains infrastructure-related configurations, including Docker setups and Cloudflare Tunnel examples.
-*   **`docs/`**: Dedicated directory for detailed documentation files, covering various aspects of the project.
-*   **`scripts/`**: A collection of helpful scripts to automate common development and operational tasks.
-*   **`.gitignore`**: Specifies intentionally untracked files that Git should ignore.
-*   **`README.md`**: The main project overview and guide.
-*   **`docker-compose.yml`**: Defines and runs multi-container Docker applications.
+## Rodando tudo localmente
 
-## Getting Started
+### 1. Backend
 
-Follow these steps to set up and run the English Kids Tutor project locally.
+Crie o arquivo de ambiente:
 
-### Prerequisites
-
-*   Node.js (v18 or higher) and npm/pnpm (for frontend)
-*   Python (3.11 or higher) and pip (for backend)
-*   Docker and Docker Compose (optional, for containerized setup)
-*   Git
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/your-username/english-kids-tutor.git
-cd english-kids-tutor
+```powershell
+Copy-Item apps\api\.env.example apps\api\.env
 ```
 
-### 2. Backend Setup (`apps/api`)
+Instale as dependencias:
 
-Navigate to the backend directory:
-
-```bash
-cd apps/api
+```powershell
+python -m pip install -r apps\api\requirements.txt
 ```
 
-#### Install Dependencies
+Inicialize o banco:
 
-```bash
-pip install -r requirements.txt
+```powershell
+python scripts\init_db.py
 ```
 
-#### Environment Configuration
+Suba a API:
 
-Create a `.env` file by copying `.env.example` and fill in the necessary values. For local development, the defaults should be sufficient.
-
-```bash
-cp .env.example .env
+```powershell
+Set-Location apps\api
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-**Example `.env` for Backend:**
+### 2. Frontend
 
+Crie o arquivo de ambiente:
+
+```powershell
+Copy-Item apps\web\.env.example apps\web\.env.local
 ```
-APP_ENV=development
+
+Instale as dependencias:
+
+```powershell
+Set-Location apps\web
+pnpm install
+```
+
+Suba o frontend:
+
+```powershell
+pnpm dev
+```
+
+Frontend local: `http://localhost:3000`  
+Backend local: `http://localhost:8001`
+
+## Variaveis de ambiente importantes
+
+### Backend (`apps/api/.env`)
+
+```env
 APP_HOST=0.0.0.0
 APP_PORT=8001
 DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=tutor123
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://english-kids-tutor.vercel.app
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://seu-projeto.vercel.app
 TTS_PROVIDER=kokoro
 KOKORO_DEFAULT_VOICE=af_heart
 AUDIO_CACHE_DIR=./audio_cache
-SESSION_SECRET=your-super-secret-session-key
+SESSION_SECRET=troque-isto
+PARENT_COOKIE_SECURE=false
+PARENT_COOKIE_SAMESITE=lax
+PARENT_COOKIE_DOMAIN=
+PARENT_COOKIE_MAX_AGE=604800
 ```
 
-#### Initialize Database and Content
+### Frontend (`apps/web/.env.local`)
 
-From the project root, run the database initialization script:
-
-```bash
-python scripts/init_db.py
-```
-
-This will create the `kids_tutor.sqlite` database and populate it with initial lesson content.
-
-#### Run the Backend
-
-```bash
-uvicorn main:app --host 0.0.0.0 --port 8001 --reload
-```
-
-The backend API will be available at `http://localhost:8001`.
-
-### 3. Frontend Setup (`apps/web`)
-
-Navigate to the frontend directory:
-
-```bash
-cd ../web
-```
-
-#### Install Dependencies
-
-```bash
-pnpm install
-```
-
-#### Environment Configuration
-
-Create a `.env.local` file by copying `.env.example`.
-
-```bash
-cp .env.example .env.local
-```
-
-**Example `.env.local` for Frontend:**
-
-```
+```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 ```
 
-#### Run the Frontend
+## Fluxo recomendado de deploy
 
-```bash
-pnpm dev
+Se voce quer usar:
+
+- frontend publicado na Vercel
+- backend rodando no seu computador
+
+use este fluxo:
+
+1. Rode a API localmente na sua maquina.
+2. Exponha a API com Cloudflare Tunnel.
+3. Configure a URL publica do backend em `NEXT_PUBLIC_API_BASE_URL` na Vercel.
+4. Ajuste `CORS_ALLOWED_ORIGINS` no backend com a URL exata do seu frontend na Vercel.
+5. Para a area de pais funcionar entre dominios diferentes, use HTTPS no backend publico e configure:
+
+```env
+PARENT_COOKIE_SECURE=true
+PARENT_COOKIE_SAMESITE=none
 ```
 
-The frontend application will be available at `http://localhost:3000`.
+Guia completo: [guia.md](./guia.md)
 
-### 4. Kokoro TTS Setup
+## Documentacao adicional
 
-Kokoro TTS is used for local text-to-speech generation. You'll need to set up a Kokoro server separately. Refer to the `docs/kokoro-setup.md` for detailed instructions on how to install and run Kokoro TTS.
+- [guia.md](./guia.md): passo a passo para Vercel + backend local
+- [docs/cloudflare-tunnel.md](./docs/cloudflare-tunnel.md): configuracao do tunnel
+- [docs/vercel-deploy.md](./docs/vercel-deploy.md): deploy do frontend
+- [docs/setup-local.md](./docs/setup-local.md): setup local
+- [docs/kokoro-setup.md](./docs/kokoro-setup.md): audio com Kokoro
 
-By default, the backend expects Kokoro to be running at `http://localhost:8888`. You can configure this via the `KOKORO_URL` environment variable in the backend's `.env` file.
+## Comandos uteis
 
-### 5. Cloudflare Tunnel Configuration
-
-To expose your local backend to the internet securely, you can use Cloudflare Tunnel. This is particularly useful for connecting your Vercel-deployed frontend to your local backend.
-
-Refer to `docs/cloudflare-tunnel.md` for detailed instructions and an example `config.yml` for `cloudflared`.
-
-**Expected Flow:**
-
-*   Frontend deployed on Vercel calls `https://api.yourdomain.com`.
-*   Cloudflare Tunnel forwards this request to your local backend running at `http://localhost:8001`.
-
-Ensure your frontend's `NEXT_PUBLIC_API_BASE_URL` environment variable is set to your public Cloudflare Tunnel URL (e.g., `https://api.yourdomain.com`) when deploying to Vercel.
-
-### 6. Dockerized Setup (Optional)
-
-For a fully containerized development environment, you can use Docker Compose. Make sure you have Docker and Docker Compose installed.
-
-From the project root directory:
-
-```bash
-docker-compose up --build
+```powershell
+python scripts\init_db.py
+python -m compileall apps\api
+Set-Location apps\web
+pnpm exec tsc --noEmit
+pnpm build
 ```
 
-This will build and start both the frontend and backend services. You can access the frontend at `http://localhost:3000` and the backend at `http://localhost:8001`.
+## Observacoes
 
-**Note:** The `docker-compose.yml` includes commented-out sections for `kokoro-tts` and `cloudflared`. Uncomment and configure them if you wish to run these services within Docker Compose.
-
-## Deployment
-
-### Frontend to Vercel
-
-The Next.js frontend is prepared for deployment on Vercel. Follow these steps:
-
-1.  **Create a new Vercel project:** Connect your GitHub repository to Vercel.
-2.  **Configure Root Directory:** Set the root directory for the project to `apps/web`.
-3.  **Environment Variables:** Add `NEXT_PUBLIC_API_BASE_URL` to your Vercel project's environment variables, pointing to your public backend API URL (e.g., your Cloudflare Tunnel URL).
-4.  **Deploy:** Vercel will automatically build and deploy your frontend.
-
-Refer to `docs/vercel-deploy.md` for more detailed instructions.
-
-## Roadmap
-
-*   Implement a more robust authentication system for parents (e.g., OAuth).
-*   Integrate a real LLM for the tutor's chat functionality.
-*   Expand lesson content, quizzes, and stories.
-*   Add user-specific progress tracking and personalization.
-*   Implement a more sophisticated spaced repetition algorithm.
-*   Support multiple child profiles.
-
-## Contributing
-
-Contributions are welcome! Please refer to our `CONTRIBUTING.md` (to be created) for guidelines.
-
-## License
-
-This project is licensed under the MIT License - see the `LICENSE` file (to be created) for details.
-
----
-
-**Manus AI**
-
-*This project was generated by Manus AI based on your specifications.*
-#   e n g l i s h - t u t o r - k i d  
- 
+- O backend usa SQLite local em `apps/api/kids_tutor.sqlite`.
+- O frontend usa `fetch` com `credentials: include`, entao CORS e cookies precisam estar corretos quando frontend e backend estiverem em dominios diferentes.
+- Se o Kokoro nao estiver ativo, a aplicacao continua funcionando com fallback de audio.
