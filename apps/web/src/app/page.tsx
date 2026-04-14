@@ -3,15 +3,17 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { BookOpen, Bot, Brain, ChevronRight, Settings, Sparkles, Trophy } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronRight, Link2, Settings, Sparkles, Trophy } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Progress } from '@/lib/api';
+import { getApiConnectionDetails, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
 export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
+  const [connection, setConnection] = useState(() => getApiConnectionDetails());
 
   async function loadProgress() {
     setLoading(true);
@@ -29,6 +31,29 @@ export default function HomePage() {
   useEffect(() => {
     void loadProgress();
   }, []);
+
+  useEffect(() => {
+    const syncConnection = () => setConnection(getApiConnectionDetails());
+    syncConnection();
+    return subscribeToApiBaseUrlChange(syncConnection);
+  }, []);
+
+  if (error?.isUnconfigured) {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Connect the tutor first"
+        message="This device needs the current backend URL before lessons can load. Open the connection page and save the HTTPS tunnel URL from your computer."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Open Connection Setup
+          </Link>
+        }
+        secondaryHref="/offline"
+        secondaryLabel="How It Works"
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -100,6 +125,31 @@ export default function HomePage() {
                   className="rounded-full border-2 border-primary/20 bg-white px-6 py-4 text-lg font-bold text-primary-dark transition hover:border-primary hover:bg-primary-light"
                 >
                   Review Words
+                </Link>
+              </div>
+              <div className="mt-6 max-w-xl rounded-[1.5rem] border-2 border-slate-200 bg-white/90 p-5 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-slate-100 p-3">
+                    <Link2 className="text-primary-dark" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Backend Connection</p>
+                    <p className="text-lg font-black text-slate-800">
+                      {connection.baseUrl ? connection.host : 'Not connected yet on this device'}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-3 text-base leading-7 text-slate-600">
+                  {connection.source === 'saved'
+                    ? 'Using the saved tunnel URL from this browser.'
+                    : connection.source === 'default'
+                      ? 'Using the default API URL from the Vercel environment.'
+                      : connection.source === 'development'
+                        ? 'Using the local backend because the app is running in development.'
+                        : 'Open the connection page and paste the current HTTPS tunnel URL from your computer.'}
+                </p>
+                <Link href="/connect" className="mt-4 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
+                  {connection.baseUrl ? 'Change Connection' : 'Connect Backend'}
                 </Link>
               </div>
             </div>

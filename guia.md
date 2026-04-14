@@ -1,24 +1,62 @@
-# Guia: frontend na Vercel e backend no seu computador
+# Guia: frontend na Vercel e backend no seu computador com URL configuravel
 
-Este guia mostra o fluxo recomendado para publicar o frontend do English Kids Tutor na Vercel enquanto o backend continua rodando na sua maquina, exposto com Cloudflare Tunnel.
+Este guia mostra o fluxo pratico para deixar o frontend do English Kids Tutor publicado na Vercel enquanto o backend continua rodando no seu computador, exposto por uma URL HTTPS temporaria do Cloudflare Tunnel.
+
+O frontend agora tem uma pagina publica em `/connect` para salvar a URL atual do backend no navegador do aparelho que vai usar o site.
 
 ## Visao geral da arquitetura
 
 Fluxo final:
 
 1. O usuario abre o frontend em `https://seu-projeto.vercel.app`
-2. O frontend chama a API publica, por exemplo `https://api.seudominio.com`
+2. O frontend usa a URL da API salva no navegador, por exemplo `https://nome-aleatorio.trycloudflare.com`
 3. O Cloudflare Tunnel encaminha as requisicoes para `http://localhost:8001` na sua maquina
 4. O FastAPI responde usando o banco SQLite local e, se configurado, o Kokoro local
 
 ## O que voce precisa antes
 
 - Conta na Vercel
-- Conta na Cloudflare
-- Um dominio gerenciado pela Cloudflare
 - `cloudflared` instalado no seu computador
 - Python e Node instalados
 - O repositorio clonado localmente
+
+## Fluxo rapido para desenvolvimento local
+
+Se voce quiser validar tudo na sua maquina antes do deploy, este e o caminho mais simples.
+
+### Backend local
+
+```powershell
+Copy-Item apps\api\.env.example apps\api\.env
+python -m pip install -r apps\api\requirements.txt
+python scripts\init_db.py
+Set-Location apps\api
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+Teste no navegador:
+
+- `http://localhost:8001/health`
+- `http://localhost:8001/api/lesson/today`
+
+### Frontend local
+
+```powershell
+Copy-Item apps\web\.env.example apps\web\.env.local
+Set-Location apps\web
+pnpm install
+pnpm dev
+```
+
+Use em `apps/web/.env.local`:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
+```
+
+Abra:
+
+- `http://localhost:3000`
 
 ## Etapa 1: preparar o backend local
 
@@ -27,17 +65,14 @@ Fluxo final:
 No PowerShell, na raiz do projeto:
 
 ```powershell
+Copy-Item apps\api\.env.example apps\api\.env
 python -m pip install -r apps\api\requirements.txt
 python scripts\init_db.py
 ```
 
-### 1.2 Criar o arquivo `apps/api/.env`
+### 1.2 Configurar `apps/api/.env`
 
-```powershell
-Copy-Item apps\api\.env.example apps\api\.env
-```
-
-Edite o arquivo e use algo proximo disso:
+Use algo proximo disso:
 
 ```env
 APP_ENV=development
@@ -59,7 +94,6 @@ PARENT_COOKIE_MAX_AGE=604800
 ### 1.3 Observacoes importantes sobre esse `.env`
 
 - `CORS_ALLOWED_ORIGINS` precisa ter a URL exata do frontend na Vercel
-- se voce usar dominio proprio no frontend, troque `https://seu-projeto.vercel.app` por ele
 - `PARENT_COOKIE_SECURE=true` e `PARENT_COOKIE_SAMESITE=none` sao importantes para a area de pais funcionar com frontend e backend em dominios diferentes
 - `PARENT_COOKIE_DOMAIN` pode ficar vazio na maioria dos casos
 - se voce nao tiver Kokoro rodando, pode manter `TTS_PROVIDER=kokoro` que o app faz fallback sem audio, ou mudar para `TTS_PROVIDER=none`
@@ -78,69 +112,9 @@ Teste local:
 
 Se isso nao responder, pare aqui e resolva antes de seguir.
 
-## Etapa 2: expor o backend com Cloudflare Tunnel
+## Etapa 2: publicar o frontend na Vercel
 
-### 2.1 Fazer login no Cloudflare Tunnel
-
-```powershell
-cloudflared tunnel login
-```
-
-### 2.2 Criar um tunnel
-
-```powershell
-cloudflared tunnel create english-kids-tutor
-```
-
-Guarde:
-
-- o nome do tunnel
-- o `TUNNEL_ID`
-- o caminho do arquivo de credenciais gerado pelo `cloudflared`
-
-### 2.3 Criar o DNS publico da API
-
-Exemplo usando `api.seudominio.com`:
-
-```powershell
-cloudflared tunnel route dns english-kids-tutor api.seudominio.com
-```
-
-### 2.4 Criar a configuracao do tunnel
-
-Use o exemplo ja existente:
-
-```powershell
-Copy-Item infra\cloudflare\config.yml.example infra\cloudflare\config.yml
-```
-
-Edite `infra/cloudflare/config.yml` para algo assim:
-
-```yaml
-tunnel: SEU_TUNNEL_ID
-credentials-file: C:\Users\seu-usuario\.cloudflared\SEU_TUNNEL_ID.json
-
-ingress:
-  - hostname: api.seudominio.com
-    service: http://localhost:8001
-  - service: http_status:404
-```
-
-### 2.5 Rodar o tunnel
-
-```powershell
-cloudflared tunnel run --config infra\cloudflare\config.yml english-kids-tutor
-```
-
-Agora teste:
-
-- `https://api.seudominio.com/health`
-
-Se o retorno for `{"status":"ok",...}`, o backend publico esta pronto.
-
-## Etapa 3: publicar o frontend na Vercel
-
-### 3.1 Importar o repositorio
+### 2.1 Importar o repositorio
 
 Na Vercel:
 
@@ -149,33 +123,50 @@ Na Vercel:
 3. Configure o `Root Directory` como `apps/web`
 4. Deixe o preset como `Next.js`
 
-### 3.2 Configurar a variavel de ambiente da Vercel
+### 2.2 Variavel de ambiente da Vercel
 
-Adicione:
+Para este fluxo com URL variavel do tunnel, voce pode deixar `NEXT_PUBLIC_API_BASE_URL` vazio na Vercel.
 
-```env
-NEXT_PUBLIC_API_BASE_URL=https://api.seudominio.com
-```
+O frontend publicado vai usar a URL salva em `/connect` no navegador do aparelho.
 
-Isso faz o frontend publicado chamar o backend no seu computador via tunnel.
-
-### 3.3 Fazer o deploy
+### 2.3 Fazer o deploy
 
 Clique em deploy e aguarde a URL final do frontend, por exemplo:
 
 - `https://seu-projeto.vercel.app`
 
-## Etapa 4: alinhar CORS no backend
+## Etapa 3: expor o backend com Cloudflare Tunnel
 
-Depois que a URL final da Vercel existir, confira novamente `apps/api/.env`.
+Rode no seu computador:
 
-Exemplo:
-
-```env
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://seu-projeto.vercel.app
+```powershell
+cloudflared tunnel --url http://localhost:8001
 ```
 
-Se alterar esse valor, reinicie o backend local.
+O `cloudflared` vai mostrar uma URL publica HTTPS, algo como:
+
+- `https://nome-aleatorio.trycloudflare.com`
+
+Guarde essa URL. Ela e a URL real da API para esse momento.
+
+Observacoes:
+
+- use a URL HTTPS completa
+- nao use o `TUNNEL_ID`
+- nao use o seu IP publico
+- se essa URL mudar em outro dia, voce precisa atualizar o frontend em `/connect`
+
+## Etapa 4: conectar o frontend publicado ao backend atual
+
+No aparelho que vai usar o site:
+
+1. Abra `https://seu-projeto.vercel.app/connect`
+2. Cole a URL HTTPS gerada pelo `cloudflared`
+3. Clique em `Save Connection`
+4. Aguarde a validacao do endpoint `/health`
+5. Volte para a home
+
+Depois disso, esse navegador passa a usar a URL salva para todas as chamadas da API.
 
 ## Etapa 5: teste completo
 
@@ -189,12 +180,23 @@ Com tudo rodando:
 6. Teste o chat
 7. Teste a area de pais
 
+## Como usar no dia a dia
+
+Toda vez que seu filho for entrar de outro lugar:
+
+1. Ligue o seu computador
+2. Suba o backend em `localhost:8001`
+3. Rode `cloudflared tunnel --url http://localhost:8001`
+4. Copie a nova URL HTTPS
+5. Se a URL mudou, abra `/connect` no aparelho e salve a nova URL
+6. So depois abra as paginas normais do app
+
 ## Checklist rapido
 
 - backend local rodando em `localhost:8001`
-- `https://api.seudominio.com/health` responde
-- Vercel esta usando `apps/web` como raiz
-- `NEXT_PUBLIC_API_BASE_URL` aponta para a URL publica da API
+- `cloudflared tunnel --url http://localhost:8001` ativo
+- frontend publicado na Vercel
+- URL do backend salva em `/connect` no aparelho que vai usar o site
 - `CORS_ALLOWED_ORIGINS` contem a URL exata do frontend publicado
 - cookies de pais configurados com `PARENT_COOKIE_SECURE=true` e `PARENT_COOKIE_SAMESITE=none`
 
@@ -206,8 +208,17 @@ Verifique:
 
 - backend local esta rodando
 - tunnel esta ativo
-- `NEXT_PUBLIC_API_BASE_URL` esta certo
+- a URL salva em `/connect` e a URL atual do tunnel
 - `CORS_ALLOWED_ORIGINS` contem a URL exata do frontend
+
+### A pagina `/connect` nao salva a URL
+
+Verifique:
+
+- a URL comeca com `https://`
+- a URL e a do tunnel atual
+- `http://localhost:8001/health` responde no seu computador
+- o `cloudflared` esta encaminhando para `http://localhost:8001`
 
 ### A area de pais nao permanece logada
 
@@ -225,16 +236,6 @@ Verifique:
 - o Kokoro local esta rodando
 - a URL `KOKORO_URL` esta correta
 - se o Kokoro nao estiver disponivel, o app continua sem audio, mas sem quebrar
-
-### Os deploys preview da Vercel falham com CORS
-
-Isso pode acontecer porque cada preview tem uma URL diferente.
-
-As opcoes mais simples sao:
-
-1. usar apenas a URL de producao da Vercel no backend
-2. usar um dominio proprio fixo no frontend
-3. atualizar `CORS_ALLOWED_ORIGINS` sempre que precisar testar um preview especifico
 
 ## Comandos uteis
 
@@ -254,30 +255,27 @@ pnpm install
 pnpm dev
 ```
 
-### Tunnel
+### Tunnel do backend
 
 ```powershell
-cloudflared tunnel login
-cloudflared tunnel create english-kids-tutor
-cloudflared tunnel route dns english-kids-tutor api.seudominio.com
-cloudflared tunnel run --config infra\cloudflare\config.yml english-kids-tutor
+cloudflared tunnel --url http://localhost:8001
 ```
 
 ## Arquivos que voce provavelmente vai editar
 
 - `apps/api/.env`
 - `apps/web/.env.local` para desenvolvimento local
-- `infra/cloudflare/config.yml`
 - variaveis de ambiente do projeto na Vercel
 
 ## Resumo final
 
-O modelo mais estavel para este projeto e:
+O modelo mais pratico para este projeto, sem VPS agora, e:
 
 - frontend em producao na Vercel
 - backend local rodando no seu computador
-- API publica via Cloudflare Tunnel
+- API publica por uma URL temporaria do Cloudflare Tunnel
+- URL da API salva por aparelho em `/connect`
 - CORS configurado com a URL exata do frontend
 - cookies de sessao ajustados para cross-site
 
-Se voce seguir essa sequencia, o projeto fica funcional sem precisar abrir portas no roteador ou hospedar o backend em outro servidor.
+Se voce seguir essa sequencia, o projeto fica funcional para acesso remoto sem precisar redeployar a Vercel sempre que a URL do tunnel mudar.

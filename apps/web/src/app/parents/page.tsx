@@ -126,19 +126,36 @@ export default function ParentsPage() {
     );
   }
 
+  if (error?.isUnconfigured) {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Connect the parent area first"
+        message="This device needs the current backend URL before parent settings can load. Open the connection page and save the HTTPS tunnel URL from your computer."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Open Connection Setup
+          </Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Back Home"
+      />
+    );
+  }
+
   if (error?.isOffline) {
     return (
       <StatusCard
         tone="offline"
         title="Parent area is offline"
-        message="The backend is not answering right now. Start the API and then try again."
+        message="The backend is not answering right now. Start the API and Cloudflare Tunnel on your computer, then try again."
         primaryAction={
           <button onClick={() => void loadSettings()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Try Again
           </button>
         }
-        secondaryHref="/offline"
-        secondaryLabel="Offline Help"
+        secondaryHref="/connect"
+        secondaryLabel="Change Connection"
       />
     );
   }

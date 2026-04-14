@@ -128,19 +128,36 @@ export default function LessonPage() {
     );
   }
 
+  if (error?.isUnconfigured) {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Connect the tutor first"
+        message="This device does not have the current backend URL yet. Open the connection page and save the HTTPS tunnel URL from your computer."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Open Connection Setup
+          </Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Back Home"
+      />
+    );
+  }
+
   if (error?.isOffline) {
     return (
       <StatusCard
         tone="offline"
         title="The lesson could not connect"
-        message="The backend seems to be offline. Start the API, then tap try again."
+        message="The backend seems to be offline. Start the API and Cloudflare Tunnel on your computer, then tap try again."
         primaryAction={
           <button onClick={() => void loadLesson()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Try Again
           </button>
         }
-        secondaryHref="/offline"
-        secondaryLabel="Offline Help"
+        secondaryHref="/connect"
+        secondaryLabel="Change Connection"
       />
     );
   }

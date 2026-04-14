@@ -101,8 +101,8 @@ TTS_PROVIDER=kokoro
 KOKORO_DEFAULT_VOICE=af_heart
 AUDIO_CACHE_DIR=./audio_cache
 SESSION_SECRET=troque-isto
-PARENT_COOKIE_SECURE=false
-PARENT_COOKIE_SAMESITE=lax
+PARENT_COOKIE_SECURE=true
+PARENT_COOKIE_SAMESITE=none
 PARENT_COOKIE_DOMAIN=
 PARENT_COOKIE_MAX_AGE=604800
 ```
@@ -123,10 +123,11 @@ Se voce quer usar:
 use este fluxo:
 
 1. Rode a API localmente na sua maquina.
-2. Exponha a API com Cloudflare Tunnel.
-3. Configure a URL publica do backend em `NEXT_PUBLIC_API_BASE_URL` na Vercel.
-4. Ajuste `CORS_ALLOWED_ORIGINS` no backend com a URL exata do seu frontend na Vercel.
-5. Para a area de pais funcionar entre dominios diferentes, use HTTPS no backend publico e configure:
+2. Exponha a API com `cloudflared tunnel --url http://localhost:8001`.
+3. Abra `https://seu-projeto.vercel.app/connect` no aparelho que vai usar o site.
+4. Cole a URL HTTPS atual do tunnel e salve a conexao.
+5. Ajuste `CORS_ALLOWED_ORIGINS` no backend com a URL exata do seu frontend na Vercel.
+6. Para a area de pais funcionar entre dominios diferentes, use HTTPS no backend publico e configure:
 
 ```env
 PARENT_COOKIE_SECURE=true
@@ -157,4 +158,5 @@ pnpm build
 
 - O backend usa SQLite local em `apps/api/kids_tutor.sqlite`.
 - O frontend usa `fetch` com `credentials: include`, entao CORS e cookies precisam estar corretos quando frontend e backend estiverem em dominios diferentes.
+- O frontend publicado pode salvar a URL atual da API por navegador em `/connect`, sem precisar redeployar a Vercel quando o tunnel mudar.
 - Se o Kokoro nao estiver ativo, a aplicacao continua funcionando com fallback de audio.

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8001';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 export interface LessonItem {
   word_en: string;
@@ -104,14 +104,14 @@ export interface ParentSettingsUpdatePayload {
 export class ApiError extends Error {
   readonly status?: number;
   readonly detail?: string;
-  readonly code: 'offline' | 'http' | 'parse';
+  readonly code: 'offline' | 'http' | 'parse' | 'unconfigured';
 
   constructor(
     message: string,
     options: {
       status?: number;
       detail?: string;
-      code?: 'offline' | 'http' | 'parse';
+      code?: 'offline' | 'http' | 'parse' | 'unconfigured';
     } = {},
   ) {
     super(message);
@@ -123,6 +123,10 @@ export class ApiError extends Error {
 
   get isOffline() {
     return this.code === 'offline';
+  }
+
+  get isUnconfigured() {
+    return this.code === 'unconfigured';
   }
 }
 
@@ -152,7 +156,14 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const apiBaseUrl = getApiBaseUrl();
+  if (!apiBaseUrl) {
+    throw new ApiError('This device is not connected to a backend yet. Open the connection page and save the current tunnel URL.', {
+      code: 'unconfigured',
+    });
+  }
+
+  const url = `${apiBaseUrl}${endpoint}`;
 
   let response: Response;
   try {
@@ -237,5 +248,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getAudioUrl: (url: string) => (url.startsWith('http') ? url : `${API_BASE_URL}${url}`),
+  getAudioUrl: (url: string) => {
+    if (url.startsWith('http')) {
+      return url;
+    }
+
+    const apiBaseUrl = getApiBaseUrl();
+    return apiBaseUrl ? `${apiBaseUrl}${url}` : url;
+  },
 };

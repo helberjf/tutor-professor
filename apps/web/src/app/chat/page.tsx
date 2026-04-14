@@ -103,17 +103,30 @@ export default function ChatPage() {
                 </button>
               ))}
             </div>
-            {error?.isOffline ? (
+            {error?.isUnconfigured ? (
+              <div className="mt-8 rounded-[1.5rem] border-2 border-primary bg-primary-light/40 p-5">
+                <div className="flex items-center gap-3 text-primary-dark">
+                  <WifiOff size={26} />
+                  <p className="text-xl font-black">Connect the tutor first.</p>
+                </div>
+                <p className="mt-3 text-lg leading-8 text-slate-600">
+                  This device needs the current backend URL before chat can work. Open the connection page and save the HTTPS tunnel URL from your computer.
+                </p>
+                <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
+                  Open Connection Setup
+                </Link>
+              </div>
+            ) : error?.isOffline ? (
               <div className="mt-8 rounded-[1.5rem] border-2 border-kid-orange bg-orange-50 p-5">
                 <div className="flex items-center gap-3 text-kid-orange">
                   <WifiOff size={26} />
                   <p className="text-xl font-black">The backend is offline right now.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Start the API and try again. You can also visit the offline help page for setup tips.
+                  Start the API and Cloudflare Tunnel on your computer, then try again. You can also visit the connection page for setup tips.
                 </p>
-                <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Open Offline Help
+                <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
+                  Open Connection Setup
                 </Link>
               </div>
             ) : null}

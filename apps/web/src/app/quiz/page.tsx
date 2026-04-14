@@ -106,19 +106,36 @@ function QuizPageContent() {
     );
   }
 
+  if (error?.isUnconfigured) {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Connect the tutor first"
+        message="This device needs the current backend URL before quizzes can load. Open the connection page and save the HTTPS tunnel URL from your computer."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Open Connection Setup
+          </Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Back Home"
+      />
+    );
+  }
+
   if (error?.isOffline) {
     return (
       <StatusCard
         tone="offline"
         title="The quiz could not connect"
-        message="The backend is offline right now. Start the API and try again."
+        message="The backend is offline right now. Start the API and Cloudflare Tunnel on your computer, then try again."
         primaryAction={
           <button onClick={() => void loadQuiz()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Try Again
           </button>
         }
-        secondaryHref="/offline"
-        secondaryLabel="Offline Help"
+        secondaryHref="/connect"
+        secondaryLabel="Change Connection"
       />
     );
   }
