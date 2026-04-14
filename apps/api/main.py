@@ -270,17 +270,17 @@ def list_all_lessons(session: Session = Depends(get_session)) -> list[LessonSumm
     ]
 
 
+@app.get("/api/lesson/today", response_model=LessonSchema)
+def get_today_lesson(session: Session = Depends(get_session)) -> LessonSchema:
+    lesson = get_current_lesson(session=session)
+    return build_lesson_response(session=session, lesson=lesson)
+
+
 @app.get("/api/lesson/{lesson_id}", response_model=LessonSchema)
 def get_lesson_by_id(lesson_id: int, session: Session = Depends(get_session)) -> LessonSchema:
     lesson = session.get(Lesson, lesson_id)
     if lesson is None:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
-    return build_lesson_response(session=session, lesson=lesson)
-
-
-@app.get("/api/lesson/today", response_model=LessonSchema)
-def get_today_lesson(session: Session = Depends(get_session)) -> LessonSchema:
-    lesson = get_current_lesson(session=session)
     return build_lesson_response(session=session, lesson=lesson)
 
 
