@@ -19,6 +19,7 @@ $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
+$TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
 
 function Write-Step([string]$Message) {
   Write-Host ''
@@ -44,6 +45,31 @@ function Test-PythonModules([string[]]$Modules) {
   $imports = ($Modules | ForEach-Object { "import $_" }) -join '; '
   python -c $imports *> $null
   return $LASTEXITCODE -eq 0
+}
+
+function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 25) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Path $FilePath) {
+      $url = (Get-Content -Path $FilePath -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
+      if ($url) {
+        Write-Host ''
+        Write-Host "[Cloudflare URL] $url" -ForegroundColor Green
+        Write-Host 'Use this URL in https://english-tutor-kid.vercel.app/connect' -ForegroundColor Green
+        Write-Host ''
+        return $true
+      }
+    }
+
+    Start-Sleep -Milliseconds 500
+  }
+
+  Write-Host ''
+  Write-Host 'Cloudflare URL not captured yet in this terminal.' -ForegroundColor Yellow
+  Write-Host "If needed, check: $FilePath" -ForegroundColor Yellow
+  Write-Host ''
+  return $false
 }
 
 Write-Step 'Checking required tools'
@@ -84,20 +110,6 @@ if ($CheckOnly) {
   exit 0
 }
 
-Write-Step 'Starting backend window'
-Start-Process -FilePath $PowerShellExe -ArgumentList @(
-  '-ExecutionPolicy', 'Bypass',
-  '-NoExit',
-  '-File', $ApiRunner
-) | Out-Null
-
-Write-Step 'Starting frontend window'
-Start-Process -FilePath $PowerShellExe -ArgumentList @(
-  '-ExecutionPolicy', 'Bypass',
-  '-NoExit',
-  '-File', $WebRunner
-) | Out-Null
-
 if ($WithTunnel) {
   Write-Step 'Starting Cloudflare Tunnel window'
   Start-Process -FilePath $PowerShellExe -ArgumentList @(
@@ -105,7 +117,33 @@ if ($WithTunnel) {
     '-NoExit',
     '-File', $TunnelRunner
   ) | Out-Null
+
+  Write-Step 'Waiting for Cloudflare Tunnel URL'
+  Wait-ForTunnelUrl -FilePath $TunnelUrlFile | Out-Null
 }
+
+Write-Step 'Starting backend window'
+$ApiRunnerArgs = @(
+  '-ExecutionPolicy', 'Bypass',
+  '-NoExit',
+  '-File', $ApiRunner
+)
+
+if ($WithTunnel) {
+  $ApiRunnerArgs += @(
+    '-TunnelUrlFile', $TunnelUrlFile,
+    '-WaitForTunnelUrlSeconds', '5'
+  )
+}
+
+Start-Process -FilePath $PowerShellExe -ArgumentList $ApiRunnerArgs | Out-Null
+
+Write-Step 'Starting frontend window'
+Start-Process -FilePath $PowerShellExe -ArgumentList @(
+  '-ExecutionPolicy', 'Bypass',
+  '-NoExit',
+  '-File', $WebRunner
+) | Out-Null
 
 Write-Host ''
 Write-Host 'Project windows started successfully.' -ForegroundColor Green
@@ -115,4 +153,6 @@ Write-Host 'For Vercel integration, the Cloudflare Tunnel must target the backen
 
 if ($WithTunnel) {
   Write-Host 'Tunnel: the extra PowerShell window will try the named tunnel first and fall back to a quick tunnel if local credentials are missing.'
+  Write-Host "Tunnel URL file: $TunnelUrlFile"
+  Write-Host 'The public Cloudflare URL appears in the tunnel window and is also saved to the file above.'
 }
