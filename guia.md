@@ -58,6 +58,28 @@ Abra:
 
 - `http://localhost:3000`
 
+### Script executavel no Windows
+
+Se voce quiser subir o projeto com um comando so:
+
+```powershell
+.\start-project.cmd
+```
+
+Se tambem quiser abrir o tunnel do backend:
+
+```powershell
+.\start-project.cmd -WithTunnel
+```
+
+Nesse projeto, o script do tunnel tenta usar primeiro um tunnel nomeado configurado localmente pelas variaveis:
+
+- `CLOUDFLARE_TUNNEL_NAME`
+- `CLOUDFLARE_TUNNEL_ID`
+- `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE` opcional
+
+Se esses dados nao estiverem definidos localmente, ou se o arquivo de credenciais nao existir, ele faz fallback automatico para um quick tunnel temporario.
+
 ## Etapa 1: preparar o backend local
 
 ### 1.1 Criar ambiente e instalar dependencias
@@ -259,6 +281,13 @@ pnpm dev
 
 ```powershell
 cloudflared tunnel --url http://localhost:8001
+```
+
+### Script completo
+
+```powershell
+.\start-project.cmd
+.\start-project.cmd -WithTunnel
 ```
 
 ## Arquivos que voce provavelmente vai editar

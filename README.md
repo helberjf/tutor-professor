@@ -87,6 +87,35 @@ pnpm dev
 Frontend local: `http://localhost:3000`  
 Backend local: `http://localhost:8001`
 
+### Atalho para Windows
+
+Se voce quiser subir o projeto com um comando so, use:
+
+```powershell
+.\start-project.cmd
+```
+
+Isso:
+
+- cria `apps/api/.env` e `apps/web/.env.local` se ainda nao existirem
+- verifica dependencias do backend e frontend
+- roda `scripts/init_db.py`
+- abre uma janela para a API e outra para o frontend
+
+Se voce tambem quiser abrir o tunnel do backend:
+
+```powershell
+.\start-project.cmd -WithTunnel
+```
+
+O runner do tunnel tenta usar primeiro um tunnel nomeado configurado localmente pelas variaveis de ambiente:
+
+- `CLOUDFLARE_TUNNEL_NAME`
+- `CLOUDFLARE_TUNNEL_ID`
+- `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE` opcional
+
+Se esses dados nao estiverem definidos localmente, ou se o arquivo de credenciais nao existir, ele cai automaticamente para um quick tunnel temporario.
+
 ## Variaveis de ambiente importantes
 
 ### Backend (`apps/api/.env`)
@@ -152,6 +181,8 @@ python -m compileall apps\api
 Set-Location apps\web
 pnpm exec tsc --noEmit
 pnpm build
+.\start-project.cmd
+.\start-project.cmd -WithTunnel
 ```
 
 ## Observacoes
