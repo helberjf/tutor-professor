@@ -20,6 +20,11 @@ $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
+$ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
+  $env:ENGLISH_TUTOR_CONNECT_URL
+} else {
+  'https://english-tutor-kid.vercel.app/connect'
+}
 
 function Write-Step([string]$Message) {
   Write-Host ''
@@ -54,9 +59,11 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 25) {
     if (Test-Path $FilePath) {
       $url = (Get-Content -Path $FilePath -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
       if ($url) {
+        $connectLink = "$ConnectPageUrl?apiUrl=$([System.Uri]::EscapeDataString($url))&auto=1"
         Write-Host ''
         Write-Host "[Cloudflare URL] $url" -ForegroundColor Green
         Write-Host 'Use this URL in https://english-tutor-kid.vercel.app/connect' -ForegroundColor Green
+        Write-Host "[Auto-connect link] $connectLink" -ForegroundColor Green
         Write-Host ''
         return $true
       }

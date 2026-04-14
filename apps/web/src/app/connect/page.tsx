@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Link2, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import {
@@ -52,6 +52,7 @@ export default function ConnectPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const autoConnectHandledRef = useRef(false);
 
   useEffect(() => {
     const sync = () => {
@@ -61,6 +62,60 @@ export default function ConnectPage() {
     };
     sync();
     return subscribeToApiBaseUrlChange(sync);
+  }, []);
+
+  useEffect(() => {
+    if (autoConnectHandledRef.current || typeof window === 'undefined') {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const apiUrl = params.get('apiUrl')?.trim() || '';
+    const shouldAutoConnect = params.get('auto') === '1';
+    if (!apiUrl) {
+      return;
+    }
+
+    autoConnectHandledRef.current = true;
+    setDraft(apiUrl);
+
+    if (!shouldAutoConnect) {
+      setMessage('A URL do backend foi preenchida a partir do link. Revise e toque em salvar.');
+      return;
+    }
+
+    let cancelled = false;
+
+    async function autoConnectFromLink() {
+      setSaving(true);
+      setMessage('Validando a URL recebida do seu link de conexao...');
+      setError('');
+
+      const result = await verifySavedApiBaseUrl(apiUrl);
+      if (cancelled) {
+        return;
+      }
+
+      if (!result.ok) {
+        setError(result.message);
+        setMessage('');
+        setSaving(false);
+        return;
+      }
+
+      saveApiBaseUrl(result.baseUrl);
+      setDraft(result.baseUrl);
+      setConnection(describeConnection());
+      setMessage('Backend conectado automaticamente neste aparelho. Agora voce ja pode voltar ao inicio.');
+      setSaving(false);
+      window.history.replaceState({}, '', '/connect');
+    }
+
+    void autoConnectFromLink();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -192,6 +247,9 @@ cloudflared tunnel --url http://127.0.0.1:8001
               </div>
               <p className="mt-3 text-base leading-7 text-slate-700">
                 Antes de a crianca abrir o site de outra casa, confirme que o seu computador esta ligado, o backend FastAPI esta rodando e o tunnel esta ativo.
+              </p>
+              <p className="mt-3 text-base leading-7 text-slate-700">
+                Se preferir, envie o link pronto do terminal. Quando ele abrir este `/connect`, o app tenta salvar a URL automaticamente neste aparelho.
               </p>
             </div>
           </section>

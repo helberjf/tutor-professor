@@ -8,6 +8,20 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ApiDir = Join-Path $RepoRoot 'apps\api'
+$ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
+  $env:ENGLISH_TUTOR_CONNECT_URL
+} else {
+  'https://english-tutor-kid.vercel.app/connect'
+}
+
+function Get-ConnectLink([string]$TunnelUrl) {
+  if (-not $TunnelUrl) {
+    return $null
+  }
+
+  $encoded = [System.Uri]::EscapeDataString($TunnelUrl)
+  return "$ConnectPageUrl?apiUrl=$encoded&auto=1"
+}
 
 function Get-TunnelUrl([string]$FilePath) {
   if (-not $FilePath -or -not (Test-Path $FilePath)) {
@@ -46,6 +60,7 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds) {
 }
 
 $tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds $WaitForTunnelUrlSeconds
+$connectLink = Get-ConnectLink $tunnelUrl
 
 Set-Location $ApiDir
 Write-Host ''
@@ -55,6 +70,9 @@ Write-Host 'URL: http://localhost:8001'
 if ($tunnelUrl) {
   Write-Host "Cloudflare URL: $tunnelUrl" -ForegroundColor Green
   Write-Host 'Use this URL in https://english-tutor-kid.vercel.app/connect' -ForegroundColor Green
+  if ($connectLink) {
+    Write-Host "Auto-connect link: $connectLink" -ForegroundColor Green
+  }
 } elseif ($TunnelUrlFile) {
   Write-Host "Cloudflare URL: waiting or unavailable. Check $TunnelUrlFile" -ForegroundColor Yellow
 }

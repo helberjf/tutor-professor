@@ -5,6 +5,11 @@ $RuntimeDir = Join-Path $RepoRoot 'tmp'
 $TunnelUrlFile = Join-Path $RuntimeDir 'cloudflare-tunnel-url.txt'
 $TunnelStdoutFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stdout.log'
 $TunnelStderrFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stderr.log'
+$ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
+  $env:ENGLISH_TUTOR_CONNECT_URL
+} else {
+  'https://english-tutor-kid.vercel.app/connect'
+}
 $TunnelName = $env:CLOUDFLARE_TUNNEL_NAME
 $TunnelId = $env:CLOUDFLARE_TUNNEL_ID
 $CredentialsFile = if ($env:CLOUDFLARE_TUNNEL_CREDENTIALS_FILE) {
@@ -37,9 +42,11 @@ function Save-TunnelUrl([string]$Line) {
         return
       }
 
+      $connectLink = "$ConnectPageUrl?apiUrl=$([System.Uri]::EscapeDataString($url))&auto=1"
       Set-Content -Path $TunnelUrlFile -Value $url -Encoding ascii
       Write-Host ''
       Write-Host "[Tunnel URL] $url" -ForegroundColor Green
+      Write-Host "[Auto-connect link] $connectLink" -ForegroundColor Green
       Write-Host "[Saved to] $TunnelUrlFile" -ForegroundColor Green
       Write-Host ''
       return
@@ -104,6 +111,7 @@ Write-Host 'English Kids Tutor Tunnel'
 Write-Host 'Forwarding: http://127.0.0.1:8001'
 Write-Host 'Note: this tunnel exposes the backend API. It should not point to the frontend on http://localhost:3000.'
 Write-Host "Tunnel URL file: $TunnelUrlFile"
+Write-Host "Connect page: $ConnectPageUrl"
 Write-Host "Tunnel logs: $TunnelStderrFile"
 Write-Host ''
 
