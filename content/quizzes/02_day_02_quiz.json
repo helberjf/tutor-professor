@@ -1,0 +1,27 @@
+{
+  "id": 2,
+  "lesson_id": 2,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Como se diz 'Voce pode me ajudar?' em ingles?",
+      "options": ["Can you help me?", "Can I play now?", "Do you like it?", "Where is my book?"],
+      "correct_option": "Can you help me?",
+      "explanation": "Can you help me? significa Voce pode me ajudar?"
+    },
+    {
+      "id": 2,
+      "question": "Qual e a resposta educada quando alguem pede ajuda?",
+      "options": ["Yes, I can help.", "No, I do not like it.", "My name is Ana.", "Here is your book."],
+      "correct_option": "Yes, I can help.",
+      "explanation": "Yes, I can help. e uma resposta gentil."
+    },
+    {
+      "id": 3,
+      "question": "Qual frase significa 'Muito obrigado.'?",
+      "options": ["Thank you very much.", "I am happy!", "Nice to meet you.", "Do you like this game?"],
+      "correct_option": "Thank you very much.",
+      "explanation": "Thank you very much. significa Muito obrigado."
+    }
+  ]
+}

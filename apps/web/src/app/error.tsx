@@ -10,15 +10,15 @@ export default function GlobalError({
   return (
     <StatusCard
       tone="error"
-      title="Something went wobbly"
-      message="A page crashed while we were getting things ready. Try the page again or head back home."
+      title="Algo saiu do lugar"
+      message="Uma página falhou enquanto estávamos preparando tudo. Tente novamente ou volte para o início."
       primaryAction={
         <button onClick={() => reset()} className="kid-button bg-kid-pink hover:bg-pink-500">
-          Try Again
+          Tentar de novo
         </button>
       }
       secondaryHref="/"
-      secondaryLabel="Back Home"
+      secondaryLabel="Voltar ao início"
     />
   );
 }

@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Baby, Lock, Save, ShieldCheck, Volume2 } from 'lucide-react';
+import { ArrowLeft, Baby, Lock, Save, ShieldCheck, Sparkles, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api } from '@/lib/api';
+import { ApiError, api, type Lesson } from '@/lib/api';
 
 interface ParentFormState {
   child_name: string;
@@ -29,6 +29,11 @@ export default function ParentsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState<ApiError | null>(null);
+  const [generatorTopic, setGeneratorTopic] = useState('');
+  const [generatorMessage, setGeneratorMessage] = useState('');
+  const [generatorTone, setGeneratorTone] = useState<'idle' | 'success' | 'error'>('idle');
+  const [generatedLesson, setGeneratedLesson] = useState<Lesson | null>(null);
+  const [generatingLesson, setGeneratingLesson] = useState(false);
 
   async function loadSettings() {
     try {
@@ -42,7 +47,7 @@ export default function ParentsPage() {
       setIsLoggedIn(true);
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Could not load parent settings.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar as configuracoes da area de pais.');
       if (nextError.status === 401) {
         setIsLoggedIn(false);
         setError(null);
@@ -66,10 +71,10 @@ export default function ParentsPage() {
       await api.parentLogin(password);
       await loadSettings();
       setPassword('');
-      setMessage('Welcome! Parent settings are ready.');
+      setMessage('Bem-vindo! As configuracoes da area de pais estao prontas.');
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Could not log in.');
-      setMessage(nextError.status === 401 ? 'That password did not match.' : nextError.message);
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel entrar.');
+      setMessage(nextError.status === 401 ? 'Essa senha nao confere.' : nextError.message);
       setError(nextError.status === 401 ? null : nextError);
     } finally {
       setSaving(false);
@@ -88,10 +93,10 @@ export default function ParentsPage() {
         voice_preference: settings.voice_preference,
         auto_audio: settings.auto_audio,
       });
-      setMessage('Settings saved.');
+      setMessage('Configuracoes salvas.');
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Could not save settings.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar as configuracoes.');
       setMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -105,12 +110,42 @@ export default function ParentsPage() {
       await api.parentLogout();
       setIsLoggedIn(false);
       setForm(DEFAULT_FORM);
-      setMessage('You are logged out.');
+      setMessage('Voce saiu da area de pais.');
+      setGeneratorMessage('');
+      setGeneratedLesson(null);
+      setGeneratorTone('idle');
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Could not log out.'));
+      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleGenerateLesson() {
+    setGeneratingLesson(true);
+    setGeneratorMessage('');
+    setGeneratorTone('idle');
+    try {
+      const response = await api.generateMorePhrases(
+        generatorTopic.trim() ? { topic: generatorTopic.trim() } : {},
+      );
+      setGeneratedLesson(response.lesson);
+      setGeneratorMessage(response.message);
+      setGeneratorTone('success');
+      setGeneratorTopic('');
+    } catch (err) {
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel gerar novas frases.');
+      if (nextError.status === 401) {
+        setIsLoggedIn(false);
+        setMessage('Entre novamente para gerar novas frases.');
+        setGeneratedLesson(null);
+      } else {
+        setGeneratorMessage(nextError.message);
+        setGeneratorTone('error');
+      }
+    } finally {
+      setGeneratingLesson(false);
     }
   }
 
@@ -118,10 +153,10 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Opening parent settings"
-        message="Checking your parent session and loading the child profile."
+        title="Abrindo configuracoes da area de pais"
+        message="Verificando sua sessao e carregando o perfil da crianca."
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -130,15 +165,15 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Connect the parent area first"
-        message="This device needs the current backend URL before parent settings can load. Open the connection page and save the HTTPS tunnel URL from your computer."
+        title="Conecte a area de pais primeiro"
+        message="Este aparelho precisa da URL atual do backend antes de carregar a area de pais. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
         primaryAction={
           <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Open Connection Setup
+            Abrir configuracao de conexao
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -147,15 +182,15 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Parent area is offline"
-        message="The backend is not answering right now. Start the API and Cloudflare Tunnel on your computer, then try again."
+        title="A area de pais esta offline"
+        message="O backend nao esta respondendo agora. Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo."
         primaryAction={
           <button onClick={() => void loadSettings()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
-            Try Again
+            Tentar de novo
           </button>
         }
         secondaryHref="/connect"
-        secondaryLabel="Change Connection"
+        secondaryLabel="Trocar conexao"
       />
     );
   }
@@ -168,28 +203,28 @@ export default function ParentsPage() {
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-primary-light">
               <Lock className="text-primary-dark" size={54} />
             </div>
-            <h1 className="mt-6 text-center text-4xl font-black text-slate-800">Parent Login</h1>
+            <h1 className="mt-6 text-center text-4xl font-black text-slate-800">Entrada da area de pais</h1>
             <p className="mt-4 text-center text-lg leading-8 text-slate-600">
-              Use your parent password to update audio settings and the child profile.
+              Use a senha da area de pais para atualizar o audio e o perfil da crianca.
             </p>
 
             <form onSubmit={handleLogin} className="mt-8 space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Password</label>
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Senha</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
-                  placeholder="Enter the parent password"
+                  placeholder="Digite a senha da area de pais"
                 />
               </div>
               {message ? <p className="text-center text-sm font-bold text-kid-pink">{message}</p> : null}
               <button type="submit" disabled={saving} className="kid-button w-full bg-primary hover:bg-primary-dark">
-                {saving ? 'Logging in...' : 'Login'}
+                {saving ? 'Entrando...' : 'Entrar'}
               </button>
               <Link href="/" className="block text-center text-lg font-bold text-slate-500 hover:text-primary">
-                <ArrowLeft className="mr-2 inline" size={18} /> Back Home
+                <ArrowLeft className="mr-2 inline" size={18} /> Voltar ao inicio
               </Link>
             </form>
           </div>
@@ -203,29 +238,29 @@ export default function ParentsPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Back
+            <ArrowLeft size={22} /> Voltar
           </Link>
           <button onClick={() => void handleLogout()} className="rounded-full border-2 border-slate-200 px-5 py-3 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary">
-            Logout
+            Sair
           </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="kid-surface border-primary/40 p-8 md:p-10">
-            <h1 className="text-4xl font-black text-slate-800">Parent Settings</h1>
+            <h1 className="text-4xl font-black text-slate-800">Configuracoes da area de pais</h1>
             <p className="mt-4 text-lg leading-8 text-slate-600">
-              Choose the child&apos;s name, age range, and audio behavior for a calm learning flow.
+              Escolha o nome da crianca, a faixa etaria e o comportamento do audio para um aprendizado mais tranquilo.
             </p>
 
             <div className="mt-8 grid gap-8">
               <section>
                 <div className="flex items-center gap-3">
                   <Baby className="text-primary-dark" size={28} />
-                  <h2 className="text-2xl font-black text-slate-800">Child Profile</h2>
+                  <h2 className="text-2xl font-black text-slate-800">Perfil da crianca</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Child Name</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome da crianca</label>
                     <input
                       type="text"
                       value={form.child_name}
@@ -234,15 +269,15 @@ export default function ParentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Age Group</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Faixa etaria</label>
                     <select
                       value={form.age_group}
                       onChange={(event) => setForm((current) => ({ ...current, age_group: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
                     >
-                      <option value="4-6">4 - 6 years</option>
-                      <option value="7-9">7 - 9 years</option>
-                      <option value="10-12">10 - 12 years</option>
+                      <option value="4-6">4 a 6 anos</option>
+                      <option value="7-9">7 a 9 anos</option>
+                      <option value="10-12">10 a 12 anos</option>
                     </select>
                   </div>
                 </div>
@@ -251,17 +286,17 @@ export default function ParentsPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <Volume2 className="text-kid-pink" size={28} />
-                  <h2 className="text-2xl font-black text-slate-800">Voice & Audio</h2>
+                  <h2 className="text-2xl font-black text-slate-800">Voz e audio</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tutor Voice</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Voz do tutor</label>
                     <select
                       value={form.voice_preference}
                       onChange={(event) => setForm((current) => ({ ...current, voice_preference: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
                     >
-                      <option value="af_heart">Friendly Heart</option>
+                      <option value="af_heart">Heart amigavel</option>
                       <option value="af_bella">Bella</option>
                       <option value="am_adam">Adam</option>
                     </select>
@@ -273,7 +308,7 @@ export default function ParentsPage() {
                       onChange={(event) => setForm((current) => ({ ...current, auto_audio: event.target.checked }))}
                       className="h-6 w-6 accent-sky-500"
                     />
-                    Auto-play tutor audio
+                    Tocar audio do tutor automaticamente
                   </label>
                 </div>
               </section>
@@ -282,26 +317,74 @@ export default function ParentsPage() {
             {message ? <p className="mt-6 text-sm font-bold text-primary-dark">{message}</p> : null}
             <button type="submit" disabled={saving} className="kid-button mt-8 bg-primary hover:bg-primary-dark">
               <Save className="mr-2" size={18} />
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? 'Salvando...' : 'Salvar configuracoes'}
             </button>
           </form>
 
           <aside className="space-y-6">
+            <div className="kid-surface border-primary/50 p-8">
+              <div className="flex items-center gap-3">
+                <Sparkles className="text-primary-dark" size={28} />
+                <h2 className="text-2xl font-black text-slate-800">Gerador de frases</h2>
+              </div>
+              <p className="mt-4 text-lg leading-8 text-slate-600">
+                Crie o proximo dia com 3 frases novas usando o Gemini e salve direto no banco de dados.
+              </p>
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
+                <input
+                  type="text"
+                  value={generatorTopic}
+                  onChange={(event) => setGeneratorTopic(event.target.value)}
+                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                  placeholder="jogos, comida, escola..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleGenerateLesson()}
+                disabled={generatingLesson}
+                className="kid-button mt-6 bg-primary hover:bg-primary-dark"
+              >
+                {generatingLesson ? 'Gerando...' : 'Gerar mais frases'}
+              </button>
+              {generatorMessage ? (
+                <p className={`mt-4 text-sm font-bold ${generatorTone === 'error' ? 'text-kid-pink' : 'text-primary-dark'}`}>
+                  {generatorMessage}
+                </p>
+              ) : null}
+              {generatedLesson ? (
+                <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Ultimo dia gerado</p>
+                  <h3 className="mt-2 text-2xl font-black text-slate-800">{generatedLesson.title}</h3>
+                  <div className="mt-4 space-y-3">
+                    {generatedLesson.items.map((item, index) => (
+                      <div key={`${generatedLesson.id}-${index}`} className="rounded-[1.25rem] bg-white px-4 py-3">
+                        <p className="text-base font-bold uppercase tracking-[0.15em] text-slate-400">Frase {index + 1}</p>
+                        <p className="mt-1 text-lg font-black text-slate-800">{item.word_en}</p>
+                        <p className="text-base text-slate-600">{item.word_pt}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className="kid-surface border-accent/50 p-8">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="text-accent-dark" size={28} />
-                <h2 className="text-2xl font-black text-slate-800">Safety Note</h2>
+                <h2 className="text-2xl font-black text-slate-800">Nota de seguranca</h2>
               </div>
               <p className="mt-4 text-lg leading-8 text-slate-600">
-                The tutor stays focused on child-safe English practice, short replies, and friendly redirection.
+                O tutor permanece focado em pratica de ingles segura para criancas, respostas curtas e redirecionamento amigavel.
               </p>
             </div>
 
             <div className="kid-surface border-secondary/50 p-8">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Helpful Setup</p>
-              <h2 className="mt-3 text-3xl font-black text-slate-800">Environment</h2>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuracao util</p>
+              <h2 className="mt-3 text-3xl font-black text-slate-800">Ambiente</h2>
               <p className="mt-4 text-lg leading-8 text-slate-600">
-                The parent password comes from <code>PARENT_PASSWORD</code>. Audio uses <code>KOKORO_DEFAULT_VOICE</code>, <code>KOKORO_URL</code>, and <code>AUDIO_CACHE_DIR</code> on the backend.
+                A senha da area de pais vem de <code>PARENT_PASSWORD</code>. A geracao de frases usa <code>GEMINI_API_KEY</code> e <code>GEMINI_MODEL</code>. O audio usa <code>KOKORO_DEFAULT_VOICE</code>, <code>KOKORO_URL</code> e <code>AUDIO_CACHE_DIR</code> no backend.
               </p>
             </div>
           </aside>

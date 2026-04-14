@@ -22,7 +22,7 @@ export default function HomePage() {
       setProgress(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Could not load progress.'));
+      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar o progresso.'));
     } finally {
       setLoading(false);
     }
@@ -42,15 +42,15 @@ export default function HomePage() {
     return (
       <StatusCard
         tone="offline"
-        title="Connect the tutor first"
-        message="This device needs the current backend URL before lessons can load. Open the connection page and save the HTTPS tunnel URL from your computer."
+        title="Conecte o tutor primeiro"
+        message="Este aparelho precisa da URL atual do backend antes de carregar as licoes. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
         primaryAction={
           <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Open Connection Setup
+            Abrir configuracao de conexao
           </Link>
         }
         secondaryHref="/offline"
-        secondaryLabel="How It Works"
+        secondaryLabel="Como funciona"
       />
     );
   }
@@ -59,10 +59,10 @@ export default function HomePage() {
     return (
       <StatusCard
         tone="loading"
-        title="Warming up today's adventure"
-        message="The tutor is preparing your lesson, review words, and fun practice games."
+        title="Preparando a aventura de hoje"
+        message="O tutor esta preparando sua licao, a revisao de frases e as atividades divertidas."
         secondaryHref="/offline"
-        secondaryLabel="Need help?"
+        secondaryLabel="Precisa de ajuda?"
       />
     );
   }
@@ -71,15 +71,15 @@ export default function HomePage() {
     return (
       <StatusCard
         tone="offline"
-        title="The tutor is taking a tiny nap"
-        message="We could not reach the backend right now. Check that the API is running, then try again."
+        title="O tutor tirou uma soneca"
+        message="Nao conseguimos acessar o backend agora. Verifique se a API esta rodando e tente de novo."
         primaryAction={
           <button onClick={() => void loadProgress()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
-            Try Again
+            Tentar de novo
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Open Help"
+        secondaryLabel="Abrir ajuda"
       />
     );
   }
@@ -88,15 +88,15 @@ export default function HomePage() {
     return (
       <StatusCard
         tone="error"
-        title="Something went wobbly"
+        title="Algo saiu do lugar"
         message={error.message}
         primaryAction={
           <button onClick={() => void loadProgress()} className="kid-button bg-kid-pink hover:bg-pink-500">
-            Reload
+            Recarregar
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -109,22 +109,22 @@ export default function HomePage() {
           <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-accent/40 blur-2xl" />
           <div className="relative grid gap-8 lg:grid-cols-[1.4fr,0.9fr] lg:items-center">
             <div>
-              <span className="kid-tag mb-4">English Time</span>
+              <span className="kid-tag mb-4">Hora do ingles</span>
               <h1 className="max-w-3xl text-5xl font-black leading-tight text-slate-800 md:text-7xl">
-                Learn English with play, smiles, and brave little steps.
+                Aprenda ingles com brincadeiras, sorrisos e pequenos passos corajosos.
               </h1>
               <p className="mt-5 max-w-2xl text-xl leading-9 text-slate-600">
-                Practice one lesson, a quick quiz, a smart review, and a happy chat with your tutor.
+                Pratique uma licao, um quiz rapido, uma revisao inteligente e um chat alegre com o tutor.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/lesson" className="kid-button bg-primary hover:bg-primary-dark">
-                  Start Lesson <ChevronRight className="ml-2" size={22} />
+                  Comecar licao <ChevronRight className="ml-2" size={22} />
                 </Link>
                 <Link
                   href="/review"
                   className="rounded-full border-2 border-primary/20 bg-white px-6 py-4 text-lg font-bold text-primary-dark transition hover:border-primary hover:bg-primary-light"
                 >
-                  Review Words
+                  Revisar frases
                 </Link>
               </div>
               <div className="mt-6 max-w-xl rounded-[1.5rem] border-2 border-slate-200 bg-white/90 p-5 shadow-sm">
@@ -133,42 +133,42 @@ export default function HomePage() {
                     <Link2 className="text-primary-dark" size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Backend Connection</p>
+                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexao com o backend</p>
                     <p className="text-lg font-black text-slate-800">
-                      {connection.baseUrl ? connection.host : 'Not connected yet on this device'}
+                      {connection.baseUrl ? connection.host : 'Ainda nao conectado neste aparelho'}
                     </p>
                   </div>
                 </div>
                 <p className="mt-3 text-base leading-7 text-slate-600">
                   {connection.source === 'saved'
-                    ? 'Using the saved tunnel URL from this browser.'
+                    ? 'Usando a URL do tunnel salva neste navegador.'
                     : connection.source === 'default'
-                      ? 'Using the default API URL from the Vercel environment.'
+                      ? 'Usando a URL padrao da API vinda do ambiente da Vercel.'
                       : connection.source === 'development'
-                        ? 'Using the local backend because the app is running in development.'
-                        : 'Open the connection page and paste the current HTTPS tunnel URL from your computer.'}
+                        ? 'Usando o backend local porque o app esta rodando em desenvolvimento.'
+                        : 'Abra a pagina de conexao e cole a URL HTTPS atual do tunnel do seu computador.'}
                 </p>
                 <Link href="/connect" className="mt-4 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  {connection.baseUrl ? 'Change Connection' : 'Connect Backend'}
+                  {connection.baseUrl ? 'Trocar conexao' : 'Conectar backend'}
                 </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <div className="rounded-[1.75rem] bg-sky-50 p-5 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Streak</p>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Sequencia</p>
                 <p className="mt-2 text-4xl font-black text-sky-900">{progress?.streak_count ?? 0}</p>
-                <p className="text-base text-sky-700">days in a row</p>
+                <p className="text-base text-sky-700">dias seguidos</p>
               </div>
               <div className="rounded-[1.75rem] bg-amber-50 p-5 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Words</p>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Phrases</p>
                 <p className="mt-2 text-4xl font-black text-amber-900">{progress?.vocabulary_learned ?? 0}</p>
-                <p className="text-base text-amber-700">learned so far</p>
+                <p className="text-base text-amber-700">aprendidas ate agora</p>
               </div>
               <div className="rounded-[1.75rem] bg-emerald-50 p-5 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">Themes</p>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">Temas</p>
                 <p className="mt-2 text-4xl font-black text-emerald-900">{progress?.themes_completed ?? 0}</p>
-                <p className="text-base text-emerald-700">finished adventures</p>
+                <p className="text-base text-emerald-700">aventuras concluidas</p>
               </div>
             </div>
           </div>
@@ -178,29 +178,29 @@ export default function HomePage() {
           <ActionCard
             href="/lesson"
             icon={<BookOpen className="text-primary-dark" size={34} />}
-            title="Lesson"
-            description="Meet today's words and play the mini-activity."
+            title="Licao"
+            description="Conheca as tres frases de hoje e jogue a miniatividade."
             accentClass="bg-primary-light"
           />
           <ActionCard
             href="/quiz"
             icon={<Trophy className="text-secondary-dark" size={34} />}
             title="Quiz"
-            description="Answer cheerful questions and see your score."
+            description="Responda perguntas divertidas e veja sua pontuacao."
             accentClass="bg-secondary-light"
           />
           <ActionCard
             href="/review"
             icon={<Brain className="text-accent-dark" size={34} />}
-            title="Review"
-            description="Practice the words that need more love."
+            title="Revisao"
+            description="Pratique as frases que precisam de mais cuidado."
             accentClass="bg-accent-light"
           />
           <ActionCard
             href="/chat"
             icon={<Bot className="text-kid-pink" size={34} />}
-            title="Tutor Chat"
-            description="Say hello and ask for an English word."
+            title="Chat com o tutor"
+            description="Diga oi e peca ajuda com uma frase em ingles."
             accentClass="bg-rose-50"
           />
         </section>
@@ -209,23 +209,23 @@ export default function HomePage() {
           <div className="kid-surface border-secondary/50 p-8">
             <div className="flex items-center gap-3">
               <Sparkles className="text-secondary-dark" size={28} />
-              <h2 className="text-3xl font-black text-slate-800">Cheer Corner</h2>
+              <h2 className="text-3xl font-black text-slate-800">Cantinho do incentivo</h2>
             </div>
             <p className="mt-4 text-xl leading-8 text-slate-600">
-              You do not need to be perfect. Every try helps your English grow bigger and brighter.
+              Voce nao precisa ser perfeito. Cada tentativa ajuda o seu ingles a crescer mais e mais.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">Small steps count</span>
-              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">Audio helps listening</span>
-              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">Review makes words stick</span>
+              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">Pequenos passos contam</span>
+              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">O audio ajuda a ouvir melhor</span>
+              <span className="rounded-full bg-slate-100 px-4 py-2 font-bold text-slate-600">A revisao ajuda a fixar</span>
             </div>
           </div>
 
           <div className="kid-surface border-accent/50 p-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Focus Words</p>
-                <h2 className="mt-2 text-3xl font-black text-slate-800">Tricky Friends</h2>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Frases em foco</p>
+                <h2 className="mt-2 text-3xl font-black text-slate-800">Frases mais dificeis</h2>
               </div>
               <Link href="/parents" className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:border-primary hover:text-primary">
                 <Settings size={22} />
@@ -237,14 +237,14 @@ export default function HomePage() {
                   <div key={word} className="flex items-center justify-between rounded-[1.25rem] bg-slate-50 px-4 py-3">
                     <span className="text-xl font-bold text-slate-700">{word}</span>
                     <Link href="/review" className="text-sm font-bold uppercase tracking-[0.15em] text-primary-dark">
-                      Practice
+                      Praticar
                     </Link>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="mt-6 text-lg leading-8 text-slate-600">
-                No tricky words yet. Finish a lesson and the review helper will collect the words to practice next.
+                Ainda nao ha frases dificeis. Termine uma licao e a revisao vai juntar as frases para praticar depois.
               </p>
             )}
           </div>
@@ -274,7 +274,7 @@ function ActionCard({
         <h2 className="mt-5 text-3xl font-black text-slate-800">{title}</h2>
         <p className="mt-3 text-lg leading-8 text-slate-600">{description}</p>
         <p className="mt-6 inline-flex items-center text-base font-bold uppercase tracking-[0.18em] text-primary-dark">
-          Let&apos;s go <ChevronRight className="ml-1 transition group-hover:translate-x-1" size={18} />
+          Vamos la <ChevronRight className="ml-1 transition group-hover:translate-x-1" size={18} />
         </p>
       </div>
     </Link>

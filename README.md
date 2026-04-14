@@ -16,6 +16,7 @@ English Kids Tutor e um monorepo com frontend em Next.js e backend em FastAPI pa
 - Revisao com palavras dificeis salvas no banco
 - Chat simples com tutor e prompt de sistema
 - Area de pais com configuracoes basicas
+- Area de pais com geracao de novas licoes via Gemini
 - Estados amigaveis de loading, vazio e backend offline
 
 ## Estrutura do projeto
@@ -134,6 +135,9 @@ PARENT_COOKIE_SECURE=true
 PARENT_COOKIE_SAMESITE=none
 PARENT_COOKIE_DOMAIN=
 PARENT_COOKIE_MAX_AGE=604800
+GEMINI_API_KEY=sua-chave
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_REQUEST_TIMEOUT_SECONDS=45
 ```
 
 ### Frontend (`apps/web/.env.local`)
@@ -190,4 +194,5 @@ pnpm build
 - O backend usa SQLite local em `apps/api/kids_tutor.sqlite`.
 - O frontend usa `fetch` com `credentials: include`, entao CORS e cookies precisam estar corretos quando frontend e backend estiverem em dominios diferentes.
 - O frontend publicado pode salvar a URL atual da API por navegador em `/connect`, sem precisar redeployar a Vercel quando o tunnel mudar.
+- Na area de pais, o botao `Generate More Phrases` chama o Gemini, cria o proximo dia com 3 frases e salva a nova licao diretamente no banco.
 - Se o Kokoro nao estiver ativo, a aplicacao continua funcionando com fallback de audio.

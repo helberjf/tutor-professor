@@ -1,0 +1,27 @@
+{
+  "id": 3,
+  "lesson_id": 3,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Como voce pergunta o nome de alguem em ingles?",
+      "options": ["What is your name?", "Where is my book?", "Can you help me?", "Do you like this game?"],
+      "correct_option": "What is your name?",
+      "explanation": "What is your name? e a frase para perguntar um nome."
+    },
+    {
+      "id": 2,
+      "question": "O que significa 'My name is Ana.'?",
+      "options": ["Meu nome e Ana.", "Qual e o seu nome?", "Prazer em conhecer voce.", "Eu estou feliz!"],
+      "correct_option": "Meu nome e Ana.",
+      "explanation": "My name is Ana. significa Meu nome e Ana."
+    },
+    {
+      "id": 3,
+      "question": "Qual frase voce pode usar ao conhecer um novo amigo?",
+      "options": ["Nice to meet you.", "Thank you very much.", "Hello!", "Yes, I can help."],
+      "correct_option": "Nice to meet you.",
+      "explanation": "Nice to meet you. e usada quando voce conhece alguem novo."
+    }
+  ]
+}

@@ -179,7 +179,7 @@ def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[
                 "review_item_id": review_item.id or 0,
                 "word_en": review_item.word_en,
                 "word_pt": review_item.word_pt,
-                "prompt": f"What is {review_item.word_en}?",
+                "prompt": f"O que significa {review_item.word_en}?",
                 "options": options,
                 "difficulty_score": review_item.difficulty_score,
                 "error_count": review_item.error_count,

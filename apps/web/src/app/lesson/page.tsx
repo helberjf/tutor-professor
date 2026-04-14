@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ChevronRight, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type Lesson, type LessonItem } from '@/lib/api';
+import { ApiError, api, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
+import { playAudioWithFallback } from '@/lib/browser-speech';
 
 export default function LessonPage() {
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -32,7 +33,7 @@ export default function LessonPage() {
       setSaveError(null);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Could not load the lesson.'));
+      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a licao.'));
     } finally {
       setLoading(false);
     }
@@ -58,10 +59,10 @@ export default function LessonPage() {
     setAudioLoading(true);
     try {
       const data = await api.speak(text);
-      if (data.audio_url) {
-        const audio = new Audio(api.getAudioUrl(data.audio_url));
-        await audio.play();
-      }
+      await playAudioWithFallback(
+        data.audio_url ? api.getAudioUrl(data.audio_url) : null,
+        data.fallback_text || text,
+      );
     } catch (err) {
       console.error('Audio error:', err);
     } finally {
@@ -87,7 +88,7 @@ export default function LessonPage() {
         correct: isCorrect,
       });
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Could not save your practice.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar a sua pratica.');
       setSaveError(nextError.message);
     } finally {
       setSubmittingAnswer(false);
@@ -110,7 +111,7 @@ export default function LessonPage() {
       setCompleted(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Could not save the lesson.'));
+      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar a licao.'));
     } finally {
       setSavingLesson(false);
     }
@@ -120,10 +121,10 @@ export default function LessonPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Opening today's lesson"
-        message="We are lining up the words, sounds, and mini-game for you."
+        title="Abrindo a licao de hoje"
+        message="Estamos preparando as frases, os sons e a miniatividade para voce."
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -132,15 +133,15 @@ export default function LessonPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Connect the tutor first"
-        message="This device does not have the current backend URL yet. Open the connection page and save the HTTPS tunnel URL from your computer."
+        title="Conecte o tutor primeiro"
+        message="Este aparelho ainda nao tem a URL atual do backend. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
         primaryAction={
           <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Open Connection Setup
+            Abrir configuracao de conexao
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -149,15 +150,15 @@ export default function LessonPage() {
     return (
       <StatusCard
         tone="offline"
-        title="The lesson could not connect"
-        message="The backend seems to be offline. Start the API and Cloudflare Tunnel on your computer, then tap try again."
+        title="A licao nao conseguiu se conectar"
+        message="O backend parece offline. Inicie a API e o Cloudflare Tunnel no seu computador e depois toque em tentar de novo."
         primaryAction={
           <button onClick={() => void loadLesson()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
-            Try Again
+            Tentar de novo
           </button>
         }
         secondaryHref="/connect"
-        secondaryLabel="Change Connection"
+        secondaryLabel="Trocar conexao"
       />
     );
   }
@@ -166,15 +167,15 @@ export default function LessonPage() {
     return (
       <StatusCard
         tone="error"
-        title="The lesson hit a bump"
+        title="A licao encontrou um problema"
         message={error.message}
         primaryAction={
           <button onClick={() => void loadLesson()} className="kid-button bg-kid-pink hover:bg-pink-500">
-            Reload Lesson
+            Recarregar licao
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -183,10 +184,10 @@ export default function LessonPage() {
     return (
       <StatusCard
         tone="empty"
-        title="No lesson yet"
-        message="We could not find today's lesson. Add lesson content or seed the database, then come back."
+        title="Ainda nao ha licao"
+        message="Nao encontramos a licao de hoje. Adicione o conteudo da licao ou popule o banco e volte depois."
         secondaryHref="/"
-        secondaryLabel="Back Home"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -199,20 +200,20 @@ export default function LessonPage() {
             <div className="mx-auto mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-accent-light">
               <CheckCircle2 className="text-accent-dark" size={72} />
             </div>
-            <p className="kid-tag mb-4">Lesson Complete</p>
-            <h1 className="text-5xl font-black text-slate-800">You finished {lesson.theme}!</h1>
+            <p className="kid-tag mb-4">Licao concluida</p>
+            <h1 className="text-5xl font-black text-slate-800">Voce terminou {lesson.theme}!</h1>
             <p className="mx-auto mt-5 max-w-xl text-xl leading-9 text-slate-600">
-              Nice work. Your review words have been saved, and the quiz is ready when you are.
+              Muito bem. Suas frases de revisao foram salvas e o quiz esta pronto quando voce quiser.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href={`/quiz?lessonId=${lesson.id}`} className="kid-button bg-primary hover:bg-primary-dark">
-                Take the Quiz
+                Fazer o quiz
               </Link>
               <Link
                 href="/"
                 className="rounded-full border-2 border-slate-200 px-6 py-4 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
               >
-                Back Home
+                Voltar ao inicio
               </Link>
             </div>
           </div>
@@ -229,10 +230,10 @@ export default function LessonPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Exit
+            <ArrowLeft size={22} /> Sair
           </Link>
           <p className="kid-tag">
-            Card {currentIndex + 1} of {lesson.items.length}
+            Frase {currentIndex + 1} de {lesson.items.length}
           </p>
         </div>
 
@@ -243,9 +244,11 @@ export default function LessonPage() {
 
           <div className="grid gap-8 p-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr]">
             <section>
-              <p className="kid-tag">{lesson.theme}</p>
-              <h1 className="mt-5 text-6xl font-black text-slate-800 md:text-7xl">{currentItem.word_en}</h1>
-              <p className="mt-4 text-xl leading-9 text-slate-600">{lesson.objective}</p>
+              <p className="kid-tag">{lesson.title}</p>
+              <h1 className="mt-5 text-4xl font-black leading-tight text-slate-800 md:text-5xl">{currentItem.word_en}</h1>
+              <p className="mt-4 text-xl leading-9 text-slate-600">
+                {lesson.content.daily_goal || lesson.objective}
+              </p>
 
               <button
                 onClick={() => void playAudio(currentItem.word_en)}
@@ -257,9 +260,9 @@ export default function LessonPage() {
               </button>
 
               <div className="mt-8 rounded-[1.75rem] bg-sky-50 p-6">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Mini-Activity</p>
-                <p className="mt-3 text-2xl font-black text-slate-800">Tap the meaning in Portuguese.</p>
-                <p className="mt-2 text-lg leading-8 text-slate-600">Listen first, then choose the answer you think is right.</p>
+                <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Miniatividade</p>
+                <p className="mt-3 text-2xl font-black text-slate-800">Toque no significado em portugues.</p>
+                <p className="mt-2 text-lg leading-8 text-slate-600">Ouça a frase primeiro e depois escolha a traducao que voce acha certa.</p>
               </div>
             </section>
 
@@ -292,27 +295,28 @@ export default function LessonPage() {
               {selectedAnswer ? (
                 <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
                   <p className={`text-2xl font-black ${answerCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
-                    {answerCorrect ? 'Yes! Great job!' : 'Almost! Let us try to remember it.'}
+                    {answerCorrect ? 'Sim! Muito bem!' : 'Quase! Vamos tentar lembrar.'}
                   </p>
                   <p className="mt-2 text-xl text-slate-700">
-                    <span className="font-black">{currentItem.word_en}</span> means{' '}
+                    <span className="font-black">{currentItem.word_en}</span> significa{' '}
                     <span className="font-black">{currentItem.word_pt}</span>.
                   </p>
                   <p className="mt-4 text-lg leading-8 text-slate-600">{currentItem.example_sentence_en}</p>
                   <p className="text-base leading-7 text-slate-500">{currentItem.example_sentence_pt}</p>
+                  {renderPhraseBreakdown(lesson, currentItem, currentIndex)}
                   {saveError ? <p className="mt-4 text-sm font-bold text-kid-pink">{saveError}</p> : null}
                   <button
                     onClick={() => void handleNext()}
                     disabled={savingLesson || submittingAnswer}
                     className="kid-button mt-6 bg-primary hover:bg-primary-dark"
                   >
-                    {currentIndex < lesson.items.length - 1 ? 'Next Word' : savingLesson ? 'Saving...' : 'Finish Lesson'}
+                    {currentIndex < lesson.items.length - 1 ? 'Proxima frase' : savingLesson ? 'Salvando...' : 'Finalizar licao'}
                     <ChevronRight className="ml-2" size={20} />
                   </button>
                 </div>
               ) : (
                 <p className="mt-6 text-base font-bold uppercase tracking-[0.15em] text-slate-400">
-                  Choose one answer to reveal the clue and example sentence.
+                  Escolha uma resposta para mostrar as notas da frase e o guia palavra por palavra.
                 </p>
               )}
             </section>
@@ -337,4 +341,39 @@ function buildActivityOptions(items: LessonItem[], currentItem: LessonItem) {
     }))
     .sort((left, right) => left.order - right.order)
     .map((entry) => entry.value);
+}
+
+function getPhraseBreakdown(lesson: Lesson, currentItem: LessonItem, currentIndex: number): PhraseBreakdown | null {
+  const phraseBreakdowns = Array.isArray(lesson.content.phrase_breakdowns) ? lesson.content.phrase_breakdowns : [];
+  const matchedBreakdown = phraseBreakdowns.find((breakdown) => breakdown.phrase_en === currentItem.word_en);
+  if (matchedBreakdown) {
+    return matchedBreakdown;
+  }
+
+  return phraseBreakdowns[currentIndex] || null;
+}
+
+function renderPhraseBreakdown(lesson: Lesson, currentItem: LessonItem, currentIndex: number) {
+  const phraseBreakdown = getPhraseBreakdown(lesson, currentItem, currentIndex);
+  if (!phraseBreakdown || !Array.isArray(phraseBreakdown.word_by_word) || phraseBreakdown.word_by_word.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6 rounded-[1.5rem] bg-amber-50 p-5">
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Palavra por palavra</p>
+      <p className="mt-3 text-2xl font-black text-slate-800">
+        Frase {currentIndex + 1} - {phraseBreakdown.phrase_en}
+      </p>
+      <div className="mt-4 space-y-3">
+        {phraseBreakdown.word_by_word.map((pair) => (
+          <div key={`${pair.en}-${pair.pt}`} className="flex items-center justify-between gap-4 rounded-[1rem] bg-white px-4 py-3">
+            <span className="text-lg font-black text-slate-800">{pair.en}</span>
+            <span className="text-base font-bold text-slate-500">=</span>
+            <span className="text-lg font-bold text-slate-700">{pair.pt}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

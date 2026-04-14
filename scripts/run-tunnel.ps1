@@ -14,7 +14,8 @@ $CredentialsFile = if ($env:CLOUDFLARE_TUNNEL_CREDENTIALS_FILE) {
 Set-Location $RepoRoot
 Write-Host ''
 Write-Host 'English Kids Tutor Tunnel'
-Write-Host 'Forwarding: http://localhost:8001'
+Write-Host 'Forwarding: http://127.0.0.1:8001'
+Write-Host 'Note: this tunnel exposes the backend API. It should not point to the frontend on http://localhost:3000.'
 Write-Host ''
 
 if ($TunnelName -and $TunnelId -and $CredentialsFile -and (Test-Path $CredentialsFile)) {
@@ -24,7 +25,7 @@ tunnel: $TunnelId
 credentials-file: $CredentialsFile
 
 ingress:
-  - service: http://localhost:8001
+  - service: http://127.0.0.1:8001
   - service: http_status:404
 "@ | Set-Content -Path $TempConfig -Encoding ascii
 
@@ -41,4 +42,4 @@ Write-Host 'Named tunnel settings were not found in the local environment or the
 Write-Host 'Falling back to a quick tunnel. This will generate a temporary HTTPS URL.' -ForegroundColor Yellow
 Write-Host ''
 
-cloudflared tunnel --url http://localhost:8001
+cloudflared tunnel --url http://127.0.0.1:8001

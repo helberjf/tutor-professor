@@ -25,13 +25,13 @@ function Write-Step([string]$Message) {
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
-function Require-Command([string]$Name, [string]$HelpText) {
+function Test-CommandAvailable([string]$Name, [string]$HelpText) {
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
     throw "Command '$Name' was not found. $HelpText"
   }
 }
 
-function Ensure-File([string]$Target, [string]$Example) {
+function Initialize-FileFromExample([string]$Target, [string]$Example) {
   if (Test-Path $Target) {
     return
   }
@@ -47,16 +47,16 @@ function Test-PythonModules([string[]]$Modules) {
 }
 
 Write-Step 'Checking required tools'
-Require-Command python 'Install Python 3.11+ and try again.'
-Require-Command pnpm 'Install pnpm and try again.'
+Test-CommandAvailable python 'Install Python 3.11+ and try again.'
+Test-CommandAvailable pnpm 'Install pnpm and try again.'
 
 if ($WithTunnel) {
-  Require-Command cloudflared 'Install cloudflared or rerun without -WithTunnel.'
+  Test-CommandAvailable cloudflared 'Install cloudflared or rerun without -WithTunnel.'
 }
 
 Write-Step 'Ensuring local environment files exist'
-Ensure-File $ApiEnv $ApiEnvExample
-Ensure-File $WebEnv $WebEnvExample
+Initialize-FileFromExample $ApiEnv $ApiEnvExample
+Initialize-FileFromExample $WebEnv $WebEnvExample
 
 Write-Step 'Checking backend dependencies'
 if ($ForceInstall -or -not (Test-PythonModules @('fastapi', 'sqlmodel', 'uvicorn'))) {
@@ -111,6 +111,7 @@ Write-Host ''
 Write-Host 'Project windows started successfully.' -ForegroundColor Green
 Write-Host 'Frontend: http://localhost:3000'
 Write-Host 'Backend: http://localhost:8001'
+Write-Host 'For Vercel integration, the Cloudflare Tunnel must target the backend on http://localhost:8001.'
 
 if ($WithTunnel) {
   Write-Host 'Tunnel: the extra PowerShell window will try the named tunnel first and fall back to a quick tunnel if local credentials are missing.'

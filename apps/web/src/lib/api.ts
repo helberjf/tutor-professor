@@ -7,12 +7,28 @@ export interface LessonItem {
   example_sentence_pt: string;
 }
 
+export interface WordByWordPair {
+  en: string;
+  pt: string;
+}
+
+export interface PhraseBreakdown {
+  phrase_en: string;
+  phrase_pt: string;
+  word_by_word: WordByWordPair[];
+}
+
+export interface LessonContent extends Record<string, unknown> {
+  daily_goal?: string;
+  phrase_breakdowns?: PhraseBreakdown[];
+}
+
 export interface Lesson {
   id: number;
   title: string;
   theme: string;
   objective: string;
-  content: Record<string, unknown>;
+  content: LessonContent;
   items: LessonItem[];
   is_completed: boolean;
 }
@@ -101,6 +117,16 @@ export interface ParentSettingsUpdatePayload {
   auto_audio?: boolean;
 }
 
+export interface GenerateLessonPayload {
+  topic?: string;
+}
+
+export interface GenerateLessonResponse {
+  status: string;
+  lesson: Lesson;
+  message: string;
+}
+
 export class ApiError extends Error {
   readonly status?: number;
   readonly detail?: string;
@@ -149,7 +175,7 @@ async function parseError(response: Response): Promise<ApiError> {
     }
   }
 
-  return new ApiError(detail || 'Something went wrong.', {
+  return new ApiError(detail || 'Algo deu errado.', {
     status: response.status,
     detail,
   });
@@ -158,7 +184,7 @@ async function parseError(response: Response): Promise<ApiError> {
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiBaseUrl = getApiBaseUrl();
   if (!apiBaseUrl) {
-    throw new ApiError('This device is not connected to a backend yet. Open the connection page and save the current tunnel URL.', {
+    throw new ApiError('Este aparelho ainda nao esta conectado a um backend. Abra a pagina de conexao e salve a URL atual do tunnel.', {
       code: 'unconfigured',
     });
   }
@@ -178,7 +204,7 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
   } catch (error) {
     console.error('API call failed:', error);
-    throw new ApiError('The tutor could not reach the backend.', {
+    throw new ApiError('O tutor nao conseguiu acessar o backend.', {
       code: 'offline',
     });
   }
@@ -191,7 +217,7 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     return (await response.json()) as T;
   } catch (error) {
     console.error('API parse failed:', error);
-    throw new ApiError('The tutor answered, but the reply could not be read.', {
+    throw new ApiError('O tutor respondeu, mas nao foi possivel ler a resposta.', {
       code: 'parse',
     });
   }
@@ -245,6 +271,11 @@ export const api = {
   getParentSettings: () => fetchAPI<ParentSettings>('/api/parent/settings'),
   updateParentSettings: (payload: ParentSettingsUpdatePayload) =>
     fetchAPI<ParentSettings>('/api/parent/settings', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  generateMorePhrases: (payload: GenerateLessonPayload = {}) =>
+    fetchAPI<GenerateLessonResponse>('/api/parent/generate-lesson', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

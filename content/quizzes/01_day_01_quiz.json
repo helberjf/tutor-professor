@@ -1,0 +1,27 @@
+{
+  "id": 1,
+  "lesson_id": 1,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Como se diz 'Oi!' em ingles?",
+      "options": ["Hello!", "Thank you!", "Good night!", "See you!"],
+      "correct_option": "Hello!",
+      "explanation": "Oi! em ingles e Hello!"
+    },
+    {
+      "id": 2,
+      "question": "Qual e o significado de 'I am happy!'?",
+      "options": ["Eu estou feliz!", "Eu estou cansado!", "Eu estou com fome!", "Eu estou atrasado!"],
+      "correct_option": "Eu estou feliz!",
+      "explanation": "I am happy! significa Eu estou feliz!"
+    },
+    {
+      "id": 3,
+      "question": "Qual frase pergunta como alguem esta hoje?",
+      "options": ["How are you today?", "I am happy!", "Hello!", "See you tomorrow!"],
+      "correct_option": "How are you today?",
+      "explanation": "How are you today? pergunta como alguem se sente."
+    }
+  ]
+}

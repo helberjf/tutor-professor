@@ -1,0 +1,64 @@
+{
+  "id": 5,
+  "title": "Ingles de hoje - Dia 5",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Do you like this game?",
+        "phrase_pt": "Voce gosta desse jogo?",
+        "word_by_word": [
+          { "en": "Do", "pt": "voce" },
+          { "en": "you", "pt": "voce" },
+          { "en": "like", "pt": "gosta" },
+          { "en": "this", "pt": "desse" },
+          { "en": "game", "pt": "jogo" }
+        ]
+      },
+      {
+        "phrase_en": "Yes, I like it.",
+        "phrase_pt": "Sim, eu gosto disso.",
+        "word_by_word": [
+          { "en": "Yes", "pt": "sim" },
+          { "en": "I", "pt": "eu" },
+          { "en": "like", "pt": "gosto" },
+          { "en": "it", "pt": "disso" }
+        ]
+      },
+      {
+        "phrase_en": "No, I do not like it.",
+        "phrase_pt": "Nao, eu nao gosto disso.",
+        "word_by_word": [
+          { "en": "No", "pt": "nao" },
+          { "en": "I", "pt": "eu" },
+          { "en": "do", "pt": "nao" },
+          { "en": "not", "pt": "nao" },
+          { "en": "like", "pt": "gosto" },
+          { "en": "it", "pt": "disso" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Do you like this game?",
+      "word_pt": "Voce gosta desse jogo?",
+      "example_sentence_en": "Use this phrase to ask about a game or activity.",
+      "example_sentence_pt": "Use essa frase para perguntar sobre um jogo ou atividade."
+    },
+    {
+      "word_en": "Yes, I like it.",
+      "word_pt": "Sim, eu gosto disso.",
+      "example_sentence_en": "This phrase is a happy answer when you enjoy something.",
+      "example_sentence_pt": "Essa frase e uma resposta feliz quando voce gosta de algo."
+    },
+    {
+      "word_en": "No, I do not like it.",
+      "word_pt": "Nao, eu nao gosto disso.",
+      "example_sentence_en": "Use this phrase when you want to say no politely.",
+      "example_sentence_pt": "Use essa frase quando quiser dizer nao com educacao."
+    }
+  ]
+}

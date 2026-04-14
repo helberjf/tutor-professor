@@ -1,0 +1,27 @@
+{
+  "id": 4,
+  "lesson_id": 4,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Como se diz 'Onde esta o meu livro?' em ingles?",
+      "options": ["Where is my book?", "What is your name?", "Can you help me?", "How are you today?"],
+      "correct_option": "Where is my book?",
+      "explanation": "Where is my book? significa Onde esta o meu livro?"
+    },
+    {
+      "id": 2,
+      "question": "Qual frase significa 'Aqui esta o seu livro.'?",
+      "options": ["Here is your book.", "Let's read together.", "I am happy!", "Yes, I can help."],
+      "correct_option": "Here is your book.",
+      "explanation": "Here is your book. significa Aqui esta o seu livro."
+    },
+    {
+      "id": 3,
+      "question": "O que voce pode dizer antes de ler com alguem?",
+      "options": ["Let's read together.", "No, I do not like it.", "Thank you very much.", "My name is Ana."],
+      "correct_option": "Let's read together.",
+      "explanation": "Let's read together. convida alguem para ler com voce."
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "id": 3,
+  "title": "Ingles de hoje - Dia 3",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "What is your name?",
+        "phrase_pt": "Qual e o seu nome?",
+        "word_by_word": [
+          { "en": "What", "pt": "qual" },
+          { "en": "is", "pt": "e" },
+          { "en": "your", "pt": "seu" },
+          { "en": "name", "pt": "nome" }
+        ]
+      },
+      {
+        "phrase_en": "My name is Ana.",
+        "phrase_pt": "Meu nome e Ana.",
+        "word_by_word": [
+          { "en": "My", "pt": "meu" },
+          { "en": "name", "pt": "nome" },
+          { "en": "is", "pt": "e" },
+          { "en": "Ana", "pt": "Ana" }
+        ]
+      },
+      {
+        "phrase_en": "Nice to meet you.",
+        "phrase_pt": "Prazer em conhecer voce.",
+        "word_by_word": [
+          { "en": "Nice", "pt": "prazer" },
+          { "en": "to", "pt": "em" },
+          { "en": "meet", "pt": "conhecer" },
+          { "en": "you", "pt": "voce" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "What is your name?",
+      "word_pt": "Qual e o seu nome?",
+      "example_sentence_en": "Use this phrase to ask someone's name.",
+      "example_sentence_pt": "Use essa frase para perguntar o nome de alguem."
+    },
+    {
+      "word_en": "My name is Ana.",
+      "word_pt": "Meu nome e Ana.",
+      "example_sentence_en": "You can change Ana to your own name.",
+      "example_sentence_pt": "Voce pode trocar Ana pelo seu proprio nome."
+    },
+    {
+      "word_en": "Nice to meet you.",
+      "word_pt": "Prazer em conhecer voce.",
+      "example_sentence_en": "Say this when you meet a new friend.",
+      "example_sentence_pt": "Diga isso quando conhecer um amigo novo."
+    }
+  ]
+}

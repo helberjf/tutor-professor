@@ -5,31 +5,31 @@ import Link from 'next/link';
 import { ArrowLeft, Bot, Send, Volume2, WifiOff } from 'lucide-react';
 
 import { ApiError, api, type ChatMessage } from '@/lib/api';
+import { playAudioWithFallback } from '@/lib/browser-speech';
 
 type ChatBubble = ChatMessage & {
   audioUrl?: string | null;
 };
 
 const SUGGESTIONS = [
-  'Hello!',
-  'How do you say Azul in English?',
-  'Can we practice colors?',
+  'Oi!',
+  'Como se diz azul em ingles?',
+  'Podemos praticar cores?',
 ];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatBubble[]>([
     {
       role: 'assistant',
-      content: 'Hello! Oi! Ask me for one English word and we can practice together.',
+      content: 'Oi! Me peça uma frase em ingles e vamos praticar juntos.',
     },
   ]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
-  async function playAudio(url: string) {
-    const audio = new Audio(api.getAudioUrl(url));
-    await audio.play();
+  async function playAudio(url: string | null | undefined, text: string) {
+    await playAudioWithFallback(url ? api.getAudioUrl(url) : null, text);
   }
 
   async function handleSend(text: string) {
@@ -56,11 +56,9 @@ export default function ChatPage() {
 
       setMessages((current) => [...current, assistantMessage]);
 
-      if (response.audio_url) {
-        await playAudio(response.audio_url);
-      }
+      await playAudio(response.audio_url, response.response);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Could not send the chat message.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel enviar a mensagem do chat.');
       setError(nextError);
       setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && message.role === 'user' && message.content === trimmed)));
     } finally {
@@ -78,9 +76,9 @@ export default function ChatPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Back
+            <ArrowLeft size={22} /> Voltar
           </Link>
-          <p className="kid-tag">Tutor Chat</p>
+          <p className="kid-tag">Chat com o tutor</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.8fr,1.2fr]">
@@ -88,9 +86,9 @@ export default function ChatPage() {
             <div className="inline-flex rounded-[1.5rem] bg-rose-50 p-4">
               <Bot className="text-kid-pink" size={34} />
             </div>
-            <h1 className="mt-5 text-4xl font-black text-slate-800">Talk with your tutor</h1>
+            <h1 className="mt-5 text-4xl font-black text-slate-800">Converse com o tutor</h1>
             <p className="mt-4 text-xl leading-9 text-slate-600">
-              Keep the chat short, safe, and playful. Ask for one word, one meaning, or one tiny practice idea.
+              Mantenha o chat curto, seguro e divertido. Peça uma frase, um significado ou uma ideia de pratica.
             </p>
             <div className="mt-8 space-y-3">
               {SUGGESTIONS.map((suggestion) => (
@@ -107,26 +105,26 @@ export default function ChatPage() {
               <div className="mt-8 rounded-[1.5rem] border-2 border-primary bg-primary-light/40 p-5">
                 <div className="flex items-center gap-3 text-primary-dark">
                   <WifiOff size={26} />
-                  <p className="text-xl font-black">Connect the tutor first.</p>
+                  <p className="text-xl font-black">Conecte o tutor primeiro.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  This device needs the current backend URL before chat can work. Open the connection page and save the HTTPS tunnel URL from your computer.
+                  Este aparelho precisa da URL atual do backend antes de usar o chat. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador.
                 </p>
                 <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Open Connection Setup
+                  Abrir configuracao de conexao
                 </Link>
               </div>
             ) : error?.isOffline ? (
               <div className="mt-8 rounded-[1.5rem] border-2 border-kid-orange bg-orange-50 p-5">
                 <div className="flex items-center gap-3 text-kid-orange">
                   <WifiOff size={26} />
-                  <p className="text-xl font-black">The backend is offline right now.</p>
+                  <p className="text-xl font-black">O backend esta offline agora.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Start the API and Cloudflare Tunnel on your computer, then try again. You can also visit the connection page for setup tips.
+                  Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo. Voce tambem pode abrir a pagina de conexao para ver as instrucoes.
                 </p>
                 <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Open Connection Setup
+                  Abrir configuracao de conexao
                 </Link>
               </div>
             ) : null}
@@ -150,10 +148,10 @@ export default function ChatPage() {
                       <p className="text-lg leading-8">{message.content}</p>
                       {message.role === 'assistant' && message.audioUrl ? (
                         <button
-                          onClick={() => void playAudio(message.audioUrl || '')}
+                          onClick={() => void playAudio(message.audioUrl, message.content)}
                           className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-bold uppercase tracking-[0.16em] text-primary-dark"
                         >
-                          <Volume2 size={16} /> Listen
+                          <Volume2 size={16} /> Ouvir
                         </button>
                       ) : null}
                     </div>
@@ -167,11 +165,11 @@ export default function ChatPage() {
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   className="min-h-[3.5rem] flex-1 rounded-full border-2 border-slate-200 bg-white px-5 text-lg text-slate-700 outline-none transition focus:border-primary"
-                  placeholder="Ask for a word or say hello..."
+                  placeholder="Peça uma frase ou diga oi..."
                   maxLength={300}
                 />
                 <button type="submit" disabled={sending || !draft.trim()} className="kid-button bg-primary hover:bg-primary-dark">
-                  {sending ? 'Sending...' : 'Send'}
+                  {sending ? 'Enviando...' : 'Enviar'}
                   <Send className="ml-2" size={18} />
                 </button>
               </form>

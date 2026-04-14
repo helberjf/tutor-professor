@@ -1,13 +1,15 @@
+import json
 import os
 import sys
-import json
 from pathlib import Path
-from sqlmodel import Session, create_engine, SQLModel, select
 
-# Add apps/api to path
-sys.path.append(str(Path(__file__).parent.parent / "apps" / "api"))
+from sqlmodel import SQLModel, Session, create_engine, select
 
-from models.database import ChildProfile, Lesson, LessonItem
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from apps.api.models.database import ChildProfile, Lesson, LessonItem
 
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./apps/api/kids_tutor.sqlite")
@@ -36,11 +38,19 @@ def init_db():
             with open(lesson_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 
-                # Check if lesson exists
-                statement = select(Lesson).where(Lesson.title == data['title'])
-                existing_lesson = session.exec(statement).first()
-                if not existing_lesson:
+                lesson = None
+                file_lesson_id = data.get('id')
+                if file_lesson_id is not None:
+                    lesson = session.get(Lesson, file_lesson_id)
+
+                if lesson is None:
+                    statement = select(Lesson).where(Lesson.title == data['title'])
+                    lesson = session.exec(statement).first()
+
+                content_changed = False
+                if lesson is None:
                     lesson = Lesson(
+                        id=file_lesson_id,
                         title=data['title'],
                         theme=data['theme'],
                         objective=data['objective'],
@@ -50,8 +60,49 @@ def init_db():
                     session.add(lesson)
                     session.commit()
                     session.refresh(lesson)
-                    
-                    for item_data in data['items']:
+                    content_changed = True
+                    print(f"Added lesson: {lesson.title}")
+                else:
+                    content_changed = (
+                        lesson.title != data['title']
+                        or lesson.theme != data['theme']
+                        or lesson.objective != data['objective']
+                        or (lesson.content or {}) != data.get('content', {})
+                    )
+                    lesson.title = data['title']
+                    lesson.theme = data['theme']
+                    lesson.objective = data['objective']
+                    lesson.content = data.get('content', {})
+                    lesson.child_id = child.id
+                    if content_changed:
+                        lesson.is_completed = False
+                        lesson.completed_at = None
+                    session.add(lesson)
+                    session.commit()
+                    session.refresh(lesson)
+                    print(f"Updated lesson: {lesson.title}")
+
+                existing_items = session.exec(
+                    select(LessonItem).where(LessonItem.lesson_id == lesson.id)
+                ).all()
+                incoming_items = data.get('items', [])
+
+                existing_payload = [
+                    {
+                        "word_en": item.word_en,
+                        "word_pt": item.word_pt,
+                        "example_sentence_en": item.example_sentence_en,
+                        "example_sentence_pt": item.example_sentence_pt,
+                    }
+                    for item in existing_items
+                ]
+
+                if content_changed or existing_payload != incoming_items:
+                    for item in existing_items:
+                        session.delete(item)
+                    session.commit()
+
+                    for item_data in incoming_items:
                         item = LessonItem(
                             word_en=item_data['word_en'],
                             word_pt=item_data['word_pt'],
@@ -61,9 +112,9 @@ def init_db():
                         )
                         session.add(item)
                     session.commit()
-                    print(f"Added lesson: {lesson.title}")
+                    print(f"Synced {len(incoming_items)} lesson items for: {lesson.title}")
                 else:
-                    print(f"Lesson '{data['title']}' already exists.")
+                    print(f"Lesson items for '{lesson.title}' are already up to date.")
 
 if __name__ == "__main__":
     init_db()

@@ -1,0 +1,61 @@
+{
+  "id": 2,
+  "title": "Ingles de hoje - Dia 2",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Can you help me?",
+        "phrase_pt": "Voce pode me ajudar?",
+        "word_by_word": [
+          { "en": "Can", "pt": "pode" },
+          { "en": "you", "pt": "voce" },
+          { "en": "help", "pt": "ajudar" },
+          { "en": "me", "pt": "me" }
+        ]
+      },
+      {
+        "phrase_en": "Yes, I can help.",
+        "phrase_pt": "Sim, eu posso ajudar.",
+        "word_by_word": [
+          { "en": "Yes", "pt": "sim" },
+          { "en": "I", "pt": "eu" },
+          { "en": "can", "pt": "posso" },
+          { "en": "help", "pt": "ajudar" }
+        ]
+      },
+      {
+        "phrase_en": "Thank you very much.",
+        "phrase_pt": "Muito obrigado.",
+        "word_by_word": [
+          { "en": "Thank", "pt": "obrigado" },
+          { "en": "you", "pt": "voce" },
+          { "en": "very", "pt": "muito" },
+          { "en": "much", "pt": "muito" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Can you help me?",
+      "word_pt": "Voce pode me ajudar?",
+      "example_sentence_en": "Say this when you need help with a game or task.",
+      "example_sentence_pt": "Diga isso quando precisar de ajuda com um jogo ou tarefa."
+    },
+    {
+      "word_en": "Yes, I can help.",
+      "word_pt": "Sim, eu posso ajudar.",
+      "example_sentence_en": "This phrase is a kind answer when someone asks for help.",
+      "example_sentence_pt": "Essa frase e uma resposta gentil quando alguem pede ajuda."
+    },
+    {
+      "word_en": "Thank you very much.",
+      "word_pt": "Muito obrigado.",
+      "example_sentence_en": "Use this phrase to say thank you in a warm way.",
+      "example_sentence_pt": "Use essa frase para agradecer de um jeito carinhoso."
+    }
+  ]
+}

@@ -16,10 +16,10 @@ export default function OfflinePage() {
   }, []);
 
   const isUnconfigured = !connection.baseUrl;
-  const title = isUnconfigured ? 'Connect the tutor first' : 'Backend offline help';
+  const title = isUnconfigured ? 'Conecte o tutor primeiro' : 'Ajuda para backend offline';
   const message = isUnconfigured
-    ? 'This device does not know your backend URL yet. On your computer, run cloudflared tunnel --url http://localhost:8001, copy the HTTPS URL, then save it on the connection page.'
-    : `We tried ${connection.host} but could not reach the FastAPI backend. Make sure your computer, backend, and Cloudflare Tunnel are all running, or change the saved URL.`;
+    ? 'Este aparelho ainda nao conhece a URL do seu backend. No seu computador, rode cloudflared tunnel --url http://127.0.0.1:8001, copie a URL HTTPS e salve na pagina de conexao.'
+    : `Tentamos usar ${connection.host}, mas nao conseguimos acessar o backend FastAPI. Verifique se o seu computador, o backend e o Cloudflare Tunnel estao ligados, ou troque a URL salva.`;
 
   return (
     <StatusCard
@@ -28,11 +28,11 @@ export default function OfflinePage() {
       message={message}
       primaryAction={
         <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-          Open Connection Setup
+          Abrir configuracao de conexao
         </Link>
       }
       secondaryHref="/"
-      secondaryLabel="Back Home"
+      secondaryLabel="Voltar ao inicio"
     />
   );
 }

@@ -1,0 +1,60 @@
+{
+  "id": 4,
+  "title": "Ingles de hoje - Dia 4",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Where is my book?",
+        "phrase_pt": "Onde esta o meu livro?",
+        "word_by_word": [
+          { "en": "Where", "pt": "onde" },
+          { "en": "is", "pt": "esta" },
+          { "en": "my", "pt": "meu" },
+          { "en": "book", "pt": "livro" }
+        ]
+      },
+      {
+        "phrase_en": "Here is your book.",
+        "phrase_pt": "Aqui esta o seu livro.",
+        "word_by_word": [
+          { "en": "Here", "pt": "aqui" },
+          { "en": "is", "pt": "esta" },
+          { "en": "your", "pt": "seu" },
+          { "en": "book", "pt": "livro" }
+        ]
+      },
+      {
+        "phrase_en": "Let's read together.",
+        "phrase_pt": "Vamos ler juntos.",
+        "word_by_word": [
+          { "en": "Let's", "pt": "vamos" },
+          { "en": "read", "pt": "ler" },
+          { "en": "together", "pt": "juntos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Where is my book?",
+      "word_pt": "Onde esta o meu livro?",
+      "example_sentence_en": "Use this phrase when you cannot find your book.",
+      "example_sentence_pt": "Use essa frase quando nao achar o seu livro."
+    },
+    {
+      "word_en": "Here is your book.",
+      "word_pt": "Aqui esta o seu livro.",
+      "example_sentence_en": "This phrase helps when you return the book to a friend.",
+      "example_sentence_pt": "Essa frase ajuda quando voce devolve o livro para um amigo."
+    },
+    {
+      "word_en": "Let's read together.",
+      "word_pt": "Vamos ler juntos.",
+      "example_sentence_en": "Say this when you want to read with someone.",
+      "example_sentence_pt": "Diga isso quando quiser ler com alguem."
+    }
+  ]
+}

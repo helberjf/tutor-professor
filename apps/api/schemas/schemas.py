@@ -32,6 +32,29 @@ class LessonSchema(BaseModel):
     items: List[LessonItemSchema] = Field(default_factory=list)
     is_completed: bool = False
 
+
+class WordByWordPairSchema(BaseModel):
+    en: str = Field(min_length=1, max_length=80)
+    pt: str = Field(min_length=1, max_length=120)
+
+
+class PhraseBreakdownSchema(BaseModel):
+    phrase_en: str = Field(min_length=1, max_length=120)
+    phrase_pt: str = Field(min_length=1, max_length=160)
+    word_by_word: List[WordByWordPairSchema] = Field(default_factory=list)
+
+
+class GeneratedPhraseSchema(BaseModel):
+    phrase_en: str = Field(min_length=1, max_length=120)
+    phrase_pt: str = Field(min_length=1, max_length=160)
+    example_sentence_en: str = Field(min_length=1, max_length=220)
+    example_sentence_pt: str = Field(min_length=1, max_length=220)
+    word_by_word: List[WordByWordPairSchema] = Field(default_factory=list)
+
+
+class GeneratedLessonDraftSchema(BaseModel):
+    phrases: List[GeneratedPhraseSchema] = Field(default_factory=list, min_length=3, max_length=3)
+
 class QuizQuestionSchema(BaseModel):
     id: int
     question: str
@@ -126,3 +149,13 @@ class ParentSettingsUpdateSchema(BaseModel):
     voice_preference: Optional[str] = None
     auto_audio: Optional[bool] = None
     rhythm: Optional[str] = None
+
+
+class GenerateLessonRequestSchema(BaseModel):
+    topic: Optional[str] = Field(default=None, max_length=80)
+
+
+class GenerateLessonResponseSchema(BaseModel):
+    status: str
+    lesson: LessonSchema
+    message: str

@@ -15,11 +15,14 @@ from schemas.schemas import (
     ChatRequestSchema,
     ChatResponseSchema,
     ChildProfileSchema,
+    GenerateLessonRequestSchema,
+    GenerateLessonResponseSchema,
     LessonItemSchema,
     LessonSchema,
     ParentLoginSchema,
     ParentSettingsUpdateSchema,
     ProgressSchema,
+    QuizQuestionSchema,
     QuizSchema,
     QuizSubmitResponseSchema,
     QuizSubmitSchema,
@@ -30,6 +33,7 @@ from schemas.schemas import (
     SpeakResponseSchema,
 )
 from services.content_service import ContentService
+from services.phrase_generator_service import PhraseGenerationService
 from services.review_service import (
     build_review_cards,
     compute_review_priority,
@@ -55,7 +59,13 @@ PARENT_COOKIE_MAX_AGE = int(os.getenv("PARENT_COOKIE_MAX_AGE", str(60 * 60 * 24 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 app = FastAPI(title="English Kids Tutor API", version="1.0.0")
 
-origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+# Local development often flips between localhost and 127.0.0.1, so allow both.
+if "http://localhost:3000" in origins and "http://127.0.0.1:3000" not in origins:
+    origins.append("http://127.0.0.1:3000")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -75,6 +85,7 @@ tts_service = TTSService(
 )
 content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
+phrase_generation_service = PhraseGenerationService()
 
 active_parent_sessions: set[str] = set()
 
@@ -110,7 +121,7 @@ def get_current_lesson(session: Session) -> Lesson:
     if lesson is None:
         lesson = session.exec(select(Lesson).order_by(Lesson.id.desc())).first()
     if lesson is None:
-        raise HTTPException(status_code=404, detail="No lessons found")
+        raise HTTPException(status_code=404, detail="Nenhuma licao encontrada")
     return lesson
 
 
@@ -118,6 +129,13 @@ def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
     return session.exec(
         select(LessonItem).where(LessonItem.lesson_id == lesson_id).order_by(LessonItem.id)
     ).all()
+
+
+def get_next_lesson_day(session: Session) -> int:
+    latest_lesson = session.exec(select(Lesson).order_by(Lesson.id.desc())).first()
+    if latest_lesson is None or latest_lesson.id is None:
+        return 1
+    return latest_lesson.id + 1
 
 
 def build_lesson_response(session: Session, lesson: Lesson) -> LessonSchema:
@@ -130,6 +148,65 @@ def build_lesson_response(session: Session, lesson: Lesson) -> LessonSchema:
         content=lesson.content or {},
         items=[LessonItemSchema.model_validate(item) for item in lesson_items],
         is_completed=lesson.is_completed,
+    )
+
+
+def build_generated_quiz_questions(session: Session, lesson_items: list[LessonItem]) -> list[QuizQuestionSchema]:
+    phrase_pool = [
+        item.word_en
+        for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
+        if item.word_en not in {lesson_item.word_en for lesson_item in lesson_items}
+    ]
+    generated_questions: list[QuizQuestionSchema] = []
+
+    for index, lesson_item in enumerate(lesson_items, start=1):
+        options = [lesson_item.word_en]
+
+        for sibling_item in lesson_items:
+            if sibling_item.word_en == lesson_item.word_en or sibling_item.word_en in options:
+                continue
+            options.append(sibling_item.word_en)
+
+        for candidate in phrase_pool:
+            if candidate in options:
+                continue
+            options.append(candidate)
+            if len(options) >= 4:
+                break
+
+        ordered_options = sorted(
+            options,
+            key=lambda option: ((len(option) + index) * (index + options.index(option) + 1)) % 17,
+        )
+        generated_questions.append(
+            QuizQuestionSchema(
+                id=index,
+                question=f"Como se diz '{lesson_item.word_pt}' em ingles?",
+                options=ordered_options,
+                correct_option=lesson_item.word_en,
+                explanation=f"{lesson_item.word_en} significa {lesson_item.word_pt}.",
+            )
+        )
+
+    return generated_questions
+
+
+def build_quiz_from_lesson_content(lesson: Lesson) -> QuizSchema | None:
+    lesson_id = lesson.id or 0
+    content = lesson.content or {}
+    questions_payload = content.get("quiz_questions")
+    if not isinstance(questions_payload, list) or not questions_payload:
+        return None
+
+    try:
+        questions = [QuizQuestionSchema.model_validate(question) for question in questions_payload]
+    except Exception:
+        return None
+
+    return QuizSchema(
+        id=lesson_id,
+        lesson_id=lesson_id,
+        questions=questions,
     )
 
 
@@ -149,14 +226,14 @@ def update_streak(child: ChildProfile, now: datetime) -> None:
 
 def build_quiz_encouragement(score: int, total_questions: int) -> str:
     if total_questions <= 0:
-        return "Nice try! Let's keep learning together."
+        return "Boa tentativa! Vamos continuar aprendendo juntos."
 
     accuracy = score / total_questions
     if accuracy == 1:
-        return "Amazing! You got every answer right!"
+        return "Incrivel! Voce acertou tudo!"
     if accuracy >= 0.6:
-        return "Great job! You are getting stronger every day."
-    return "Good effort! Let's practice a little more and try again."
+        return "Muito bem! Voce esta ficando melhor a cada dia."
+    return "Bom esforco! Vamos praticar um pouco mais e tentar de novo."
 
 
 def build_parent_session_token() -> str:
@@ -167,7 +244,7 @@ def build_parent_session_token() -> str:
 def require_parent_session(request: Request) -> str:
     token = request.cookies.get("parent_session")
     if not token or token not in active_parent_sessions:
-        raise HTTPException(status_code=401, detail="Parent login required")
+        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
     return token
 
 
@@ -186,7 +263,7 @@ def get_today_lesson(session: Session = Depends(get_session)) -> LessonSchema:
 def complete_lesson(lesson_id: int, session: Session = Depends(get_session)) -> dict[str, str]:
     lesson = session.get(Lesson, lesson_id)
     if lesson is None:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
     child = get_default_child(session=session)
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
@@ -208,13 +285,21 @@ def get_today_quiz(
     session: Session = Depends(get_session),
 ) -> QuizSchema:
     resolved_lesson_id = lesson_id
+    lesson: Lesson | None = None
     if resolved_lesson_id is None:
         lesson = get_current_lesson(session=session)
         resolved_lesson_id = lesson.id
+    elif resolved_lesson_id is not None:
+        lesson = session.get(Lesson, resolved_lesson_id)
+
+    if lesson is not None:
+        generated_quiz = build_quiz_from_lesson_content(lesson)
+        if generated_quiz is not None:
+            return generated_quiz
 
     quiz = content_service.get_quiz_for_lesson(resolved_lesson_id)
     if quiz is None:
-        raise HTTPException(status_code=404, detail="No quiz found")
+        raise HTTPException(status_code=404, detail="Nenhum quiz encontrado")
     return quiz
 
 
@@ -363,7 +448,7 @@ async def speak_text(
 def parent_login(request: ParentLoginSchema, response: Response) -> dict[str, str]:
     correct_password = os.getenv("PARENT_PASSWORD", "tutor123")
     if request.password != correct_password:
-        raise HTTPException(status_code=401, detail="Incorrect password")
+        raise HTTPException(status_code=401, detail="Senha incorreta")
 
     token = build_parent_session_token()
     active_parent_sessions.add(token)
@@ -420,6 +505,99 @@ def update_parent_settings(
     session.commit()
     session.refresh(child)
     return ChildProfileSchema.model_validate(child)
+
+
+@app.post("/api/parent/generate-lesson", response_model=GenerateLessonResponseSchema)
+def generate_parent_lesson(
+    request: Request,
+    payload: GenerateLessonRequestSchema,
+    session: Session = Depends(get_session),
+) -> GenerateLessonResponseSchema:
+    require_parent_session(request)
+
+    if not phrase_generation_service.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY nao esta configurada no backend.",
+        )
+
+    child = get_default_child(session=session)
+    next_day = get_next_lesson_day(session=session)
+    existing_phrases = [
+        item.word_en
+        for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
+    ]
+
+    try:
+        draft = phrase_generation_service.generate_lesson_draft(
+            next_day=next_day,
+            age_group=child.age_group,
+            existing_phrases=existing_phrases,
+            topic=payload.topic,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Nao foi possivel gerar novas frases com o Gemini. {exc}",
+        ) from exc
+
+    lesson = Lesson(
+        id=next_day,
+        title=f"Ingles de hoje - Dia {next_day}",
+        theme="Frases do dia",
+        objective="Aprenda 3 frases uteis em ingles hoje.",
+        content={
+            "daily_goal": "3 frases para hoje",
+            "phrase_breakdowns": [
+                {
+                    "phrase_en": phrase.phrase_en,
+                    "phrase_pt": phrase.phrase_pt,
+                    "word_by_word": [
+                        {"en": pair.en, "pt": pair.pt}
+                        for pair in phrase.word_by_word
+                    ],
+                }
+                for phrase in draft.phrases
+            ],
+            "generated_by": "gemini",
+            "generated_model": phrase_generation_service.model,
+            "generated_topic": payload.topic.strip() if payload.topic else None,
+            "generated_at": datetime.utcnow().isoformat(),
+        },
+        child_id=child.id,
+    )
+    session.add(lesson)
+    session.commit()
+    session.refresh(lesson)
+
+    created_items: list[LessonItem] = []
+    for phrase in draft.phrases:
+        lesson_item = LessonItem(
+            word_en=phrase.phrase_en,
+            word_pt=phrase.phrase_pt,
+            example_sentence_en=phrase.example_sentence_en,
+            example_sentence_pt=phrase.example_sentence_pt,
+            lesson_id=lesson.id,
+        )
+        session.add(lesson_item)
+        created_items.append(lesson_item)
+
+    session.commit()
+
+    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items)
+    lesson.content = {
+        **(lesson.content or {}),
+        "quiz_questions": [question.model_dump() for question in quiz_questions],
+    }
+    session.add(lesson)
+    session.commit()
+    session.refresh(lesson)
+
+    return GenerateLessonResponseSchema(
+        status="success",
+        lesson=build_lesson_response(session=session, lesson=lesson),
+        message=f"{lesson.title} foi gerado e salvo no banco de dados.",
+    )
 
 
 if __name__ == "__main__":

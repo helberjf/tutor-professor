@@ -111,7 +111,7 @@ export async function verifySavedApiBaseUrl(rawValue: string) {
   if (!baseUrl) {
     return {
       ok: false as const,
-      message: 'Use the full HTTPS URL from `cloudflared tunnel --url http://localhost:8001`.',
+      message: 'Use a URL HTTPS completa do comando `cloudflared tunnel --url http://127.0.0.1:8001`.',
     };
   }
 
@@ -124,7 +124,7 @@ export async function verifySavedApiBaseUrl(rawValue: string) {
     if (!response.ok) {
       return {
         ok: false as const,
-        message: `The backend answered with ${response.status}. Check that the tunnel points to http://localhost:8001.`,
+        message: `O backend respondeu com ${response.status}. Verifique se o tunnel aponta para http://127.0.0.1:8001.`,
       };
     }
 
@@ -135,7 +135,7 @@ export async function verifySavedApiBaseUrl(rawValue: string) {
   } catch {
     return {
       ok: false as const,
-      message: 'We could not reach /health at that URL. Start the backend, run the tunnel again, and paste the new HTTPS URL.',
+      message: 'Nao conseguimos acessar /health nessa URL. Inicie o backend, rode o tunnel de novo e cole a nova URL HTTPS.',
     };
   }
 }

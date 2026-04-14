@@ -1,0 +1,27 @@
+{
+  "id": 5,
+  "lesson_id": 5,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Como se diz 'Voce gosta desse jogo?' em ingles?",
+      "options": ["Do you like this game?", "Can you help me?", "Where is my book?", "What is your name?"],
+      "correct_option": "Do you like this game?",
+      "explanation": "Do you like this game? significa Voce gosta desse jogo?"
+    },
+    {
+      "id": 2,
+      "question": "Qual frase significa 'Sim, eu gosto disso.'?",
+      "options": ["Yes, I like it.", "No, I do not like it.", "I am happy!", "Thank you very much."],
+      "correct_option": "Yes, I like it.",
+      "explanation": "Yes, I like it. significa Sim, eu gosto disso."
+    },
+    {
+      "id": 3,
+      "question": "Qual e a resposta negativa educada sobre um jogo?",
+      "options": ["No, I do not like it.", "Yes, I can help.", "Hello!", "Nice to meet you."],
+      "correct_option": "No, I do not like it.",
+      "explanation": "No, I do not like it. e uma resposta negativa educada."
+    }
+  ]
+}
