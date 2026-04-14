@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bot, Send, Volume2, WifiOff } from 'lucide-react';
+import { ArrowLeft, Bot, Loader2, Send, Volume2, WifiOff } from 'lucide-react';
 
 import { ApiError, api, type ChatMessage } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
@@ -26,10 +26,17 @@ export default function ChatPage() {
   ]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
   const [error, setError] = useState<ApiError | null>(null);
 
-  async function playAudio(url: string | null | undefined, text: string) {
-    await playAudioWithFallback(url ? api.getAudioUrl(url) : null, text);
+  async function playAudio(url: string | null | undefined, text: string, speed = audioSpeed) {
+    setAudioLoading(true);
+    try {
+      await playAudioWithFallback(url ? api.getAudioUrl(url) : null, text, speed);
+    } finally {
+      setAudioLoading(false);
+    }
   }
 
   async function handleSend(text: string) {
@@ -72,7 +79,7 @@ export default function ChatPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
@@ -82,12 +89,12 @@ export default function ChatPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.8fr,1.2fr]">
-          <section className="kid-surface border-rose-200 p-8">
+          <section className="kid-surface border-rose-200 p-5 md:p-8">
             <div className="inline-flex rounded-[1.5rem] bg-rose-50 p-4">
               <Bot className="text-kid-pink" size={34} />
             </div>
-            <h1 className="mt-5 text-4xl font-black text-slate-800">Converse com o tutor</h1>
-            <p className="mt-4 text-xl leading-9 text-slate-600">
+            <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">Converse com o tutor</h1>
+            <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
               Mantenha o chat curto, seguro e divertido. Peça uma frase, um significado ou uma ideia de pratica.
             </p>
             <div className="mt-8 space-y-3">
@@ -95,11 +102,30 @@ export default function ChatPage() {
                 <button
                   key={suggestion}
                   onClick={() => void handleSend(suggestion)}
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-left text-lg font-bold text-slate-700 transition hover:border-primary hover:bg-primary-light"
+                    className="w-full rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-left text-base font-bold text-slate-700 transition hover:border-primary hover:bg-primary-light md:text-lg"
                 >
                   {suggestion}
                 </button>
               ))}
+            </div>
+            <div className="mt-6 flex flex-col gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade do audio</span>
+              <div className="flex gap-2">
+                {([0.5, 0.75, 1.0] as const).map((speed) => (
+                  <button
+                    key={speed}
+                    type="button"
+                    onClick={() => setAudioSpeed(speed)}
+                    className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                      audioSpeed === speed
+                        ? 'bg-kid-pink text-white'
+                        : 'border border-slate-200 text-slate-500 hover:border-kid-pink hover:text-kid-pink'
+                    }`}
+                  >
+                    {speed}x
+                  </button>
+                ))}
+              </div>
             </div>
             {error?.isUnconfigured ? (
               <div className="mt-8 rounded-[1.5rem] border-2 border-primary bg-primary-light/40 p-5">
@@ -145,13 +171,14 @@ export default function ChatPage() {
                           : 'bg-slate-100 text-slate-800'
                       }`}
                     >
-                      <p className="text-lg leading-8">{message.content}</p>
+                      <p className="text-base leading-7 md:text-lg md:leading-8">{message.content}</p>
                       {message.role === 'assistant' && message.audioUrl ? (
                         <button
                           onClick={() => void playAudio(message.audioUrl, message.content)}
-                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-bold uppercase tracking-[0.16em] text-primary-dark"
+                          disabled={audioLoading}
+                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-bold uppercase tracking-[0.16em] text-primary-dark disabled:opacity-60"
                         >
-                          <Volume2 size={16} /> Ouvir
+                          {audioLoading ? <Loader2 size={16} className="animate-spin" /> : <Volume2 size={16} />} Ouvir
                         </button>
                       ) : null}
                     </div>

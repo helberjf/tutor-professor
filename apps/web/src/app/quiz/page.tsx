@@ -175,14 +175,14 @@ function QuizPageContent() {
     const stars = percentage === 100 ? 3 : percentage >= 60 ? 2 : 1;
 
     return (
-      <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-3xl">
-          <div className="kid-surface border-secondary/60 p-10 text-center">
-            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-secondary-light">
-              <Trophy className="text-secondary-dark" size={70} />
+          <div className="kid-surface border-secondary/60 p-6 text-center md:p-10">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary-light md:h-28 md:w-28">
+              <Trophy className="text-secondary-dark" size={54} />
             </div>
-            <h1 className="mt-6 text-5xl font-black text-slate-800">Quiz completo!</h1>
-            <p className="mt-4 text-2xl text-slate-600">
+            <h1 className="mt-5 text-3xl font-black text-slate-800 md:mt-6 md:text-5xl">Quiz completo!</h1>
+            <p className="mt-4 text-lg text-slate-600 md:text-2xl">
               Voce fez <span className="font-black text-slate-800">{score}</span> de{' '}
               <span className="font-black text-slate-800">{total}</span>.
             </p>
@@ -195,7 +195,7 @@ function QuizPageContent() {
                 />
               ))}
             </div>
-            <p className="mx-auto mt-6 max-w-xl text-xl leading-9 text-slate-600">
+            <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
               {submitMessage?.encouragement || buildFallbackMessage(percentage)}
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -204,7 +204,7 @@ function QuizPageContent() {
               </Link>
               <Link
                 href="/"
-                className="rounded-full border-2 border-slate-200 px-6 py-4 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
               >
                 Voltar ao inicio
               </Link>
@@ -219,10 +219,10 @@ function QuizPageContent() {
   const isCorrect = selectedOption === question.correct_option;
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
             <ArrowLeft size={22} /> Voltar
           </Link>
           <p className="kid-tag">
@@ -230,10 +230,10 @@ function QuizPageContent() {
           </p>
         </div>
 
-        <div className="kid-surface border-secondary/50 p-8 md:p-10">
+        <div className="kid-surface border-secondary/50 p-5 md:p-10">
           <p className="kid-tag">Hora do quiz</p>
-          <h1 className="mt-5 text-4xl font-black leading-tight text-slate-800 md:text-5xl">{question.question}</h1>
-          <div className="mt-8 grid gap-4">
+          <h1 className="mt-4 text-3xl font-black leading-tight text-slate-800 md:mt-5 md:text-5xl">{question.question}</h1>
+          <div className="mt-6 grid gap-4 md:mt-8">
             {question.options.map((option) => {
               const isChosen = selectedOption === option;
               const optionClass = !selectedOption
@@ -249,7 +249,7 @@ function QuizPageContent() {
                   key={option}
                   onClick={() => setSelectedOption(option)}
                   disabled={Boolean(selectedOption)}
-                  className={`rounded-[1.5rem] border-2 px-5 py-4 text-left text-2xl font-bold transition ${optionClass}`}
+                  className={`rounded-[1.25rem] border-2 px-4 py-3.5 text-left text-lg font-bold transition md:rounded-[1.5rem] md:px-5 md:py-4 md:text-2xl ${optionClass}`}
                 >
                   {option}
                 </button>
@@ -258,18 +258,18 @@ function QuizPageContent() {
           </div>
 
           {selectedOption ? (
-            <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-6">
+            <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-6">
               <div className="flex items-center gap-3">
                 {isCorrect ? (
                   <CheckCircle2 className="text-accent-dark" size={32} />
                 ) : (
                   <XCircle className="text-rose-600" size={32} />
                 )}
-                <p className={`text-2xl font-black ${isCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
+                <p className={`text-xl font-black md:text-2xl ${isCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
                   {isCorrect ? 'Acertou!' : 'Boa tentativa!'}
                 </p>
               </div>
-              <p className="mt-4 text-xl leading-9 text-slate-700">{question.explanation}</p>
+              <p className="mt-4 text-base leading-7 text-slate-700 md:text-xl md:leading-9">{question.explanation}</p>
               <button
                 onClick={() => void handleNext()}
                 disabled={savingResult}

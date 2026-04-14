@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { BookOpen, Bot, Brain, ChevronRight, Link2, Settings, Sparkles, Trophy } from 'lucide-react';
+import { BookOpen, Bot, Brain, ChevronRight, History, Link2, Settings, Sparkles, Trophy } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Progress } from '@/lib/api';
@@ -102,18 +102,18 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-6xl">
-        <section className="kid-surface story-dots relative overflow-hidden border-primary/40 p-8 md:p-12">
-          <div className="absolute -right-8 top-6 h-28 w-28 rounded-full bg-secondary/60 blur-2xl" />
-          <div className="absolute bottom-0 left-0 h-24 w-24 rounded-full bg-accent/40 blur-2xl" />
+        <section className="kid-surface story-dots relative overflow-hidden border-primary/40 p-5 md:p-12">
+          <div className="absolute -right-6 top-4 h-20 w-20 rounded-full bg-secondary/60 blur-2xl md:-right-8 md:top-6 md:h-28 md:w-28" />
+          <div className="absolute bottom-0 left-0 h-16 w-16 rounded-full bg-accent/40 blur-2xl md:h-24 md:w-24" />
           <div className="relative grid gap-8 lg:grid-cols-[1.4fr,0.9fr] lg:items-center">
             <div>
               <span className="kid-tag mb-4">Hora do ingles</span>
-              <h1 className="max-w-3xl text-5xl font-black leading-tight text-slate-800 md:text-7xl">
+              <h1 className="max-w-3xl text-4xl font-black leading-tight text-slate-800 sm:text-5xl md:text-7xl">
                 Aprenda ingles com brincadeiras, sorrisos e pequenos passos corajosos.
               </h1>
-              <p className="mt-5 max-w-2xl text-xl leading-9 text-slate-600">
+              <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600 md:mt-5 md:text-xl md:leading-9">
                 Pratique uma licao, um quiz rapido, uma revisao inteligente e um chat alegre com o tutor.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
@@ -133,13 +133,13 @@ export default function HomePage() {
                     <Link2 className="text-primary-dark" size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexao com o backend</p>
-                    <p className="text-lg font-black text-slate-800">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400 md:text-sm md:tracking-[0.18em]">Conexao com o backend</p>
+                    <p className="text-base font-black text-slate-800 md:text-lg">
                       {connection.baseUrl ? connection.host : 'Ainda nao conectado neste aparelho'}
                     </p>
                   </div>
                 </div>
-                <p className="mt-3 text-base leading-7 text-slate-600">
+                <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base md:leading-7">
                   {connection.source === 'saved'
                     ? 'Usando a URL do tunnel salva neste navegador.'
                     : connection.source === 'default'
@@ -157,17 +157,17 @@ export default function HomePage() {
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <div className="rounded-[1.75rem] bg-sky-50 p-5 shadow-sm">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Sequencia</p>
-                <p className="mt-2 text-4xl font-black text-sky-900">{progress?.streak_count ?? 0}</p>
+                <p className="mt-2 text-3xl font-black text-sky-900 md:text-4xl">{progress?.streak_count ?? 0}</p>
                 <p className="text-base text-sky-700">dias seguidos</p>
               </div>
               <div className="rounded-[1.75rem] bg-amber-50 p-5 shadow-sm">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Phrases</p>
-                <p className="mt-2 text-4xl font-black text-amber-900">{progress?.vocabulary_learned ?? 0}</p>
+                <p className="mt-2 text-3xl font-black text-amber-900 md:text-4xl">{progress?.vocabulary_learned ?? 0}</p>
                 <p className="text-base text-amber-700">aprendidas ate agora</p>
               </div>
               <div className="rounded-[1.75rem] bg-emerald-50 p-5 shadow-sm">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-emerald-700">Temas</p>
-                <p className="mt-2 text-4xl font-black text-emerald-900">{progress?.themes_completed ?? 0}</p>
+                <p className="mt-2 text-3xl font-black text-emerald-900 md:text-4xl">{progress?.themes_completed ?? 0}</p>
                 <p className="text-base text-emerald-700">aventuras concluidas</p>
               </div>
             </div>
@@ -181,6 +181,7 @@ export default function HomePage() {
             title="Licao"
             description="Conheca as tres frases de hoje e jogue a miniatividade."
             accentClass="bg-primary-light"
+            extraLink={{ href: '/lesson/history', label: 'Licoes anteriores', icon: <History size={14} /> }}
           />
           <ActionCard
             href="/quiz"
@@ -209,9 +210,9 @@ export default function HomePage() {
           <div className="kid-surface border-secondary/50 p-8">
             <div className="flex items-center gap-3">
               <Sparkles className="text-secondary-dark" size={28} />
-              <h2 className="text-3xl font-black text-slate-800">Cantinho do incentivo</h2>
+              <h2 className="text-2xl font-black text-slate-800 md:text-3xl">Cantinho do incentivo</h2>
             </div>
-            <p className="mt-4 text-xl leading-8 text-slate-600">
+            <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl">
               Voce nao precisa ser perfeito. Cada tentativa ajuda o seu ingles a crescer mais e mais.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -225,7 +226,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Frases em foco</p>
-                <h2 className="mt-2 text-3xl font-black text-slate-800">Frases mais dificeis</h2>
+                <h2 className="mt-2 text-2xl font-black text-slate-800 md:text-3xl">Frases mais dificeis</h2>
               </div>
               <Link href="/parents" className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:border-primary hover:text-primary">
                 <Settings size={22} />
@@ -243,7 +244,7 @@ export default function HomePage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-6 text-lg leading-8 text-slate-600">
+              <p className="mt-6 text-base leading-7 text-slate-600 md:text-lg md:leading-8">
                 Ainda nao ha frases dificeis. Termine uma licao e a revisao vai juntar as frases para praticar depois.
               </p>
             )}
@@ -260,23 +261,34 @@ function ActionCard({
   title,
   description,
   accentClass,
+  extraLink,
 }: {
   href: string;
   icon: ReactNode;
   title: string;
   description: string;
   accentClass: string;
+  extraLink?: { href: string; label: string; icon?: ReactNode };
 }) {
   return (
-    <Link href={href} className="group">
-      <div className="kid-surface h-full border-transparent p-6 transition duration-200 hover:-translate-y-1 hover:border-primary/30">
+    <div className="group kid-surface h-full border-transparent p-6 transition duration-200 hover:-translate-y-1 hover:border-primary/30">
+      <Link href={href}>
         <div className={`inline-flex rounded-[1.25rem] p-4 ${accentClass}`}>{icon}</div>
-        <h2 className="mt-5 text-3xl font-black text-slate-800">{title}</h2>
-        <p className="mt-3 text-lg leading-8 text-slate-600">{description}</p>
+        <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">{title}</h2>
+        <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{description}</p>
         <p className="mt-6 inline-flex items-center text-base font-bold uppercase tracking-[0.18em] text-primary-dark">
           Vamos la <ChevronRight className="ml-1 transition group-hover:translate-x-1" size={18} />
         </p>
-      </div>
-    </Link>
+      </Link>
+      {extraLink && (
+        <Link
+          href={extraLink.href}
+          className="mt-4 flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-primary-dark"
+        >
+          {extraLink.icon}
+          {extraLink.label}
+        </Link>
+      )}
+    </div>
   );
 }

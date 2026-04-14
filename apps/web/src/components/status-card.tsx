@@ -38,20 +38,20 @@ export function StatusCard({
   secondaryLabel,
 }: StatusCardProps) {
   return (
-    <div className="min-h-screen px-6 py-10">
-      <div className="mx-auto flex min-h-[70vh] max-w-2xl items-center justify-center">
+    <div className="min-h-screen px-4 py-6 md:px-6 md:py-10">
+      <div className="mx-auto flex min-h-[65vh] max-w-2xl items-center justify-center md:min-h-[70vh]">
         <div
-          className={`w-full rounded-[2rem] border-4 p-10 text-center shadow-[0_30px_80px_rgba(14,165,233,0.18)] ${toneStyles[tone]}`}
+          className={`w-full rounded-[1.5rem] border-4 p-6 text-center shadow-[0_30px_80px_rgba(14,165,233,0.18)] md:rounded-[2rem] md:p-10 ${toneStyles[tone]}`}
         >
-          <div className="mb-6 flex justify-center">{toneIcons[tone]}</div>
-          <h1 className="mb-3 text-4xl font-black text-slate-800">{title}</h1>
-          <p className="mx-auto mb-8 max-w-xl text-lg leading-8 text-slate-600">{message}</p>
+          <div className="mb-4 flex justify-center md:mb-6">{toneIcons[tone]}</div>
+          <h1 className="mb-3 text-3xl font-black text-slate-800 md:text-4xl">{title}</h1>
+          <p className="mx-auto mb-6 max-w-xl text-base leading-7 text-slate-600 md:mb-8 md:text-lg md:leading-8">{message}</p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             {primaryAction}
             {secondaryHref && secondaryLabel ? (
               <Link
                 href={secondaryHref}
-                className="rounded-full border-2 border-slate-200 px-6 py-3 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                className="rounded-full border-2 border-slate-200 px-5 py-3 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:text-lg"
               >
                 {secondaryLabel}
               </Link>

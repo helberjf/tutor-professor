@@ -197,14 +197,14 @@ export default function ParentsPage() {
 
   if (!isLoggedIn) {
     return (
-      <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-lg">
-          <div className="kid-surface border-primary/40 p-10">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-primary-light">
-              <Lock className="text-primary-dark" size={54} />
+          <div className="kid-surface border-primary/40 p-6 md:p-10">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-light md:h-24 md:w-24">
+              <Lock className="text-primary-dark" size={42} />
             </div>
-            <h1 className="mt-6 text-center text-4xl font-black text-slate-800">Entrada da area de pais</h1>
-            <p className="mt-4 text-center text-lg leading-8 text-slate-600">
+            <h1 className="mt-5 text-center text-3xl font-black text-slate-800 md:mt-6 md:text-4xl">Entrada da area de pais</h1>
+            <p className="mt-3 text-center text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
               Use a senha da area de pais para atualizar o audio e o perfil da crianca.
             </p>
 
@@ -215,7 +215,7 @@ export default function ParentsPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                   placeholder="Digite a senha da area de pais"
                 />
               </div>
@@ -223,7 +223,7 @@ export default function ParentsPage() {
               <button type="submit" disabled={saving} className="kid-button w-full bg-primary hover:bg-primary-dark">
                 {saving ? 'Entrando...' : 'Entrar'}
               </button>
-              <Link href="/" className="block text-center text-lg font-bold text-slate-500 hover:text-primary">
+              <Link href="/" className="block text-center text-base font-bold text-slate-500 hover:text-primary md:text-lg">
                 <ArrowLeft className="mr-2 inline" size={18} /> Voltar ao inicio
               </Link>
             </form>
@@ -234,21 +234,21 @@ export default function ParentsPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
             <ArrowLeft size={22} /> Voltar
           </Link>
-          <button onClick={() => void handleLogout()} className="rounded-full border-2 border-slate-200 px-5 py-3 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary">
+          <button onClick={() => void handleLogout()} className="rounded-full border-2 border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-5 md:py-3 md:text-base">
             Sair
           </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
-          <form onSubmit={handleSave} className="kid-surface border-primary/40 p-8 md:p-10">
-            <h1 className="text-4xl font-black text-slate-800">Configuracoes da area de pais</h1>
-            <p className="mt-4 text-lg leading-8 text-slate-600">
+          <form onSubmit={handleSave} className="kid-surface border-primary/40 p-5 md:p-10">
+            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Configuracoes da area de pais</h1>
+            <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
               Escolha o nome da crianca, a faixa etaria e o comportamento do audio para um aprendizado mais tranquilo.
             </p>
 
@@ -256,7 +256,7 @@ export default function ParentsPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <Baby className="text-primary-dark" size={28} />
-                  <h2 className="text-2xl font-black text-slate-800">Perfil da crianca</h2>
+                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Perfil da crianca</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
@@ -265,7 +265,7 @@ export default function ParentsPage() {
                       type="text"
                       value={form.child_name}
                       onChange={(event) => setForm((current) => ({ ...current, child_name: event.target.value }))}
-                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     />
                   </div>
                   <div>
@@ -273,7 +273,7 @@ export default function ParentsPage() {
                     <select
                       value={form.age_group}
                       onChange={(event) => setForm((current) => ({ ...current, age_group: event.target.value }))}
-                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     >
                       <option value="4-6">4 a 6 anos</option>
                       <option value="7-9">7 a 9 anos</option>
@@ -286,7 +286,7 @@ export default function ParentsPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <Volume2 className="text-kid-pink" size={28} />
-                  <h2 className="text-2xl font-black text-slate-800">Voz e audio</h2>
+                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Voz e audio</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
@@ -294,14 +294,14 @@ export default function ParentsPage() {
                     <select
                       value={form.voice_preference}
                       onChange={(event) => setForm((current) => ({ ...current, voice_preference: event.target.value }))}
-                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     >
                       <option value="af_heart">Heart amigavel</option>
                       <option value="af_bella">Bella</option>
                       <option value="am_adam">Adam</option>
                     </select>
                   </div>
-                  <label className="flex items-center gap-4 rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg font-bold text-slate-700">
+                  <label className="flex items-center gap-4 rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base font-bold text-slate-700 md:py-4 md:text-lg">
                     <input
                       type="checkbox"
                       checked={form.auto_audio}
@@ -322,12 +322,12 @@ export default function ParentsPage() {
           </form>
 
           <aside className="space-y-6">
-            <div className="kid-surface border-primary/50 p-8">
+            <div className="kid-surface border-primary/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-primary-dark" size={28} />
-                <h2 className="text-2xl font-black text-slate-800">Gerador de frases</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Gerador de frases</h2>
               </div>
-              <p className="mt-4 text-lg leading-8 text-slate-600">
+              <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
                 Crie o proximo dia com 3 frases novas usando o Gemini e salve direto no banco de dados.
               </p>
               <div className="mt-5">
@@ -336,7 +336,7 @@ export default function ParentsPage() {
                   type="text"
                   value={generatorTopic}
                   onChange={(event) => setGeneratorTopic(event.target.value)}
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                   placeholder="jogos, comida, escola..."
                 />
               </div>
@@ -354,15 +354,15 @@ export default function ParentsPage() {
                 </p>
               ) : null}
               {generatedLesson ? (
-                <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
+                <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-5">
                   <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Ultimo dia gerado</p>
-                  <h3 className="mt-2 text-2xl font-black text-slate-800">{generatedLesson.title}</h3>
+                  <h3 className="mt-2 text-xl font-black text-slate-800 md:text-2xl">{generatedLesson.title}</h3>
                   <div className="mt-4 space-y-3">
                     {generatedLesson.items.map((item, index) => (
                       <div key={`${generatedLesson.id}-${index}`} className="rounded-[1.25rem] bg-white px-4 py-3">
                         <p className="text-base font-bold uppercase tracking-[0.15em] text-slate-400">Frase {index + 1}</p>
-                        <p className="mt-1 text-lg font-black text-slate-800">{item.word_en}</p>
-                        <p className="text-base text-slate-600">{item.word_pt}</p>
+                        <p className="mt-1 text-base font-black text-slate-800 md:text-lg">{item.word_en}</p>
+                        <p className="text-sm text-slate-600 md:text-base">{item.word_pt}</p>
                       </div>
                     ))}
                   </div>
@@ -370,20 +370,20 @@ export default function ParentsPage() {
               ) : null}
             </div>
 
-            <div className="kid-surface border-accent/50 p-8">
+            <div className="kid-surface border-accent/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="text-accent-dark" size={28} />
-                <h2 className="text-2xl font-black text-slate-800">Nota de seguranca</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Nota de seguranca</h2>
               </div>
-              <p className="mt-4 text-lg leading-8 text-slate-600">
+              <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
                 O tutor permanece focado em pratica de ingles segura para criancas, respostas curtas e redirecionamento amigavel.
               </p>
             </div>
 
-            <div className="kid-surface border-secondary/50 p-8">
+            <div className="kid-surface border-secondary/50 p-5 md:p-8">
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuracao util</p>
-              <h2 className="mt-3 text-3xl font-black text-slate-800">Ambiente</h2>
-              <p className="mt-4 text-lg leading-8 text-slate-600">
+              <h2 className="mt-3 text-2xl font-black text-slate-800 md:text-3xl">Ambiente</h2>
+              <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
                 A senha da area de pais vem de <code>PARENT_PASSWORD</code>. A geracao de frases usa <code>GEMINI_API_KEY</code> e <code>GEMINI_MODEL</code>. O audio usa <code>KOKORO_DEFAULT_VOICE</code>, <code>KOKORO_URL</code> e <code>AUDIO_CACHE_DIR</code> no backend.
               </p>
             </div>

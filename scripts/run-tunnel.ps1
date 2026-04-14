@@ -34,7 +34,14 @@ ingress:
   Write-Host "Credentials file: $CredentialsFile"
   Write-Host ''
 
-  cloudflared tunnel --config $TempConfig run $TunnelName
+  cloudflared tunnel --config $TempConfig run $TunnelName 2>&1 | ForEach-Object {
+    Write-Host $_
+    if ($_ -match 'https://[\w\-]+\.[\w\-\.]+') {
+      Write-Host ''
+      Write-Host "[Tunnel URL] $($Matches[0])" -ForegroundColor Green
+      Write-Host ''
+    }
+  }
   exit $LASTEXITCODE
 }
 
@@ -42,4 +49,11 @@ Write-Host 'Named tunnel settings were not found in the local environment or the
 Write-Host 'Falling back to a quick tunnel. This will generate a temporary HTTPS URL.' -ForegroundColor Yellow
 Write-Host ''
 
-cloudflared tunnel --url http://127.0.0.1:8001
+cloudflared tunnel --url http://127.0.0.1:8001 2>&1 | ForEach-Object {
+  Write-Host $_
+  if ($_ -match 'https://[\w\-]+\.trycloudflare\.com') {
+    Write-Host ''
+    Write-Host "[Tunnel URL] $($Matches[0])" -ForegroundColor Green
+    Write-Host ''
+  }
+}

@@ -33,6 +33,15 @@ class LessonSchema(BaseModel):
     is_completed: bool = False
 
 
+class LessonSummarySchema(BaseModel):
+    id: int
+    title: str
+    theme: str
+    objective: str
+    is_completed: bool = False
+    completed_at: Optional[datetime] = None
+
+
 class WordByWordPairSchema(BaseModel):
     en: str = Field(min_length=1, max_length=80)
     pt: str = Field(min_length=1, max_length=120)

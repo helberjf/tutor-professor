@@ -1,14 +1,36 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, ChevronRight, Volume2 } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ArrowLeft, CheckCircle2, ChevronRight, History, Loader2, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 
 export default function LessonPage() {
+  return (
+    <Suspense
+      fallback={
+        <StatusCard
+          tone="loading"
+          title="Abrindo a licao de hoje"
+          message="Estamos preparando as frases, os sons e a miniatividade para voce."
+          secondaryHref="/"
+          secondaryLabel="Voltar ao inicio"
+        />
+      }
+    >
+      <LessonPageContent />
+    </Suspense>
+  );
+}
+
+function LessonPageContent() {
+  const searchParams = useSearchParams();
+  const lessonIdParam = searchParams.get('lessonId');
+
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -21,11 +43,13 @@ export default function LessonPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [savingLesson, setSavingLesson] = useState(false);
+  const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
 
   async function loadLesson() {
     setLoading(true);
     try {
-      const data = await api.getTodayLesson();
+      const id = lessonIdParam ? parseInt(lessonIdParam, 10) : null;
+      const data = id && !isNaN(id) ? await api.getLessonById(id) : await api.getTodayLesson();
       setLesson(data);
       setCurrentIndex(0);
       setCompleted(false);
@@ -41,7 +65,8 @@ export default function LessonPage() {
 
   useEffect(() => {
     void loadLesson();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonIdParam]);
 
   useEffect(() => {
     if (!lesson?.items.length) {
@@ -55,13 +80,14 @@ export default function LessonPage() {
     setSaveError(null);
   }, [lesson, currentIndex]);
 
-  async function playAudio(text: string) {
+  async function playAudio(text: string, speed = audioSpeed) {
     setAudioLoading(true);
     try {
       const data = await api.speak(text);
       await playAudioWithFallback(
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || text,
+        speed,
       );
     } catch (err) {
       console.error('Audio error:', err);
@@ -194,15 +220,15 @@ export default function LessonPage() {
 
   if (completed) {
     return (
-      <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
         <div className="mx-auto flex max-w-3xl items-center justify-center">
-          <div className="kid-surface w-full border-accent/60 p-10 text-center">
-            <div className="mx-auto mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-accent-light">
-              <CheckCircle2 className="text-accent-dark" size={72} />
+          <div className="kid-surface w-full border-accent/60 p-6 text-center md:p-10">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light md:mb-6 md:h-28 md:w-28">
+              <CheckCircle2 className="text-accent-dark" size={56} />
             </div>
             <p className="kid-tag mb-4">Licao concluida</p>
-            <h1 className="text-5xl font-black text-slate-800">Voce terminou {lesson.theme}!</h1>
-            <p className="mx-auto mt-5 max-w-xl text-xl leading-9 text-slate-600">
+            <h1 className="text-3xl font-black text-slate-800 md:text-5xl">Voce terminou {lesson.theme}!</h1>
+            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-slate-600 md:mt-5 md:text-xl md:leading-9">
               Muito bem. Suas frases de revisao foram salvas e o quiz esta pronto quando voce quiser.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -211,9 +237,15 @@ export default function LessonPage() {
               </Link>
               <Link
                 href="/"
-                className="rounded-full border-2 border-slate-200 px-6 py-4 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
               >
                 Voltar ao inicio
+              </Link>
+              <Link
+                href="/lesson/history"
+                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
+              >
+                Ver todas as licoes
               </Link>
             </div>
           </div>
@@ -226,15 +258,20 @@ export default function LessonPage() {
   const progressWidth = ((currentIndex + 1) / lesson.items.length) * 100;
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
             <ArrowLeft size={22} /> Sair
           </Link>
-          <p className="kid-tag">
-            Frase {currentIndex + 1} de {lesson.items.length}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/lesson/history" className="inline-flex items-center gap-2 rounded-full border-2 border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-4 md:text-sm">
+              <History size={16} /> Licoes anteriores
+            </Link>
+            <p className="kid-tag">
+              Frase {currentIndex + 1} de {lesson.items.length}
+            </p>
+          </div>
         </div>
 
         <div className="kid-surface overflow-hidden border-primary/40">
@@ -242,31 +279,52 @@ export default function LessonPage() {
             <div className="h-full rounded-r-full bg-primary transition-all duration-300" style={{ width: `${progressWidth}%` }} />
           </div>
 
-          <div className="grid gap-8 p-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="grid gap-6 p-5 md:gap-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr]">
             <section>
               <p className="kid-tag">{lesson.title}</p>
-              <h1 className="mt-5 text-4xl font-black leading-tight text-slate-800 md:text-5xl">{currentItem.word_en}</h1>
-              <p className="mt-4 text-xl leading-9 text-slate-600">
+              <h1 className="mt-4 text-3xl font-black leading-tight text-slate-800 md:mt-5 md:text-5xl">{currentItem.word_en}</h1>
+              <p className="mt-3 text-lg leading-8 text-slate-600 md:mt-4 md:text-xl md:leading-9">
                 {lesson.content.daily_goal || lesson.objective}
               </p>
 
-              <button
-                onClick={() => void playAudio(currentItem.word_en)}
-                disabled={audioLoading}
-                className="mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-primary text-white shadow-[0_18px_40px_rgba(14,165,233,0.25)] transition hover:scale-105 hover:bg-primary-dark"
-                aria-label={`Play ${currentItem.word_en}`}
-              >
-                <Volume2 size={34} />
-              </button>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <button
+                  onClick={() => void playAudio(currentItem.word_en)}
+                  disabled={audioLoading}
+                  className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white shadow-[0_18px_40px_rgba(14,165,233,0.25)] transition hover:scale-105 hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70 md:h-20 md:w-20"
+                  aria-label={`Play ${currentItem.word_en}`}
+                >
+                  {audioLoading ? <Loader2 size={28} className="animate-spin md:h-[34px] md:w-[34px]" /> : <Volume2 size={28} className="md:h-[34px] md:w-[34px]" />}
+                </button>
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade</span>
+                  <div className="flex gap-2">
+                    {([0.5, 0.75, 1.0] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        type="button"
+                        onClick={() => setAudioSpeed(speed)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                          audioSpeed === speed
+                            ? 'bg-primary text-white'
+                            : 'border border-slate-200 text-slate-500 hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-              <div className="mt-8 rounded-[1.75rem] bg-sky-50 p-6">
+              <div className="mt-8 rounded-[1.5rem] bg-sky-50 p-5 md:rounded-[1.75rem] md:p-6">
                 <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Miniatividade</p>
-                <p className="mt-3 text-2xl font-black text-slate-800">Toque no significado em portugues.</p>
+                <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">Toque no significado em portugues.</p>
                 <p className="mt-2 text-lg leading-8 text-slate-600">Ouça a frase primeiro e depois escolha a traducao que voce acha certa.</p>
               </div>
             </section>
 
-            <section className="rounded-[1.75rem] bg-white p-6 shadow-inner ring-1 ring-slate-100">
+            <section className="rounded-[1.5rem] bg-white p-5 shadow-inner ring-1 ring-slate-100 md:rounded-[1.75rem] md:p-6">
               <div className="grid gap-4">
                 {options.map((option) => {
                   const isSelected = selectedAnswer === option;
@@ -284,7 +342,7 @@ export default function LessonPage() {
                       key={option}
                       onClick={() => void handleAnswer(option)}
                       disabled={Boolean(selectedAnswer)}
-                      className={`rounded-[1.5rem] border-2 px-5 py-4 text-left text-2xl font-bold transition ${stateClass}`}
+                      className={`rounded-[1.25rem] border-2 px-4 py-3.5 text-left text-lg font-bold transition md:rounded-[1.5rem] md:px-5 md:py-4 md:text-2xl ${stateClass}`}
                     >
                       {option}
                     </button>
@@ -293,16 +351,16 @@ export default function LessonPage() {
               </div>
 
               {selectedAnswer ? (
-                <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-5">
-                  <p className={`text-2xl font-black ${answerCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
+                <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-5">
+                  <p className={`text-xl font-black md:text-2xl ${answerCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
                     {answerCorrect ? 'Sim! Muito bem!' : 'Quase! Vamos tentar lembrar.'}
                   </p>
-                  <p className="mt-2 text-xl text-slate-700">
+                  <p className="mt-2 text-lg text-slate-700 md:text-xl">
                     <span className="font-black">{currentItem.word_en}</span> significa{' '}
                     <span className="font-black">{currentItem.word_pt}</span>.
                   </p>
-                  <p className="mt-4 text-lg leading-8 text-slate-600">{currentItem.example_sentence_en}</p>
-                  <p className="text-base leading-7 text-slate-500">{currentItem.example_sentence_pt}</p>
+                  <p className="mt-4 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{currentItem.example_sentence_en}</p>
+                  <p className="text-sm leading-6 text-slate-500 md:text-base md:leading-7">{currentItem.example_sentence_pt}</p>
                   {renderPhraseBreakdown(lesson, currentItem, currentIndex)}
                   {saveError ? <p className="mt-4 text-sm font-bold text-kid-pink">{saveError}</p> : null}
                   <button
@@ -360,17 +418,17 @@ function renderPhraseBreakdown(lesson: Lesson, currentItem: LessonItem, currentI
   }
 
   return (
-    <div className="mt-6 rounded-[1.5rem] bg-amber-50 p-5">
+    <div className="mt-6 rounded-[1.25rem] bg-amber-50 p-4 md:rounded-[1.5rem] md:p-5">
       <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Palavra por palavra</p>
-      <p className="mt-3 text-2xl font-black text-slate-800">
+      <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">
         Frase {currentIndex + 1} - {phraseBreakdown.phrase_en}
       </p>
       <div className="mt-4 space-y-3">
         {phraseBreakdown.word_by_word.map((pair) => (
-          <div key={`${pair.en}-${pair.pt}`} className="flex items-center justify-between gap-4 rounded-[1rem] bg-white px-4 py-3">
-            <span className="text-lg font-black text-slate-800">{pair.en}</span>
+          <div key={`${pair.en}-${pair.pt}`} className="flex flex-col gap-2 rounded-[1rem] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-base font-black text-slate-800 md:text-lg">{pair.en}</span>
             <span className="text-base font-bold text-slate-500">=</span>
-            <span className="text-lg font-bold text-slate-700">{pair.pt}</span>
+            <span className="text-base font-bold text-slate-700 md:text-lg">{pair.pt}</span>
           </div>
         ))}
       </div>

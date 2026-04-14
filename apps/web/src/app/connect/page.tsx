@@ -92,7 +92,7 @@ export default function ConnectPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
@@ -102,19 +102,19 @@ export default function ConnectPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
-          <section className="kid-surface border-primary/40 p-8 md:p-10">
+          <section className="kid-surface border-primary/40 p-5 md:p-10">
             <div className="inline-flex rounded-[1.5rem] bg-primary-light p-4">
               <Link2 className="text-primary-dark" size={34} />
             </div>
-            <h1 className="mt-5 text-4xl font-black text-slate-800">Conecte este aparelho ao seu backend</h1>
-            <p className="mt-4 text-xl leading-9 text-slate-600">
+            <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">Conecte este aparelho ao seu backend</h1>
+            <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
               Rode o backend no seu computador, abra um Cloudflare Tunnel para a porta `8001` e depois cole aqui a URL HTTPS completa.
             </p>
 
             <div className="mt-8 rounded-[1.5rem] border-2 border-slate-200 bg-slate-50 p-5">
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexao atual</p>
-              <p className="mt-3 text-2xl font-black text-slate-800">{connection.title}</p>
-              <p className="mt-3 text-lg leading-8 text-slate-600">{connection.detail}</p>
+              <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">{connection.title}</p>
+              <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{connection.detail}</p>
               {connection.baseUrl ? (
                 <p className="mt-4 break-all rounded-[1.25rem] bg-white px-4 py-3 text-base font-bold text-slate-700">
                   {connection.baseUrl}
@@ -129,7 +129,7 @@ export default function ConnectPage() {
                   type="url"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-4 text-lg outline-none transition focus:border-primary"
+                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                   placeholder="https://random-name.trycloudflare.com"
                   autoCapitalize="none"
                   autoCorrect="off"
@@ -174,12 +174,12 @@ cloudflared tunnel --url http://127.0.0.1:8001
             </form>
           </section>
 
-          <section className="kid-surface border-secondary/40 p-8 md:p-10">
+          <section className="kid-surface border-secondary/40 p-5 md:p-10">
             <div className="inline-flex rounded-[1.5rem] bg-secondary-light p-4">
               <ShieldCheck className="text-secondary-dark" size={34} />
             </div>
-            <h2 className="mt-5 text-3xl font-black text-slate-800">Como isso funciona</h2>
-            <div className="mt-6 space-y-4 text-lg leading-8 text-slate-600">
+            <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
+            <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
               <p>A URL salva do backend fica guardada neste navegador neste aparelho. Se a crianca usar outro celular, tablet ou computador, configure la tambem.</p>
               <p>Quando a URL do tunnel mudar em outro dia, abra esta pagina de novo, cole a nova URL HTTPS e salve. Nao precisa fazer novo deploy na Vercel.</p>
               <p>Se depois voce mover o backend para uma VPS, pode continuar usando esta pagina como override de emergencia ou limpar e voltar para a URL padrao.</p>

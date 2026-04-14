@@ -19,6 +19,7 @@ from schemas.schemas import (
     GenerateLessonResponseSchema,
     LessonItemSchema,
     LessonSchema,
+    LessonSummarySchema,
     ParentLoginSchema,
     ParentSettingsUpdateSchema,
     ProgressSchema,
@@ -251,6 +252,30 @@ def require_parent_session(request: Request) -> str:
 @app.get("/health")
 def health_check() -> dict[str, datetime | str]:
     return {"status": "ok", "timestamp": datetime.utcnow()}
+
+
+@app.get("/api/lessons", response_model=list[LessonSummarySchema])
+def list_all_lessons(session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
+    lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
+    return [
+        LessonSummarySchema(
+            id=lesson.id or 0,
+            title=lesson.title,
+            theme=lesson.theme,
+            objective=lesson.objective,
+            is_completed=lesson.is_completed,
+            completed_at=lesson.completed_at,
+        )
+        for lesson in lessons
+    ]
+
+
+@app.get("/api/lesson/{lesson_id}", response_model=LessonSchema)
+def get_lesson_by_id(lesson_id: int, session: Session = Depends(get_session)) -> LessonSchema:
+    lesson = session.get(Lesson, lesson_id)
+    if lesson is None:
+        raise HTTPException(status_code=404, detail="Licao nao encontrada")
+    return build_lesson_response(session=session, lesson=lesson)
 
 
 @app.get("/api/lesson/today", response_model=LessonSchema)

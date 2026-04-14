@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Brain, CheckCircle2, ChevronRight, RotateCcw, Volume2, XCircle } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Loader2, RotateCcw, Volume2, XCircle } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
@@ -18,6 +18,7 @@ export default function ReviewPage() {
   const [correctCount, setCorrectCount] = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
 
   async function loadReview() {
     setLoading(true);
@@ -41,13 +42,14 @@ export default function ReviewPage() {
     void loadReview();
   }, []);
 
-  async function playAudio(text: string) {
+  async function playAudio(text: string, speed = audioSpeed) {
     setAudioLoading(true);
     try {
       const data = await api.speak(text);
       await playAudioWithFallback(
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || text,
+        speed,
       );
     } catch (err) {
       console.error('Audio error:', err);
@@ -173,18 +175,18 @@ export default function ReviewPage() {
 
   if (completed) {
     return (
-      <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-3xl">
-          <div className="kid-surface border-accent/60 p-10 text-center">
-            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-accent-light">
-              <RotateCcw className="text-accent-dark" size={68} />
+          <div className="kid-surface border-accent/60 p-6 text-center md:p-10">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
+              <RotateCcw className="text-accent-dark" size={52} />
             </div>
-            <h1 className="mt-6 text-5xl font-black text-slate-800">Revisao concluida!</h1>
-            <p className="mt-5 text-2xl text-slate-600">
+            <h1 className="mt-5 text-3xl font-black text-slate-800 md:mt-6 md:text-5xl">Revisao concluida!</h1>
+            <p className="mt-4 text-lg text-slate-600 md:mt-5 md:text-2xl">
               Voce acertou <span className="font-black text-slate-800">{correctCount}</span> de{' '}
               <span className="font-black text-slate-800">{reviewSession.items.length}</span>.
             </p>
-            <p className="mx-auto mt-5 max-w-xl text-xl leading-9 text-slate-600">
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
               Frases mais dificeis voltam mais cedo, e as mais faceis esperam mais. E assim que a revisao inteligente cresce com voce.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -193,7 +195,7 @@ export default function ReviewPage() {
               </button>
               <Link
                 href="/"
-                className="rounded-full border-2 border-slate-200 px-6 py-4 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
               >
                 Voltar ao inicio
               </Link>
@@ -207,10 +209,10 @@ export default function ReviewPage() {
   const card = reviewSession.items[currentIndex];
 
   return (
-    <main className="min-h-screen px-6 py-8 md:px-10 md:py-12">
+    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
             <ArrowLeft size={22} /> Voltar
           </Link>
           <p className="kid-tag">
@@ -218,28 +220,49 @@ export default function ReviewPage() {
           </p>
         </div>
 
-        <div className="kid-surface border-accent/40 p-8 md:p-10">
-          <div className="grid gap-8 lg:grid-cols-[1fr,0.95fr]">
+        <div className="kid-surface border-accent/40 p-5 md:p-10">
+          <div className="grid gap-6 md:gap-8 lg:grid-cols-[1fr,0.95fr]">
             <section>
-              <div className="inline-flex rounded-[1.5rem] bg-accent-light p-4">
-                <Brain className="text-accent-dark" size={34} />
+              <div className="inline-flex rounded-[1.25rem] bg-accent-light p-3 md:rounded-[1.5rem] md:p-4">
+                <Brain className="text-accent-dark" size={28} />
               </div>
-              <h1 className="mt-5 text-6xl font-black text-slate-800 md:text-7xl">{card.word_en}</h1>
-              <p className="mt-4 text-xl leading-9 text-slate-600">
+              <h1 className="mt-4 text-4xl font-black text-slate-800 md:mt-5 md:text-7xl">{card.word_en}</h1>
+              <p className="mt-3 text-lg leading-8 text-slate-600 md:mt-4 md:text-xl md:leading-9">
                 Frases com mais erros aparecem com mais frequencia. Vamos deixar esta mais facil.
               </p>
-              <button
-                onClick={() => void playAudio(card.word_en)}
-                disabled={audioLoading}
-                className="mt-8 inline-flex h-20 w-20 items-center justify-center rounded-full bg-accent text-white shadow-[0_18px_40px_rgba(34,197,94,0.25)] transition hover:scale-105 hover:bg-accent-dark"
-                aria-label={`Play ${card.word_en}`}
-              >
-                <Volume2 size={34} />
-              </button>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <button
+                  onClick={() => void playAudio(card.word_en)}
+                  disabled={audioLoading}
+                  className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-accent text-white shadow-[0_18px_40px_rgba(34,197,94,0.25)] transition hover:scale-105 hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-70 md:h-20 md:w-20"
+                  aria-label={`Play ${card.word_en}`}
+                >
+                  {audioLoading ? <Loader2 size={28} className="animate-spin md:h-[34px] md:w-[34px]" /> : <Volume2 size={28} className="md:h-[34px] md:w-[34px]" />}
+                </button>
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade</span>
+                  <div className="flex gap-2">
+                    {([0.5, 0.75, 1.0] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        type="button"
+                        onClick={() => setAudioSpeed(speed)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
+                          audioSpeed === speed
+                            ? 'bg-accent text-white'
+                            : 'border border-slate-200 text-slate-500 hover:border-accent hover:text-accent-dark'
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </section>
 
-            <section className="rounded-[1.75rem] bg-white p-6 shadow-inner ring-1 ring-slate-100">
-              <p className="text-2xl font-black text-slate-800">{card.prompt}</p>
+            <section className="rounded-[1.5rem] bg-white p-5 shadow-inner ring-1 ring-slate-100 md:rounded-[1.75rem] md:p-6">
+              <p className="text-xl font-black text-slate-800 md:text-2xl">{card.prompt}</p>
               <div className="mt-6 grid gap-4">
                 {card.options.map((option) => {
                   const isChosen = selectedOption === option;
@@ -256,7 +279,7 @@ export default function ReviewPage() {
                       key={option}
                       onClick={() => void handleAnswer(option)}
                       disabled={Boolean(selectedOption)}
-                      className={`rounded-[1.5rem] border-2 px-5 py-4 text-left text-2xl font-bold transition ${optionClass}`}
+                      className={`rounded-[1.25rem] border-2 px-4 py-3.5 text-left text-lg font-bold transition md:rounded-[1.5rem] md:px-5 md:py-4 md:text-2xl ${optionClass}`}
                     >
                       {option}
                     </button>
@@ -265,18 +288,18 @@ export default function ReviewPage() {
               </div>
 
               {selectedOption ? (
-                <div className="mt-6 rounded-[1.5rem] bg-slate-50 p-6">
+                <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-6">
                   <div className="flex items-center gap-3">
                     {isCorrect ? (
                       <CheckCircle2 className="text-accent-dark" size={32} />
                     ) : (
                       <XCircle className="text-rose-600" size={32} />
                     )}
-                    <p className={`text-2xl font-black ${isCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
+                    <p className={`text-xl font-black md:text-2xl ${isCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
                       {isCorrect ? 'Boa memoria!' : 'Essa vai voltar em breve.'}
                     </p>
                   </div>
-                  <p className="mt-4 text-xl text-slate-700">
+                  <p className="mt-4 text-lg text-slate-700 md:text-xl">
                     <span className="font-black">{card.word_en}</span> significa{' '}
                     <span className="font-black">{card.word_pt}</span>.
                   </p>

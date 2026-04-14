@@ -33,6 +33,15 @@ export interface Lesson {
   is_completed: boolean;
 }
 
+export interface LessonSummary {
+  id: number;
+  title: string;
+  theme: string;
+  objective: string;
+  is_completed: boolean;
+  completed_at: string | null;
+}
+
 export interface Progress {
   themes_completed: number;
   streak_count: number;
@@ -226,6 +235,8 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
 export const api = {
   request: fetchAPI,
   getTodayLesson: () => fetchAPI<Lesson>('/api/lesson/today'),
+  getAllLessons: () => fetchAPI<LessonSummary[]>('/api/lessons'),
+  getLessonById: (id: number) => fetchAPI<Lesson>(`/api/lesson/${id}`),
   completeLesson: (id: number) =>
     fetchAPI<{ status: string }>(`/api/lesson/complete?lesson_id=${id}`, {
       method: 'POST',

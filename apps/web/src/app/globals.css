@@ -45,15 +45,15 @@ textarea {
 }
 
 .kid-button {
-  @apply inline-flex items-center justify-center rounded-full px-6 py-4 text-lg font-bold text-white shadow-[0_18px_40px_rgba(14,165,233,0.22)] transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60;
+  @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-base font-bold text-white shadow-[0_18px_40px_rgba(14,165,233,0.22)] transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:px-6 md:py-4 md:text-lg;
 }
 
 .kid-surface {
-  @apply rounded-[2rem] border-4 border-white/70 bg-white/90 shadow-[0_24px_70px_rgba(14,165,233,0.15)] backdrop-blur-sm;
+  @apply rounded-[1.5rem] border-4 border-white/70 bg-white/90 shadow-[0_24px_70px_rgba(14,165,233,0.15)] backdrop-blur-sm md:rounded-[2rem];
 }
 
 .kid-tag {
-  @apply inline-flex items-center rounded-full bg-slate-100 px-4 py-2 text-sm font-bold uppercase tracking-[0.18em] text-slate-500;
+  @apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 md:px-4 md:py-2 md:text-sm md:tracking-[0.18em];
 }
 
 .story-dots {
