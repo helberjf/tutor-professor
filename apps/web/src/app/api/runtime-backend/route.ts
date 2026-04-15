@@ -11,9 +11,17 @@ import {
 const RUNTIME_BACKEND_KV_KEY = 'english-kids-tutor:runtime-backend';
 const RUNTIME_BACKEND_GITHUB_STATE_TAG = 'runtime-backend-state';
 const RUNTIME_BACKEND_GITHUB_STATE_PATH = 'runtime/runtime-backend.json';
+const RUNTIME_BACKEND_GITHUB_BRANCH = 'runtime-state';
+const RUNTIME_BACKEND_GITHUB_BRANCH_FILE = 'runtime-backend.json';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function getGitHubRepoInfo() {
+  const owner = process.env.VERCEL_GIT_REPO_OWNER?.trim() || 'helberjf';
+  const repo = process.env.VERCEL_GIT_REPO_SLUG?.trim() || 'english-tutor-kid';
+  return { owner, repo };
+}
 
 function getGitHubRuntimeBackendStateUrl() {
   const explicitUrl = process.env.RUNTIME_BACKEND_STATE_URL?.trim();
@@ -21,9 +29,13 @@ function getGitHubRuntimeBackendStateUrl() {
     return explicitUrl;
   }
 
-  const repoOwner = process.env.VERCEL_GIT_REPO_OWNER?.trim() || 'helberjf';
-  const repoName = process.env.VERCEL_GIT_REPO_SLUG?.trim() || 'english-tutor-kid';
-  return `https://raw.githubusercontent.com/${repoOwner}/${repoName}/${RUNTIME_BACKEND_GITHUB_STATE_TAG}/${RUNTIME_BACKEND_GITHUB_STATE_PATH}`;
+  const { owner, repo } = getGitHubRepoInfo();
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${RUNTIME_BACKEND_GITHUB_STATE_TAG}/${RUNTIME_BACKEND_GITHUB_STATE_PATH}`;
+}
+
+function getGitHubBranchStateUrl() {
+  const { owner, repo } = getGitHubRepoInfo();
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${RUNTIME_BACKEND_GITHUB_BRANCH}/${RUNTIME_BACKEND_GITHUB_BRANCH_FILE}`;
 }
 
 function getKVConfig() {
@@ -42,6 +54,10 @@ function getKVConfig() {
 
 function getSyncToken() {
   return process.env.VERCEL_BACKEND_SYNC_TOKEN?.trim() || '';
+}
+
+function getGitHubToken() {
+  return process.env.GITHUB_TOKEN?.trim() || '';
 }
 
 async function runKVCommand(command: string[], method: 'GET' | 'POST' = 'GET') {
@@ -94,14 +110,9 @@ async function getStoredRuntimeBackendConfig(): Promise<RuntimeBackendConfig | n
   }
 }
 
-async function getGitHubRuntimeBackendConfig(): Promise<RuntimeBackendConfig | null> {
-  const stateUrl = getGitHubRuntimeBackendStateUrl();
-  if (!stateUrl) {
-    return null;
-  }
-
+async function fetchGitHubRawConfig(rawUrl: string): Promise<RuntimeBackendConfig | null> {
   try {
-    const response = await fetch(`${stateUrl}?ts=${Date.now()}`, {
+    const response = await fetch(`${rawUrl}?ts=${Date.now()}`, {
       method: 'GET',
       cache: 'no-store',
     });
@@ -125,6 +136,111 @@ async function getGitHubRuntimeBackendConfig(): Promise<RuntimeBackendConfig | n
   }
 }
 
+async function getGitHubRuntimeBackendConfig(): Promise<RuntimeBackendConfig | null> {
+  // Try the branch-based URL first (written by the Vercel POST endpoint)
+  const branchConfig = await fetchGitHubRawConfig(getGitHubBranchStateUrl());
+  if (branchConfig) {
+    return branchConfig;
+  }
+
+  // Fall back to the tag-based URL (written by the git-push script)
+  return fetchGitHubRawConfig(getGitHubRuntimeBackendStateUrl());
+}
+
+async function saveRuntimeBackendConfigViaKV(record: RuntimeBackendConfig) {
+  await runKVCommand(['set', RUNTIME_BACKEND_KV_KEY, JSON.stringify(record)], 'POST');
+}
+
+async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
+  const token = getGitHubToken();
+  if (!token) {
+    throw new Error('GITHUB_TOKEN nao configurado na Vercel.');
+  }
+
+  const { owner, repo } = getGitHubRepoInfo();
+  const branch = RUNTIME_BACKEND_GITHUB_BRANCH;
+  const filePath = RUNTIME_BACKEND_GITHUB_BRANCH_FILE;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'english-kids-tutor-vercel',
+  };
+
+  // Try to get the current file SHA on the branch
+  const getRes = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`,
+    { headers, cache: 'no-store' },
+  );
+
+  let sha: string | undefined;
+
+  if (getRes.ok) {
+    const data = (await getRes.json()) as { sha: string };
+    sha = data.sha;
+  } else if (getRes.status === 404) {
+    // Branch or file might not exist — check if the branch exists
+    const branchRes = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/branches/${branch}`,
+      { headers, cache: 'no-store' },
+    );
+
+    if (!branchRes.ok) {
+      // Branch does not exist: create it from the default branch HEAD
+      const mainRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`,
+        { headers, cache: 'no-store' },
+      );
+
+      if (!mainRes.ok) {
+        throw new Error('Nao foi possivel obter o SHA do branch main para criar o runtime-state.');
+      }
+
+      const mainData = (await mainRes.json()) as { object: { sha: string } };
+      const createBranchRes = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ref: `refs/heads/${branch}`,
+            sha: mainData.object.sha,
+          }),
+        },
+      );
+
+      if (!createBranchRes.ok) {
+        const errText = await createBranchRes.text();
+        throw new Error(`Nao foi possivel criar o branch ${branch}: ${createBranchRes.status} ${errText}`);
+      }
+    }
+    // File doesn't exist on the branch yet — no SHA needed for creation
+  } else {
+    throw new Error(`GitHub API GET falhou com status ${getRes.status}.`);
+  }
+
+  const content = Buffer.from(JSON.stringify(record, null, 2)).toString('base64');
+  const putRes = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
+    {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        message: 'Update runtime backend state',
+        content,
+        branch,
+        ...(sha ? { sha } : {}),
+      }),
+    },
+  );
+
+  if (!putRes.ok) {
+    const errText = await putRes.text();
+    throw new Error(`GitHub API PUT falhou com status ${putRes.status}: ${errText}`);
+  }
+}
+
 async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
   const baseUrl = normalizeRuntimeBackendBaseUrl(payload.baseUrl, { requireHttps: true });
   if (!baseUrl) {
@@ -137,7 +253,14 @@ async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
     machineName: payload.machineName || null,
   });
 
-  await runKVCommand(['set', RUNTIME_BACKEND_KV_KEY, JSON.stringify(record)], 'POST');
+  if (getKVConfig()) {
+    await saveRuntimeBackendConfigViaKV(record);
+  } else if (getGitHubToken()) {
+    await saveRuntimeBackendConfigViaGitHub(record);
+  } else {
+    throw new Error('Nenhum metodo de armazenamento configurado (KV ou GITHUB_TOKEN).');
+  }
+
   return record;
 }
 
@@ -174,9 +297,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const syncToken = getSyncToken();
-  if (!syncToken || !getKVConfig()) {
+  if (!syncToken) {
     return NextResponse.json(
-      { detail: 'A sincronizacao global do backend nao esta configurada na Vercel.' },
+      { detail: 'VERCEL_BACKEND_SYNC_TOKEN nao esta configurado na Vercel.' },
+      { status: 503 },
+    );
+  }
+
+  const hasStorage = getKVConfig() || getGitHubToken();
+  if (!hasStorage) {
+    return NextResponse.json(
+      { detail: 'Nenhum metodo de armazenamento configurado na Vercel (KV_REST_API_URL/TOKEN ou GITHUB_TOKEN).' },
       { status: 503 },
     );
   }
