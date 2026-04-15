@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, ChevronRight, Star, Trophy, XCircle } from 'lu
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Quiz, type QuizSubmitResponse } from '@/lib/api';
+import { formatQuestionPrompt } from '@/lib/question-format';
 
 export default function QuizPage() {
   return (
@@ -217,6 +218,7 @@ function QuizPageContent() {
 
   const question = quiz.questions[currentIndex];
   const isCorrect = selectedOption === question.correct_option;
+  const formattedQuestion = formatQuestionPrompt(question.question);
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
@@ -232,7 +234,20 @@ function QuizPageContent() {
 
         <div className="kid-surface border-secondary/50 p-5 md:p-10">
           <p className="kid-tag">Hora do quiz</p>
-          <h1 className="mt-4 text-3xl font-black leading-tight text-slate-800 md:mt-5 md:text-5xl">{question.question}</h1>
+          {formattedQuestion.focusText ? (
+            <div className="mt-4 space-y-3 md:mt-5 md:space-y-4">
+              <p className="text-lg font-black leading-8 text-slate-600 md:text-2xl md:leading-10">
+                {formattedQuestion.prompt}
+              </p>
+              <h1 className="text-3xl font-black leading-tight text-slate-800 md:text-5xl">
+                {formattedQuestion.focusText}
+              </h1>
+            </div>
+          ) : (
+            <h1 className="mt-4 text-3xl font-black leading-tight text-slate-800 md:mt-5 md:text-5xl">
+              {question.question}
+            </h1>
+          )}
           <div className="mt-6 grid gap-4 md:mt-8">
             {question.options.map((option) => {
               const isChosen = selectedOption === option;

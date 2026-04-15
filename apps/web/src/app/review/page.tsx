@@ -7,6 +7,7 @@ import { ArrowLeft, Brain, CheckCircle2, ChevronRight, Loader2, RotateCcw, Volum
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { formatQuestionPrompt } from '@/lib/question-format';
 
 export default function ReviewPage() {
   const [reviewSession, setReviewSession] = useState<ReviewSession | null>(null);
@@ -207,6 +208,7 @@ export default function ReviewPage() {
   }
 
   const card = reviewSession.items[currentIndex];
+  const formattedPrompt = formatQuestionPrompt(card.prompt);
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
@@ -262,7 +264,7 @@ export default function ReviewPage() {
             </section>
 
             <section className="rounded-[1.5rem] bg-white p-5 shadow-inner ring-1 ring-slate-100 md:rounded-[1.75rem] md:p-6">
-              <p className="text-xl font-black text-slate-800 md:text-2xl">{card.prompt}</p>
+              <p className="text-xl font-black text-slate-800 md:text-2xl">{formattedPrompt.prompt}</p>
               <div className="mt-6 grid gap-4">
                 {card.options.map((option) => {
                   const isChosen = selectedOption === option;
