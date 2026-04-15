@@ -20,6 +20,7 @@ $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
+$TunnelLogFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel.stderr.log'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
@@ -118,6 +119,13 @@ if ($CheckOnly) {
 }
 
 if ($WithTunnel) {
+  if (Test-Path $TunnelUrlFile) {
+    Remove-Item -LiteralPath $TunnelUrlFile -Force
+  }
+  if (Test-Path $TunnelLogFile) {
+    Remove-Item -LiteralPath $TunnelLogFile -Force
+  }
+
   Write-Step 'Starting Cloudflare Tunnel window'
   Start-Process -FilePath $PowerShellExe -ArgumentList @(
     '-ExecutionPolicy', 'Bypass',
@@ -161,5 +169,6 @@ Write-Host 'For Vercel integration, the Cloudflare Tunnel must target the backen
 if ($WithTunnel) {
   Write-Host 'Tunnel: the extra PowerShell window will try the named tunnel first and fall back to a quick tunnel if local credentials are missing.'
   Write-Host "Tunnel URL file: $TunnelUrlFile"
+  Write-Host "Tunnel log file: $TunnelLogFile"
   Write-Host 'The public Cloudflare URL appears in the tunnel window and is also saved to the file above.'
 }
