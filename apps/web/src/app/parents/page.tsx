@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Baby, Lock, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Baby, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
@@ -23,8 +24,8 @@ const DEFAULT_FORM: ParentFormState = {
 };
 
 export default function ParentsPage() {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [password, setPassword] = useState('');
   const [activeChildId, setActiveChildId] = useState<number | null>(getStoredActiveChildId());
   const [children, setChildren] = useState<ChildProfile[]>([]);
   const [form, setForm] = useState<ParentFormState>(DEFAULT_FORM);
@@ -67,8 +68,8 @@ export default function ParentsPage() {
     } catch (err) {
       const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar as configuracoes da area de pais.');
       if (nextError.status === 401) {
-        setIsLoggedIn(false);
-        setError(null);
+        router.replace('/login?next=/parents');
+        return;
       } else {
         setError(nextError);
       }
@@ -80,24 +81,6 @@ export default function ParentsPage() {
   useEffect(() => {
     void loadSettings();
   }, []);
-
-  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setMessage('');
-    try {
-      await api.parentLogin(password);
-      await loadSettings();
-      setPassword('');
-      setMessage('Bem-vindo! As configuracoes da area de pais estao prontas.');
-    } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel entrar.');
-      setMessage(nextError.status === 401 ? 'Essa senha nao confere.' : nextError.message);
-      setError(nextError.status === 401 ? null : nextError);
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -193,9 +176,8 @@ export default function ParentsPage() {
     } catch (err) {
       const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel gerar novas frases.');
       if (nextError.status === 401) {
-        setIsLoggedIn(false);
-        setMessage('Entre novamente para gerar novas frases.');
-        setGeneratedLesson(null);
+        router.replace('/login?next=/parents');
+        return;
       } else {
         setGeneratorMessage(nextError.message);
         setGeneratorTone('error');
@@ -252,41 +234,7 @@ export default function ParentsPage() {
   }
 
   if (!isLoggedIn) {
-    return (
-      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
-        <div className="mx-auto max-w-lg">
-          <div className="kid-surface border-primary/40 p-6 md:p-10">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-light md:h-24 md:w-24">
-              <Lock className="text-primary-dark" size={42} />
-            </div>
-            <h1 className="mt-5 text-center text-3xl font-black text-slate-800 md:mt-6 md:text-4xl">Entrada da area de pais</h1>
-            <p className="mt-3 text-center text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-              Use a senha da area de pais para atualizar o audio e o perfil da crianca.
-            </p>
-
-            <form onSubmit={handleLogin} className="mt-8 space-y-5">
-              <div>
-                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Senha</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
-                  placeholder="Digite a senha da area de pais"
-                />
-              </div>
-              {message ? <p className="text-center text-sm font-bold text-kid-pink">{message}</p> : null}
-              <button type="submit" disabled={saving} className="kid-button w-full bg-primary hover:bg-primary-dark">
-                {saving ? 'Entrando...' : 'Entrar'}
-              </button>
-              <Link href="/" className="block text-center text-base font-bold text-slate-500 hover:text-primary md:text-lg">
-                <ArrowLeft className="mr-2 inline" size={18} /> Voltar ao inicio
-              </Link>
-            </form>
-          </div>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   return (
