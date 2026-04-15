@@ -1,7 +1,15 @@
+import {
+  buildMissingRuntimeBackendConfig,
+  getRuntimeBackendHost,
+  normalizeRuntimeBackendBaseUrl,
+  type RuntimeBackendConfig,
+} from '@/lib/runtime-backend';
+
 const API_BASE_URL_STORAGE_KEY = 'english-kids-tutor.api-base-url';
+const RUNTIME_BACKEND_STORAGE_KEY = 'english-kids-tutor.runtime-backend';
 const API_BASE_URL_CHANGE_EVENT = 'english-kids-tutor:api-base-url-change';
 
-export type ApiConnectionSource = 'saved' | 'default' | 'development' | 'missing';
+export type ApiConnectionSource = 'saved' | 'global' | 'default' | 'development' | 'missing';
 
 export interface ApiConnectionDetails {
   baseUrl: string | null;
@@ -9,50 +17,68 @@ export interface ApiConnectionDetails {
   source: ApiConnectionSource;
 }
 
+let runtimeBackendRequest: Promise<RuntimeBackendConfig> | null = null;
+let runtimeBackendHasBeenRefreshed = false;
+
 function isBrowser() {
   return typeof window !== 'undefined';
 }
 
-function normalizeUrl(rawValue: string, options?: { requireHttps?: boolean }): string | null {
-  const value = rawValue.trim();
-  if (!value) {
-    return null;
+function dispatchApiConnectionChange() {
+  if (!isBrowser()) {
+    return;
   }
 
-  try {
-    const url = new URL(value);
-
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      return null;
-    }
-
-    if (options?.requireHttps && url.protocol !== 'https:') {
-      return null;
-    }
-
-    url.hash = '';
-    url.search = '';
-
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
-}
-
-function getHost(baseUrl: string | null) {
-  if (!baseUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(baseUrl).host;
-  } catch {
-    return baseUrl;
-  }
+  window.dispatchEvent(new Event(API_BASE_URL_CHANGE_EVENT));
 }
 
 export function normalizeSavedApiBaseUrl(rawValue: string) {
-  return normalizeUrl(rawValue, { requireHttps: true });
+  return normalizeRuntimeBackendBaseUrl(rawValue, { requireHttps: true });
+}
+
+function readStoredRuntimeBackendConfig() {
+  if (!isBrowser()) {
+    return buildMissingRuntimeBackendConfig();
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(RUNTIME_BACKEND_STORAGE_KEY) || '';
+    if (!rawValue) {
+      return buildMissingRuntimeBackendConfig();
+    }
+
+    const parsed = JSON.parse(rawValue) as RuntimeBackendConfig;
+    const baseUrl = normalizeRuntimeBackendBaseUrl(parsed.baseUrl || '', { requireHttps: true });
+    if (!baseUrl) {
+      return buildMissingRuntimeBackendConfig();
+    }
+
+    return {
+      baseUrl,
+      host: getRuntimeBackendHost(baseUrl),
+      updatedAt: parsed.updatedAt || null,
+      source: 'global' as const,
+      activatedAt: parsed.activatedAt || null,
+      machineName: parsed.machineName || null,
+    };
+  } catch {
+    return buildMissingRuntimeBackendConfig();
+  }
+}
+
+function writeStoredRuntimeBackendConfig(config: RuntimeBackendConfig) {
+  if (!isBrowser()) {
+    return;
+  }
+
+  if (!config.baseUrl) {
+    window.localStorage.removeItem(RUNTIME_BACKEND_STORAGE_KEY);
+    dispatchApiConnectionChange();
+    return;
+  }
+
+  window.localStorage.setItem(RUNTIME_BACKEND_STORAGE_KEY, JSON.stringify(config));
+  dispatchApiConnectionChange();
 }
 
 export function getStoredApiBaseUrl() {
@@ -64,7 +90,9 @@ export function getStoredApiBaseUrl() {
 }
 
 export function getDefaultApiBaseUrl() {
-  const envUrl = normalizeUrl(process.env.NEXT_PUBLIC_API_BASE_URL || '');
+  const envUrl = normalizeRuntimeBackendBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL || '', {
+    requireHttps: false,
+  });
   if (envUrl) {
     return envUrl;
   }
@@ -77,7 +105,79 @@ export function getDefaultApiBaseUrl() {
 }
 
 export function getApiBaseUrl() {
-  return getStoredApiBaseUrl() || getDefaultApiBaseUrl();
+  return getStoredApiBaseUrl() || readStoredRuntimeBackendConfig().baseUrl || getDefaultApiBaseUrl();
+}
+
+async function requestRuntimeBackendConfig() {
+  if (!isBrowser()) {
+    return buildMissingRuntimeBackendConfig();
+  }
+
+  if (runtimeBackendRequest) {
+    return runtimeBackendRequest;
+  }
+
+  runtimeBackendRequest = fetch('/api/runtime-backend', {
+    method: 'GET',
+    cache: 'no-store',
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Runtime backend config request failed with ${response.status}.`);
+      }
+
+      const payload = (await response.json()) as RuntimeBackendConfig;
+      const baseUrl = normalizeRuntimeBackendBaseUrl(payload.baseUrl || '', { requireHttps: true });
+      if (!baseUrl) {
+        return buildMissingRuntimeBackendConfig();
+      }
+
+      return {
+        baseUrl,
+        host: getRuntimeBackendHost(baseUrl),
+        updatedAt: payload.updatedAt || null,
+        source: 'global' as const,
+        activatedAt: payload.activatedAt || null,
+        machineName: payload.machineName || null,
+      };
+    })
+    .catch((error) => {
+      console.error('Runtime backend config fetch failed:', error);
+      return readStoredRuntimeBackendConfig();
+    })
+    .finally(() => {
+      runtimeBackendRequest = null;
+    });
+
+  return runtimeBackendRequest;
+}
+
+export async function refreshRuntimeBackendConfig() {
+  const config = await requestRuntimeBackendConfig();
+  runtimeBackendHasBeenRefreshed = true;
+  writeStoredRuntimeBackendConfig(config);
+  return config;
+}
+
+export async function resolveApiBaseUrl() {
+  const savedUrl = getStoredApiBaseUrl();
+  if (savedUrl) {
+    return savedUrl;
+  }
+
+  if (isBrowser()) {
+    const storedRuntimeConfig = readStoredRuntimeBackendConfig();
+    if (runtimeBackendHasBeenRefreshed) {
+      return storedRuntimeConfig.baseUrl || getDefaultApiBaseUrl();
+    }
+
+    const runtimeConfig = await refreshRuntimeBackendConfig();
+    if (runtimeConfig.baseUrl) {
+      return runtimeConfig.baseUrl;
+    }
+  }
+
+  return getDefaultApiBaseUrl();
 }
 
 export function getApiConnectionDetails(): ApiConnectionDetails {
@@ -85,8 +185,17 @@ export function getApiConnectionDetails(): ApiConnectionDetails {
   if (savedUrl) {
     return {
       baseUrl: savedUrl,
-      host: getHost(savedUrl),
+      host: getRuntimeBackendHost(savedUrl),
       source: 'saved',
+    };
+  }
+
+  const runtimeConfig = readStoredRuntimeBackendConfig();
+  if (runtimeConfig.baseUrl) {
+    return {
+      baseUrl: runtimeConfig.baseUrl,
+      host: runtimeConfig.host,
+      source: 'global',
     };
   }
 
@@ -94,7 +203,7 @@ export function getApiConnectionDetails(): ApiConnectionDetails {
   if (defaultUrl) {
     return {
       baseUrl: defaultUrl,
-      host: getHost(defaultUrl),
+      host: getRuntimeBackendHost(defaultUrl),
       source: process.env.NEXT_PUBLIC_API_BASE_URL ? 'default' : 'development',
     };
   }
@@ -147,7 +256,7 @@ export function saveApiBaseUrl(baseUrl: string) {
   }
 
   window.localStorage.setItem(API_BASE_URL_STORAGE_KEY, normalized);
-  window.dispatchEvent(new Event(API_BASE_URL_CHANGE_EVENT));
+  dispatchApiConnectionChange();
 }
 
 export function clearSavedApiBaseUrl() {
@@ -156,7 +265,7 @@ export function clearSavedApiBaseUrl() {
   }
 
   window.localStorage.removeItem(API_BASE_URL_STORAGE_KEY);
-  window.dispatchEvent(new Event(API_BASE_URL_CHANGE_EVENT));
+  dispatchApiConnectionChange();
 }
 
 export function subscribeToApiBaseUrlChange(callback: () => void) {
@@ -166,7 +275,7 @@ export function subscribeToApiBaseUrlChange(callback: () => void) {
 
   const notify = () => callback();
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === API_BASE_URL_STORAGE_KEY) {
+    if (event.key === API_BASE_URL_STORAGE_KEY || event.key === RUNTIME_BACKEND_STORAGE_KEY) {
       notify();
     }
   };

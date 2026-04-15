@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Link2, RefreshCw, ShieldCheck } from 'lucide-r
 import {
   clearSavedApiBaseUrl,
   getApiConnectionDetails,
+  refreshRuntimeBackendConfig,
   saveApiBaseUrl,
   subscribeToApiBaseUrlChange,
   verifySavedApiBaseUrl,
@@ -28,6 +29,14 @@ function describeConnection() {
       ...connection,
       title: `Conectado a ${connection.host}`,
       detail: 'Essa URL salva substitui qualquer URL padrao da API neste aparelho.',
+    };
+  }
+
+  if (connection.source === 'global') {
+    return {
+      ...connection,
+      title: `Usando backend global em ${connection.host}`,
+      detail: 'Essa URL vem da configuracao compartilhada publicada na Vercel e vale como padrao para todos os aparelhos no proximo acesso.',
     };
   }
 
@@ -61,6 +70,7 @@ export default function ConnectPage() {
       setDraft(nextConnection.source === 'saved' ? nextConnection.baseUrl || '' : '');
     };
     sync();
+    void refreshRuntimeBackendConfig().then(sync);
     return subscribeToApiBaseUrlChange(sync);
   }, []);
 
@@ -141,7 +151,7 @@ export default function ConnectPage() {
   function handleClearOverride() {
     clearSavedApiBaseUrl();
     setDraft('');
-    setMessage('A conexao salva foi removida. O app vai usar a URL padrao, se existir.');
+    setMessage('A conexao salva foi removida. O app vai usar a configuracao global ou a URL padrao, se existir.');
     setError('');
     setConnection(describeConnection());
   }
@@ -235,7 +245,8 @@ cloudflared tunnel --url http://127.0.0.1:8001
             </div>
             <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
             <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
-              <p>A URL salva do backend fica guardada neste navegador neste aparelho. Se a crianca usar outro celular, tablet ou computador, configure la tambem.</p>
+              <p>A URL salva do backend continua funcionando como override manual neste navegador. Se a crianca usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
+              <p>Se existir uma configuracao global publicada pela Vercel, ela aparece automaticamente aqui como padrao e vale no proximo acesso ao site.</p>
               <p>Quando a URL do tunnel mudar em outro dia, abra esta pagina de novo, cole a nova URL HTTPS e salve. Nao precisa fazer novo deploy na Vercel.</p>
               <p>Se depois voce mover o backend para uma VPS, pode continuar usando esta pagina como override de emergencia ou limpar e voltar para a URL padrao.</p>
             </div>

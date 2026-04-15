@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Baloo_2 } from 'next/font/google';
 
-
 import './globals.css';
 import { Navbar } from '@/components/navbar';
 
@@ -11,8 +10,8 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: 'Tutor de Inglês Infantil',
-  description: 'Um tutor de inglês infantil seguro, divertido e acolhedor.',
+  title: 'English Kids Tutor',
+  description: 'Um tutor de ingles infantil seguro, leve e acolhedor.',
 };
 
 export default function RootLayout({
@@ -24,7 +23,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={baloo.variable}>
         <Navbar />
-        <div className="pt-14">{children}</div>
+        <div className="pt-16">{children}</div>
       </body>
     </html>
   );

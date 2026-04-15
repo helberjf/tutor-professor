@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@/lib/api-config';
+import { getApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-config';
 import { getStoredActiveChildId } from '@/lib/active-child';
 
 export interface LessonItem {
@@ -212,9 +212,9 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const apiBaseUrl = getApiBaseUrl();
+  const apiBaseUrl = await resolveApiBaseUrl();
   if (!apiBaseUrl) {
-    throw new ApiError('Este aparelho ainda nao esta conectado a um backend. Abra a pagina de conexao e salve a URL atual do tunnel.', {
+    throw new ApiError('Este aparelho ainda nao esta conectado a um backend. Rode o launcher com o tunnel ativo ou abra a pagina de conexao e salve a URL atual do tunnel.', {
       code: 'unconfigured',
     });
   }

@@ -7,7 +7,7 @@ import { BookOpen, Bot, Brain, ChevronRight, History, Link2, Settings, Sparkles,
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Progress } from '@/lib/api';
-import { getApiConnectionDetails, subscribeToApiBaseUrlChange } from '@/lib/api-config';
+import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
 export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -35,6 +35,7 @@ export default function HomePage() {
   useEffect(() => {
     const syncConnection = () => setConnection(getApiConnectionDetails());
     syncConnection();
+    void refreshRuntimeBackendConfig().then(syncConnection);
     return subscribeToApiBaseUrlChange(syncConnection);
   }, []);
 
@@ -43,7 +44,7 @@ export default function HomePage() {
       <StatusCard
         tone="offline"
         title="Conecte o tutor primeiro"
-        message="Este aparelho precisa da URL atual do backend antes de carregar as licoes. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
+        message="Este aparelho precisa da URL atual do backend antes de carregar as licoes. O app tenta buscar a configuracao global automaticamente, mas voce ainda pode abrir a pagina de conexao e salvar a URL HTTPS do tunnel do seu computador."
         primaryAction={
           <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
@@ -142,11 +143,13 @@ export default function HomePage() {
                 <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base md:leading-7">
                   {connection.source === 'saved'
                     ? 'Usando a URL do tunnel salva neste navegador.'
-                    : connection.source === 'default'
-                      ? 'Usando a URL padrao da API vinda do ambiente da Vercel.'
-                      : connection.source === 'development'
-                        ? 'Usando o backend local porque o app esta rodando em desenvolvimento.'
-                        : 'Abra a pagina de conexao e cole a URL HTTPS atual do tunnel do seu computador.'}
+                    : connection.source === 'global'
+                      ? 'Usando a URL global compartilhada pela Vercel para este backend.'
+                      : connection.source === 'default'
+                        ? 'Usando a URL padrao da API vinda do ambiente da Vercel.'
+                        : connection.source === 'development'
+                          ? 'Usando o backend local porque o app esta rodando em desenvolvimento.'
+                          : 'Abra a pagina de conexao e cole a URL HTTPS atual do tunnel do seu computador.'}
                 </p>
                 <Link href="/connect" className="mt-4 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
                   {connection.baseUrl ? 'Trocar conexao' : 'Conectar backend'}

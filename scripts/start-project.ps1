@@ -26,6 +26,12 @@ $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
 } else {
   'https://english-tutor-kid.vercel.app/connect'
 }
+$RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
+  $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
+} else {
+  'https://english-tutor-kid.vercel.app/api/runtime-backend'
+}
+$RuntimeBackendSyncToken = $env:ENGLISH_TUTOR_VERCEL_SYNC_TOKEN
 
 function Write-Step([string]$Message) {
   Write-Host ''
@@ -66,7 +72,7 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 25) {
         Write-Host 'Use this URL in https://english-tutor-kid.vercel.app/connect' -ForegroundColor Green
         Write-Host "[Auto-connect link] $connectLink" -ForegroundColor Green
         Write-Host ''
-        return $true
+        return $url
       }
     }
 
@@ -77,7 +83,43 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 25) {
   Write-Host 'Cloudflare URL not captured yet in this terminal.' -ForegroundColor Yellow
   Write-Host "If needed, check: $FilePath" -ForegroundColor Yellow
   Write-Host ''
-  return $false
+  return $null
+}
+
+function Sync-RuntimeBackend([string]$BaseUrl) {
+  if (-not $BaseUrl) {
+    Write-Host '[Global backend activation] skipped because no tunnel URL was captured.' -ForegroundColor Yellow
+    return $false
+  }
+
+  if (-not $RuntimeBackendSyncToken) {
+    Write-Host '[Global backend activation] skipped because ENGLISH_TUTOR_VERCEL_SYNC_TOKEN is not set.' -ForegroundColor Yellow
+    return $false
+  }
+
+  try {
+    $payload = @{
+      baseUrl = $BaseUrl
+      activatedAt = (Get-Date).ToUniversalTime().ToString('o')
+      machineName = $env:COMPUTERNAME
+    } | ConvertTo-Json
+
+    $response = Invoke-RestMethod -Uri $RuntimeBackendSyncUrl -Method Post -ContentType 'application/json' -Headers @{
+      Authorization = "Bearer $RuntimeBackendSyncToken"
+    } -Body $payload
+
+    Write-Host ''
+    Write-Host "[Global backend activation] $($response.baseUrl)" -ForegroundColor Green
+    Write-Host "[Global backend updated at] $($response.updatedAt)" -ForegroundColor Green
+    Write-Host ''
+    return $true
+  } catch {
+    Write-Host ''
+    Write-Host "[Global backend activation] failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host "[Global backend sync URL] $RuntimeBackendSyncUrl" -ForegroundColor Yellow
+    Write-Host ''
+    return $false
+  }
 }
 
 Write-Step 'Checking required tools'
@@ -134,7 +176,12 @@ if ($WithTunnel) {
   ) | Out-Null
 
   Write-Step 'Waiting for Cloudflare Tunnel URL'
-  Wait-ForTunnelUrl -FilePath $TunnelUrlFile | Out-Null
+  $TunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile
+
+  if ($TunnelUrl) {
+    Write-Step 'Syncing global backend on Vercel'
+    Sync-RuntimeBackend -BaseUrl $TunnelUrl | Out-Null
+  }
 }
 
 Write-Step 'Starting backend window'
