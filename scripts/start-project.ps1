@@ -19,6 +19,7 @@ $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
 $KokoroRunner = Join-Path $PSScriptRoot 'run-kokoro.ps1'
+$RuntimeBackendPublisher = Join-Path $PSScriptRoot 'publish-runtime-backend-state.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
 $TunnelLogFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel.stderr.log'
@@ -179,12 +180,30 @@ function Sync-RuntimeBackend([string]$BaseUrl) {
   }
 }
 
+function Publish-GitHubRuntimeBackendState([string]$BaseUrl) {
+  if (-not $BaseUrl) {
+    Write-Host '[GitHub runtime state] skipped because no tunnel URL was captured.' -ForegroundColor Yellow
+    return $false
+  }
+
+  try {
+    & $RuntimeBackendPublisher -BaseUrl $BaseUrl
+    return $true
+  } catch {
+    Write-Host ''
+    Write-Host "[GitHub runtime state] failed: $($_.Exception.Message)" -ForegroundColor Yellow
+    Write-Host ''
+    return $false
+  }
+}
+
 Write-Step 'Checking required tools'
 Test-CommandAvailable python 'Install Python 3.11+ and try again.'
 Test-CommandAvailable pnpm 'Install pnpm and try again.'
 
 if ($WithTunnel) {
   Test-CommandAvailable cloudflared 'Install cloudflared or rerun without -WithTunnel.'
+  Test-CommandAvailable git 'Install Git or rerun without -WithTunnel.'
 }
 
 Write-Step 'Ensuring local environment files exist'
@@ -273,8 +292,16 @@ if ($WithTunnel) {
   $TunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile
 
   if ($TunnelUrl) {
+    Write-Step 'Publishing global backend state on GitHub'
+    $GitHubRuntimeStatePublished = Publish-GitHubRuntimeBackendState -BaseUrl $TunnelUrl
+
     Write-Step 'Syncing global backend on Vercel'
-    Sync-RuntimeBackend -BaseUrl $TunnelUrl | Out-Null
+    $VercelRuntimeBackendSynced = Sync-RuntimeBackend -BaseUrl $TunnelUrl
+
+    if (-not $GitHubRuntimeStatePublished -and -not $VercelRuntimeBackendSynced) {
+      Write-Host 'The tunnel URL was captured, but no global activation target accepted it yet.' -ForegroundColor Yellow
+      Write-Host 'The manual /connect link still works, and the GitHub/Vercel sync can be retried on the next start.' -ForegroundColor Yellow
+    }
   }
 }
 

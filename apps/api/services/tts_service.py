@@ -37,6 +37,9 @@ class TTSService:
         }
         return legacy_voice_map.get(normalized, normalized)
 
+    def normalize_voice(self, voice: str | None) -> str:
+        return self._normalize_voice(voice)
+
     def _get_text_hash(self, text: str, voice: str) -> str:
         return hashlib.md5(f"{text}:{voice}".encode()).hexdigest()
 

@@ -9,6 +9,22 @@ import {
 } from '@/lib/runtime-backend';
 
 const RUNTIME_BACKEND_KV_KEY = 'english-kids-tutor:runtime-backend';
+const RUNTIME_BACKEND_GITHUB_STATE_TAG = 'runtime-backend-state';
+const RUNTIME_BACKEND_GITHUB_STATE_PATH = 'runtime/runtime-backend.json';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+function getGitHubRuntimeBackendStateUrl() {
+  const explicitUrl = process.env.RUNTIME_BACKEND_STATE_URL?.trim();
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  const repoOwner = process.env.VERCEL_GIT_REPO_OWNER?.trim() || 'helberjf';
+  const repoName = process.env.VERCEL_GIT_REPO_SLUG?.trim() || 'english-tutor-kid';
+  return `https://raw.githubusercontent.com/${repoOwner}/${repoName}/${RUNTIME_BACKEND_GITHUB_STATE_TAG}/${RUNTIME_BACKEND_GITHUB_STATE_PATH}`;
+}
 
 function getKVConfig() {
   const url = process.env.KV_REST_API_URL?.trim();
@@ -78,6 +94,37 @@ async function getStoredRuntimeBackendConfig(): Promise<RuntimeBackendConfig | n
   }
 }
 
+async function getGitHubRuntimeBackendConfig(): Promise<RuntimeBackendConfig | null> {
+  const stateUrl = getGitHubRuntimeBackendStateUrl();
+  if (!stateUrl) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${stateUrl}?ts=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const parsed = (await response.json()) as RuntimeBackendConfig;
+    const baseUrl = normalizeRuntimeBackendBaseUrl(parsed.baseUrl || '', { requireHttps: true });
+    if (!baseUrl) {
+      return null;
+    }
+
+    return buildRuntimeBackendConfig(baseUrl, {
+      updatedAt: parsed.updatedAt || null,
+      activatedAt: parsed.activatedAt || null,
+      machineName: parsed.machineName || null,
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
   const baseUrl = normalizeRuntimeBackendBaseUrl(payload.baseUrl, { requireHttps: true });
   if (!baseUrl) {
@@ -109,11 +156,19 @@ async function verifyBackendHealth(baseUrl: string) {
 
 export async function GET() {
   try {
-    const storedConfig = await getStoredRuntimeBackendConfig();
-    return NextResponse.json(storedConfig || buildMissingRuntimeBackendConfig());
+    const storedConfig = (await getStoredRuntimeBackendConfig()) || (await getGitHubRuntimeBackendConfig());
+    return NextResponse.json(storedConfig || buildMissingRuntimeBackendConfig(), {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
   } catch (error) {
     console.error('Runtime backend GET failed:', error);
-    return NextResponse.json(buildMissingRuntimeBackendConfig());
+    return NextResponse.json(buildMissingRuntimeBackendConfig(), {
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    });
   }
 }
 

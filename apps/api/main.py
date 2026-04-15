@@ -101,9 +101,40 @@ def get_session():
         yield session
 
 
+def normalize_child_voice_preference(child: ChildProfile, session: Session | None = None) -> ChildProfile:
+    normalized_voice = tts_service.normalize_voice(child.voice_preference)
+    if child.voice_preference == normalized_voice:
+        return child
+
+    child.voice_preference = normalized_voice
+    if session is not None:
+        session.add(child)
+        session.commit()
+        session.refresh(child)
+    return child
+
+
+def normalize_existing_child_profiles() -> None:
+    with Session(engine) as session:
+        children = session.exec(select(ChildProfile)).all()
+        updated = False
+        for child in children:
+            normalized_voice = tts_service.normalize_voice(child.voice_preference)
+            if child.voice_preference == normalized_voice:
+                continue
+
+            child.voice_preference = normalized_voice
+            session.add(child)
+            updated = True
+
+        if updated:
+            session.commit()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     create_db_and_tables()
+    normalize_existing_child_profiles()
 
 
 def get_default_child(session: Session) -> ChildProfile:
@@ -113,7 +144,7 @@ def get_default_child(session: Session) -> ChildProfile:
         session.add(child)
         session.commit()
         session.refresh(child)
-    return child
+    return normalize_child_voice_preference(child, session=session)
 
 
 def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
@@ -122,7 +153,7 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
         if raw_child_id.isdigit():
             selected_child = session.get(ChildProfile, int(raw_child_id))
             if selected_child is not None:
-                return selected_child
+                return normalize_child_voice_preference(selected_child, session=session)
 
     return get_default_child(session)
 
@@ -613,7 +644,7 @@ def list_parent_children(
 ) -> list[ChildProfileSchema]:
     require_parent_session(request)
     children = session.exec(select(ChildProfile).order_by(ChildProfile.created_at, ChildProfile.id)).all()
-    return [ChildProfileSchema.model_validate(child) for child in children]
+    return [ChildProfileSchema.model_validate(normalize_child_voice_preference(child, session=session)) for child in children]
 
 
 @app.post("/api/parent/children", response_model=ChildProfileSchema)
@@ -626,7 +657,7 @@ def create_parent_child(
     child = ChildProfile(
         name=payload.name.strip(),
         age_group=payload.age_group.strip(),
-        voice_preference=payload.voice_preference.strip() if payload.voice_preference else "af_bella",
+        voice_preference=tts_service.normalize_voice(payload.voice_preference),
         auto_audio=True if payload.auto_audio is None else payload.auto_audio,
     )
     session.add(child)
@@ -649,7 +680,7 @@ def update_parent_settings(
     if payload.age_group:
         child.age_group = payload.age_group
     if payload.voice_preference:
-        child.voice_preference = payload.voice_preference
+        child.voice_preference = tts_service.normalize_voice(payload.voice_preference)
     if payload.auto_audio is not None:
         child.auto_audio = payload.auto_audio
 
