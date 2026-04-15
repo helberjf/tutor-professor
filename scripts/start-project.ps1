@@ -33,6 +33,11 @@ $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   'https://english-tutor-kid.vercel.app/api/runtime-backend'
 }
 $RuntimeBackendSyncToken = $env:ENGLISH_TUTOR_VERCEL_SYNC_TOKEN
+$KokoroLocalRepo = if ($env:KOKORO_LOCAL_REPO) {
+  $env:KOKORO_LOCAL_REPO
+} else {
+  ''
+}
 
 function Write-Step([string]$Message) {
   Write-Host ''
@@ -92,11 +97,11 @@ function Get-KokoroPortFromUrl([string]$Url) {
   return 8880
 }
 
-function Wait-ForTcpPort([string]$Host, [int]$Port, [int]$TimeoutSeconds = 30) {
+function Wait-ForTcpPort([string]$HostName, [int]$Port, [int]$TimeoutSeconds = 30) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
   while ((Get-Date) -lt $deadline) {
-    if (Test-NetConnection -ComputerName $Host -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue) {
+    if (Test-NetConnection -ComputerName $HostName -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue) {
       return $true
     }
 
@@ -224,24 +229,28 @@ if ($CheckOnly) {
 }
 
 if ($ShouldStartKokoro) {
-  Test-CommandAvailable docker 'Install Docker Desktop or change TTS_PROVIDER to none if you do not want local Kokoro.'
-  if (-not (Test-DockerDaemonAvailable)) {
-    throw 'Docker Desktop is installed but the Docker daemon is not running. Start Docker Desktop before using Kokoro TTS.'
-  }
-
   Write-Step 'Starting Kokoro TTS window'
-  Start-Process -FilePath $PowerShellExe -ArgumentList @(
+  $KokoroRunnerArgs = @(
     '-ExecutionPolicy', 'Bypass',
     '-NoExit',
     '-File', $KokoroRunner,
     '-HostPort', $KokoroPort
-  ) | Out-Null
+  )
+
+  if ($KokoroLocalRepo) {
+    $KokoroRunnerArgs += @(
+      '-LocalRepoPath', $KokoroLocalRepo
+    )
+  }
+
+  Start-Process -FilePath $PowerShellExe -ArgumentList $KokoroRunnerArgs | Out-Null
 
   Write-Step 'Waiting for Kokoro TTS'
-  if (Wait-ForTcpPort -Host '127.0.0.1' -Port $KokoroPort -TimeoutSeconds 45) {
+  if (Wait-ForTcpPort -HostName '127.0.0.1' -Port $KokoroPort -TimeoutSeconds 45) {
     Write-Host "Kokoro TTS is responding on http://127.0.0.1:$KokoroPort" -ForegroundColor Green
   } else {
-    Write-Host "Kokoro TTS did not respond on http://127.0.0.1:$KokoroPort yet. The backend will still start, but TTS may keep falling back until Kokoro finishes booting." -ForegroundColor Yellow
+    Write-Host "Kokoro TTS did not respond on http://127.0.0.1:$KokoroPort yet. The launcher tried a local Kokoro repo first and then Docker fallback if needed." -ForegroundColor Yellow
+    Write-Host 'The backend will still start, but TTS may keep falling back until Kokoro finishes booting.' -ForegroundColor Yellow
   }
 }
 
