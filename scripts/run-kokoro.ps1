@@ -18,12 +18,19 @@ function Test-CommandAvailable([string]$Name, [string]$HelpText) {
 }
 
 function Get-ContainerState([string]$Name) {
-  $state = docker container inspect --format "{{.State.Status}}" $Name 2>$null
-  if ($LASTEXITCODE -ne 0) {
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'SilentlyContinue'
+  $state = docker container inspect --format "{{.State.Status}}" $Name 2>&1
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = $prev
+
+  if ($code -ne 0) {
     return $null
   }
 
-  return ($state | Select-Object -First 1).Trim()
+  $line = $state | Where-Object { $_ -is [string] -and $_ -notmatch 'Error' } | Select-Object -First 1
+  if (-not $line) { return $null }
+  return $line.Trim()
 }
 
 function Resolve-LocalKokoroRepo([string]$PreferredPath) {

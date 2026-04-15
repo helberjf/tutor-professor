@@ -2,15 +2,13 @@
 param(
   [Parameter(Mandatory = $true)]
   [string]$BaseUrl,
-  [string]$RemoteName = 'origin',
-  [string]$TagName = 'runtime-backend-state',
-  [string]$StateFilePath = 'runtime/runtime-backend.json'
+  [string]$SyncUrl = '',
+  [string]$SyncToken = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$TempRepoRoot = Join-Path $RepoRoot 'tmp\runtime-backend-state-publisher'
 
 function Normalize-BaseUrl([string]$Value) {
   $trimmed = if ($null -eq $Value) { '' } else { $Value.Trim() }
@@ -26,58 +24,47 @@ function Normalize-BaseUrl([string]$Value) {
   return $trimmed.TrimEnd('/')
 }
 
-function Get-ExistingGitConfig([string]$Key, [string]$DefaultValue) {
-  $value = git -C $RepoRoot config --get $Key 2>$null
-  if ($LASTEXITCODE -eq 0 -and $value) {
-    return ($value | Select-Object -First 1).Trim()
-  }
-
-  return $DefaultValue
-}
-
 $normalizedBaseUrl = Normalize-BaseUrl -Value $BaseUrl
-$remoteUrl = git -C $RepoRoot remote get-url $RemoteName 2>$null
-if ($LASTEXITCODE -ne 0 -or -not $remoteUrl) {
-  throw "Nao foi possivel localizar o remote '$RemoteName' neste repositorio."
+
+# Resolve sync URL and token from parameters or environment variables
+if (-not $SyncUrl) {
+  $SyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
+    $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
+  } else {
+    'https://english-tutor-kid.vercel.app/api/runtime-backend'
+  }
 }
-$remoteUrl = ($remoteUrl | Select-Object -First 1).Trim()
 
-if (Test-Path $TempRepoRoot) {
-  Remove-Item -LiteralPath $TempRepoRoot -Recurse -Force
+if (-not $SyncToken) {
+  $SyncToken = $env:ENGLISH_TUTOR_VERCEL_SYNC_TOKEN
 }
 
-$stateFile = Join-Path $TempRepoRoot $StateFilePath
-$stateDir = Split-Path -Parent $stateFile
-New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+if (-not $SyncToken) {
+  Write-Host ''
+  Write-Host '[GitHub runtime state] skipped: ENGLISH_TUTOR_VERCEL_SYNC_TOKEN nao esta definido.' -ForegroundColor Yellow
+  Write-Host ''
+  exit 0
+}
 
-$record = [ordered]@{
-  baseUrl = $normalizedBaseUrl
-  host = ([System.Uri]$normalizedBaseUrl).Authority
-  updatedAt = (Get-Date).ToUniversalTime().ToString('o')
-  source = 'global'
+$payload = @{
+  baseUrl     = $normalizedBaseUrl
   activatedAt = (Get-Date).ToUniversalTime().ToString('o')
   machineName = $env:COMPUTERNAME
-}
+} | ConvertTo-Json
 
-$record | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding UTF8
-
-$gitUserName = Get-ExistingGitConfig -Key 'user.name' -DefaultValue 'English Kids Tutor Runtime Sync'
-$gitUserEmail = Get-ExistingGitConfig -Key 'user.email' -DefaultValue 'runtime-sync@english-tutor-kid.local'
-
-Push-Location $TempRepoRoot
 try {
-  git init -b runtime-backend-state | Out-Null
-  git config user.name $gitUserName
-  git config user.email $gitUserEmail
-  git remote add $RemoteName $remoteUrl
-  git add $StateFilePath
-  git commit -m "Update runtime backend state" | Out-Null
-  git push --force $RemoteName "HEAD:refs/tags/$TagName" | Out-Null
-} finally {
-  Pop-Location
-}
+  $response = Invoke-RestMethod -Uri $SyncUrl -Method Post -ContentType 'application/json' -Headers @{
+    Authorization = "Bearer $SyncToken"
+  } -Body $payload
 
-Write-Host ''
-Write-Host "[GitHub runtime state] published to tag '$TagName'" -ForegroundColor Green
-Write-Host "[GitHub runtime state URL] $normalizedBaseUrl" -ForegroundColor Green
-Write-Host ''
+  Write-Host ''
+  Write-Host "[GitHub runtime state] publicado via Vercel API" -ForegroundColor Green
+  Write-Host "[GitHub runtime state URL] $($response.baseUrl)" -ForegroundColor Green
+  Write-Host ''
+} catch {
+  Write-Host ''
+  Write-Host "[GitHub runtime state] falhou: $($_.Exception.Message)" -ForegroundColor Yellow
+  Write-Host "[Sync URL] $SyncUrl" -ForegroundColor Yellow
+  Write-Host ''
+  exit 1
+}
