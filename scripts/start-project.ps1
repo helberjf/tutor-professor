@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [switch]$WithTunnel,
+  [switch]$NoTunnel,
   [switch]$ForceInstall,
   [switch]$CheckOnly
 )
@@ -201,9 +202,19 @@ Write-Step 'Checking required tools'
 Test-CommandAvailable python 'Install Python 3.11+ and try again.'
 Test-CommandAvailable pnpm 'Install pnpm and try again.'
 
-if ($WithTunnel) {
-  Test-CommandAvailable cloudflared 'Install cloudflared or rerun without -WithTunnel.'
-  Test-CommandAvailable git 'Install Git or rerun without -WithTunnel.'
+# Auto-detect tunnel: use it if cloudflared is available, unless -NoTunnel was passed.
+# -WithTunnel forces it on (and errors if cloudflared is missing).
+$cloudflaredAvailable = [bool](Get-Command cloudflared -ErrorAction SilentlyContinue)
+if ($WithTunnel -and -not $cloudflaredAvailable) {
+  throw 'cloudflared nao encontrado. Instale cloudflared ou rode sem -WithTunnel.'
+}
+$UseTunnel = -not $NoTunnel -and ($WithTunnel -or $cloudflaredAvailable)
+
+if ($UseTunnel) {
+  Write-Host 'cloudflared encontrado — tunnel sera iniciado automaticamente.' -ForegroundColor Cyan
+} else {
+  Write-Host 'cloudflared nao encontrado ou -NoTunnel passado — tunnel desativado.' -ForegroundColor Yellow
+  Write-Host 'O site na Vercel usara a ultima URL publicada. Para ativar: instale cloudflared.' -ForegroundColor Yellow
 }
 
 Write-Step 'Ensuring local environment files exist'
@@ -273,7 +284,7 @@ if ($ShouldStartKokoro) {
   }
 }
 
-if ($WithTunnel) {
+if ($UseTunnel) {
   if (Test-Path $TunnelUrlFile) {
     Remove-Item -LiteralPath $TunnelUrlFile -Force
   }
@@ -312,7 +323,7 @@ $ApiRunnerArgs = @(
   '-File', $ApiRunner
 )
 
-if ($WithTunnel) {
+if ($UseTunnel) {
   $ApiRunnerArgs += @(
     '-TunnelUrlFile', $TunnelUrlFile,
     '-WaitForTunnelUrlSeconds', '5'
@@ -337,8 +348,8 @@ if ($ShouldStartKokoro) {
 }
 Write-Host 'For Vercel integration, the Cloudflare Tunnel must target the backend on http://localhost:8001.'
 
-if ($WithTunnel) {
-  Write-Host 'Tunnel: the extra PowerShell window will try the named tunnel first and fall back to a quick tunnel if local credentials are missing.'
+if ($UseTunnel) {
+  Write-Host 'Tunnel: iniciando automaticamente (cloudflared detectado).'
   Write-Host "Tunnel URL file: $TunnelUrlFile"
   Write-Host "Tunnel log file: $TunnelLogFile"
   Write-Host 'The public Cloudflare URL appears in the tunnel window and is also saved to the file above.'
