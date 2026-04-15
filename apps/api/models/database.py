@@ -10,7 +10,7 @@ class ChildProfile(SQLModel, table=True):
     current_level: int = 1
     streak_count: int = 0
     last_activity: Optional[datetime] = None
-    voice_preference: str = "af_heart"
+    voice_preference: str = "af_bella"
     auto_audio: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

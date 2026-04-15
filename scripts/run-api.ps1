@@ -61,12 +61,18 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds) {
 
 $tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds $WaitForTunnelUrlSeconds
 $connectLink = Get-ConnectLink $tunnelUrl
+$kokoroUrl = if ($env:KOKORO_URL) {
+  $env:KOKORO_URL
+} else {
+  'from apps/api/.env or default http://127.0.0.1:8880/v1/audio/speech'
+}
 
 Set-Location $ApiDir
 Write-Host ''
 Write-Host 'English Kids Tutor API'
 Write-Host "Folder: $ApiDir"
 Write-Host 'URL: http://localhost:8001'
+Write-Host "Kokoro URL: $kokoroUrl"
 if ($tunnelUrl) {
   Write-Host "Cloudflare URL: $tunnelUrl" -ForegroundColor Green
   Write-Host 'Use this URL in https://english-tutor-kid.vercel.app/connect' -ForegroundColor Green

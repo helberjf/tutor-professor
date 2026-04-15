@@ -104,7 +104,10 @@ DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=troque-esta-senha
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://seu-projeto.vercel.app
 TTS_PROVIDER=kokoro
-KOKORO_DEFAULT_VOICE=af_heart
+KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
+KOKORO_MODEL=kokoro
+KOKORO_DEFAULT_VOICE=af_bella
+KOKORO_TIMEOUT_SECONDS=8
 AUDIO_CACHE_DIR=./audio_cache
 SESSION_SECRET=troque-isto-para-um-valor-grande
 PARENT_COOKIE_SECURE=true
@@ -119,6 +122,7 @@ PARENT_COOKIE_MAX_AGE=604800
 - `PARENT_COOKIE_SECURE=true` e `PARENT_COOKIE_SAMESITE=none` sao importantes para a area de pais funcionar com frontend e backend em dominios diferentes
 - `PARENT_COOKIE_DOMAIN` pode ficar vazio na maioria dos casos
 - se voce nao tiver Kokoro rodando, pode manter `TTS_PROVIDER=kokoro` que o app faz fallback sem audio, ou mudar para `TTS_PROVIDER=none`
+- o launcher `.\start-project.cmd` agora tenta subir o Kokoro local automaticamente via Docker quando `TTS_PROVIDER=kokoro`
 
 ### 1.4 Subir o backend
 
@@ -256,7 +260,7 @@ Quase sempre e uma destas causas:
 Verifique:
 
 - o Kokoro local esta rodando
-- a URL `KOKORO_URL` esta correta
+- a URL `KOKORO_URL` esta correta, de preferencia `http://127.0.0.1:8880/v1/audio/speech`
 - se o Kokoro nao estiver disponivel, o app continua sem audio, mas sem quebrar
 
 ## Comandos uteis

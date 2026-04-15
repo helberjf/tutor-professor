@@ -26,9 +26,9 @@ services:
 
   # Optional local Kokoro TTS server
   # kokoro-tts:
-  #   image: ghcr.io/remsky/kokoro-fastapi-gpu:latest
+  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.1.4
   #   ports:
-  #     - "8888:8888"
+  #     - "8880:8880"
   #   networks:
   #     - kids-tutor-net
 

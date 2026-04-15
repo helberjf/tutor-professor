@@ -18,6 +18,7 @@ $ApiRequirements = Join-Path $ApiDir 'requirements.txt'
 $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
+$KokoroRunner = Join-Path $PSScriptRoot 'run-kokoro.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
 $TunnelLogFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel.stderr.log'
@@ -56,6 +57,57 @@ function Initialize-FileFromExample([string]$Target, [string]$Example) {
 function Test-PythonModules([string[]]$Modules) {
   $imports = ($Modules | ForEach-Object { "import $_" }) -join '; '
   python -c $imports *> $null
+  return $LASTEXITCODE -eq 0
+}
+
+function Get-EnvValueFromFile([string]$FilePath, [string]$Key) {
+  if (-not (Test-Path $FilePath)) {
+    return $null
+  }
+
+  $match = Get-Content $FilePath | Where-Object {
+    $_ -match "^\s*$([regex]::Escape($Key))\s*="
+  } | Select-Object -First 1
+
+  if (-not $match) {
+    return $null
+  }
+
+  return (($match -split '=', 2)[1]).Trim()
+}
+
+function Get-KokoroPortFromUrl([string]$Url) {
+  if (-not $Url) {
+    return 8880
+  }
+
+  try {
+    $uri = [System.Uri]$Url
+    if ($uri.Port -gt 0) {
+      return $uri.Port
+    }
+  } catch {
+  }
+
+  return 8880
+}
+
+function Wait-ForTcpPort([string]$Host, [int]$Port, [int]$TimeoutSeconds = 30) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+  while ((Get-Date) -lt $deadline) {
+    if (Test-NetConnection -ComputerName $Host -Port $Port -InformationLevel Quiet -WarningAction SilentlyContinue) {
+      return $true
+    }
+
+    Start-Sleep -Seconds 1
+  }
+
+  return $false
+}
+
+function Test-DockerDaemonAvailable() {
+  docker info *> $null
   return $LASTEXITCODE -eq 0
 }
 
@@ -134,6 +186,17 @@ Write-Step 'Ensuring local environment files exist'
 Initialize-FileFromExample $ApiEnv $ApiEnvExample
 Initialize-FileFromExample $WebEnv $WebEnvExample
 
+$TtsProvider = Get-EnvValueFromFile -FilePath $ApiEnv -Key 'TTS_PROVIDER'
+if (-not $TtsProvider) {
+  $TtsProvider = 'kokoro'
+}
+$KokoroUrl = (Get-EnvValueFromFile -FilePath $ApiEnv -Key 'KOKORO_URL')
+if (-not $KokoroUrl) {
+  $KokoroUrl = 'http://127.0.0.1:8880/v1/audio/speech'
+}
+$KokoroPort = Get-KokoroPortFromUrl -Url $KokoroUrl
+$ShouldStartKokoro = $TtsProvider -eq 'kokoro' -and ($KokoroUrl -match '^https?://(localhost|127\.0\.0\.1)[:/]')
+
 Write-Step 'Checking backend dependencies'
 if ($ForceInstall -or -not (Test-PythonModules @('fastapi', 'sqlmodel', 'uvicorn'))) {
   python -m pip install -r $ApiRequirements
@@ -158,6 +221,28 @@ if ($CheckOnly) {
   Write-Host ''
   Write-Host 'Check completed. No server windows were started because -CheckOnly was used.' -ForegroundColor Yellow
   exit 0
+}
+
+if ($ShouldStartKokoro) {
+  Test-CommandAvailable docker 'Install Docker Desktop or change TTS_PROVIDER to none if you do not want local Kokoro.'
+  if (-not (Test-DockerDaemonAvailable)) {
+    throw 'Docker Desktop is installed but the Docker daemon is not running. Start Docker Desktop before using Kokoro TTS.'
+  }
+
+  Write-Step 'Starting Kokoro TTS window'
+  Start-Process -FilePath $PowerShellExe -ArgumentList @(
+    '-ExecutionPolicy', 'Bypass',
+    '-NoExit',
+    '-File', $KokoroRunner,
+    '-HostPort', $KokoroPort
+  ) | Out-Null
+
+  Write-Step 'Waiting for Kokoro TTS'
+  if (Wait-ForTcpPort -Host '127.0.0.1' -Port $KokoroPort -TimeoutSeconds 45) {
+    Write-Host "Kokoro TTS is responding on http://127.0.0.1:$KokoroPort" -ForegroundColor Green
+  } else {
+    Write-Host "Kokoro TTS did not respond on http://127.0.0.1:$KokoroPort yet. The backend will still start, but TTS may keep falling back until Kokoro finishes booting." -ForegroundColor Yellow
+  }
 }
 
 if ($WithTunnel) {
@@ -211,6 +296,9 @@ Write-Host ''
 Write-Host 'Project windows started successfully.' -ForegroundColor Green
 Write-Host 'Frontend: http://localhost:3000'
 Write-Host 'Backend: http://localhost:8001'
+if ($ShouldStartKokoro) {
+  Write-Host "Kokoro: http://127.0.0.1:$KokoroPort/v1/audio/speech"
+}
 Write-Host 'For Vercel integration, the Cloudflare Tunnel must target the backend on http://localhost:8001.'
 
 if ($WithTunnel) {

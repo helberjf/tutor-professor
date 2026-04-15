@@ -7,21 +7,41 @@ from typing import Optional
 from pathlib import Path
 
 class TTSService:
-    def __init__(self, provider: str = "kokoro", default_voice: str = "af_heart", cache_dir: str = "./audio_cache"):
+    def __init__(self, provider: str = "kokoro", default_voice: str = "af_bella", cache_dir: str = "./audio_cache"):
         self.provider = provider
-        self.default_voice = default_voice
+        self.default_voice = self._normalize_voice(default_voice)
+        self.model = os.getenv("KOKORO_MODEL", "kokoro")
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Local Kokoro API endpoint (assuming it's running in another container or local service)
-        self.kokoro_url = os.getenv("KOKORO_URL", "http://localhost:8888/v1/audio/speech")
+
+        configured_url = os.getenv("KOKORO_URL", "").strip()
+        self.kokoro_url = configured_url or "http://127.0.0.1:8880/v1/audio/speech"
+        self.kokoro_urls = self._build_kokoro_urls(configured_url)
         self.request_timeout = float(os.getenv("KOKORO_TIMEOUT_SECONDS", "8"))
+
+    def _build_kokoro_urls(self, configured_url: str) -> list[str]:
+        if configured_url:
+            return [configured_url]
+
+        return [
+            "http://127.0.0.1:8880/v1/audio/speech",
+            "http://localhost:8880/v1/audio/speech",
+            "http://127.0.0.1:8888/v1/audio/speech",
+            "http://localhost:8888/v1/audio/speech",
+        ]
+
+    def _normalize_voice(self, voice: str | None) -> str:
+        normalized = (voice or "").strip() or "af_bella"
+        legacy_voice_map = {
+            "af_heart": "af_bella",
+        }
+        return legacy_voice_map.get(normalized, normalized)
 
     def _get_text_hash(self, text: str, voice: str) -> str:
         return hashlib.md5(f"{text}:{voice}".encode()).hexdigest()
 
     async def generate_speech(self, text: str, voice: Optional[str] = None) -> Optional[str]:
-        voice = voice or self.default_voice
+        voice = self._normalize_voice(voice or self.default_voice)
         if not text.strip():
             return None
 
@@ -36,6 +56,7 @@ class TTSService:
         if self.provider == "kokoro":
             try:
                 payload = {
+                    "model": self.model,
                     "input": text,
                     "voice": voice,
                     "response_format": "mp3"
@@ -54,15 +75,30 @@ class TTSService:
         return None
 
     def _request_audio(self, payload: dict[str, str]) -> Optional[bytes]:
-        response = requests.post(
-            self.kokoro_url,
-            json=payload,
-            timeout=self.request_timeout,
-        )
-        response.raise_for_status()
-        if not response.content:
-            return None
-        return response.content
+        last_error: Exception | None = None
+
+        for kokoro_url in self.kokoro_urls:
+            try:
+                response = requests.post(
+                    kokoro_url,
+                    json=payload,
+                    timeout=self.request_timeout,
+                )
+                response.raise_for_status()
+                if not response.content:
+                    return None
+
+                self.kokoro_url = kokoro_url
+                return response.content
+            except Exception as exc:
+                last_error = exc
+
+        if last_error:
+            raise RuntimeError(
+                f"Kokoro is not reachable. Tried: {', '.join(self.kokoro_urls)}. Last error: {last_error}"
+            ) from last_error
+
+        return None
 
     def get_audio_url(self, file_path: str) -> str:
         if not file_path:

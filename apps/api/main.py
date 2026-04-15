@@ -82,7 +82,7 @@ app.mount("/api/audio/file", StaticFiles(directory=str(audio_cache_dir)), name="
 
 tts_service = TTSService(
     provider=os.getenv("TTS_PROVIDER", "kokoro"),
-    default_voice=os.getenv("KOKORO_DEFAULT_VOICE", "af_heart"),
+    default_voice=os.getenv("KOKORO_DEFAULT_VOICE", "af_bella"),
     cache_dir=str(audio_cache_dir),
 )
 content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
@@ -626,7 +626,7 @@ def create_parent_child(
     child = ChildProfile(
         name=payload.name.strip(),
         age_group=payload.age_group.strip(),
-        voice_preference=payload.voice_preference.strip() if payload.voice_preference else "af_heart",
+        voice_preference=payload.voice_preference.strip() if payload.voice_preference else "af_bella",
         auto_audio=True if payload.auto_audio is None else payload.auto_audio,
     )
     session.add(child)

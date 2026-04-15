@@ -21,8 +21,8 @@ Since Kokoro is a separate project, you will need to follow its official install
 
 **Key considerations during Kokoro setup:**
 
-*   **API Endpoint**: Ensure the Kokoro server is configured to run on a specific port (e.g., `8888`) and is accessible from your FastAPI backend.
-*   **Voice Models**: Download the voice models you intend to use. The `af_heart` voice is used as a default in this project.
+*   **API Endpoint**: Ensure the Kokoro server is configured to run on a specific port (the current default is `8880`) and is accessible from your FastAPI backend.
+*   **Voice Models**: Download the voice models you intend to use. The `af_bella` voice is used as a default in this project.
 
 ## Configuring the English Kids Tutor Backend for Kokoro
 
@@ -33,16 +33,18 @@ Once your Kokoro TTS server is running, you need to configure the FastAPI backen
 In your backend's `.env` file (`apps/api/.env`), ensure the following variables are set:
 
 *   **`TTS_PROVIDER`**: Set this to `kokoro`.
-*   **`KOKORO_URL`**: This should be the URL where your local Kokoro TTS server is running. The default is `http://localhost:8888/v1/audio/speech`.
-*   **`KOKORO_DEFAULT_VOICE`**: Specify the default voice to use (e.g., `af_heart`).
+*   **`KOKORO_URL`**: This should be the URL where your local Kokoro TTS server is running. The default in this project is `http://127.0.0.1:8880/v1/audio/speech`.
+*   **`KOKORO_MODEL`**: Set this to `kokoro` for the OpenAI-compatible speech endpoint used by this project.
+*   **`KOKORO_DEFAULT_VOICE`**: Specify the default voice to use (e.g., `af_bella`).
 *   **`AUDIO_CACHE_DIR`**: The directory where generated audio files will be cached. Default is `./audio_cache`.
 
 **Example `.env` configuration:**
 
 ```ini
 TTS_PROVIDER=kokoro
-KOKORO_URL=http://localhost:8888/v1/audio/speech
-KOKORO_DEFAULT_VOICE=af_heart
+KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
+KOKORO_MODEL=kokoro
+KOKORO_DEFAULT_VOICE=af_bella
 AUDIO_CACHE_DIR=./audio_cache
 ```
 
@@ -70,12 +72,12 @@ If you are using Docker Compose for your project, you can integrate the Kokoro T
 
 ```yaml
   # kokoro-tts:
-  #   image: ghcr.io/remsky/kokoro-fastapi-gpu:latest # Use an appropriate Kokoro Docker image
+  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.1.4
   #   ports:
-  #     - "8888:8888"
+  #     - "8880:8880"
   #   networks:
   #     - kids-tutor-net
   #   # Add any necessary environment variables or volumes for models
 ```
 
-Ensure that the `KOKORO_URL` in your `api` service's `.env` file points to the Docker service name (e.g., `http://kokoro-tts:8888/v1/audio/speech`) if running within the same Docker Compose network. If you are running Kokoro outside of Docker, `http://localhost:8888` is appropriate.
+Ensure that the `KOKORO_URL` in your `api` service's `.env` file points to the Docker service name (e.g., `http://kokoro-tts:8880/v1/audio/speech`) if running within the same Docker Compose network. If you are running Kokoro outside of Docker, `http://127.0.0.1:8880` is appropriate.

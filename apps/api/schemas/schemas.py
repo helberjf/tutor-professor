@@ -15,7 +15,7 @@ class ChildProfileSchema(FromAttributesModel):
     current_level: int = 1
     streak_count: int = 0
     last_activity: Optional[datetime] = None
-    voice_preference: str = "af_heart"
+    voice_preference: str = "af_bella"
     auto_audio: bool = True
 
 class LessonItemSchema(FromAttributesModel):

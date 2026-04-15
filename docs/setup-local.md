@@ -74,7 +74,7 @@ DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=tutor123
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://english-kids-tutor.vercel.app
 TTS_PROVIDER=kokoro
-KOKORO_DEFAULT_VOICE=af_heart
+KOKORO_DEFAULT_VOICE=af_bella
 AUDIO_CACHE_DIR=./audio_cache
 SESSION_SECRET=your-super-secret-session-key
 ```
@@ -161,4 +161,3 @@ This command will:
 
 *   **Kokoro TTS**: For full audio functionality, set up the Kokoro TTS server as described in `docs/kokoro-setup.md`.
 *   **Cloudflare Tunnel**: If you plan to connect a deployed frontend to your local backend, configure Cloudflare Tunnel as detailed in `docs/cloudflare-tunnel.md`.
-

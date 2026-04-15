@@ -18,7 +18,7 @@ interface ParentFormState {
 const DEFAULT_FORM: ParentFormState = {
   child_name: '',
   age_group: '7-9',
-  voice_preference: 'af_heart',
+  voice_preference: 'af_bella',
   auto_audio: true,
 };
 
@@ -352,8 +352,8 @@ export default function ParentsPage() {
                       onChange={(event) => setForm((current) => ({ ...current, voice_preference: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     >
-                      <option value="af_heart">Heart amigavel</option>
-                      <option value="af_bella">Bella</option>
+                      <option value="af_bella">Bella amigavel</option>
+                      <option value="af_sky">Sky suave</option>
                       <option value="am_adam">Adam</option>
                     </select>
                   </div>

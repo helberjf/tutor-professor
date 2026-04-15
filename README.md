@@ -100,6 +100,7 @@ Isso:
 
 - cria `apps/api/.env` e `apps/web/.env.local` se ainda nao existirem
 - verifica dependencias do backend e frontend
+- sobe o Kokoro local por Docker automaticamente quando `TTS_PROVIDER=kokoro`
 - roda `scripts/init_db.py`
 - abre uma janela para a API e outra para o frontend
 
@@ -128,7 +129,10 @@ DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=tutor123
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://seu-projeto.vercel.app
 TTS_PROVIDER=kokoro
-KOKORO_DEFAULT_VOICE=af_heart
+KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
+KOKORO_MODEL=kokoro
+KOKORO_DEFAULT_VOICE=af_bella
+KOKORO_TIMEOUT_SECONDS=8
 AUDIO_CACHE_DIR=./audio_cache
 SESSION_SECRET=troque-isto
 PARENT_COOKIE_SECURE=true
