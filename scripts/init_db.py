@@ -55,7 +55,7 @@ def init_db():
                         theme=data['theme'],
                         objective=data['objective'],
                         content=data.get('content', {}),
-                        child_id=child.id
+                        child_id=None
                     )
                     session.add(lesson)
                     session.commit()
@@ -73,7 +73,7 @@ def init_db():
                     lesson.theme = data['theme']
                     lesson.objective = data['objective']
                     lesson.content = data.get('content', {})
-                    lesson.child_id = child.id
+                    lesson.child_id = None
                     if content_changed:
                         lesson.is_completed = False
                         lesson.completed_at = None

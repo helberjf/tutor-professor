@@ -8,6 +8,7 @@ class FromAttributesModel(BaseModel):
 
 
 class ChildProfileSchema(FromAttributesModel):
+    id: int
     name: str
     age_group: str
     base_language: str = "Portuguese"
@@ -158,6 +159,13 @@ class ParentSettingsUpdateSchema(BaseModel):
     voice_preference: Optional[str] = None
     auto_audio: Optional[bool] = None
     rhythm: Optional[str] = None
+
+
+class CreateChildProfileSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    age_group: str = Field(min_length=1, max_length=20)
+    voice_preference: Optional[str] = Field(default=None, max_length=40)
+    auto_audio: Optional[bool] = None
 
 
 class GenerateLessonRequestSchema(BaseModel):

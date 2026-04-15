@@ -10,11 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem
+from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem
 from schemas.schemas import (
     ChatRequestSchema,
     ChatResponseSchema,
     ChildProfileSchema,
+    CreateChildProfileSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LessonItemSchema,
@@ -115,12 +116,56 @@ def get_default_child(session: Session) -> ChildProfile:
     return child
 
 
-def get_current_lesson(session: Session) -> Lesson:
-    lesson = session.exec(
-        select(Lesson).where(Lesson.is_completed == False).order_by(Lesson.id)
-    ).first()
-    if lesson is None:
-        lesson = session.exec(select(Lesson).order_by(Lesson.id.desc())).first()
+def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
+    if request is not None:
+        raw_child_id = request.headers.get("x-child-id", "").strip()
+        if raw_child_id.isdigit():
+            selected_child = session.get(ChildProfile, int(raw_child_id))
+            if selected_child is not None:
+                return selected_child
+
+    return get_default_child(session)
+
+
+def is_generated_lesson(lesson: Lesson) -> bool:
+    content = lesson.content or {}
+    return content.get("generated_by") == "gemini"
+
+
+def list_accessible_lessons(session: Session, child_id: int) -> list[Lesson]:
+    lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
+    return [
+        lesson
+        for lesson in lessons
+        if not is_generated_lesson(lesson) or lesson.child_id == child_id
+    ]
+
+
+def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int, ChildLessonProgress]:
+    progress_items = session.exec(
+        select(ChildLessonProgress).where(ChildLessonProgress.child_id == child_id)
+    ).all()
+    return {
+        progress.lesson_id: progress
+        for progress in progress_items
+        if progress.lesson_id is not None
+    }
+
+
+def get_current_lesson(session: Session, child_id: int) -> Lesson:
+    lessons = list_accessible_lessons(session=session, child_id=child_id)
+    progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
+
+    lesson = next(
+        (
+            item
+            for item in lessons
+            if not (progress_map.get(item.id or 0).is_completed if progress_map.get(item.id or 0) else False)
+        ),
+        None,
+    )
+    if lesson is None and lessons:
+        lesson = lessons[-1]
     if lesson is None:
         raise HTTPException(status_code=404, detail="Nenhuma licao encontrada")
     return lesson
@@ -139,8 +184,10 @@ def get_next_lesson_day(session: Session) -> int:
     return latest_lesson.id + 1
 
 
-def build_lesson_response(session: Session, lesson: Lesson) -> LessonSchema:
+def build_lesson_response(session: Session, lesson: Lesson, child_id: int) -> LessonSchema:
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
+    progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
+    lesson_progress = progress_map.get(lesson.id or 0)
     return LessonSchema(
         id=lesson.id or 0,
         title=lesson.title,
@@ -148,7 +195,7 @@ def build_lesson_response(session: Session, lesson: Lesson) -> LessonSchema:
         objective=lesson.objective,
         content=lesson.content or {},
         items=[LessonItemSchema.model_validate(item) for item in lesson_items],
-        is_completed=lesson.is_completed,
+        is_completed=lesson_progress.is_completed if lesson_progress else False,
     )
 
 
@@ -249,73 +296,111 @@ def require_parent_session(request: Request) -> str:
     return token
 
 
+def get_or_create_lesson_progress(
+    session: Session,
+    *,
+    child_id: int,
+    lesson_id: int,
+) -> ChildLessonProgress:
+    progress = session.exec(
+        select(ChildLessonProgress).where(
+            ChildLessonProgress.child_id == child_id,
+            ChildLessonProgress.lesson_id == lesson_id,
+        )
+    ).first()
+    if progress is None:
+        progress = ChildLessonProgress(
+            child_id=child_id,
+            lesson_id=lesson_id,
+        )
+        session.add(progress)
+        session.flush()
+    return progress
+
+
 @app.get("/health")
 def health_check() -> dict[str, datetime | str]:
     return {"status": "ok", "timestamp": datetime.utcnow()}
 
 
 @app.get("/api/lessons", response_model=list[LessonSummarySchema])
-def list_all_lessons(session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
-    lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
+def list_all_lessons(request: Request, session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
+    child = get_requested_child(request=request, session=session)
+    lessons = list_accessible_lessons(session=session, child_id=child.id or 0)
+    progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
     return [
         LessonSummarySchema(
             id=lesson.id or 0,
             title=lesson.title,
             theme=lesson.theme,
             objective=lesson.objective,
-            is_completed=lesson.is_completed,
-            completed_at=lesson.completed_at,
+            is_completed=progress_map.get(lesson.id or 0).is_completed if progress_map.get(lesson.id or 0) else False,
+            completed_at=progress_map.get(lesson.id or 0).completed_at if progress_map.get(lesson.id or 0) else None,
         )
         for lesson in lessons
     ]
 
 
 @app.get("/api/lesson/today", response_model=LessonSchema)
-def get_today_lesson(session: Session = Depends(get_session)) -> LessonSchema:
-    lesson = get_current_lesson(session=session)
-    return build_lesson_response(session=session, lesson=lesson)
+def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
+    child = get_requested_child(request=request, session=session)
+    lesson = get_current_lesson(session=session, child_id=child.id or 0)
+    return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
 @app.get("/api/lesson/{lesson_id}", response_model=LessonSchema)
-def get_lesson_by_id(lesson_id: int, session: Session = Depends(get_session)) -> LessonSchema:
+def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> LessonSchema:
+    child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    if lesson is None:
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
-    return build_lesson_response(session=session, lesson=lesson)
+    return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
 @app.post("/api/lesson/complete")
-def complete_lesson(lesson_id: int, session: Session = Depends(get_session)) -> dict[str, str]:
+def complete_lesson(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> dict[str, str]:
+    child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    if lesson is None:
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
-    child = get_default_child(session=session)
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
     seed_review_items_for_lesson(session=session, child_id=child.id or 0, lesson_items=lesson_items)
-
-    lesson.is_completed = True
-    lesson.completed_at = datetime.utcnow()
-    update_streak(child=child, now=datetime.utcnow())
+    now = datetime.utcnow()
+    lesson_progress = get_or_create_lesson_progress(
+        session=session,
+        child_id=child.id or 0,
+        lesson_id=lesson.id or 0,
+    )
+    lesson_progress.is_completed = True
+    lesson_progress.completed_at = now
+    update_streak(child=child, now=now)
 
     session.add(child)
-    session.add(lesson)
+    session.add(lesson_progress)
     session.commit()
     return {"status": "success"}
 
 
 @app.get("/api/quiz/today", response_model=QuizSchema)
 def get_today_quiz(
+    request: Request,
     lesson_id: int | None = None,
     session: Session = Depends(get_session),
 ) -> QuizSchema:
+    child = get_requested_child(request=request, session=session)
     resolved_lesson_id = lesson_id
     lesson: Lesson | None = None
     if resolved_lesson_id is None:
-        lesson = get_current_lesson(session=session)
+        lesson = get_current_lesson(session=session, child_id=child.id or 0)
         resolved_lesson_id = lesson.id
     elif resolved_lesson_id is not None:
         lesson = session.get(Lesson, resolved_lesson_id)
+        accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+        if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
+            raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
     if lesson is not None:
         generated_quiz = build_quiz_from_lesson_content(lesson)
@@ -330,14 +415,15 @@ def get_today_quiz(
 
 @app.post("/api/quiz/submit", response_model=QuizSubmitResponseSchema)
 def submit_quiz(
-    request: QuizSubmitSchema,
+    payload: QuizSubmitSchema,
+    request: Request,
     session: Session = Depends(get_session),
 ) -> QuizSubmitResponseSchema:
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     attempt = QuizAttempt(
-        lesson_id=request.lesson_id,
-        score=request.score,
-        total_questions=request.total_questions,
+        lesson_id=payload.lesson_id,
+        score=payload.score,
+        total_questions=payload.total_questions,
         child_id=child.id,
     )
     update_streak(child=child, now=datetime.utcnow())
@@ -349,18 +435,19 @@ def submit_quiz(
     return QuizSubmitResponseSchema(
         status="success",
         encouragement=build_quiz_encouragement(
-            score=request.score,
-            total_questions=request.total_questions,
+            score=payload.score,
+            total_questions=payload.total_questions,
         ),
     )
 
 
 @app.get("/api/review", response_model=ReviewSessionSchema)
 def get_review_session(
+    request: Request,
     limit: int = 5,
     session: Session = Depends(get_session),
 ) -> ReviewSessionSchema:
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     return ReviewSessionSchema(
         total_due=count_due_review_items(session=session, child_id=child.id or 0),
         items=build_review_cards(session=session, child_id=child.id or 0, limit=limit),
@@ -369,17 +456,18 @@ def get_review_session(
 
 @app.post("/api/review/attempt", response_model=ReviewResultSchema)
 def submit_review_attempt(
-    request: ReviewAttemptSchema,
+    payload: ReviewAttemptSchema,
+    request: Request,
     session: Session = Depends(get_session),
 ) -> ReviewResultSchema:
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     review_item = register_review_attempt(
         session=session,
         child_id=child.id or 0,
-        word_en=request.word_en,
-        word_pt=request.word_pt,
-        correct=request.correct,
-        review_item_id=request.review_item_id,
+        word_en=payload.word_en,
+        word_pt=payload.word_pt,
+        correct=payload.correct,
+        review_item_id=payload.review_item_id,
     )
     child.last_activity = datetime.utcnow()
 
@@ -398,15 +486,23 @@ def submit_review_attempt(
 
 
 @app.get("/api/progress", response_model=ProgressSchema)
-def get_progress(session: Session = Depends(get_session)) -> ProgressSchema:
-    child = get_default_child(session=session)
-    completed_lessons = session.exec(
-        select(Lesson).where(Lesson.is_completed == True)
-    ).all()
+def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
+    child = get_requested_child(request=request, session=session)
+    completed_progress_items = [
+        progress
+        for progress in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
+        if progress.is_completed
+    ]
+    accessible_lesson_ids = {lesson.id or 0 for lesson in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    completed_lesson_ids = [
+        progress.lesson_id
+        for progress in completed_progress_items
+        if progress.lesson_id in accessible_lesson_ids
+    ]
 
     vocabulary_learned = 0
-    for lesson in completed_lessons:
-        vocabulary_learned += len(get_lesson_items(session=session, lesson_id=lesson.id or 0))
+    for lesson_id in completed_lesson_ids:
+        vocabulary_learned += len(get_lesson_items(session=session, lesson_id=lesson_id))
 
     review_items = session.exec(
         select(ReviewItem).where(ReviewItem.child_id == child.id)
@@ -421,7 +517,7 @@ def get_progress(session: Session = Depends(get_session)) -> ProgressSchema:
     ]
 
     return ProgressSchema(
-        themes_completed=len(completed_lessons),
+        themes_completed=len(completed_lesson_ids),
         streak_count=child.streak_count,
         vocabulary_learned=vocabulary_learned,
         last_activity=child.last_activity,
@@ -432,13 +528,14 @@ def get_progress(session: Session = Depends(get_session)) -> ProgressSchema:
 
 @app.post("/api/chat", response_model=ChatResponseSchema)
 async def chat_with_tutor(
-    request: ChatRequestSchema,
+    payload: ChatRequestSchema,
+    request: Request,
     session: Session = Depends(get_session),
 ) -> ChatResponseSchema:
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     response_text = tutor_service.build_response(
-        message=request.message,
-        history=request.history,
+        message=payload.message,
+        history=payload.history,
         session=session,
     )
     audio_url = None
@@ -455,16 +552,17 @@ async def chat_with_tutor(
 
 @app.post("/api/audio/speak", response_model=SpeakResponseSchema)
 async def speak_text(
-    request: SpeakRequestSchema,
+    payload: SpeakRequestSchema,
+    request: Request,
     session: Session = Depends(get_session),
 ) -> SpeakResponseSchema:
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     audio_file = await tts_service.generate_speech(
-        request.text,
-        request.voice or child.voice_preference,
+        payload.text,
+        payload.voice or child.voice_preference,
     )
     if not audio_file:
-        return SpeakResponseSchema(audio_url=None, fallback_text=request.text)
+        return SpeakResponseSchema(audio_url=None, fallback_text=payload.text)
 
     return SpeakResponseSchema(audio_url=tts_service.get_audio_url(audio_file))
 
@@ -504,7 +602,36 @@ def get_parent_settings(
     session: Session = Depends(get_session),
 ) -> ChildProfileSchema:
     require_parent_session(request)
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
+    return ChildProfileSchema.model_validate(child)
+
+
+@app.get("/api/parent/children", response_model=list[ChildProfileSchema])
+def list_parent_children(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ChildProfileSchema]:
+    require_parent_session(request)
+    children = session.exec(select(ChildProfile).order_by(ChildProfile.created_at, ChildProfile.id)).all()
+    return [ChildProfileSchema.model_validate(child) for child in children]
+
+
+@app.post("/api/parent/children", response_model=ChildProfileSchema)
+def create_parent_child(
+    request: Request,
+    payload: CreateChildProfileSchema,
+    session: Session = Depends(get_session),
+) -> ChildProfileSchema:
+    require_parent_session(request)
+    child = ChildProfile(
+        name=payload.name.strip(),
+        age_group=payload.age_group.strip(),
+        voice_preference=payload.voice_preference.strip() if payload.voice_preference else "af_heart",
+        auto_audio=True if payload.auto_audio is None else payload.auto_audio,
+    )
+    session.add(child)
+    session.commit()
+    session.refresh(child)
     return ChildProfileSchema.model_validate(child)
 
 
@@ -515,7 +642,7 @@ def update_parent_settings(
     session: Session = Depends(get_session),
 ) -> ChildProfileSchema:
     require_parent_session(request)
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
 
     if payload.child_name:
         child.name = payload.child_name
@@ -546,7 +673,7 @@ def generate_parent_lesson(
             detail="GEMINI_API_KEY nao esta configurada no backend.",
         )
 
-    child = get_default_child(session=session)
+    child = get_requested_child(request=request, session=session)
     next_day = get_next_lesson_day(session=session)
     existing_phrases = [
         item.word_en
@@ -620,7 +747,7 @@ def generate_parent_lesson(
 
     return GenerateLessonResponseSchema(
         status="success",
-        lesson=build_lesson_response(session=session, lesson=lesson),
+        lesson=build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0),
         message=f"{lesson.title} foi gerado e salvo no banco de dados.",
     )
 

@@ -45,6 +45,14 @@ class ReviewItem(SQLModel, table=True):
     next_review: datetime = Field(default_factory=datetime.utcnow)
     child_id: Optional[int] = Field(default=None, foreign_key="childprofile.id")
 
+class ChildLessonProgress(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    lesson_id: int = Field(foreign_key="lesson.id", index=True)
+    is_completed: bool = False
+    completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class QuizAttempt(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     lesson_id: Optional[int] = Field(default=None, foreign_key="lesson.id")

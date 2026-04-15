@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from '@/lib/api-config';
+import { getStoredActiveChildId } from '@/lib/active-child';
 
 export interface LessonItem {
   word_en: string;
@@ -109,6 +110,19 @@ export interface SpeakResponse {
 }
 
 export interface ParentSettings {
+  id: number;
+  name: string;
+  age_group: string;
+  base_language: string;
+  current_level: number;
+  streak_count: number;
+  last_activity: string | null;
+  voice_preference: string;
+  auto_audio: boolean;
+}
+
+export interface ChildProfile {
+  id: number;
   name: string;
   age_group: string;
   base_language: string;
@@ -128,6 +142,13 @@ export interface ParentSettingsUpdatePayload {
 
 export interface GenerateLessonPayload {
   topic?: string;
+}
+
+export interface CreateChildPayload {
+  name: string;
+  age_group: string;
+  voice_preference?: string;
+  auto_audio?: boolean;
 }
 
 export interface GenerateLessonResponse {
@@ -202,11 +223,13 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
 
   let response: Response;
   try {
+    const activeChildId = getStoredActiveChildId();
     response = await fetch(url, {
       ...options,
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(activeChildId ? { 'X-Child-ID': String(activeChildId) } : {}),
         ...options.headers,
       },
       cache: 'no-store',
@@ -280,6 +303,12 @@ export const api = {
       method: 'POST',
     }),
   getParentSettings: () => fetchAPI<ParentSettings>('/api/parent/settings'),
+  listParentChildren: () => fetchAPI<ChildProfile[]>('/api/parent/children'),
+  createParentChild: (payload: CreateChildPayload) =>
+    fetchAPI<ChildProfile>('/api/parent/children', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   updateParentSettings: (payload: ParentSettingsUpdatePayload) =>
     fetchAPI<ParentSettings>('/api/parent/settings', {
       method: 'POST',

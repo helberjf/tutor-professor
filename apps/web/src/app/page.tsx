@@ -174,7 +174,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
           <ActionCard
             href="/lesson"
             icon={<BookOpen className="text-primary-dark" size={34} />}
@@ -203,6 +203,13 @@ export default function HomePage() {
             title="Chat com o tutor"
             description="Diga oi e peca ajuda com uma frase em ingles."
             accentClass="bg-rose-50"
+          />
+          <ActionCard
+            href="/parents"
+            icon={<Sparkles className="text-amber-700" size={34} />}
+            title="Nova licao com IA"
+            description="Crie o proximo dia de estudo com o Gemini e salve direto no banco."
+            accentClass="bg-amber-50"
           />
         </section>
 

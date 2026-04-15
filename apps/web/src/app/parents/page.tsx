@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Baby, Lock, Save, ShieldCheck, Sparkles, Volume2 } from 'lucide-react';
+import { ArrowLeft, Baby, Lock, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type Lesson } from '@/lib/api';
+import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
+import { ApiError, api, type ChildProfile, type Lesson } from '@/lib/api';
 
 interface ParentFormState {
   child_name: string;
@@ -24,11 +25,16 @@ const DEFAULT_FORM: ParentFormState = {
 export default function ParentsPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [password, setPassword] = useState('');
+  const [activeChildId, setActiveChildId] = useState<number | null>(getStoredActiveChildId());
+  const [children, setChildren] = useState<ChildProfile[]>([]);
   const [form, setForm] = useState<ParentFormState>(DEFAULT_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState<ApiError | null>(null);
+  const [newChildName, setNewChildName] = useState('');
+  const [newChildAgeGroup, setNewChildAgeGroup] = useState('7-9');
+  const [creatingChild, setCreatingChild] = useState(false);
   const [generatorTopic, setGeneratorTopic] = useState('');
   const [generatorMessage, setGeneratorMessage] = useState('');
   const [generatorTone, setGeneratorTone] = useState<'idle' | 'success' | 'error'>('idle');
@@ -37,7 +43,19 @@ export default function ParentsPage() {
 
   async function loadSettings() {
     try {
-      const settings = await api.getParentSettings();
+      const [settings, childList] = await Promise.all([
+        api.getParentSettings(),
+        api.listParentChildren(),
+      ]);
+      setChildren(childList);
+      const storedActiveChildId = getStoredActiveChildId();
+      const hasStoredChild = storedActiveChildId && childList.some((child) => child.id === storedActiveChildId);
+      if (!hasStoredChild) {
+        saveActiveChildId(settings.id);
+        setActiveChildId(settings.id);
+      } else {
+        setActiveChildId(storedActiveChildId);
+      }
       setForm({
         child_name: settings.name,
         age_group: settings.age_group,
@@ -109,6 +127,9 @@ export default function ParentsPage() {
     try {
       await api.parentLogout();
       setIsLoggedIn(false);
+      clearActiveChildId();
+      setActiveChildId(null);
+      setChildren([]);
       setForm(DEFAULT_FORM);
       setMessage('Voce saiu da area de pais.');
       setGeneratorMessage('');
@@ -119,6 +140,41 @@ export default function ParentsPage() {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSelectChild(childId: number) {
+    saveActiveChildId(childId);
+    setActiveChildId(childId);
+    setMessage('Aluno ativo trocado.');
+    setGeneratorMessage('');
+    setGeneratedLesson(null);
+    await loadSettings();
+  }
+
+  async function handleCreateChild(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingChild(true);
+    setMessage('');
+    try {
+      const child = await api.createParentChild({
+        name: newChildName.trim(),
+        age_group: newChildAgeGroup,
+        voice_preference: form.voice_preference,
+        auto_audio: form.auto_audio,
+      });
+      saveActiveChildId(child.id);
+      setActiveChildId(child.id);
+      setNewChildName('');
+      setNewChildAgeGroup('7-9');
+      setMessage(`Novo aluno criado: ${child.name}.`);
+      await loadSettings();
+    } catch (err) {
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel criar o novo aluno.');
+      setMessage(nextError.message);
+      setError(nextError);
+    } finally {
+      setCreatingChild(false);
     }
   }
 
@@ -322,13 +378,85 @@ export default function ParentsPage() {
           </form>
 
           <aside className="space-y-6">
+            <div className="kid-surface border-sky-200 p-5 md:p-8">
+              <div className="flex items-center gap-3">
+                <Users className="text-sky-700" size={28} />
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Alunos</h2>
+              </div>
+              <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">
+                Crie novos alunos e escolha qual aluno fica ativo neste aparelho agora.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                {children.map((child) => {
+                  const isActive = child.id === activeChildId;
+                  return (
+                    <div key={child.id} className="rounded-[1.25rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-black text-slate-800">{child.name}</p>
+                          <p className="text-sm text-slate-500">Faixa etaria: {child.age_group}</p>
+                        </div>
+                        {isActive ? (
+                          <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-primary-dark">
+                            Ativo
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleSelectChild(child.id)}
+                            className="rounded-full border-2 border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                          >
+                            Ativar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <form onSubmit={handleCreateChild} className="mt-6 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome do novo aluno</label>
+                  <input
+                    type="text"
+                    value={newChildName}
+                    onChange={(event) => setNewChildName(event.target.value)}
+                    className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
+                    placeholder="Ex.: Ana"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Faixa etaria</label>
+                  <select
+                    value={newChildAgeGroup}
+                    onChange={(event) => setNewChildAgeGroup(event.target.value)}
+                    className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
+                  >
+                    <option value="4-6">4 a 6 anos</option>
+                    <option value="7-9">7 a 9 anos</option>
+                    <option value="10-12">10 a 12 anos</option>
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={creatingChild || !newChildName.trim()}
+                  className="kid-button bg-sky-600 hover:bg-sky-700"
+                >
+                  <UserPlus className="mr-2" size={18} />
+                  {creatingChild ? 'Criando aluno...' : 'Criar novo aluno'}
+                </button>
+              </form>
+            </div>
+
             <div className="kid-surface border-primary/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-primary-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Gerador de frases</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Criar nova licao com IA</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Crie o proximo dia com 3 frases novas usando o Gemini e salve direto no banco de dados.
+                Gere o proximo dia com 3 frases novas usando o Gemini e salve a nova licao direto no banco de dados.
               </p>
               <div className="mt-5">
                 <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
@@ -346,7 +474,7 @@ export default function ParentsPage() {
                 disabled={generatingLesson}
                 className="kid-button mt-6 bg-primary hover:bg-primary-dark"
               >
-                {generatingLesson ? 'Gerando...' : 'Gerar mais frases'}
+                {generatingLesson ? 'Criando licao...' : 'Criar nova licao com IA'}
               </button>
               {generatorMessage ? (
                 <p className={`mt-4 text-sm font-bold ${generatorTone === 'error' ? 'text-kid-pink' : 'text-primary-dark'}`}>
@@ -365,6 +493,20 @@ export default function ParentsPage() {
                         <p className="text-sm text-slate-600 md:text-base">{item.word_pt}</p>
                       </div>
                     ))}
+                  </div>
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                    <Link
+                      href={`/lesson?lessonId=${generatedLesson.id}`}
+                      className="rounded-full border-2 border-primary/20 bg-white px-5 py-3 text-center text-base font-bold text-primary-dark transition hover:border-primary hover:bg-primary-light"
+                    >
+                      Abrir licao criada
+                    </Link>
+                    <Link
+                      href={`/quiz?lessonId=${generatedLesson.id}`}
+                      className="rounded-full border-2 border-slate-200 bg-white px-5 py-3 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                    >
+                      Abrir quiz da licao
+                    </Link>
                   </div>
                 </div>
               ) : null}
