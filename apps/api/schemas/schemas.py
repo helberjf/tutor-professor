@@ -153,6 +153,27 @@ class SpeakResponseSchema(BaseModel):
 class ParentLoginSchema(BaseModel):
     password: str
 
+
+class UserRegisterSchema(BaseModel):
+    first_name: str = Field(min_length=1, max_length=80)
+    last_name: str = Field(min_length=1, max_length=80)
+    email: str = Field(min_length=5, max_length=254)
+    cpf: str = Field(min_length=11, max_length=18)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class UserLoginSchema(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponseSchema(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    created_at: datetime
+
 class ParentSettingsUpdateSchema(BaseModel):
     child_name: Optional[str] = None
     age_group: Optional[str] = None

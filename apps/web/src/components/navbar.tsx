@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BookOpen, Bot, Brain, Home, Link2, Menu, Settings, Trophy, X } from 'lucide-react';
+import { BookOpen, Bot, Brain, Home, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 
 const primaryLinks = [
   { href: '/', label: 'Inicio', icon: Home },
@@ -12,6 +12,11 @@ const primaryLinks = [
   { href: '/review', label: 'Revisao', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
   { href: '/parents', label: 'Area de pais', icon: Settings },
+];
+
+const authLinks = [
+  { href: '/login', label: 'Entrar', icon: LogIn },
+  { href: '/register', label: 'Cadastrar', icon: UserPlus },
 ];
 
 export function Navbar() {
@@ -86,6 +91,35 @@ export function Navbar() {
                           isActive
                             ? 'bg-primary-light text-primary-dark'
                             : 'text-slate-700 hover:bg-slate-100 hover:text-primary-dark'
+                        }`}
+                      >
+                        <Icon size={19} />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Conta</p>
+              <ul className="mt-4 space-y-2">
+                {authLinks.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  const isRegister = item.href === '/register';
+
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={`flex items-center gap-3 rounded-[1.35rem] px-4 py-3 text-base font-bold transition ${
+                          isActive
+                            ? 'bg-primary-light text-primary-dark'
+                            : isRegister
+                              ? 'bg-gradient-to-r from-sky-50 to-indigo-50 text-primary-dark hover:brightness-95'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-primary-dark'
                         }`}
                       >
                         <Icon size={19} />
