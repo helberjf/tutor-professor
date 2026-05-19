@@ -26,16 +26,16 @@ export default function ChatPage() {
   ]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
   const [error, setError] = useState<ApiError | null>(null);
 
-  async function playAudio(url: string | null | undefined, text: string, speed = audioSpeed) {
-    setAudioLoading(true);
+  async function playAudio(index: number, url: string | null | undefined, text: string, speed = audioSpeed) {
+    setPlayingIndex(index);
     try {
       await playAudioWithFallback(url ? api.getAudioUrl(url) : null, text, speed);
     } finally {
-      setAudioLoading(false);
+      setPlayingIndex(null);
     }
   }
 
@@ -62,8 +62,6 @@ export default function ChatPage() {
       };
 
       setMessages((current) => [...current, assistantMessage]);
-
-      await playAudio(response.audio_url, response.response);
     } catch (err) {
       const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel enviar a mensagem do chat.');
       setError(nextError);
@@ -171,16 +169,19 @@ export default function ChatPage() {
                           : 'bg-slate-100 text-slate-800'
                       }`}
                     >
-                      <p className="text-base leading-7 md:text-lg md:leading-8">{message.content}</p>
-                      {message.role === 'assistant' && message.audioUrl ? (
-                        <button
-                          onClick={() => void playAudio(message.audioUrl, message.content)}
-                          disabled={audioLoading}
-                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2 text-sm font-bold uppercase tracking-[0.16em] text-primary-dark disabled:opacity-60"
-                        >
-                          {audioLoading ? <Loader2 size={16} className="animate-spin" /> : <Volume2 size={16} />} Ouvir
-                        </button>
-                      ) : null}
+                      <div className="flex items-start gap-2">
+                        <p className="flex-1 text-base leading-7 md:text-lg md:leading-8">{message.content}</p>
+                        {message.role === 'assistant' && (
+                          <button
+                            onClick={() => void playAudio(index, message.audioUrl, message.content)}
+                            disabled={playingIndex !== null}
+                            title="Ouvir"
+                            className="mt-1 shrink-0 rounded-full bg-white/80 p-1.5 text-primary-dark shadow-sm transition hover:bg-white disabled:opacity-50"
+                          >
+                            {playingIndex === index ? <Loader2 size={15} className="animate-spin" /> : <Volume2 size={15} />}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

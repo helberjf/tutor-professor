@@ -284,6 +284,30 @@ if ($ShouldStartKokoro) {
   }
 }
 
+Write-Step 'Starting backend window'
+$ApiRunnerArgs = @(
+  '-ExecutionPolicy', 'Bypass',
+  '-NoExit',
+  '-File', $ApiRunner
+)
+
+if ($UseTunnel) {
+  $ApiRunnerArgs += @(
+    '-TunnelUrlFile', $TunnelUrlFile,
+    '-WaitForTunnelUrlSeconds', '0'
+  )
+}
+
+Start-Process -FilePath $PowerShellExe -ArgumentList $ApiRunnerArgs | Out-Null
+
+Write-Step 'Waiting for backend to respond on port 8001'
+if (Wait-ForTcpPort -HostName '127.0.0.1' -Port 8001 -TimeoutSeconds 30) {
+  Write-Host 'Backend is up on http://localhost:8001' -ForegroundColor Green
+} else {
+  Write-Host 'Backend did not respond on port 8001 within 30 seconds.' -ForegroundColor Yellow
+  Write-Host 'The Vercel sync will be skipped. Start the backend manually and run activate-backend.cmd.' -ForegroundColor Yellow
+}
+
 if ($UseTunnel) {
   if (Test-Path $TunnelUrlFile) {
     Remove-Item -LiteralPath $TunnelUrlFile -Force
@@ -311,26 +335,10 @@ if ($UseTunnel) {
 
     if (-not $GitHubRuntimeStatePublished -and -not $VercelRuntimeBackendSynced) {
       Write-Host 'The tunnel URL was captured, but no global activation target accepted it yet.' -ForegroundColor Yellow
-      Write-Host 'The manual /connect link still works, and the GitHub/Vercel sync can be retried on the next start.' -ForegroundColor Yellow
+      Write-Host 'To activate manually, run activate-backend.cmd after the backend is up.' -ForegroundColor Yellow
     }
   }
 }
-
-Write-Step 'Starting backend window'
-$ApiRunnerArgs = @(
-  '-ExecutionPolicy', 'Bypass',
-  '-NoExit',
-  '-File', $ApiRunner
-)
-
-if ($UseTunnel) {
-  $ApiRunnerArgs += @(
-    '-TunnelUrlFile', $TunnelUrlFile,
-    '-WaitForTunnelUrlSeconds', '5'
-  )
-}
-
-Start-Process -FilePath $PowerShellExe -ArgumentList $ApiRunnerArgs | Out-Null
 
 Write-Step 'Starting frontend window'
 Start-Process -FilePath $PowerShellExe -ArgumentList @(
