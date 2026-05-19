@@ -38,3 +38,6 @@ tmp/
 
 # Audio Cache
 apps/api/audio_cache/
+
+# Local secrets (never commit)
+local.secrets

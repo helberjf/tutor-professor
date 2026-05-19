@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Trophy, WifiOff } from 'lucide-react';
+import { BookOpen, Bot, Brain, Sparkles, Trophy, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -82,6 +82,25 @@ export default function HomePage() {
                 )}
               </div>
             )}
+
+            {/* CTA principal */}
+            {serverMissing ? (
+              <Link
+                href="/connect"
+                className="mt-8 inline-flex items-center gap-3 rounded-full bg-amber-400 px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(251,191,36,0.45)] transition hover:scale-105 hover:bg-amber-500 md:px-10 md:py-5 md:text-2xl"
+              >
+                <WifiOff size={24} />
+                Conectar o tutor
+              </Link>
+            ) : (
+              <Link
+                href="/lesson"
+                className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark md:px-10 md:py-5 md:text-2xl"
+              >
+                <Sparkles size={24} />
+                Estudar agora
+              </Link>
+            )}
           </div>
         </section>
 
@@ -131,6 +150,18 @@ export default function HomePage() {
             iconColor="text-rose-500"
             disabled={serverMissing}
           />
+          <ActivityCard
+            href="/quick-review"
+            emoji="⚡"
+            icon={<Zap size={28} />}
+            title="Revisao Rapida"
+            description="Relembre palavras em segundos"
+            bg="bg-amber-50"
+            border="border-amber-300"
+            iconColor="text-amber-500"
+            disabled={serverMissing}
+            highlight
+          />
         </section>
 
         {/* Difficult words — only when there's data */}
@@ -166,6 +197,7 @@ function ActivityCard({
   border,
   iconColor,
   disabled,
+  highlight = false,
 }: {
   href: string;
   emoji: string;
@@ -176,10 +208,11 @@ function ActivityCard({
   border: string;
   iconColor: string;
   disabled: boolean;
+  highlight?: boolean;
 }) {
   const inner = (
     <div
-      className={`kid-surface h-full p-5 transition duration-200 md:p-7 ${border} ${disabled ? 'opacity-50' : 'hover:-translate-y-1 hover:shadow-lg cursor-pointer'}`}
+      className={`kid-surface h-full p-5 transition duration-200 md:p-7 ${border} ${disabled ? 'opacity-50' : 'hover:-translate-y-1 hover:shadow-lg cursor-pointer'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
     >
       <div className={`inline-flex rounded-2xl p-3 ${bg}`}>
         <span className={iconColor}>{icon}</span>

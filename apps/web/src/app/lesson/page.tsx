@@ -256,47 +256,56 @@ function LessonPageContent() {
 
   const currentItem = lesson.items[currentIndex];
   const progressWidth = ((currentIndex + 1) / lesson.items.length) * 100;
+  const isLastPhrase = currentIndex >= lesson.items.length - 1;
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
-            <ArrowLeft size={22} /> Sair
-          </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link href="/lesson/history" className="inline-flex items-center gap-2 rounded-full border-2 border-slate-200 px-3.5 py-2 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-4 md:text-sm">
-              <History size={16} /> Licoes anteriores
+    <>
+      <main className="min-h-screen pb-32 px-4 py-6 md:px-8 md:py-10">
+        <div className="mx-auto max-w-2xl">
+
+          {/* Nav row */}
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
+              <ArrowLeft size={20} /> Sair
             </Link>
-            <p className="kid-tag">
-              Frase {currentIndex + 1} de {lesson.items.length}
-            </p>
+            <div className="flex items-center gap-2">
+              <Link href="/lesson/history" className="inline-flex items-center gap-1.5 rounded-full border-2 border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary">
+                <History size={14} /> Anteriores
+              </Link>
+              <p className="kid-tag text-xs md:text-sm">
+                {currentIndex + 1} / {lesson.items.length}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="kid-surface overflow-hidden border-primary/40">
-          <div className="h-4 w-full bg-slate-100">
-            <div className="h-full rounded-r-full bg-primary transition-all duration-300" style={{ width: `${progressWidth}%` }} />
-          </div>
+          {/* Card */}
+          <div className="kid-surface overflow-hidden border-primary/40">
 
-          <div className="grid gap-6 p-5 md:gap-8 md:p-10 lg:grid-cols-[1.1fr,0.9fr]">
-            <section>
-              <p className="kid-tag">{lesson.title}</p>
-              <h1 className="mt-4 text-3xl font-black leading-tight text-slate-800 md:mt-5 md:text-5xl">{currentItem.word_en}</h1>
-              <p className="mt-3 text-lg leading-8 text-slate-600 md:mt-4 md:text-xl md:leading-9">
+            {/* Progress bar */}
+            <div className="h-3 w-full bg-slate-100">
+              <div className="h-full rounded-r-full bg-primary transition-all duration-500" style={{ width: `${progressWidth}%` }} />
+            </div>
+
+            <div className="p-5 md:p-8">
+
+              {/* Phrase */}
+              <p className="kid-tag text-xs">{lesson.title}</p>
+              <h1 className="mt-3 text-3xl font-black leading-tight text-slate-800 md:text-4xl">{currentItem.word_en}</h1>
+              <p className="mt-2 text-base leading-7 text-slate-500 md:text-lg md:leading-8">
                 {lesson.content.daily_goal || lesson.objective}
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-4">
+              {/* Play + Speed */}
+              <div className="mt-5 flex items-center gap-4">
                 <button
                   onClick={() => void playAudio(currentItem.word_en)}
                   disabled={audioLoading}
-                  className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white shadow-[0_18px_40px_rgba(14,165,233,0.25)] transition hover:scale-105 hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70 md:h-20 md:w-20"
-                  aria-label={`Play ${currentItem.word_en}`}
+                  className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_12px_28px_rgba(14,165,233,0.30)] transition active:scale-95 hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70 md:h-16 md:w-16"
+                  aria-label={`Ouvir: ${currentItem.word_en}`}
                 >
-                  {audioLoading ? <Loader2 size={28} className="animate-spin md:h-[34px] md:w-[34px]" /> : <Volume2 size={28} className="md:h-[34px] md:w-[34px]" />}
+                  {audioLoading ? <Loader2 size={24} className="animate-spin" /> : <Volume2 size={24} />}
                 </button>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade</span>
                   <div className="flex gap-2">
                     {([0.5, 0.75, 1.0] as const).map((speed) => (
@@ -317,32 +326,28 @@ function LessonPageContent() {
                 </div>
               </div>
 
-              <div className="mt-8 rounded-[1.5rem] bg-sky-50 p-5 md:rounded-[1.75rem] md:p-6">
-                <p className="text-sm font-bold uppercase tracking-[0.18em] text-sky-700">Miniatividade</p>
-                <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">Toque no significado em portugues.</p>
-                <p className="mt-2 text-lg leading-8 text-slate-600">Ouça a frase primeiro e depois escolha a traducao que voce acha certa.</p>
-              </div>
-            </section>
+              {/* Divider */}
+              <div className="my-5 h-px bg-slate-100" />
 
-            <section className="rounded-[1.5rem] bg-white p-5 shadow-inner ring-1 ring-slate-100 md:rounded-[1.75rem] md:p-6">
-              <div className="grid gap-4">
+              {/* Answer options */}
+              <div className="grid gap-3">
                 {options.map((option) => {
                   const isSelected = selectedAnswer === option;
                   const isCorrectOption = option === currentItem.word_pt;
                   const stateClass = !selectedAnswer
-                    ? 'border-slate-200 hover:border-primary hover:bg-primary-light'
+                    ? 'border-slate-200 hover:border-primary hover:bg-primary-light active:scale-[.98]'
                     : isCorrectOption
                       ? 'border-accent bg-accent-light text-accent-dark'
                       : isSelected
                         ? 'border-kid-pink bg-rose-50 text-rose-700'
-                        : 'border-slate-200 opacity-70';
+                        : 'border-slate-200 opacity-60';
 
                   return (
                     <button
                       key={option}
                       onClick={() => void handleAnswer(option)}
                       disabled={Boolean(selectedAnswer)}
-                      className={`rounded-[1.25rem] border-2 px-4 py-3.5 text-left text-lg font-bold transition md:rounded-[1.5rem] md:px-5 md:py-4 md:text-2xl ${stateClass}`}
+                      className={`rounded-2xl border-2 px-5 py-4 text-left text-lg font-bold transition md:text-xl ${stateClass}`}
                     >
                       {option}
                     </button>
@@ -350,38 +355,56 @@ function LessonPageContent() {
                 })}
               </div>
 
+              {/* After-answer feedback */}
               {selectedAnswer ? (
-                <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-5">
+                <div className="mt-5 rounded-2xl bg-slate-50 p-4 md:p-5">
                   <p className={`text-xl font-black md:text-2xl ${answerCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
-                    {answerCorrect ? 'Sim! Muito bem!' : 'Quase! Vamos tentar lembrar.'}
+                    {answerCorrect ? 'Sim! Muito bem! 🎉' : 'Quase! Vamos lembrar. 💪'}
                   </p>
-                  <p className="mt-2 text-lg text-slate-700 md:text-xl">
+                  <p className="mt-2 text-base text-slate-700 md:text-lg">
                     <span className="font-black">{currentItem.word_en}</span> significa{' '}
                     <span className="font-black">{currentItem.word_pt}</span>.
                   </p>
-                  <p className="mt-4 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{currentItem.example_sentence_en}</p>
-                  <p className="text-sm leading-6 text-slate-500 md:text-base md:leading-7">{currentItem.example_sentence_pt}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base md:leading-7">{currentItem.example_sentence_en}</p>
+                  <p className="text-xs leading-5 text-slate-500 md:text-sm md:leading-6">{currentItem.example_sentence_pt}</p>
                   {renderPhraseBreakdown(lesson, currentItem, currentIndex)}
-                  {saveError ? <p className="mt-4 text-sm font-bold text-kid-pink">{saveError}</p> : null}
-                  <button
-                    onClick={() => void handleNext()}
-                    disabled={savingLesson || submittingAnswer}
-                    className="kid-button mt-6 bg-primary hover:bg-primary-dark"
-                  >
-                    {currentIndex < lesson.items.length - 1 ? 'Proxima frase' : savingLesson ? 'Salvando...' : 'Finalizar licao'}
-                    <ChevronRight className="ml-2" size={20} />
-                  </button>
+                  {saveError ? <p className="mt-3 text-sm font-bold text-kid-pink">{saveError}</p> : null}
                 </div>
               ) : (
-                <p className="mt-6 text-base font-bold uppercase tracking-[0.15em] text-slate-400">
-                  Escolha uma resposta para mostrar as notas da frase e o guia palavra por palavra.
-                </p>
+                /* Miniatividade hint — fica no final do card antes de responder */
+                <div className="mt-5 rounded-2xl bg-sky-50 p-4 md:p-5">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-600">Miniatividade</p>
+                  <p className="mt-2 text-base font-black text-slate-800 md:text-lg">Toque no significado em portugues.</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">Ouca a frase primeiro e depois escolha a traducao certa.</p>
+                </div>
               )}
-            </section>
+
+            </div>
+          </div>
+
+        </div>
+      </main>
+
+      {/* Sticky bottom bar — aparece depois de responder */}
+      {selectedAnswer && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm md:px-8 md:py-4">
+          <div className="mx-auto max-w-2xl">
+            <button
+              onClick={() => void handleNext()}
+              disabled={savingLesson || submittingAnswer}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-lg font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.35)] transition active:scale-[.98] hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70 md:py-5 md:text-xl"
+            >
+              {isLastPhrase
+                ? savingLesson
+                  ? 'Salvando...'
+                  : 'Finalizar licao'
+                : 'Proxima frase'}
+              <ChevronRight size={22} />
+            </button>
           </div>
         </div>
-      </div>
-    </main>
+      )}
+    </>
   );
 }
 
@@ -392,13 +415,14 @@ function buildActivityOptions(items: LessonItem[], currentItem: LessonItem) {
     .slice(0, 3);
 
   const pool = [currentItem.word_pt, ...distractors];
-  return pool
-    .map((value, index) => ({
-      value,
-      order: ((currentItem.word_en.length + 3) * (index + 1)) % 7,
-    }))
-    .sort((left, right) => left.order - right.order)
-    .map((entry) => entry.value);
+
+  // Fisher-Yates shuffle para posição aleatória real
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  return pool;
 }
 
 function getPhraseBreakdown(lesson: Lesson, currentItem: LessonItem, currentIndex: number): PhraseBreakdown | null {
