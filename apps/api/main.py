@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -10,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem
+from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User
 from schemas.schemas import (
     ChatRequestSchema,
     ChatResponseSchema,
@@ -23,6 +24,9 @@ from schemas.schemas import (
     LessonSummarySchema,
     ParentLoginSchema,
     ParentSettingsUpdateSchema,
+    UserLoginSchema,
+    UserRegisterSchema,
+    UserResponseSchema,
     ProgressSchema,
     QuizQuestionSchema,
     QuizSchema,
@@ -89,7 +93,8 @@ content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
 phrase_generation_service = PhraseGenerationService()
 
-active_parent_sessions: set[str] = set()
+# Maps session token → user_id (None = legacy password-only login)
+active_parent_sessions: dict[str, int | None] = {}
 
 
 def create_db_and_tables() -> None:
@@ -605,7 +610,7 @@ def parent_login(request: ParentLoginSchema, response: Response) -> dict[str, st
         raise HTTPException(status_code=401, detail="Senha incorreta")
 
     token = build_parent_session_token()
-    active_parent_sessions.add(token)
+    active_parent_sessions[token] = None
     response.set_cookie(
         key="parent_session",
         value=token,
@@ -622,12 +627,132 @@ def parent_login(request: ParentLoginSchema, response: Response) -> dict[str, st
 def parent_logout(request: Request, response: Response) -> dict[str, str]:
     token = request.cookies.get("parent_session")
     if token in active_parent_sessions:
-        active_parent_sessions.remove(token)
+        del active_parent_sessions[token]
     response.delete_cookie(key="parent_session")
     return {"status": "success"}
 
 
-@app.get("/api/parent/settings", response_model=ChildProfileSchema)
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def validate_cpf(cpf: str) -> bool:
+    digits = re.sub(r"\D", "", cpf)
+    if len(digits) != 11:
+        return False
+    if len(set(digits)) == 1:
+        return False
+    total = sum(int(d) * (10 - i) for i, d in enumerate(digits[:9]))
+    r = total % 11
+    d1 = 0 if r < 2 else 11 - r
+    if int(digits[9]) != d1:
+        return False
+    total = sum(int(d) * (11 - i) for i, d in enumerate(digits[:10]))
+    r = total % 11
+    d2 = 0 if r < 2 else 11 - r
+    return int(digits[10]) == d2
+
+
+def hash_cpf(cpf: str) -> str:
+    digits = re.sub(r"\D", "", cpf)
+    return hashlib.sha256(digits.encode()).hexdigest()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260000)
+    return salt.hex() + ":" + dk.hex()
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        salt_hex, dk_hex = hashed.split(":", 1)
+        salt = bytes.fromhex(salt_hex)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260000)
+        return secrets.compare_digest(dk.hex(), dk_hex)
+    except Exception:
+        return False
+
+
+# ── Auth endpoints ────────────────────────────────────────────────────────────
+
+@app.post("/api/auth/register", response_model=UserResponseSchema, status_code=201)
+def user_register(
+    payload: UserRegisterSchema,
+    session: Session = Depends(get_session),
+) -> UserResponseSchema:
+    if not validate_cpf(payload.cpf):
+        raise HTTPException(status_code=422, detail="CPF inválido.")
+
+    email = payload.email.lower().strip()
+    if session.exec(select(User).where(User.email == email)).first():
+        raise HTTPException(status_code=409, detail="Este e-mail já está cadastrado.")
+
+    cpf_hash = hash_cpf(payload.cpf)
+    if session.exec(select(User).where(User.cpf_hash == cpf_hash)).first():
+        raise HTTPException(status_code=409, detail="Este CPF já está cadastrado.")
+
+    user = User(
+        first_name=payload.first_name.strip(),
+        last_name=payload.last_name.strip(),
+        email=email,
+        cpf_hash=cpf_hash,
+        password_hash=hash_password(payload.password),
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return UserResponseSchema.model_validate(user)
+
+
+@app.post("/api/auth/login")
+def user_login(
+    payload: UserLoginSchema,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    user = session.exec(select(User).where(User.email == payload.email.lower().strip())).first()
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+
+    token = build_parent_session_token()
+    active_parent_sessions[token] = user.id
+    response.set_cookie(
+        key="parent_session",
+        value=token,
+        httponly=True,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+        domain=PARENT_COOKIE_DOMAIN,
+        max_age=PARENT_COOKIE_MAX_AGE,
+    )
+    return {"status": "success", "name": user.first_name}
+
+
+@app.get("/api/auth/me")
+def user_me(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> UserResponseSchema:
+    require_parent_session(request)
+    token = request.cookies.get("parent_session", "")
+    user_id = active_parent_sessions.get(token)
+    if user_id is None:
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    return UserResponseSchema.model_validate(user)
+
+
+@app.post("/api/auth/logout")
+def user_logout(request: Request, response: Response) -> dict[str, str]:
+    token = request.cookies.get("parent_session")
+    if token in active_parent_sessions:
+        del active_parent_sessions[token]
+    response.delete_cookie(key="parent_session")
+    return {"status": "success"}
+
+
+
 def get_parent_settings(
     request: Request,
     session: Session = Depends(get_session),
@@ -664,7 +789,6 @@ def create_parent_child(
     session.commit()
     session.refresh(child)
     return ChildProfileSchema.model_validate(child)
-
 
 @app.post("/api/parent/settings", response_model=ChildProfileSchema)
 def update_parent_settings(

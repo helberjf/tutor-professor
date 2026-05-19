@@ -157,7 +157,23 @@ export interface GenerateLessonResponse {
   message: string;
 }
 
-export class ApiError extends Error {
+export interface UserProfile {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  created_at: string;
+}
+
+export interface UserRegisterPayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  cpf: string;
+  password: string;
+}
+
+
   readonly status?: number;
   readonly detail?: string;
   readonly code: 'offline' | 'http' | 'parse' | 'unconfigured';
@@ -300,6 +316,21 @@ export const api = {
     }),
   parentLogout: () =>
     fetchAPI<{ status: string }>('/api/parent/logout', {
+      method: 'POST',
+    }),
+  userRegister: (payload: UserRegisterPayload) =>
+    fetchAPI<UserProfile>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  userLogin: (email: string, password: string) =>
+    fetchAPI<{ status: string; name: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  getUserMe: () => fetchAPI<UserProfile>('/api/auth/me'),
+  userLogout: () =>
+    fetchAPI<{ status: string }>('/api/auth/logout', {
       method: 'POST',
     }),
   getParentSettings: () => fetchAPI<ParentSettings>('/api/parent/settings'),

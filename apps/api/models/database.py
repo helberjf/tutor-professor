@@ -2,6 +2,16 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from sqlmodel import SQLModel, Field, JSON, Column
 
+
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    first_name: str = Field(min_length=1, max_length=80)
+    last_name: str = Field(min_length=1, max_length=80)
+    email: str = Field(unique=True, index=True, max_length=254)
+    cpf_hash: str = Field(unique=True, index=True)
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class ChildProfile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
