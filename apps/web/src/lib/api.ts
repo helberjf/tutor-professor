@@ -173,7 +173,7 @@ export interface UserRegisterPayload {
   password: string;
 }
 
-
+export class ApiError extends Error {
   readonly status?: number;
   readonly detail?: string;
   readonly code: 'offline' | 'http' | 'parse' | 'unconfigured';

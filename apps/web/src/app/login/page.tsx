@@ -158,9 +158,6 @@ export default function LoginPage() {
   );
 }
 
-
-import { ApiError, api } from '@/lib/api';
-
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
