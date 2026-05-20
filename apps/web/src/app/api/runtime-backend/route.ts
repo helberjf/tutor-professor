@@ -265,16 +265,28 @@ async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
 }
 
 async function verifyBackendHealth(baseUrl: string) {
-  try {
-    const response = await fetch(`${baseUrl}/health`, {
-      method: 'GET',
-      cache: 'no-store',
-    });
+  const maxAttempts = 5;
+  const delayMs = 8000;
 
-    return response.ok;
-  } catch {
-    return false;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await fetch(`${baseUrl}/health`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (response.ok) return true;
+    } catch {
+      // DNS ainda propagando ou conexao recusada — tenta novamente
+    }
+
+    if (attempt < maxAttempts - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
   }
+
+  return false;
 }
 
 export async function GET() {

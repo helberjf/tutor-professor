@@ -1,11 +1,6 @@
 # activate-backend.ps1
-# Envia a URL do tunnel Cloudflare para a Vercel, ativando o backend remotamente.
-# Execute este script sempre que reiniciar o projeto e quiser que o site na Vercel
-# se conecte automaticamente ao backend local.
-#
-# Uso:
-#   - Clique duplo em activate-backend.cmd   (mais fácil)
-#   - OU abra o PowerShell e execute: .\scripts\activate-backend.ps1
+# Pressupoe que o backend local ja esta rodando em :8001.
+# Sobe tunnel novo e registra na Vercel. Use ativar-tudo.cmd para o fluxo completo.
 
 [CmdletBinding()]
 param()
@@ -14,8 +9,12 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $SecretsFile = Join-Path $RepoRoot 'local.secrets'
-$TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
-$ActivateBackendCmdFile = Join-Path $RepoRoot 'activate-backend.cmd'
+$RuntimeDir = Join-Path $RepoRoot 'tmp'
+$TunnelUrlFile = Join-Path $RuntimeDir 'cloudflare-tunnel-url.txt'
+$TunnelStderrFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stderr.log'
+$TunnelStdoutFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stdout.log'
+$TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
+$PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 
 $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
@@ -23,31 +22,62 @@ $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   'https://english-tutor-kid.vercel.app/api/runtime-backend'
 }
 
+$ProgressActivity = 'Ativando backend global'
+
 function Write-Step([string]$Message) {
   Write-Host ''
   Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
 function Get-ValueFromSecretsFile([string]$Key) {
-  if (-not (Test-Path $SecretsFile)) {
-    return $null
-  }
+  if (-not (Test-Path $SecretsFile)) { return $null }
   $match = Get-Content $SecretsFile | Where-Object {
     $_ -match "^\s*$([regex]::Escape($Key))\s*="
   } | Select-Object -First 1
-  if (-not $match) {
-    return $null
-  }
+  if (-not $match) { return $null }
   return (($match -split '=', 2)[1]).Trim()
 }
 
+function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 45) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  $startTime = Get-Date
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Path $FilePath) {
+      $raw = (Get-Content -Path $FilePath -ErrorAction SilentlyContinue | Select-Object -First 1)
+      if ($raw) {
+        $url = $raw.Trim()
+        if ($url -match '^https://') { return $url }
+      }
+    }
+    $elapsed = [int]((Get-Date) - $startTime).TotalSeconds
+    $pct = [math]::Min(69, 20 + [int](($elapsed / $TimeoutSeconds) * 49))
+    Write-Progress -Activity $ProgressActivity `
+      -Status "Aguardando Cloudflare Tunnel publicar URL... ($($elapsed)s)" `
+      -PercentComplete $pct
+    Start-Sleep -Milliseconds 500
+  }
+  return $null
+}
+
+function Stop-RunningCloudflared() {
+  $procs = Get-Process -Name cloudflared -ErrorAction SilentlyContinue
+  if ($procs) {
+    Write-Host "Encerrando $($procs.Count) processo(s) cloudflared antigo(s)..." -ForegroundColor Yellow
+    $procs | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 800
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+
 Write-Host ''
 Write-Host '=============================================' -ForegroundColor Green
-Write-Host '  English Kids Tutor — Ativar Backend Global' -ForegroundColor Green
+Write-Host '  English Kids Tutor - Ativar Backend Global' -ForegroundColor Green
 Write-Host '=============================================' -ForegroundColor Green
 
-# ── 1. Carregar o token do local.secrets (se existir) ─────────────────────────
-Write-Step 'Lendo configurações locais'
+# ── 1. Token ──────────────────────────────────────────────────────────────────
+Write-Step 'Lendo configuracoes locais'
+Write-Progress -Activity $ProgressActivity -Status 'Lendo token...' -PercentComplete 5
 
 $tokenFromFile = Get-ValueFromSecretsFile -Key 'ENGLISH_TUTOR_VERCEL_SYNC_TOKEN'
 if ($tokenFromFile) {
@@ -56,139 +86,159 @@ if ($tokenFromFile) {
 }
 
 $syncToken = $env:ENGLISH_TUTOR_VERCEL_SYNC_TOKEN
-
 if (-not $syncToken -or $syncToken -eq 'your_token_here') {
+  Write-Progress -Activity $ProgressActivity -Completed
   Write-Host ''
-  Write-Host '❌ ENGLISH_TUTOR_VERCEL_SYNC_TOKEN não está configurado.' -ForegroundColor Red
+  Write-Host 'X ENGLISH_TUTOR_VERCEL_SYNC_TOKEN nao configurado.' -ForegroundColor Red
+  Write-Host '  1. local.secrets: ENGLISH_TUTOR_VERCEL_SYNC_TOKEN=<senha>' -ForegroundColor Yellow
+  Write-Host '  2. Vercel env: VERCEL_BACKEND_SYNC_TOKEN=<mesma_senha> + redeploy' -ForegroundColor Yellow
   Write-Host ''
-  Write-Host 'Para ativar o backend global, siga os passos:' -ForegroundColor Yellow
-  Write-Host ''
-  Write-Host '  1. Abra o painel da Vercel:' -ForegroundColor White
-  Write-Host '     https://vercel.com/dashboard → seu projeto → Settings → Environment Variables' -ForegroundColor Cyan
-  Write-Host ''
-  Write-Host '  2. Adicione as variáveis de ambiente na Vercel:' -ForegroundColor White
-  Write-Host '     VERCEL_BACKEND_SYNC_TOKEN = qualquer_senha_secreta_aqui' -ForegroundColor Cyan
-  Write-Host '     (opcional mas recomendado: KV_REST_API_URL e KV_REST_API_TOKEN' -ForegroundColor Gray
-  Write-Host '      OU GITHUB_TOKEN — para persistir a URL entre sessões)' -ForegroundColor Gray
-  Write-Host ''
-  Write-Host '  3. Copie o arquivo local.secrets.example para local.secrets:' -ForegroundColor White
-  Write-Host "     $RepoRoot\local.secrets" -ForegroundColor Cyan
-  Write-Host ''
-  Write-Host '  4. Edite local.secrets e defina:' -ForegroundColor White
-  Write-Host '     ENGLISH_TUTOR_VERCEL_SYNC_TOKEN=qualquer_senha_secreta_aqui' -ForegroundColor Cyan
-  Write-Host '     (deve ser o MESMO valor configurado na Vercel)' -ForegroundColor Gray
-  Write-Host ''
-  Write-Host '  5. Execute activate-backend.cmd novamente.' -ForegroundColor White
-  Write-Host ''
-  Read-Host 'Pressione Enter para fechar'
   exit 1
 }
 
-# ── 2. Obter a URL do tunnel ──────────────────────────────────────────────────
-Write-Step 'Obtendo URL do tunnel Cloudflare'
+# ── 2. Pre-requisitos ─────────────────────────────────────────────────────────
+Write-Step 'Verificando pre-requisitos'
+Write-Progress -Activity $ProgressActivity -Status 'Checando dependencias...' -PercentComplete 10
 
-$tunnelUrl = $null
-
-if (Test-Path $TunnelUrlFile) {
-  $raw = (Get-Content -Path $TunnelUrlFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
-  if ($raw -and $raw -match '^https://') {
-    $tunnelUrl = $raw
-    Write-Host "URL do tunnel: $tunnelUrl" -ForegroundColor Green
-  }
+if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
+  Write-Progress -Activity $ProgressActivity -Completed
+  Write-Host ''
+  Write-Host 'X cloudflared nao encontrado.' -ForegroundColor Red
+  Write-Host '  Instale: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/' -ForegroundColor Yellow
+  Write-Host ''
+  exit 1
 }
+Write-Host 'cloudflared encontrado.' -ForegroundColor Green
+
+$backendOk = Test-NetConnection -ComputerName '127.0.0.1' -Port 8001 `
+  -InformationLevel Quiet -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+if (-not $backendOk) {
+  Write-Progress -Activity $ProgressActivity -Completed
+  Write-Host ''
+  Write-Host 'X Backend nao esta rodando em http://127.0.0.1:8001.' -ForegroundColor Red
+  Write-Host '  Use ativar-tudo.cmd para subir tudo automaticamente.' -ForegroundColor Yellow
+  Write-Host '  Ou rode .\scripts\run-api.ps1 primeiro e tente novamente.' -ForegroundColor Yellow
+  Write-Host ''
+  exit 1
+}
+Write-Host 'Backend respondendo em http://127.0.0.1:8001.' -ForegroundColor Green
+
+# ── 3. Estado limpo ───────────────────────────────────────────────────────────
+Write-Step 'Preparando para tunnel novo'
+Write-Progress -Activity $ProgressActivity -Status 'Encerrando tunnel antigo...' -PercentComplete 15
+
+Stop-RunningCloudflared
+
+if (-not (Test-Path $RuntimeDir)) {
+  New-Item -ItemType Directory -Path $RuntimeDir -Force | Out-Null
+}
+foreach ($f in @($TunnelUrlFile, $TunnelStderrFile, $TunnelStdoutFile)) {
+  if (Test-Path $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue }
+}
+
+# ── 4. Tunnel em janela separada ──────────────────────────────────────────────
+Write-Step 'Iniciando Cloudflare Tunnel em janela separada'
+Write-Progress -Activity $ProgressActivity -Status 'Subindo Cloudflare Tunnel...' -PercentComplete 20
+
+Start-Process -FilePath $PowerShellExe -ArgumentList @(
+  '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', $TunnelRunner
+) | Out-Null
+
+# ── 5. Aguardar URL ───────────────────────────────────────────────────────────
+$tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds 45
 
 if (-not $tunnelUrl) {
+  Write-Progress -Activity $ProgressActivity -Completed
   Write-Host ''
-  Write-Host '❌ Não foi possível obter a URL do tunnel Cloudflare.' -ForegroundColor Red
+  Write-Host 'X Tunnel nao publicou URL em 45s.' -ForegroundColor Red
+  Write-Host "  Veja o log: $TunnelStderrFile" -ForegroundColor Yellow
   Write-Host ''
-  Write-Host 'Certifique-se de que:' -ForegroundColor Yellow
-  Write-Host '  • O start-project.cmd foi executado e o tunnel está ativo' -ForegroundColor White
-  Write-Host "  • Ou cole manualmente a URL no arquivo: $TunnelUrlFile" -ForegroundColor White
-  Write-Host ''
+  exit 1
+}
 
-  $manualUrl = Read-Host 'Cole aqui a URL do tunnel (ou pressione Enter para cancelar)'
-  $manualUrl = $manualUrl.Trim()
+Write-Host ''
+Write-Host "URL do tunnel: $tunnelUrl" -ForegroundColor Green
 
-  if (-not $manualUrl -or $manualUrl -notmatch '^https://') {
-    Write-Host 'Cancelado.' -ForegroundColor Yellow
-    Read-Host 'Pressione Enter para fechar'
+# ── 6. POST Vercel com retry (Vercel faz o health check — aguarda DNS) ─────────
+Write-Step 'Registrando backend na Vercel'
+
+$payload = @{
+  baseUrl     = $tunnelUrl
+  activatedAt = (Get-Date).ToUniversalTime().ToString('o')
+  machineName = $env:COMPUTERNAME
+} | ConvertTo-Json
+
+$response = $null
+$maxRetries = 8
+$retryDelay = 5
+
+for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+  $pct = [math]::Min(97, 70 + ($attempt * 3))
+  Write-Progress -Activity $ProgressActivity `
+    -Status "Enviando para Vercel, tentativa $attempt/$maxRetries..." `
+    -PercentComplete $pct
+
+  try {
+    $response = Invoke-RestMethod -Uri $RuntimeBackendSyncUrl -Method Post `
+      -ContentType 'application/json' `
+      -Headers @{ Authorization = "Bearer $syncToken" } `
+      -Body $payload -ErrorAction Stop
+    break
+  } catch {
+    $statusCode = $_.Exception.Response.StatusCode.value__
+    $errorBody = $null
+    try { $errorBody = $_.ErrorDetails.Message } catch {}
+
+    if ($statusCode -eq 400 -and $attempt -lt $maxRetries) {
+      Write-Host "Tentativa $attempt/$($maxRetries): Vercel ainda nao acessa o tunnel (DNS propagando). Aguardando $($retryDelay)s..." -ForegroundColor Yellow
+      Start-Sleep -Seconds $retryDelay
+      continue
+    }
+
+    Write-Progress -Activity $ProgressActivity -Completed
+    Write-Host ''
+    Write-Host 'X Falha ao enviar para a Vercel.' -ForegroundColor Red
+    Write-Host "   Status: $statusCode" -ForegroundColor Gray
+    if ($errorBody) { Write-Host "   Detalhes: $errorBody" -ForegroundColor Gray }
+    Write-Host ''
+    if ($statusCode -eq 401) {
+      Write-Host 'Token desalinhado: ENGLISH_TUTOR_VERCEL_SYNC_TOKEN != VERCEL_BACKEND_SYNC_TOKEN (Vercel).' -ForegroundColor Yellow
+    } elseif ($statusCode -eq 503) {
+      Write-Host 'Vercel: VERCEL_BACKEND_SYNC_TOKEN ou KV/GITHUB_TOKEN nao configurado.' -ForegroundColor Yellow
+    } elseif ($statusCode -eq 400) {
+      Write-Host 'Vercel nao conseguiu acessar /health mesmo apos retries. Tente novamente.' -ForegroundColor Yellow
+    }
+    Write-Host ''
+    $encoded = [System.Uri]::EscapeDataString($tunnelUrl)
+    Write-Host "Alternativa manual: https://english-tutor-kid.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
+    Write-Host ''
     exit 1
   }
-
-  $tunnelUrl = $manualUrl
 }
 
-# ── 3. Verificar se o backend está respondendo ────────────────────────────────
-Write-Step 'Verificando se o backend está respondendo'
-
-try {
-  $healthResponse = Invoke-WebRequest -Uri "$tunnelUrl/health" -Method Get -TimeoutSec 10 -ErrorAction Stop
-  Write-Host "Backend respondeu com status $($healthResponse.StatusCode) ✅" -ForegroundColor Green
-} catch {
+if (-not $response) {
+  Write-Progress -Activity $ProgressActivity -Completed
   Write-Host ''
-  Write-Host "❌ O backend não respondeu em $tunnelUrl/health" -ForegroundColor Red
-  Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor Gray
+  Write-Host 'X Vercel nao aceitou a URL apos todas as tentativas.' -ForegroundColor Red
   Write-Host ''
-  Write-Host 'Certifique-se de que:' -ForegroundColor Yellow
-  Write-Host '  • O backend (run-api.ps1) está em execução' -ForegroundColor White
-  Write-Host "  • O tunnel aponta para http://localhost:8001" -ForegroundColor White
-  Write-Host ''
-  Read-Host 'Pressione Enter para fechar'
   exit 1
 }
 
-# ── 4. Enviar a URL para a Vercel ─────────────────────────────────────────────
-Write-Step 'Enviando URL do backend para a Vercel'
+# ── 7. Sucesso ────────────────────────────────────────────────────────────────
+Write-Progress -Activity $ProgressActivity -Status 'Concluido!' -PercentComplete 100
+Start-Sleep -Milliseconds 300
+Write-Progress -Activity $ProgressActivity -Completed
 
-try {
-  $payload = @{
-    baseUrl     = $tunnelUrl
-    activatedAt = (Get-Date).ToUniversalTime().ToString('o')
-    machineName = $env:COMPUTERNAME
-  } | ConvertTo-Json
-
-  $response = Invoke-RestMethod -Uri $RuntimeBackendSyncUrl -Method Post `
-    -ContentType 'application/json' `
-    -Headers @{ Authorization = "Bearer $syncToken" } `
-    -Body $payload
-
-  Write-Host ''
-  Write-Host '✅ Backend ativado com sucesso na Vercel!' -ForegroundColor Green
-  Write-Host "   URL: $($response.baseUrl)" -ForegroundColor Green
-  Write-Host "   Atualizado em: $($response.updatedAt)" -ForegroundColor Green
-  Write-Host ''
-  Write-Host 'Agora o seu filho pode acessar:' -ForegroundColor Cyan
-  Write-Host '  https://english-tutor-kid.vercel.app' -ForegroundColor White
-  Write-Host ''
-} catch {
-  $statusCode = $_.Exception.Response.StatusCode.value__
-  $errorBody = $null
-  try { $errorBody = $_.ErrorDetails.Message } catch {}
-
-  Write-Host ''
-  Write-Host '❌ Falha ao enviar para a Vercel.' -ForegroundColor Red
-  Write-Host "   Status: $statusCode" -ForegroundColor Gray
-  if ($errorBody) {
-    Write-Host "   Detalhes: $errorBody" -ForegroundColor Gray
-  }
-  Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor Gray
-  Write-Host ''
-
-  if ($statusCode -eq 401) {
-    Write-Host 'O token está errado. Verifique se ENGLISH_TUTOR_VERCEL_SYNC_TOKEN (local) e' -ForegroundColor Yellow
-    Write-Host 'VERCEL_BACKEND_SYNC_TOKEN (Vercel) têm o mesmo valor.' -ForegroundColor Yellow
-  } elseif ($statusCode -eq 503) {
-    Write-Host 'A Vercel não tem VERCEL_BACKEND_SYNC_TOKEN ou nenhum método de armazenamento configurado.' -ForegroundColor Yellow
-    Write-Host 'Configure KV_REST_API_URL + KV_REST_API_TOKEN (ou GITHUB_TOKEN) nas env vars da Vercel.' -ForegroundColor Yellow
-  }
-
-  Write-Host ''
-  Write-Host 'Alternativa manual: acesse a página /connect e cole a URL do tunnel:' -ForegroundColor Yellow
-  $encoded = [System.Uri]::EscapeDataString($tunnelUrl)
-  Write-Host "  https://english-tutor-kid.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
-  Write-Host ''
-  Read-Host 'Pressione Enter para fechar'
-  exit 1
-}
-
-Read-Host 'Pressione Enter para fechar'
+Write-Host ''
+Write-Host '=============================================' -ForegroundColor Green
+Write-Host '  Backend ativado com sucesso na Vercel!' -ForegroundColor Green
+Write-Host '=============================================' -ForegroundColor Green
+Write-Host "  URL:        $($response.baseUrl)" -ForegroundColor Green
+Write-Host "  Atualizado: $($response.updatedAt)" -ForegroundColor Green
+Write-Host ''
+Write-Host 'Seu filho pode acessar:' -ForegroundColor Cyan
+Write-Host '  https://english-tutor-kid.vercel.app' -ForegroundColor White
+Write-Host ''
+Write-Host 'IMPORTANTE: a janela do Cloudflare Tunnel precisa ficar aberta.' -ForegroundColor Yellow
+Write-Host '            Fechar essa janela desconecta o site.' -ForegroundColor Yellow
+Write-Host ''
