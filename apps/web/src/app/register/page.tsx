@@ -66,6 +66,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
+    child_name: '',
     email: '',
     cpf: '',
     password: '',
@@ -87,6 +88,7 @@ export default function RegisterPage() {
 
     if (!form.first_name.trim()) next.first_name = 'Informe o nome.';
     if (!form.last_name.trim()) next.last_name = 'Informe o sobrenome.';
+    if (!form.child_name.trim()) next.child_name = 'Informe o nome da crianca.';
 
     const email = form.email.trim();
     if (!email) {
@@ -134,6 +136,7 @@ export default function RegisterPage() {
         email: form.email.trim(),
         cpf: form.cpf.replace(/\D/g, ''),
         password: form.password,
+        child_name: form.child_name.trim(),
       });
       setSuccess(true);
       setTimeout(() => router.push('/login'), 2500);
@@ -219,6 +222,18 @@ export default function RegisterPage() {
                 />
               </Field>
             </div>
+
+            <Field id="child_name" label="Nome da crianca" icon={<User size={16} className="text-slate-400" />} error={errors.child_name}>
+              <input
+                id="child_name"
+                type="text"
+                autoComplete="off"
+                placeholder="Ana"
+                value={form.child_name}
+                onChange={(e) => set('child_name', e.target.value)}
+                className={inputCls}
+              />
+            </Field>
 
             {/* Email */}
             <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email}>

@@ -52,6 +52,11 @@ export interface Progress {
   difficult_words: string[];
 }
 
+export interface ChildProgressSummary {
+  child: ChildProfile;
+  progress: Progress;
+}
+
 export interface QuizQuestion {
   id: number;
   question: string;
@@ -157,6 +162,15 @@ export interface GenerateLessonResponse {
   message: string;
 }
 
+export interface LevelAnalysis {
+  level: number;
+  label: string;
+  vocabulary_learned: number;
+  quiz_accuracy: number;
+  avg_review_difficulty: number;
+  next_level_at: number;
+}
+
 export interface UserProfile {
   id: number;
   first_name: string;
@@ -171,6 +185,7 @@ export interface UserRegisterPayload {
   email: string;
   cpf: string;
   password: string;
+  child_name?: string;
 }
 
 export class ApiError extends Error {
@@ -281,6 +296,7 @@ export const api = {
       method: 'POST',
     }),
   getProgress: () => fetchAPI<Progress>('/api/progress'),
+  getChildLevel: () => fetchAPI<LevelAnalysis>('/api/child/level'),
   getTodayQuiz: (lessonId?: number) =>
     fetchAPI<Quiz>(lessonId ? `/api/quiz/today?lesson_id=${lessonId}` : '/api/quiz/today'),
   submitQuiz: (payload: { lesson_id: number; score: number; total_questions: number }) =>
@@ -335,6 +351,7 @@ export const api = {
     }),
   getParentSettings: () => fetchAPI<ParentSettings>('/api/parent/settings'),
   listParentChildren: () => fetchAPI<ChildProfile[]>('/api/parent/children'),
+  getParentProgress: () => fetchAPI<ChildProgressSummary[]>('/api/parent/progress'),
   createParentChild: (payload: CreateChildPayload) =>
     fetchAPI<ChildProfile>('/api/parent/children', {
       method: 'POST',

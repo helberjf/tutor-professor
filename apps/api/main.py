@@ -11,14 +11,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User
+from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
 from schemas.schemas import (
     ChatRequestSchema,
     ChatResponseSchema,
+    ChildProgressSummarySchema,
     ChildProfileSchema,
     CreateChildProfileSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
+    LevelAnalysisSchema,
     LessonItemSchema,
     LessonSchema,
     LessonSummarySchema,
@@ -61,8 +63,10 @@ PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "tr
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
 PARENT_COOKIE_MAX_AGE = int(os.getenv("PARENT_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7)))
+PARENT_SESSION_COOKIE_NAME = "parent_session"
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 app = FastAPI(title="English Kids Tutor API", version="1.0.0")
 
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
@@ -92,9 +96,6 @@ tts_service = TTSService(
 content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
 phrase_generation_service = PhraseGenerationService()
-
-# Maps session token → user_id (None = legacy password-only login)
-active_parent_sessions: dict[str, int | None] = {}
 
 
 def create_db_and_tables() -> None:
@@ -142,10 +143,44 @@ def on_startup() -> None:
     normalize_existing_child_profiles()
 
 
-def get_default_child(session: Session) -> ChildProfile:
-    child = session.exec(select(ChildProfile).order_by(ChildProfile.id)).first()
+def hash_session_token(token: str) -> str:
+    return hashlib.sha256(f"{SESSION_SECRET}:{token}".encode("utf-8")).hexdigest()
+
+
+def get_request_user_session(request: Request | None, session: Session) -> UserSession | None:
+    if request is None:
+        return None
+
+    token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
+    if not token:
+        return None
+
+    session_record = session.exec(
+        select(UserSession).where(UserSession.session_token_hash == hash_session_token(token))
+    ).first()
+    if session_record is None:
+        return None
+
+    if session_record.expires_at <= datetime.utcnow():
+        session.delete(session_record)
+        session.commit()
+        return None
+
+    session_record.last_seen_at = datetime.utcnow()
+    session.add(session_record)
+    return session_record
+
+
+def get_default_child(session: Session, user_id: int | None = None) -> ChildProfile:
+    statement = select(ChildProfile).order_by(ChildProfile.id)
+    if user_id is None:
+        statement = statement.where(ChildProfile.user_id == None)
+    else:
+        statement = statement.where(ChildProfile.user_id == user_id)
+
+    child = session.exec(statement).first()
     if child is None:
-        child = ChildProfile(name="Kid", age_group="7-9")
+        child = ChildProfile(name="Kid", age_group="7-9", user_id=user_id)
         session.add(child)
         session.commit()
         session.refresh(child)
@@ -153,14 +188,21 @@ def get_default_child(session: Session) -> ChildProfile:
 
 
 def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
+    parent_session = get_request_user_session(request=request, session=session)
+    logged_user_id = parent_session.user_id if parent_session is not None else None
+
     if request is not None:
         raw_child_id = request.headers.get("x-child-id", "").strip()
         if raw_child_id.isdigit():
             selected_child = session.get(ChildProfile, int(raw_child_id))
-            if selected_child is not None:
+            if selected_child is not None and (
+                (parent_session is not None and logged_user_id is None)
+                or selected_child.user_id == logged_user_id
+                or (parent_session is None and selected_child.user_id is None)
+            ):
                 return normalize_child_voice_preference(selected_child, session=session)
 
-    return get_default_child(session)
+    return get_default_child(session=session, user_id=logged_user_id)
 
 
 def is_generated_lesson(lesson: Lesson) -> bool:
@@ -188,7 +230,7 @@ def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int,
     }
 
 
-def get_current_lesson(session: Session, child_id: int) -> Lesson:
+def get_current_lesson(session: Session, child_id: int) -> Lesson | None:
     lessons = list_accessible_lessons(session=session, child_id=child_id)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
 
@@ -202,8 +244,6 @@ def get_current_lesson(session: Session, child_id: int) -> Lesson:
     )
     if lesson is None and lessons:
         lesson = lessons[-1]
-    if lesson is None:
-        raise HTTPException(status_code=404, detail="Nenhuma licao encontrada")
     return lesson
 
 
@@ -211,6 +251,149 @@ def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
     return session.exec(
         select(LessonItem).where(LessonItem.lesson_id == lesson_id).order_by(LessonItem.id)
     ).all()
+
+
+def compute_and_update_child_level(session: Session, child: ChildProfile) -> int:
+    """Analyse quiz accuracy + spaced-repetition difficulty and return a level 1-10.
+
+    Level thresholds (each bracket takes roughly 5 completed lessons to climb):
+      1-2  beginner      < 10 vocab, quiz avg < 60 %
+      3-4  elementary    10-25 vocab
+      5-6  intermediate  25-50 vocab, quiz avg >= 60 %
+      7-8  upper-interm  50-100 vocab, quiz avg >= 75 %
+      9-10 advanced      > 100 vocab, quiz avg >= 85 %
+    """
+    # -- vocabulary learned --------------------------------------------------
+    completed_progress_items = [
+        p for p in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
+        if p.is_completed
+    ]
+    vocab_count = 0
+    for p in completed_progress_items:
+        if p.lesson_id:
+            vocab_count += len(get_lesson_items(session=session, lesson_id=p.lesson_id))
+
+    # -- quiz accuracy -------------------------------------------------------
+    quiz_attempts = session.exec(
+        select(QuizAttempt).where(QuizAttempt.child_id == child.id)
+    ).all()
+    if quiz_attempts:
+        total_score = sum(a.score for a in quiz_attempts)
+        total_q = sum(a.total_questions for a in quiz_attempts if a.total_questions)
+        quiz_accuracy = total_score / total_q if total_q else 0.0
+    else:
+        quiz_accuracy = 0.0
+
+    # -- review difficulty ---------------------------------------------------
+    review_items = session.exec(
+        select(ReviewItem).where(ReviewItem.child_id == child.id)
+    ).all()
+    avg_difficulty = (
+        sum(r.difficulty_score for r in review_items) / len(review_items)
+        if review_items else 0.0
+    )
+
+    # -- level formula -------------------------------------------------------
+    if vocab_count >= 100 and quiz_accuracy >= 0.85:
+        level = 10 if avg_difficulty < 1.5 else 9
+    elif vocab_count >= 50 and quiz_accuracy >= 0.75:
+        level = 8 if avg_difficulty < 1.5 else 7
+    elif vocab_count >= 25 and quiz_accuracy >= 0.60:
+        level = 6 if avg_difficulty < 2.0 else 5
+    elif vocab_count >= 10:
+        level = 4 if quiz_accuracy >= 0.50 else 3
+    else:
+        level = 2 if quiz_accuracy >= 0.50 else 1
+
+    if child.current_level != level:
+        child.current_level = level
+        session.add(child)
+        session.commit()
+        session.refresh(child)
+
+    return level
+
+
+def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Lesson:
+    """Generate and persist a new Gemini lesson for *child* when no lesson exists."""
+    if not phrase_generation_service.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Nenhuma licao foi encontrada e o GEMINI_API_KEY nao esta configurado no backend. "
+                "Configure a chave para gerar licoes automaticamente."
+            ),
+        )
+
+    level = compute_and_update_child_level(session=session, child=child)
+    next_day = get_next_lesson_day(session=session)
+    existing_phrases = [
+        item.word_en
+        for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
+    ]
+
+    try:
+        draft = phrase_generation_service.generate_lesson_draft(
+            next_day=next_day,
+            age_group=child.age_group,
+            existing_phrases=existing_phrases,
+            level=level,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Nao foi possivel gerar a licao com o Gemini. {exc}",
+        ) from exc
+
+    lesson = Lesson(
+        id=next_day,
+        title=f"Ingles de hoje - Dia {next_day}",
+        theme="Frases do dia",
+        objective="Aprenda 3 frases uteis em ingles hoje.",
+        content={
+            "daily_goal": "3 frases para hoje",
+            "phrase_breakdowns": [
+                {
+                    "phrase_en": phrase.phrase_en,
+                    "phrase_pt": phrase.phrase_pt,
+                    "word_by_word": [{"en": p.en, "pt": p.pt} for p in phrase.word_by_word],
+                }
+                for phrase in draft.phrases
+            ],
+            "generated_by": "gemini",
+            "generated_model": phrase_generation_service.model,
+            "generated_level": level,
+            "generated_at": datetime.utcnow().isoformat(),
+        },
+        child_id=child.id,
+    )
+    session.add(lesson)
+    session.commit()
+    session.refresh(lesson)
+
+    created_items: list[LessonItem] = []
+    for phrase in draft.phrases:
+        lesson_item = LessonItem(
+            word_en=phrase.phrase_en,
+            word_pt=phrase.phrase_pt,
+            example_sentence_en=phrase.example_sentence_en,
+            example_sentence_pt=phrase.example_sentence_pt,
+            lesson_id=lesson.id,
+        )
+        session.add(lesson_item)
+        created_items.append(lesson_item)
+    session.commit()
+
+    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items)
+    lesson.content = {
+        **(lesson.content or {}),
+        "quiz_questions": [q.model_dump() for q in quiz_questions],
+    }
+    session.add(lesson)
+    session.commit()
+    session.refresh(lesson)
+
+    return lesson
 
 
 def get_next_lesson_day(session: Session) -> int:
@@ -321,15 +504,62 @@ def build_quiz_encouragement(score: int, total_questions: int) -> str:
 
 
 def build_parent_session_token() -> str:
-    seed = f"{SESSION_SECRET}:{secrets.token_urlsafe(32)}"
-    return hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    return secrets.token_urlsafe(48)
 
 
-def require_parent_session(request: Request) -> str:
-    token = request.cookies.get("parent_session")
-    if not token or token not in active_parent_sessions:
-        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+def create_parent_session(
+    *,
+    response: Response,
+    session: Session,
+    user_id: int | None,
+) -> str:
+    token = build_parent_session_token()
+    now = datetime.utcnow()
+    session_record = UserSession(
+        session_token_hash=hash_session_token(token),
+        user_id=user_id,
+        created_at=now,
+        last_seen_at=now,
+        expires_at=now + timedelta(seconds=PARENT_COOKIE_MAX_AGE),
+    )
+    session.add(session_record)
+    session.commit()
+
+    response.set_cookie(
+        key=PARENT_SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+        domain=PARENT_COOKIE_DOMAIN,
+        max_age=PARENT_COOKIE_MAX_AGE,
+    )
     return token
+
+
+def clear_parent_session(request: Request, response: Response, session: Session) -> None:
+    token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
+    if token:
+        session_record = session.exec(
+            select(UserSession).where(UserSession.session_token_hash == hash_session_token(token))
+        ).first()
+        if session_record is not None:
+            session.delete(session_record)
+            session.commit()
+
+    response.delete_cookie(
+        key=PARENT_SESSION_COOKIE_NAME,
+        domain=PARENT_COOKIE_DOMAIN,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+    )
+
+
+def require_parent_session(request: Request, session: Session) -> UserSession:
+    session_record = get_request_user_session(request=request, session=session)
+    if session_record is None:
+        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+    return session_record
 
 
 def get_or_create_lesson_progress(
@@ -381,6 +611,8 @@ def list_all_lessons(request: Request, session: Session = Depends(get_session)) 
 def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
     child = get_requested_child(request=request, session=session)
     lesson = get_current_lesson(session=session, child_id=child.id or 0)
+    if lesson is None:
+        lesson = auto_generate_lesson_for_child(session=session, child=child)
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
@@ -431,6 +663,8 @@ def get_today_quiz(
     lesson: Lesson | None = None
     if resolved_lesson_id is None:
         lesson = get_current_lesson(session=session, child_id=child.id or 0)
+        if lesson is None:
+            raise HTTPException(status_code=404, detail="Nenhuma licao encontrada para o quiz")
         resolved_lesson_id = lesson.id
     elif resolved_lesson_id is not None:
         lesson = session.get(Lesson, resolved_lesson_id)
@@ -521,9 +755,7 @@ def submit_review_attempt(
     )
 
 
-@app.get("/api/progress", response_model=ProgressSchema)
-def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
-    child = get_requested_child(request=request, session=session)
+def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressSchema:
     completed_progress_items = [
         progress
         for progress in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
@@ -559,6 +791,56 @@ def get_progress(request: Request, session: Session = Depends(get_session)) -> P
         last_activity=child.last_activity,
         current_level=child.current_level,
         difficult_words=difficult_words,
+    )
+
+
+@app.get("/api/progress", response_model=ProgressSchema)
+def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
+    child = get_requested_child(request=request, session=session)
+    return build_progress_for_child(session=session, child=child)
+
+
+_LEVEL_LABELS = {
+    1: "Iniciante", 2: "Iniciante+",
+    3: "Basico", 4: "Basico+",
+    5: "Intermediario", 6: "Intermediario+",
+    7: "Avancado", 8: "Avancado+",
+    9: "Fluente", 10: "Fluente+",
+}
+_LEVEL_THRESHOLDS = {1: 5, 2: 10, 3: 25, 4: 25, 5: 50, 6: 50, 7: 100, 8: 100, 9: 150, 10: 999}
+
+
+@app.get("/api/child/level", response_model=LevelAnalysisSchema)
+def get_child_level(request: Request, session: Session = Depends(get_session)) -> LevelAnalysisSchema:
+    child = get_requested_child(request=request, session=session)
+
+    # vocab
+    completed = [
+        p for p in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
+        if p.is_completed
+    ]
+    vocab = sum(len(get_lesson_items(session=session, lesson_id=p.lesson_id)) for p in completed if p.lesson_id)
+
+    # quiz accuracy
+    attempts = session.exec(select(QuizAttempt).where(QuizAttempt.child_id == child.id)).all()
+    total_score = sum(a.score for a in attempts)
+    total_q = sum(a.total_questions for a in attempts if a.total_questions)
+    accuracy = round(total_score / total_q, 3) if total_q else 0.0
+
+    # avg review difficulty
+    review_items = session.exec(select(ReviewItem).where(ReviewItem.child_id == child.id)).all()
+    avg_diff = round(sum(r.difficulty_score for r in review_items) / len(review_items), 2) if review_items else 0.0
+
+    level = compute_and_update_child_level(session=session, child=child)
+    next_at = _LEVEL_THRESHOLDS.get(level, 999)
+
+    return LevelAnalysisSchema(
+        level=level,
+        label=_LEVEL_LABELS.get(level, "Desconhecido"),
+        vocabulary_learned=vocab,
+        quiz_accuracy=accuracy,
+        avg_review_difficulty=avg_diff,
+        next_level_at=next_at,
     )
 
 
@@ -604,31 +886,26 @@ async def speak_text(
 
 
 @app.post("/api/parent/login")
-def parent_login(request: ParentLoginSchema, response: Response) -> dict[str, str]:
+def parent_login(
+    request: ParentLoginSchema,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
     correct_password = os.getenv("PARENT_PASSWORD", "tutor123")
     if request.password != correct_password:
         raise HTTPException(status_code=401, detail="Senha incorreta")
 
-    token = build_parent_session_token()
-    active_parent_sessions[token] = None
-    response.set_cookie(
-        key="parent_session",
-        value=token,
-        httponly=True,
-        secure=PARENT_COOKIE_SECURE,
-        samesite=PARENT_COOKIE_SAMESITE,
-        domain=PARENT_COOKIE_DOMAIN,
-        max_age=PARENT_COOKIE_MAX_AGE,
-    )
+    create_parent_session(response=response, session=session, user_id=None)
     return {"status": "success"}
 
 
 @app.post("/api/parent/logout")
-def parent_logout(request: Request, response: Response) -> dict[str, str]:
-    token = request.cookies.get("parent_session")
-    if token in active_parent_sessions:
-        del active_parent_sessions[token]
-    response.delete_cookie(key="parent_session")
+def parent_logout(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    clear_parent_session(request=request, response=response, session=session)
     return {"status": "success"}
 
 
@@ -700,6 +977,12 @@ def user_register(
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    child_name = (payload.child_name or payload.first_name).strip() or "Kid"
+    child = ChildProfile(name=child_name, age_group="7-9", user_id=user.id)
+    session.add(child)
+    session.commit()
+
     return UserResponseSchema.model_validate(user)
 
 
@@ -713,17 +996,11 @@ def user_login(
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
 
-    token = build_parent_session_token()
-    active_parent_sessions[token] = user.id
-    response.set_cookie(
-        key="parent_session",
-        value=token,
-        httponly=True,
-        secure=PARENT_COOKIE_SECURE,
-        samesite=PARENT_COOKIE_SAMESITE,
-        domain=PARENT_COOKIE_DOMAIN,
-        max_age=PARENT_COOKIE_MAX_AGE,
-    )
+    if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
+        session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))
+        session.commit()
+
+    create_parent_session(response=response, session=session, user_id=user.id)
     return {"status": "success", "name": user.first_name}
 
 
@@ -732,9 +1009,8 @@ def user_me(
     request: Request,
     session: Session = Depends(get_session),
 ) -> UserResponseSchema:
-    require_parent_session(request)
-    token = request.cookies.get("parent_session", "")
-    user_id = active_parent_sessions.get(token)
+    session_record = require_parent_session(request, session)
+    user_id = session_record.user_id
     if user_id is None:
         raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     user = session.get(User, user_id)
@@ -744,20 +1020,21 @@ def user_me(
 
 
 @app.post("/api/auth/logout")
-def user_logout(request: Request, response: Response) -> dict[str, str]:
-    token = request.cookies.get("parent_session")
-    if token in active_parent_sessions:
-        del active_parent_sessions[token]
-    response.delete_cookie(key="parent_session")
+def user_logout(
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    clear_parent_session(request=request, response=response, session=session)
     return {"status": "success"}
 
 
-
+@app.get("/api/parent/settings", response_model=ChildProfileSchema)
 def get_parent_settings(
     request: Request,
     session: Session = Depends(get_session),
 ) -> ChildProfileSchema:
-    require_parent_session(request)
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     return ChildProfileSchema.model_validate(child)
 
@@ -767,9 +1044,39 @@ def list_parent_children(
     request: Request,
     session: Session = Depends(get_session),
 ) -> list[ChildProfileSchema]:
-    require_parent_session(request)
-    children = session.exec(select(ChildProfile).order_by(ChildProfile.created_at, ChildProfile.id)).all()
+    session_record = require_parent_session(request, session)
+    user_id = session_record.user_id
+    if user_id is not None:
+        children = session.exec(
+            select(ChildProfile)
+            .where(ChildProfile.user_id == user_id)
+            .order_by(ChildProfile.created_at, ChildProfile.id)
+        ).all()
+    else:
+        # Legacy password-only login: see all children (backwards compat)
+        children = session.exec(select(ChildProfile).order_by(ChildProfile.created_at, ChildProfile.id)).all()
     return [ChildProfileSchema.model_validate(normalize_child_voice_preference(child, session=session)) for child in children]
+
+
+@app.get("/api/parent/progress", response_model=list[ChildProgressSummarySchema])
+def list_parent_progress(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ChildProgressSummarySchema]:
+    children = list_parent_children(request=request, session=session)
+    summaries: list[ChildProgressSummarySchema] = []
+    for child_schema in children:
+        child = session.get(ChildProfile, child_schema.id)
+        if child is None:
+            continue
+        normalized_child = normalize_child_voice_preference(child, session=session)
+        summaries.append(
+            ChildProgressSummarySchema(
+                child=ChildProfileSchema.model_validate(normalized_child),
+                progress=build_progress_for_child(session=session, child=normalized_child),
+            )
+        )
+    return summaries
 
 
 @app.post("/api/parent/children", response_model=ChildProfileSchema)
@@ -778,12 +1085,14 @@ def create_parent_child(
     payload: CreateChildProfileSchema,
     session: Session = Depends(get_session),
 ) -> ChildProfileSchema:
-    require_parent_session(request)
+    session_record = require_parent_session(request, session)
+    user_id = session_record.user_id
     child = ChildProfile(
         name=payload.name.strip(),
         age_group=payload.age_group.strip(),
         voice_preference=tts_service.normalize_voice(payload.voice_preference),
         auto_audio=True if payload.auto_audio is None else payload.auto_audio,
+        user_id=user_id,
     )
     session.add(child)
     session.commit()
@@ -796,7 +1105,7 @@ def update_parent_settings(
     payload: ParentSettingsUpdateSchema,
     session: Session = Depends(get_session),
 ) -> ChildProfileSchema:
-    require_parent_session(request)
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
 
     if payload.child_name:
@@ -820,7 +1129,7 @@ def generate_parent_lesson(
     payload: GenerateLessonRequestSchema,
     session: Session = Depends(get_session),
 ) -> GenerateLessonResponseSchema:
-    require_parent_session(request)
+    require_parent_session(request, session)
 
     if not phrase_generation_service.is_configured():
         raise HTTPException(
@@ -829,6 +1138,7 @@ def generate_parent_lesson(
         )
 
     child = get_requested_child(request=request, session=session)
+    level = compute_and_update_child_level(session=session, child=child)
     next_day = get_next_lesson_day(session=session)
     existing_phrases = [
         item.word_en
@@ -841,6 +1151,7 @@ def generate_parent_lesson(
             age_group=child.age_group,
             existing_phrases=existing_phrases,
             topic=payload.topic,
+            level=level,
         )
     except Exception as exc:
         raise HTTPException(

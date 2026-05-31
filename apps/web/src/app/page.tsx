@@ -93,13 +93,21 @@ export default function HomePage() {
                 Conectar o tutor
               </Link>
             ) : (
-              <Link
-                href="/lesson"
-                className="mt-8 inline-flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark md:px-10 md:py-5 md:text-2xl"
-              >
-                <Sparkles size={24} />
-                Estudar agora
-              </Link>
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <div className="relative inline-flex">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+                  <Link
+                    href="/lesson"
+                    className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-2xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:px-12 md:py-6 md:text-3xl"
+                  >
+                    <Sparkles size={28} />
+                    Iniciar estudos
+                  </Link>
+                </div>
+                {progress && progress.themes_completed > 0 && (
+                  <p className="text-sm font-semibold text-slate-400">Continue de onde parou ▸</p>
+                )}
+              </div>
             )}
           </div>
         </section>

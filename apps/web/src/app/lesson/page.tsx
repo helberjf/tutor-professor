@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ChevronRight, History, Loader2, Volume2 } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, PartyPopper, Sparkles, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
+import { ApiError, api, type LevelAnalysis, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 
 export default function LessonPage() {
@@ -32,8 +32,10 @@ function LessonPageContent() {
   const lessonIdParam = searchParams.get('lessonId');
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [levelInfo, setLevelInfo] = useState<LevelAnalysis | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [options, setOptions] = useState<string[]>([]);
@@ -47,8 +49,13 @@ function LessonPageContent() {
 
   async function loadLesson() {
     setLoading(true);
+    setGenerating(false);
     try {
       const id = lessonIdParam ? parseInt(lessonIdParam, 10) : null;
+      if (!id || isNaN(id)) {
+        // No lesson yet — the backend will auto-generate; show generating state
+        setGenerating(true);
+      }
       const data = id && !isNaN(id) ? await api.getLessonById(id) : await api.getTodayLesson();
       setLesson(data);
       setCurrentIndex(0);
@@ -56,10 +63,14 @@ function LessonPageContent() {
       setSelectedAnswer(null);
       setSaveError(null);
       setError(null);
+
+      // Load level in background (non-blocking)
+      void api.getChildLevel().then(setLevelInfo).catch(() => null);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a licao.'));
     } finally {
       setLoading(false);
+      setGenerating(false);
     }
   }
 
@@ -143,12 +154,16 @@ function LessonPageContent() {
     }
   }
 
-  if (loading) {
+  if (loading || generating) {
     return (
       <StatusCard
         tone="loading"
-        title="Abrindo a licao de hoje"
-        message="Estamos preparando as frases, os sons e a miniatividade para voce."
+        title={generating ? 'Gerando sua licao com IA...' : 'Abrindo a licao de hoje'}
+        message={
+          generating
+            ? 'O Gemini esta criando frases no nivel certo para voce. Pode demorar alguns segundos.'
+            : 'Estamos preparando as frases, os sons e a miniatividade para voce.'
+        }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -189,6 +204,23 @@ function LessonPageContent() {
     );
   }
 
+  if (error?.status === 503 || error?.status === 502) {
+    return (
+      <StatusCard
+        tone="error"
+        title="Chave Gemini nao configurada"
+        message="O backend nao encontrou licoes e o GEMINI_API_KEY nao esta configurado. Adicione a chave no arquivo .env do backend e reinicie a API para gerar licoes automaticamente."
+        primaryAction={
+          <button onClick={() => void loadLesson()} className="kid-button bg-kid-pink hover:bg-pink-500">
+            Tentar de novo
+          </button>
+        }
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+
   if (error) {
     return (
       <StatusCard
@@ -221,34 +253,53 @@ function LessonPageContent() {
   if (completed) {
     return (
       <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
-        <div className="mx-auto flex max-w-3xl items-center justify-center">
-          <div className="kid-surface w-full border-accent/60 p-6 text-center md:p-10">
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light md:mb-6 md:h-28 md:w-28">
-              <CheckCircle2 className="text-accent-dark" size={56} />
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-5">
+
+          {/* Celebration card */}
+          <div className="kid-surface w-full border-accent/60 p-7 text-center md:p-12">
+            <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
+              <PartyPopper className="text-accent-dark" size={52} />
             </div>
-            <p className="kid-tag mb-4">Licao concluida</p>
-            <h1 className="text-3xl font-black text-slate-800 md:text-5xl">Voce terminou {lesson.theme}!</h1>
-            <p className="mx-auto mt-4 max-w-xl text-lg leading-8 text-slate-600 md:mt-5 md:text-xl md:leading-9">
-              Muito bem. Suas frases de revisao foram salvas e o quiz esta pronto quando voce quiser.
+            <p className="kid-tag mb-3">Licao concluida! 🎉</p>
+            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Voce terminou</h1>
+            <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
+            <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
+              {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}. O quiz esta pronto!
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href={`/quiz?lessonId=${lesson.id}`} className="kid-button bg-primary hover:bg-primary-dark">
-                Fazer o quiz
-              </Link>
+
+            {/* Primary CTA */}
+            <div className="relative mt-8 inline-flex">
+              <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
               <Link
-                href="/"
-                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
+                href={`/quiz?lessonId=${lesson.id}`}
+                className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:text-2xl"
               >
-                Voltar ao inicio
-              </Link>
-              <Link
-                href="/lesson/history"
-                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
-              >
-                Ver todas as licoes
+                <ChevronRight size={24} />
+                Proxima atividade — Quiz
               </Link>
             </div>
           </div>
+
+          {/* Secondary actions */}
+          <div className="grid w-full grid-cols-2 gap-3">
+            <Link
+              href="/review"
+              className="kid-surface flex flex-col items-center gap-2 border-emerald-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <Brain size={28} className="text-emerald-600" />
+              <p className="text-sm font-black text-slate-800">Praticar revisao</p>
+              <p className="text-xs text-slate-500">Fixe o que aprendeu</p>
+            </Link>
+            <Link
+              href="/"
+              className="kid-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <CheckCircle2 size={28} className="text-slate-400" />
+              <p className="text-sm font-black text-slate-800">Voltar ao inicio</p>
+              <p className="text-xs text-slate-500">Ver todas as atividades</p>
+            </Link>
+          </div>
+
         </div>
       </main>
     );
@@ -289,7 +340,15 @@ function LessonPageContent() {
             <div className="p-5 md:p-8">
 
               {/* Phrase */}
-              <p className="kid-tag text-xs">{lesson.title}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="kid-tag text-xs">{lesson.title}</p>
+                {levelInfo && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                    <Sparkles size={12} />
+                    Nivel {levelInfo.level} — {levelInfo.label}
+                  </span>
+                )}
+              </div>
               <h1 className="mt-3 text-3xl font-black leading-tight text-slate-800 md:text-4xl">{currentItem.word_en}</h1>
               <p className="mt-2 text-base leading-7 text-slate-500 md:text-lg md:leading-8">
                 {lesson.content.daily_goal || lesson.objective}
