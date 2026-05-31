@@ -3,9 +3,23 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Globe, Lock, Mail, User } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
+
+// ── Supported languages ──────────────────────────────────────────────────────────────────────────────
+const LANGUAGES = [
+  { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
+  { value: 'French',   flag: '🇫🇷', label: 'Francês' },
+  { value: 'Spanish',  flag: '🇪🇸', label: 'Espanhol' },
+  { value: 'German',   flag: '🇩🇪', label: 'Alemão' },
+  { value: 'Italian',  flag: '🇮🇹', label: 'Italiano' },
+  { value: 'Japanese', flag: '🇯🇵', label: 'Japonês' },
+];
+
+export const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
+  LANGUAGES.map(({ value, flag, label }) => [value, { flag, label }]),
+);
 
 // ── CPF validation ────────────────────────────────────────────────────────────
 function validateCPF(raw: string): boolean {
@@ -72,6 +86,7 @@ export default function RegisterPage() {
     password: '',
     confirm: '',
   });
+  const [targetLanguage, setTargetLanguage] = useState('English');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Partial<typeof form & { submit: string }>>({});
@@ -137,6 +152,7 @@ export default function RegisterPage() {
         cpf: form.cpf.replace(/\D/g, ''),
         password: form.password,
         child_name: form.child_name.trim(),
+        target_language: targetLanguage,
       });
       setSuccess(true);
       setTimeout(() => router.push('/login'), 2500);
@@ -223,7 +239,7 @@ export default function RegisterPage() {
               </Field>
             </div>
 
-            <Field id="child_name" label="Nome da crianca" icon={<User size={16} className="text-slate-400" />} error={errors.child_name}>
+            <Field id="child_name" label="Seu nome / Nome do aluno" icon={<User size={16} className="text-slate-400" />} error={errors.child_name}>
               <input
                 id="child_name"
                 type="text"
@@ -234,6 +250,30 @@ export default function RegisterPage() {
                 className={inputCls}
               />
             </Field>
+
+            {/* Language picker */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
+                <span className="flex items-center gap-1.5"><Globe size={14} /> Idioma para aprender</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.value}
+                    type="button"
+                    onClick={() => setTargetLanguage(lang.value)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border-2 py-3 text-xs font-black transition ${
+                      targetLanguage === lang.value
+                        ? 'border-primary bg-sky-50 text-primary-dark'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-xl">{lang.flag}</span>
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Email */}
             <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email}>

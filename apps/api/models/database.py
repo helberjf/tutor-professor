@@ -33,6 +33,7 @@ class ChildProfile(SQLModel, table=True):
     last_activity: Optional[datetime] = None
     voice_preference: str = "af_bella"
     auto_audio: bool = True
+    target_language: str = "English"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class Lesson(SQLModel, table=True):
@@ -103,6 +104,7 @@ class Book(SQLModel, table=True):
     theme: str
     level: int = 1
     num_pages: int = 5
+    target_language: str = "English"
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

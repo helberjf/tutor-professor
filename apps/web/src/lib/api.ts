@@ -143,6 +143,7 @@ export interface ParentSettingsUpdatePayload {
   age_group?: string;
   voice_preference?: string;
   auto_audio?: boolean;
+  target_language?: string;
 }
 
 export interface GenerateLessonPayload {
@@ -154,6 +155,7 @@ export interface CreateChildPayload {
   age_group: string;
   voice_preference?: string;
   auto_audio?: boolean;
+  target_language?: string;
 }
 
 export interface GenerateLessonResponse {
@@ -169,6 +171,7 @@ export interface LevelAnalysis {
   quiz_accuracy: number;
   avg_review_difficulty: number;
   next_level_at: number;
+  target_language: string;
 }
 
 export interface BookPage {
@@ -219,6 +222,7 @@ export interface UserRegisterPayload {
   cpf: string;
   password: string;
   child_name?: string;
+  target_language?: string;
 }
 
 export class ApiError extends Error {

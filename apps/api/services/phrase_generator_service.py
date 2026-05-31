@@ -27,6 +27,7 @@ class PhraseGenerationService:
         existing_phrases: list[str],
         topic: str | None = None,
         level: int = 1,
+        target_language: str = "English",
     ) -> GeneratedLessonDraftSchema:
         if not self.is_configured():
             raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
@@ -36,7 +37,7 @@ class PhraseGenerationService:
                 "parts": [
                     {
                         "text": (
-                            "You create child-safe English lessons for Brazilian Portuguese speakers. "
+                            f"You create child-safe {target_language} lessons for Brazilian Portuguese speakers. "
                             "Always return valid JSON only, with no markdown fences, no commentary, and no extra keys."
                         )
                     }
@@ -53,6 +54,7 @@ class PhraseGenerationService:
                                 existing_phrases=existing_phrases,
                                 topic=topic,
                                 level=level,
+                                target_language=target_language,
                             )
                         }
                     ],
@@ -97,6 +99,7 @@ class PhraseGenerationService:
         existing_phrases: list[str],
         topic: str | None,
         level: int = 1,
+        target_language: str = "English",
     ) -> str:
         topic_text = topic.strip() if topic else ""
         recent_phrase_list = existing_phrases[-24:] if len(existing_phrases) > 24 else existing_phrases
@@ -141,17 +144,18 @@ class PhraseGenerationService:
             )
 
         return (
-            f"Create the content for English for today - Day {next_day}.\n"
+            f"Create the content for {target_language} for today - Day {next_day}.\n"
             f"Child age group: {age_group}.\n"
             f"{difficulty_note}\n"
             f"{topic_instruction}"
+            f"Native language for translations: Brazilian Portuguese.\n"
             "Rules:\n"
-            "- Generate exactly 3 short, useful English phrases for one day of study.\n"
+            f"- Generate exactly 3 short, useful {target_language} phrases for one day of study.\n"
             "- Make them safe, friendly, and practical for a child.\n"
             "- Do not reuse or closely paraphrase any existing phrase listed below.\n"
             "- Keep the output suitable for a Brazilian Portuguese speaker.\n"
-            "- Each phrase must include a natural Portuguese translation.\n"
-            "- Each phrase must include a word_by_word array in the same order as the English phrase.\n"
+            f"- Each phrase must include a natural Portuguese translation of the {target_language} phrase.\n"
+            "- Each phrase must include a word_by_word array in the same order as the target-language phrase.\n"
             "- Each phrase must include short teaching notes in example_sentence_en and example_sentence_pt.\n"
             "- Keep example sentences descriptive, simple, and under 18 words when possible.\n"
             "- Return JSON only using this exact shape:\n"
