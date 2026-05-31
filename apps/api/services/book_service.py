@@ -133,30 +133,30 @@ class BookGenerationService:
             else "Theme: choose a fun, child-safe adventure or daily-life topic.\n"
         )
 
-        return f"""Create a children's English mini-book with exactly {num_pages} pages.
+        pages_example = ",\n".join(
+            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 English sentences for page {i}>",\n      "text_pt": "<Portuguese translation>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
+            for i in range(1, num_pages + 1)
+        )
+
+        return f"""Create a children's English mini-book with EXACTLY {num_pages} pages. Do NOT produce fewer pages.
 
 Difficulty: {difficulty}
 {theme_instruction}Age group: {age_group} years old (Brazilian child learning English).
 
-Requirements:
-- The book must have a clear narrative: beginning, middle and end spread across the pages.
-- Each page must be 2-4 sentences of English appropriate for the difficulty level.
-- The Portuguese translation must be natural Brazilian Portuguese, not a word-for-word literal translation.
-- vocabulary: list exactly 3-5 important English words from that page (no duplicates across all pages).
-- Keep all content child-safe and positive.
+RULES — follow all of them:
+1. The "pages" array MUST contain exactly {num_pages} objects, numbered 1 through {num_pages}.
+2. Each page MUST have 3-5 full sentences of English (not 1, not 2 — minimum 3 sentences per page).
+3. Build a clear narrative: page 1 introduces setting/character, middle pages develop the story, last page resolves it.
+4. The Portuguese translation must be natural Brazilian Portuguese, not word-for-word.
+5. vocabulary: list exactly 3-5 important English words from that page (no duplicates across all pages).
+6. All content must be child-safe and positive.
 
-Return ONLY the following JSON and nothing else:
+Return ONLY valid JSON — no markdown, no comments:
 {{
   "title": "<book title in English>",
   "theme": "<one-word or short theme tag>",
   "pages": [
-    {{
-      "page_number": 1,
-      "text_en": "<English text for this page>",
-      "text_pt": "<Portuguese translation>",
-      "vocabulary": ["word1", "word2", "word3"]
-    }}
-    ... (exactly {num_pages} pages)
+{pages_example}
   ]
 }}"""
 
@@ -181,5 +181,8 @@ Return ONLY the following JSON and nothing else:
     def _validate(draft: GeneratedBookDraftSchema, num_pages: int) -> None:
         if not draft.pages:
             raise RuntimeError("Gemini returned a book with no pages.")
-        if len(draft.pages) < 3:
-            raise RuntimeError(f"Gemini returned only {len(draft.pages)} pages (minimum 3).")
+        if len(draft.pages) < num_pages:
+            raise RuntimeError(
+                f"Gemini returned {len(draft.pages)} pages but {num_pages} were requested. "
+                "Try again."
+            )
