@@ -12,8 +12,19 @@ class User(SQLModel, table=True):
     password_hash: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
+class UserSession(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_token_hash: str = Field(unique=True, index=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime
+
+
 class ChildProfile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     name: str
     age_group: str  # e.g., "4-6", "7-9", "10-12"
     base_language: str = "Portuguese"

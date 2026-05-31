@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Baby, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
+import { ArrowLeft, Baby, BarChart3, BookOpen, CheckCircle2, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
-import { ApiError, api, type ChildProfile, type Lesson } from '@/lib/api';
+import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
+import { ApiError, api, type ChildProfile, type ChildProgressSummary, type Lesson } from '@/lib/api';
 
 interface ParentFormState {
   child_name: string;
@@ -28,6 +29,7 @@ export default function ParentsPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeChildId, setActiveChildId] = useState<number | null>(getStoredActiveChildId());
   const [children, setChildren] = useState<ChildProfile[]>([]);
+  const [progressSummaries, setProgressSummaries] = useState<ChildProgressSummary[]>([]);
   const [form, setForm] = useState<ParentFormState>(DEFAULT_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,13 +44,22 @@ export default function ParentsPage() {
   const [generatedLesson, setGeneratedLesson] = useState<Lesson | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
 
+  // Tunnel URL state
+  const [tunnelDraft, setTunnelDraft] = useState(() => getApiConnectionDetails().baseUrl ?? '');
+  const [tunnelSaving, setTunnelSaving] = useState(false);
+  const [tunnelMessage, setTunnelMessage] = useState('');
+  const [tunnelError, setTunnelError] = useState('');
+  const tunnelConnection = getApiConnectionDetails();
+
   async function loadSettings() {
     try {
-      const [settings, childList] = await Promise.all([
+      const [settings, childList, progressList] = await Promise.all([
         api.getParentSettings(),
         api.listParentChildren(),
+        api.getParentProgress(),
       ]);
       setChildren(childList);
+      setProgressSummaries(progressList);
       const storedActiveChildId = getStoredActiveChildId();
       const hasStoredChild = storedActiveChildId && childList.some((child) => child.id === storedActiveChildId);
       if (!hasStoredChild) {
@@ -113,6 +124,7 @@ export default function ParentsPage() {
       clearActiveChildId();
       setActiveChildId(null);
       setChildren([]);
+      setProgressSummaries([]);
       setForm(DEFAULT_FORM);
       setMessage('Voce saiu da area de pais.');
       setGeneratorMessage('');
@@ -159,6 +171,23 @@ export default function ParentsPage() {
     } finally {
       setCreatingChild(false);
     }
+  }
+
+  async function handleSaveTunnel(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTunnelSaving(true);
+    setTunnelMessage('');
+    setTunnelError('');
+    const result = await verifySavedApiBaseUrl(tunnelDraft.trim());
+    if (!result.ok) {
+      setTunnelError(result.message);
+      setTunnelSaving(false);
+      return;
+    }
+    saveApiBaseUrl(result.baseUrl);
+    setTunnelDraft(result.baseUrl);
+    setTunnelMessage('URL salva! O app ja esta usando este backend.');
+    setTunnelSaving(false);
   }
 
   async function handleGenerateLesson() {
@@ -248,6 +277,75 @@ export default function ParentsPage() {
             Sair
           </button>
         </div>
+
+        {/* CTA — Começar Lição */}
+        <section className="kid-surface mb-6 flex flex-col items-start justify-between gap-5 border-primary/40 p-6 sm:flex-row sm:items-center md:p-8">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-dark">Pronto para estudar?</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">Comece a licao de hoje</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">Aluno ativo: <span className="font-black text-slate-700">{children.find((c) => c.id === activeChildId)?.name ?? '—'}</span></p>
+          </div>
+          <div className="relative shrink-0">
+            <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+            <Link
+              href="/lesson"
+              className="relative inline-flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark md:px-10 md:py-5 md:text-xl"
+            >
+              <BookOpen size={22} />
+              Comecar licao
+            </Link>
+          </div>
+        </section>
+
+        <section className="kid-surface mb-6 border-emerald-200 p-5 md:p-8">
+          <div className="flex items-center gap-3">
+            <BarChart3 className="text-emerald-700" size={28} />
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Acompanhamento</p>
+              <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Progresso por aluno</h1>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {progressSummaries.map(({ child, progress }) => (
+              <article key={child.id} className="rounded-[1.25rem] bg-white p-4 shadow-sm ring-1 ring-emerald-100">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-800">{child.name}</h2>
+                    <p className="text-sm font-bold text-slate-400">Nivel {progress.current_level} - {child.age_group}</p>
+                  </div>
+                  {child.id === activeChildId ? (
+                    <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black text-primary-dark">Ativo</span>
+                  ) : null}
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <ProgressMetric label="Dias" value={progress.streak_count} />
+                  <ProgressMetric label="Temas" value={progress.themes_completed} />
+                  <ProgressMetric label="Frases" value={progress.vocabulary_learned} />
+                </div>
+                <p className="mt-4 text-sm font-semibold text-slate-500">
+                  Ultima atividade: {formatLastActivity(progress.last_activity)}
+                </p>
+                <Link
+                  href="/lesson"
+                  onClick={() => { if (child.id !== activeChildId) { saveActiveChildId(child.id); setActiveChildId(child.id); } }}
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+                >
+                  <BookOpen size={16} />
+                  Comecar licao
+                </Link>
+                {progress.difficult_words.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {progress.difficult_words.map((word) => (
+                      <span key={`${child.id}-${word}`} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="kid-surface border-primary/40 p-5 md:p-10">
@@ -460,6 +558,51 @@ export default function ParentsPage() {
               ) : null}
             </div>
 
+            {/* Tunnel URL */}
+            <div className="kid-surface border-slate-200 p-5 md:p-8">
+              <div className="flex items-center gap-3">
+                <Link2 className="text-primary-dark" size={28} />
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">URL do Tunnel</h2>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                Cole aqui a URL HTTPS do Cloudflare Tunnel para conectar o app ao backend local.
+              </p>
+
+              {/* Status atual */}
+              {tunnelConnection.baseUrl ? (
+                <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3">
+                  <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+                  <p className="break-all text-xs font-bold text-emerald-700">{tunnelConnection.baseUrl}</p>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3">
+                  <p className="text-xs font-bold text-amber-700">Nenhum tunnel configurado neste aparelho.</p>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveTunnel} className="mt-5 space-y-3">
+                <input
+                  type="url"
+                  value={tunnelDraft}
+                  onChange={(e) => setTunnelDraft(e.target.value)}
+                  placeholder="https://xxxx.trycloudflare.com"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3 text-base outline-none transition focus:border-primary"
+                />
+                {tunnelError && <p className="text-xs font-bold text-kid-pink">{tunnelError}</p>}
+                {tunnelMessage && <p className="text-xs font-bold text-emerald-600">{tunnelMessage}</p>}
+                <button
+                  type="submit"
+                  disabled={tunnelSaving || !tunnelDraft.trim()}
+                  className="kid-button bg-primary hover:bg-primary-dark"
+                >
+                  <Link2 className="mr-2" size={16} />
+                  {tunnelSaving ? 'Verificando...' : 'Salvar URL do tunnel'}
+                </button>
+              </form>
+            </div>
+
             <div className="kid-surface border-accent/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="text-accent-dark" size={28} />
@@ -482,4 +625,30 @@ export default function ParentsPage() {
       </div>
     </main>
   );
+}
+
+function ProgressMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl bg-emerald-50 px-2 py-3">
+      <p className="text-xl font-black text-emerald-700">{value}</p>
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-900/60">{label}</p>
+    </div>
+  );
+}
+
+function formatLastActivity(value: string | null) {
+  if (!value) {
+    return 'sem atividade salva';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'sem atividade salva';
+  }
+
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
 }

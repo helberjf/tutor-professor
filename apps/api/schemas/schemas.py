@@ -9,6 +9,7 @@ class FromAttributesModel(BaseModel):
 
 class ChildProfileSchema(FromAttributesModel):
     id: int
+    user_id: Optional[int] = None
     name: str
     age_group: str
     base_language: str = "Portuguese"
@@ -129,6 +130,20 @@ class ProgressSchema(BaseModel):
     current_level: int
     difficult_words: List[str]
 
+
+class LevelAnalysisSchema(BaseModel):
+    level: int
+    label: str
+    vocabulary_learned: int
+    quiz_accuracy: float
+    avg_review_difficulty: float
+    next_level_at: int  # vocabulary needed to reach next level
+
+
+class ChildProgressSummarySchema(BaseModel):
+    child: ChildProfileSchema
+    progress: ProgressSchema
+
 class ChatMessageSchema(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=300)
@@ -160,6 +175,7 @@ class UserRegisterSchema(BaseModel):
     email: str = Field(min_length=5, max_length=254)
     cpf: str = Field(min_length=11, max_length=18)
     password: str = Field(min_length=6, max_length=128)
+    child_name: Optional[str] = Field(default=None, max_length=80)
 
 
 class UserLoginSchema(BaseModel):
@@ -167,7 +183,7 @@ class UserLoginSchema(BaseModel):
     password: str
 
 
-class UserResponseSchema(BaseModel):
+class UserResponseSchema(FromAttributesModel):
     id: int
     first_name: str
     last_name: str

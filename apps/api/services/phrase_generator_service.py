@@ -26,6 +26,7 @@ class PhraseGenerationService:
         age_group: str,
         existing_phrases: list[str],
         topic: str | None = None,
+        level: int = 1,
     ) -> GeneratedLessonDraftSchema:
         if not self.is_configured():
             raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
@@ -51,6 +52,7 @@ class PhraseGenerationService:
                                 age_group=age_group,
                                 existing_phrases=existing_phrases,
                                 topic=topic,
+                                level=level,
                             )
                         }
                     ],
@@ -94,6 +96,7 @@ class PhraseGenerationService:
         age_group: str,
         existing_phrases: list[str],
         topic: str | None,
+        level: int = 1,
     ) -> str:
         topic_text = topic.strip() if topic else ""
         recent_phrase_list = existing_phrases[-24:] if len(existing_phrases) > 24 else existing_phrases
@@ -105,9 +108,42 @@ class PhraseGenerationService:
             else "Theme preference: choose one practical daily-life theme for a child.\n"
         )
 
+        # Map level (1-10) to difficulty guidance
+        clamped = max(1, min(10, level))
+        if clamped <= 2:
+            difficulty_note = (
+                "Difficulty: BEGINNER (level 1-2). Use very simple words only: greetings, colors, numbers, "
+                "single-word or 2-word phrases (e.g. 'Hello', 'Good morning', 'Red ball'). "
+                "English should be so easy a 4-year-old could repeat it."
+            )
+        elif clamped <= 4:
+            difficulty_note = (
+                "Difficulty: ELEMENTARY (level 3-4). Use short phrases of 3-5 words covering everyday "
+                "objects, feelings and actions (e.g. 'I like cats', 'Where is my bag?')."
+            )
+        elif clamped <= 6:
+            difficulty_note = (
+                "Difficulty: INTERMEDIATE (level 5-6). Use complete simple sentences with a subject, "
+                "verb and object. Include present-simple and present-continuous tenses "
+                "(e.g. 'She is reading a book', 'Can I have some water?')."
+            )
+        elif clamped <= 8:
+            difficulty_note = (
+                "Difficulty: UPPER-INTERMEDIATE (level 7-8). Use compound sentences, past tense and "
+                "common idioms appropriate for children "
+                "(e.g. 'I went to the park yesterday', 'It is raining cats and dogs')."
+            )
+        else:
+            difficulty_note = (
+                "Difficulty: ADVANCED (level 9-10). Use richer vocabulary, varied tenses and natural "
+                "idiomatic expressions suitable for a confident child learner "
+                "(e.g. 'If you practice every day, you will improve quickly')."
+            )
+
         return (
             f"Create the content for English for today - Day {next_day}.\n"
             f"Child age group: {age_group}.\n"
+            f"{difficulty_note}\n"
             f"{topic_instruction}"
             "Rules:\n"
             "- Generate exactly 3 short, useful English phrases for one day of study.\n"

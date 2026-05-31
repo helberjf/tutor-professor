@@ -1,15 +1,38 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kids_tutor
+      POSTGRES_USER: kids_tutor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kids_tutor_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kids-tutor-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kids_tutor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: ./apps/api
     ports:
       - "8001:8001"
     env_file:
       - ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://kids_tutor:${POSTGRES_PASSWORD:-kids_tutor_secret}@db:5432/kids_tutor
     volumes:
       - ./apps/api/audio_cache:/app/audio_cache
-      - ./apps/api/kids_tutor.sqlite:/app/kids_tutor.sqlite
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - kids-tutor-net
 
@@ -38,6 +61,9 @@ services:
   #   command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
   #   networks:
   #     - kids-tutor-net
+
+volumes:
+  postgres_data:
 
 networks:
   kids-tutor-net:

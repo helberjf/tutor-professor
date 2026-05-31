@@ -60,8 +60,8 @@ export function Navbar() {
             onClick={() => setOpen(false)}
           />
 
-          <aside className="fixed right-0 top-0 z-50 flex h-full w-[min(22rem,88vw)] flex-col border-l border-white/70 bg-white/95 p-5 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-            <div className="flex items-start justify-between gap-4">
+          <aside className="fixed right-0 top-0 z-50 flex h-full w-[min(22rem,88vw)] flex-col border-l border-white/70 bg-white/95 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+            <div className="flex shrink-0 items-start justify-between gap-4 p-5 pb-0">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Menu</p>
                 <h2 className="mt-2 text-2xl font-black text-slate-800">Navegacao</h2>
@@ -76,7 +76,8 @@ export function Navbar() {
               </button>
             </div>
 
-            <div className="mt-8">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5">
+              <div className="mt-8">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aprender</p>
               <ul className="mt-4 space-y-2">
                 {primaryLinks.map((item) => {
@@ -147,7 +148,9 @@ export function Navbar() {
               </Link>
             </div>
 
-            <p className="mt-auto pt-8 text-sm leading-6 text-slate-500">
+            </div>{/* end scrollable */}
+
+            <p className="shrink-0 px-5 pb-5 pt-4 text-sm leading-6 text-slate-500">
               Se o site nao carregar as licoes, abra este menu e toque em <span className="font-bold text-slate-700">Conexao com o backend</span>.
             </p>
           </aside>

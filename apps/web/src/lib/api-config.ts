@@ -6,6 +6,7 @@ import {
 } from '@/lib/runtime-backend';
 
 const API_BASE_URL_STORAGE_KEY = 'english-kids-tutor.api-base-url';
+const API_BASE_URL_SAVED_AT_STORAGE_KEY = 'english-kids-tutor.api-base-url-saved-at';
 const RUNTIME_BACKEND_STORAGE_KEY = 'english-kids-tutor.runtime-backend';
 const API_BASE_URL_CHANGE_EVENT = 'english-kids-tutor:api-base-url-change';
 
@@ -89,6 +90,57 @@ export function getStoredApiBaseUrl() {
   return normalizeSavedApiBaseUrl(window.localStorage.getItem(API_BASE_URL_STORAGE_KEY) || '');
 }
 
+function getStoredApiBaseUrlSavedAtMs() {
+  if (!isBrowser()) {
+    return 0;
+  }
+
+  const rawValue = window.localStorage.getItem(API_BASE_URL_SAVED_AT_STORAGE_KEY) || '';
+  const timestamp = Date.parse(rawValue);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getRuntimeBackendUpdatedAtMs(config: RuntimeBackendConfig) {
+  const timestamp = Date.parse(config.updatedAt || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getPreferredConfiguredConnection(runtimeConfig = readStoredRuntimeBackendConfig()): ApiConnectionDetails {
+  const savedUrl = getStoredApiBaseUrl();
+  const savedAtMs = getStoredApiBaseUrlSavedAtMs();
+  const runtimeAtMs = getRuntimeBackendUpdatedAtMs(runtimeConfig);
+
+  if (runtimeConfig.baseUrl && (!savedUrl || runtimeAtMs >= savedAtMs)) {
+    return {
+      baseUrl: runtimeConfig.baseUrl,
+      host: runtimeConfig.host,
+      source: 'global',
+    };
+  }
+
+  if (savedUrl) {
+    return {
+      baseUrl: savedUrl,
+      host: getRuntimeBackendHost(savedUrl),
+      source: 'saved',
+    };
+  }
+
+  if (runtimeConfig.baseUrl) {
+    return {
+      baseUrl: runtimeConfig.baseUrl,
+      host: runtimeConfig.host,
+      source: 'global',
+    };
+  }
+
+  return {
+    baseUrl: null,
+    host: null,
+    source: 'missing',
+  };
+}
+
 export function getDefaultApiBaseUrl() {
   const envUrl = normalizeRuntimeBackendBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL || '', {
     requireHttps: false,
@@ -105,7 +157,7 @@ export function getDefaultApiBaseUrl() {
 }
 
 export function getApiBaseUrl() {
-  return getStoredApiBaseUrl() || readStoredRuntimeBackendConfig().baseUrl || getDefaultApiBaseUrl();
+  return getPreferredConfiguredConnection().baseUrl || getDefaultApiBaseUrl();
 }
 
 async function requestRuntimeBackendConfig() {
@@ -160,43 +212,22 @@ export async function refreshRuntimeBackendConfig() {
 }
 
 export async function resolveApiBaseUrl() {
-  const savedUrl = getStoredApiBaseUrl();
-  if (savedUrl) {
-    return savedUrl;
-  }
-
   if (isBrowser()) {
-    const storedRuntimeConfig = readStoredRuntimeBackendConfig();
     if (runtimeBackendHasBeenRefreshed) {
-      return storedRuntimeConfig.baseUrl || getDefaultApiBaseUrl();
+      return getPreferredConfiguredConnection().baseUrl || getDefaultApiBaseUrl();
     }
 
     const runtimeConfig = await refreshRuntimeBackendConfig();
-    if (runtimeConfig.baseUrl) {
-      return runtimeConfig.baseUrl;
-    }
+    return getPreferredConfiguredConnection(runtimeConfig).baseUrl || getDefaultApiBaseUrl();
   }
 
   return getDefaultApiBaseUrl();
 }
 
 export function getApiConnectionDetails(): ApiConnectionDetails {
-  const savedUrl = getStoredApiBaseUrl();
-  if (savedUrl) {
-    return {
-      baseUrl: savedUrl,
-      host: getRuntimeBackendHost(savedUrl),
-      source: 'saved',
-    };
-  }
-
-  const runtimeConfig = readStoredRuntimeBackendConfig();
-  if (runtimeConfig.baseUrl) {
-    return {
-      baseUrl: runtimeConfig.baseUrl,
-      host: runtimeConfig.host,
-      source: 'global',
-    };
+  const configuredConnection = getPreferredConfiguredConnection();
+  if (configuredConnection.baseUrl) {
+    return configuredConnection;
   }
 
   const defaultUrl = getDefaultApiBaseUrl();
@@ -256,6 +287,7 @@ export function saveApiBaseUrl(baseUrl: string) {
   }
 
   window.localStorage.setItem(API_BASE_URL_STORAGE_KEY, normalized);
+  window.localStorage.setItem(API_BASE_URL_SAVED_AT_STORAGE_KEY, new Date().toISOString());
   dispatchApiConnectionChange();
 }
 
@@ -265,6 +297,7 @@ export function clearSavedApiBaseUrl() {
   }
 
   window.localStorage.removeItem(API_BASE_URL_STORAGE_KEY);
+  window.localStorage.removeItem(API_BASE_URL_SAVED_AT_STORAGE_KEY);
   dispatchApiConnectionChange();
 }
 
@@ -275,7 +308,11 @@ export function subscribeToApiBaseUrlChange(callback: () => void) {
 
   const notify = () => callback();
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === API_BASE_URL_STORAGE_KEY || event.key === RUNTIME_BACKEND_STORAGE_KEY) {
+    if (
+      event.key === API_BASE_URL_STORAGE_KEY ||
+      event.key === API_BASE_URL_SAVED_AT_STORAGE_KEY ||
+      event.key === RUNTIME_BACKEND_STORAGE_KEY
+    ) {
       notify();
     }
   };
