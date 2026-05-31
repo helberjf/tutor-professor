@@ -93,3 +93,22 @@ class ParentSettings(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     password_hash: str
     session_token: Optional[str] = None
+
+
+class Book(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    title: str
+    theme: str
+    level: int = 1
+    num_pages: int = 5
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BookPage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: int = Field(foreign_key="book.id", index=True)
+    page_number: int
+    text_en: str = Field(sa_column=Column(JSON))          # stored as str, long text
+    text_pt: str = Field(sa_column=Column(JSON))
+    vocabulary_json: str = Field(default="[]")            # JSON array of key words

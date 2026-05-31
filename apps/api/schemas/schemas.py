@@ -140,7 +140,59 @@ class LevelAnalysisSchema(BaseModel):
     next_level_at: int  # vocabulary needed to reach next level
 
 
+# ── Book schemas ───────────────────────────────────────────────────────────────
+
+class BookPageSchema(BaseModel):
+    id: int
+    page_number: int
+    text_en: str
+    text_pt: str
+    vocabulary: list[str]
+
+
+class BookSchema(BaseModel):
+    id: int
+    title: str
+    theme: str
+    level: int
+    num_pages: int
+    created_at: str
+    pages: list[BookPageSchema]
+
+
+class BookSummarySchema(BaseModel):
+    id: int
+    title: str
+    theme: str
+    level: int
+    num_pages: int
+    created_at: str
+
+
+class GenerateBookRequestSchema(BaseModel):
+    level: int = Field(default=0, ge=0, le=10)   # 0 = usa nivel atual da criança
+    num_pages: int = Field(default=5, ge=3, le=10)
+    theme: str = Field(default="", max_length=80)
+
+
+# ── Generated book draft (internal, returned by BookGenerationService) ────────
+
+class GeneratedBookPageDraftSchema(BaseModel):
+    page_number: int
+    text_en: str
+    text_pt: str
+    vocabulary: list[str]
+
+
+class GeneratedBookDraftSchema(BaseModel):
+    title: str
+    theme: str
+    pages: list[GeneratedBookPageDraftSchema]
+
+
 class ChildProgressSummarySchema(BaseModel):
+    child: ChildProfileSchema
+    progress: ProgressSchema
     child: ChildProfileSchema
     progress: ProgressSchema
 

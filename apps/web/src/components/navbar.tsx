@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BookOpen, Bot, Brain, Home, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { BookOpen, Bot, Brain, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 
 const primaryLinks = [
   { href: '/', label: 'Inicio', icon: Home },
@@ -11,6 +11,7 @@ const primaryLinks = [
   { href: '/quiz', label: 'Quiz', icon: Trophy },
   { href: '/review', label: 'Revisao', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
+  { href: '/books', label: 'Livros', icon: Library },
   { href: '/parents', label: 'Area de pais', icon: Settings },
 ];
 

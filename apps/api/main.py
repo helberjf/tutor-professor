@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import secrets
@@ -11,13 +12,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
+from models.database import Book, BookPage, ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
 from schemas.schemas import (
+    BookPageSchema,
+    BookSchema,
+    BookSummarySchema,
     ChatRequestSchema,
     ChatResponseSchema,
     ChildProgressSummarySchema,
     ChildProfileSchema,
     CreateChildProfileSchema,
+    GenerateBookRequestSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LevelAnalysisSchema,
@@ -40,6 +45,7 @@ from schemas.schemas import (
     SpeakRequestSchema,
     SpeakResponseSchema,
 )
+from services.book_service import BookGenerationService
 from services.content_service import ContentService
 from services.phrase_generator_service import PhraseGenerationService
 from services.review_service import (
@@ -96,6 +102,7 @@ tts_service = TTSService(
 content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
 phrase_generation_service = PhraseGenerationService()
+book_generation_service = BookGenerationService()
 
 
 def create_db_and_tables() -> None:
@@ -1216,6 +1223,134 @@ def generate_parent_lesson(
         lesson=build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0),
         message=f"{lesson.title} foi gerado e salvo no banco de dados.",
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BOOKS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _build_book_page_schema(page: BookPage) -> BookPageSchema:
+    try:
+        vocabulary = json.loads(page.vocabulary_json) if page.vocabulary_json else []
+    except Exception:
+        vocabulary = []
+    return BookPageSchema(
+        id=page.id or 0,
+        page_number=page.page_number,
+        text_en=page.text_en,
+        text_pt=page.text_pt,
+        vocabulary=vocabulary,
+    )
+
+
+def _build_book_schema(book: Book, pages: list[BookPage]) -> BookSchema:
+    sorted_pages = sorted(pages, key=lambda p: p.page_number)
+    return BookSchema(
+        id=book.id or 0,
+        title=book.title,
+        theme=book.theme,
+        level=book.level,
+        num_pages=book.num_pages,
+        created_at=book.created_at.isoformat(),
+        pages=[_build_book_page_schema(p) for p in sorted_pages],
+    )
+
+
+@app.get("/api/books", response_model=list[BookSummarySchema])
+def list_books(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[BookSummarySchema]:
+    child = get_requested_child(request=request, session=session)
+    books = session.exec(
+        select(Book).where(Book.child_id == child.id).order_by(Book.created_at.desc())
+    ).all()
+    return [
+        BookSummarySchema(
+            id=b.id or 0,
+            title=b.title,
+            theme=b.theme,
+            level=b.level,
+            num_pages=b.num_pages,
+            created_at=b.created_at.isoformat(),
+        )
+        for b in books
+    ]
+
+
+@app.get("/api/books/{book_id}", response_model=BookSchema)
+def get_book(
+    book_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> BookSchema:
+    child = get_requested_child(request=request, session=session)
+    book = session.get(Book, book_id)
+    if book is None or book.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Livro nao encontrado.")
+    pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
+    return _build_book_schema(book, list(pages))
+
+
+@app.post("/api/books/generate", response_model=BookSchema)
+def generate_book(
+    payload: GenerateBookRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> BookSchema:
+    if not book_generation_service.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY nao esta configurada no backend. Adicione a chave e reinicie a API.",
+        )
+
+    child = get_requested_child(request=request, session=session)
+
+    # Resolve level: 0 means use child's current level
+    level = payload.level if payload.level > 0 else compute_and_update_child_level(
+        session=session, child=child
+    )
+
+    try:
+        draft = book_generation_service.generate_book(
+            level=level,
+            num_pages=payload.num_pages,
+            theme=payload.theme or None,
+            age_group=child.age_group,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # Persist book
+    book = Book(
+        child_id=child.id or 0,
+        title=draft.title,
+        theme=draft.theme,
+        level=level,
+        num_pages=len(draft.pages),
+    )
+    session.add(book)
+    session.commit()
+    session.refresh(book)
+
+    pages: list[BookPage] = []
+    for page_draft in draft.pages:
+        vocab_json = json.dumps(page_draft.vocabulary, ensure_ascii=False)
+        page = BookPage(
+            book_id=book.id or 0,
+            page_number=page_draft.page_number,
+            text_en=page_draft.text_en,
+            text_pt=page_draft.text_pt,
+            vocabulary_json=vocab_json,
+        )
+        session.add(page)
+        pages.append(page)
+
+    session.commit()
+    for page in pages:
+        session.refresh(page)
+
+    return _build_book_schema(book, pages)
 
 
 if __name__ == "__main__":
