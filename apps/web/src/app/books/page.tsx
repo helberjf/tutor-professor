@@ -44,7 +44,38 @@ function levelColor(level: number): string {
   return 'bg-rose-100 text-rose-700';
 }
 
-// ── Page: Suspense wrapper ───────────────────────────────────────────────────
+// ── Kids book SVG logo ──────────────────────────────────────────────────────
+function KidsBookLogo({ size = 64 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 80 80"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      {/* Book body */}
+      <rect x="8" y="14" width="64" height="52" rx="6" fill="#38bdf8" />
+      {/* Spine */}
+      <rect x="8" y="14" width="12" height="52" rx="4" fill="#0284c7" />
+      {/* Pages */}
+      <rect x="22" y="22" width="42" height="36" rx="3" fill="white" opacity="0.9" />
+      {/* Lines on page */}
+      <rect x="28" y="30" width="28" height="3" rx="1.5" fill="#bae6fd" />
+      <rect x="28" y="37" width="22" height="3" rx="1.5" fill="#bae6fd" />
+      <rect x="28" y="44" width="25" height="3" rx="1.5" fill="#bae6fd" />
+      {/* Star decoration */}
+      <circle cx="58" cy="16" r="7" fill="#fbbf24" />
+      <text x="58" y="20" textAnchor="middle" fontSize="9" fill="white" fontWeight="bold">★</text>
+      {/* Heart decoration */}
+      <circle cx="16" cy="62" r="5" fill="#f472b6" />
+      <text x="16" y="66" textAnchor="middle" fontSize="7" fill="white" fontWeight="bold">♥</text>
+    </svg>
+  );
+}
+
+
 export default function BooksPage() {
   return (
     <Suspense
@@ -271,7 +302,10 @@ function BookReader({ book, onBack }: BookReaderProps) {
 
         {/* Book title on page 1 */}
         {pageIndex === 0 && (
-          <p className="kid-tag mb-4 text-xs">{book.title}</p>
+          <div className="mb-4 flex items-center gap-3">
+            <KidsBookLogo size={44} />
+            <p className="kid-tag text-xs">{book.title}</p>
+          </div>
         )}
 
         {/* ── Split page ─────────────────────────────────────────────── */}
@@ -506,10 +540,15 @@ function BooksPageContent() {
               <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary">
                 <ArrowLeft size={14} /> Inicio
               </Link>
-              <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Livros Pequenos</h1>
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Historias em ingles criadas por IA no seu nivel
-              </p>
+              <div className="mt-2 flex items-center gap-3">
+                <KidsBookLogo size={52} />
+                <div>
+                  <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Livros Pequenos</h1>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Historias em ingles criadas por IA no seu nivel
+                  </p>
+                </div>
+              </div>
             </div>
             <button
               onClick={() => { setShowForm(true); setGenerateError(null); }}
@@ -530,9 +569,7 @@ function BooksPageContent() {
           {/* Empty state */}
           {books.length === 0 ? (
             <div className="kid-surface flex flex-col items-center gap-5 border-primary/30 py-14 text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-sky-100">
-                <BookOpen size={38} className="text-primary" />
-              </div>
+              <KidsBookLogo size={80} />
               <div>
                 <p className="text-lg font-black text-slate-800">Nenhum livro ainda</p>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
