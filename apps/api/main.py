@@ -1371,13 +1371,16 @@ def generate_book(
 
     # ── Check shared pool before generating ──────────────────────────────────
     theme_lower = (payload.theme or "").strip().lower()
+    requested_pages = payload.num_pages
     shared_at_level = session.exec(
-        select(Book).where(Book.child_id == None, Book.level == level).order_by(Book.created_at.desc())
+        select(Book)
+        .where(Book.child_id == None, Book.level == level, Book.num_pages == requested_pages)
+        .order_by(Book.created_at.desc())
     ).all()
 
     if shared_at_level:
         if not theme_lower:
-            # No theme specified: return a random book from the pool
+            # No theme specified: return a random book from the pool with exact page count
             candidate = shared_at_level[0]
             pages = session.exec(select(BookPage).where(BookPage.book_id == candidate.id)).all()
             return _build_book_schema(candidate, list(pages))
