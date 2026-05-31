@@ -171,6 +171,39 @@ export interface LevelAnalysis {
   next_level_at: number;
 }
 
+export interface BookPage {
+  id: number;
+  page_number: number;
+  text_en: string;
+  text_pt: string;
+  vocabulary: string[];
+}
+
+export interface Book {
+  id: number;
+  title: string;
+  theme: string;
+  level: number;
+  num_pages: number;
+  created_at: string;
+  pages: BookPage[];
+}
+
+export interface BookSummary {
+  id: number;
+  title: string;
+  theme: string;
+  level: number;
+  num_pages: number;
+  created_at: string;
+}
+
+export interface GenerateBookPayload {
+  level: number;      // 0 = usa nível atual da criança
+  num_pages: number;  // 3-10
+  theme: string;      // vazio = IA escolhe
+}
+
 export interface UserProfile {
   id: number;
   first_name: string;
@@ -364,6 +397,14 @@ export const api = {
     }),
   generateMorePhrases: (payload: GenerateLessonPayload = {}) =>
     fetchAPI<GenerateLessonResponse>('/api/parent/generate-lesson', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  // Books
+  listBooks: () => fetchAPI<BookSummary[]>('/api/books'),
+  getBook: (bookId: number) => fetchAPI<Book>(`/api/books/${bookId}`),
+  generateBook: (payload: GenerateBookPayload) =>
+    fetchAPI<Book>('/api/books/generate', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
