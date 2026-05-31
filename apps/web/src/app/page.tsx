@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Sparkles, Trophy, WifiOff, Zap } from 'lucide-react';
+import { BookOpen, Bot, Brain, Library, Sparkles, Trophy, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -169,6 +169,17 @@ export default function HomePage() {
             iconColor="text-amber-500"
             disabled={serverMissing}
             highlight
+          />
+          <ActivityCard
+            href="/books"
+            emoji="📚"
+            icon={<Library size={28} />}
+            title="Livros"
+            description="Leia historinhas em ingles"
+            bg="bg-violet-50"
+            border="border-violet-200"
+            iconColor="text-violet-600"
+            disabled={serverMissing}
           />
         </section>
 
