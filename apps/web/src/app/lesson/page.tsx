@@ -27,12 +27,23 @@ export default function LessonPage() {
   );
 }
 
+const LEVEL_CACHE_KEY = 'child_level_cache';
+
 function LessonPageContent() {
   const searchParams = useSearchParams();
   const lessonIdParam = searchParams.get('lessonId');
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [levelInfo, setLevelInfo] = useState<LevelAnalysis | null>(null);
+
+  // Initialise from localStorage so level is visible instantly on every visit
+  const [levelInfo, setLevelInfo] = useState<LevelAnalysis | null>(() => {
+    try {
+      const cached = localStorage.getItem(LEVEL_CACHE_KEY);
+      return cached ? (JSON.parse(cached) as LevelAnalysis) : null;
+    } catch {
+      return null;
+    }
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -56,7 +67,11 @@ function LessonPageContent() {
         // No lesson yet — the backend will auto-generate; show generating state
         setGenerating(true);
       }
-      const data = id && !isNaN(id) ? await api.getLessonById(id) : await api.getTodayLesson();
+      // Fetch lesson + level in parallel
+      const [data, level] = await Promise.all([
+        id && !isNaN(id) ? api.getLessonById(id) : api.getTodayLesson(),
+        api.getChildLevel().catch(() => null),
+      ]);
       setLesson(data);
       setCurrentIndex(0);
       setCompleted(false);
@@ -64,8 +79,10 @@ function LessonPageContent() {
       setSaveError(null);
       setError(null);
 
-      // Load level in background (non-blocking)
-      void api.getChildLevel().then(setLevelInfo).catch(() => null);
+      if (level) {
+        setLevelInfo(level);
+        try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(level)); } catch { /* ignore */ }
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a licao.'));
     } finally {
@@ -325,6 +342,23 @@ function LessonPageContent() {
       <main className="min-h-screen pb-32 px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-2xl">
 
+          {/* Level banner — shown as soon as level is known (from cache or API) */}
+          {levelInfo && (
+            <div className="mb-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-sky-50 border border-emerald-100 px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                <Sparkles size={20} className="text-emerald-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Seu nivel</p>
+                <p className="text-base font-black text-slate-800">Nivel {levelInfo.level} — {levelInfo.label}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-400">{levelInfo.vocabulary_learned} palavras</p>
+                <p className="text-xs text-slate-400">{Math.round(levelInfo.quiz_accuracy * 100)}% quiz</p>
+              </div>
+            </div>
+          )}
+
           {/* Nav row */}
           <div className="mb-5 flex items-center justify-between gap-3">
             <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
@@ -353,12 +387,6 @@ function LessonPageContent() {
               {/* Phrase */}
               <div className="flex flex-wrap items-center gap-2">
                 <p className="kid-tag text-xs">{lesson.title}</p>
-                {levelInfo && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                    <Sparkles size={12} />
-                    Nivel {levelInfo.level} — {levelInfo.label}
-                  </span>
-                )}
               </div>
               <h1 className="mt-3 text-3xl font-black leading-tight text-slate-800 md:text-4xl">{currentItem.word_en}</h1>
               <p className="mt-2 text-base leading-7 text-slate-500 md:text-lg md:leading-8">
