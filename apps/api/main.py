@@ -298,14 +298,25 @@ def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
 
 
 def compute_and_update_child_level(session: Session, child: ChildProfile) -> int:
-    """Analyse quiz accuracy + spaced-repetition difficulty and return a level 1-10.
+    """Gamificacao realista: cada nivel exige esforco consistente.
 
-    Level thresholds (each bracket takes roughly 5 completed lessons to climb):
-      1-2  beginner      < 10 vocab, quiz avg < 60 %
-      3-4  elementary    10-25 vocab
-      5-6  intermediate  25-50 vocab, quiz avg >= 60 %
-      7-8  upper-interm  50-100 vocab, quiz avg >= 75 %
-      9-10 advanced      > 100 vocab, quiz avg >= 85 %
+    Thresholds (vocab = frases aprendidas em licoes concluidas):
+      1   < 15 vocab                    (sempre, sem quiz necessario)
+      2   15+ vocab                     (acuracia irrelevante — ainda aprendendo)
+      3   30+ vocab, quiz >= 55 %
+      4   50+ vocab, quiz >= 60 %
+      5   80+ vocab, quiz >= 65 %
+      6  120+ vocab, quiz >= 70 %
+      7  180+ vocab, quiz >= 75 %
+      8  250+ vocab, quiz >= 80 %
+      9  350+ vocab, quiz >= 85 %
+     10  500+ vocab, quiz >= 90 %
+
+    Com ~5-8 frases por licao:
+      Nivel 2  requer ~2-3 licoes concluidas
+      Nivel 3  requer ~4-6 licoes + bom desempenho no quiz
+      Nivel 5  requer ~12-16 licoes + consistencia
+      Nivel 10 requer ~65-100 licoes + excelencia
     """
     # -- vocabulary learned --------------------------------------------------
     completed_progress_items = [
@@ -338,16 +349,26 @@ def compute_and_update_child_level(session: Session, child: ChildProfile) -> int
     )
 
     # -- level formula -------------------------------------------------------
-    if vocab_count >= 100 and quiz_accuracy >= 0.85:
-        level = 10 if avg_difficulty < 1.5 else 9
-    elif vocab_count >= 50 and quiz_accuracy >= 0.75:
-        level = 8 if avg_difficulty < 1.5 else 7
-    elif vocab_count >= 25 and quiz_accuracy >= 0.60:
-        level = 6 if avg_difficulty < 2.0 else 5
-    elif vocab_count >= 10:
-        level = 4 if quiz_accuracy >= 0.50 else 3
+    if vocab_count >= 500 and quiz_accuracy >= 0.90:
+        level = 10
+    elif vocab_count >= 350 and quiz_accuracy >= 0.85:
+        level = 9
+    elif vocab_count >= 250 and quiz_accuracy >= 0.80:
+        level = 8
+    elif vocab_count >= 180 and quiz_accuracy >= 0.75:
+        level = 7
+    elif vocab_count >= 120 and quiz_accuracy >= 0.70:
+        level = 6
+    elif vocab_count >= 80 and quiz_accuracy >= 0.65:
+        level = 5
+    elif vocab_count >= 50 and quiz_accuracy >= 0.60:
+        level = 4
+    elif vocab_count >= 30 and quiz_accuracy >= 0.55:
+        level = 3
+    elif vocab_count >= 15:
+        level = 2
     else:
-        level = 2 if quiz_accuracy >= 0.50 else 1
+        level = 1
 
     if child.current_level != level:
         child.current_level = level
@@ -860,13 +881,29 @@ def get_progress(request: Request, session: Session = Depends(get_session)) -> P
 
 
 _LEVEL_LABELS = {
-    1: "Iniciante", 2: "Iniciante+",
-    3: "Basico", 4: "Basico+",
-    5: "Intermediario", 6: "Intermediario+",
-    7: "Avancado", 8: "Avancado+",
-    9: "Fluente", 10: "Fluente+",
+    1: "Iniciante",
+    2: "Basico",
+    3: "Basico+",
+    4: "Elementar",
+    5: "Elementar+",
+    6: "Intermediario",
+    7: "Intermediario+",
+    8: "Avancado",
+    9: "Avancado+",
+    10: "Fluente",
 }
-_LEVEL_THRESHOLDS = {1: 5, 2: 10, 3: 25, 4: 25, 5: 50, 6: 50, 7: 100, 8: 100, 9: 150, 10: 999}
+_LEVEL_THRESHOLDS = {
+    1: 15,   # 15 vocab para nivel 2
+    2: 30,   # 30 vocab para nivel 3
+    3: 50,   # 50 vocab para nivel 4
+    4: 80,   # 80 vocab para nivel 5
+    5: 120,  # 120 vocab para nivel 6
+    6: 180,  # 180 vocab para nivel 7
+    7: 250,  # 250 vocab para nivel 8
+    8: 350,  # 350 vocab para nivel 9
+    9: 500,  # 500 vocab para nivel 10
+    10: 999,
+}
 
 
 @app.get("/api/child/level", response_model=LevelAnalysisSchema)
