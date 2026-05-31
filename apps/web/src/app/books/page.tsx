@@ -8,8 +8,6 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  EyeOff,
   Loader2,
   Plus,
   Sparkles,
@@ -199,32 +197,50 @@ interface BookReaderProps {
 
 function BookReader({ book, onBack }: BookReaderProps) {
   const [pageIndex, setPageIndex] = useState(0);
-  const [showPt, setShowPt] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioLoadingEn, setAudioLoadingEn] = useState(false);
+  const [audioLoadingPt, setAudioLoadingPt] = useState(false);
 
   const page = book.pages[pageIndex];
   const isFirst = pageIndex === 0;
   const isLast = pageIndex === book.pages.length - 1;
   const progress = ((pageIndex + 1) / book.pages.length) * 100;
 
-  async function playAudio() {
-    setAudioLoading(true);
+  function goNext() {
+    setPageIndex((i) => i + 1);
+  }
+  function goPrev() {
+    setPageIndex((i) => i - 1);
+  }
+
+  async function playEn() {
+    setAudioLoadingEn(true);
     try {
       const data = await api.speak(page.text_en);
       await playAudioWithFallback(
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || page.text_en,
       );
-    } catch {
-      // silent fail
-    } finally {
-      setAudioLoading(false);
+    } catch { /* silent */ } finally {
+      setAudioLoadingEn(false);
+    }
+  }
+
+  async function playPt() {
+    setAudioLoadingPt(true);
+    try {
+      const data = await api.speak(page.text_pt, 'pt');
+      await playAudioWithFallback(
+        data.audio_url ? api.getAudioUrl(data.audio_url) : null,
+        data.fallback_text || page.text_pt,
+      );
+    } catch { /* silent */ } finally {
+      setAudioLoadingPt(false);
     }
   }
 
   return (
-    <main className="min-h-screen pb-32 px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto max-w-2xl">
+    <main className="min-h-screen pb-28 px-4 py-6 md:px-8 md:py-10">
+      <div className="mx-auto max-w-3xl">
 
         {/* Nav */}
         <div className="mb-5 flex items-center justify-between gap-3">
@@ -245,98 +261,107 @@ function BookReader({ book, onBack }: BookReaderProps) {
           </div>
         </div>
 
-        {/* Card */}
-        <div className="kid-surface overflow-hidden border-primary/40">
-          {/* Progress */}
-          <div className="h-3 w-full bg-slate-100">
-            <div
-              className="h-full rounded-r-full bg-primary transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+        {/* Progress bar */}
+        <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
 
-          <div className="p-5 md:p-8">
-            {/* Title on page 1 */}
-            {pageIndex === 0 && (
-              <p className="kid-tag mb-4 text-xs">{book.title}</p>
-            )}
+        {/* Book title on page 1 */}
+        {pageIndex === 0 && (
+          <p className="kid-tag mb-4 text-xs">{book.title}</p>
+        )}
 
-            {/* English text */}
-            <p className="text-xl font-black leading-relaxed text-slate-800 md:text-2xl md:leading-relaxed">
-              {page.text_en}
-            </p>
+        {/* ── Split page ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
-            {/* Audio + toggle */}
-            <div className="mt-5 flex items-center gap-3">
+          {/* English side */}
+          <div className="kid-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
+                🇺🇸 English
+              </span>
               <button
-                onClick={() => void playAudio()}
-                disabled={audioLoading}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-primary shadow-[0_8px_20px_rgba(14,165,233,0.3)] text-white transition hover:bg-primary-dark disabled:opacity-60"
+                onClick={() => void playEn()}
+                disabled={audioLoadingEn}
+                title="Ouvir em inglês"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
               >
-                {audioLoading ? <Loader2 size={20} className="animate-spin" /> : <Volume2 size={20} />}
-              </button>
-              <button
-                onClick={() => setShowPt((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-full border-2 border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary"
-              >
-                {showPt ? <EyeOff size={14} /> : <Eye size={14} />}
-                {showPt ? 'Esconder tradução' : 'Ver em português'}
+                {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
               </button>
             </div>
-
-            {/* Portuguese translation */}
-            {showPt && (
-              <div className="mt-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50 px-5 py-4">
-                <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">Tradução</p>
-                <p className="mt-2 text-base leading-7 text-slate-700">{page.text_pt}</p>
-              </div>
-            )}
-
-            {/* Vocabulary */}
-            {page.vocabulary.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Palavras desta página</p>
-                <div className="flex flex-wrap gap-2">
-                  {page.vocabulary.map((word) => (
-                    <span
-                      key={word}
-                      className="rounded-full border-2 border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700"
-                    >
-                      {word}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <p className="flex-1 text-lg font-black leading-relaxed text-slate-800 md:text-xl md:leading-relaxed">
+              {page.text_en}
+            </p>
           </div>
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 md:px-8">
-            <button
-              onClick={() => { setPageIndex((i) => i - 1); setShowPt(false); }}
-              disabled={isFirst}
-              className="flex items-center gap-2 rounded-2xl border-2 border-slate-200 px-5 py-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-30"
-            >
-              <ChevronLeft size={18} /> Anterior
-            </button>
-
-            {isLast ? (
+          {/* Portuguese side */}
+          <div className="kid-surface flex flex-col gap-4 border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                🇧🇷 Português
+              </span>
               <button
-                onClick={onBack}
-                className="flex items-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600"
+                onClick={() => void playPt()}
+                disabled={audioLoadingPt}
+                title="Ouvir em português"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
               >
-                Fim do livro! <BookOpen size={18} />
+                {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
               </button>
-            ) : (
-              <button
-                onClick={() => { setPageIndex((i) => i + 1); setShowPt(false); }}
-                className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
-              >
-                Proxima <ChevronRight size={18} />
-              </button>
-            )}
+            </div>
+            <p className="flex-1 text-base leading-relaxed text-slate-700 md:text-lg md:leading-relaxed">
+              {page.text_pt}
+            </p>
           </div>
         </div>
+
+        {/* Vocabulary */}
+        {page.vocabulary.length > 0 && (
+          <div className="mt-5 rounded-2xl border-2 border-slate-100 bg-white px-5 py-4">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Palavras desta página</p>
+            <div className="flex flex-wrap gap-2">
+              {page.vocabulary.map((word) => (
+                <span
+                  key={word}
+                  className="rounded-full border-2 border-sky-100 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700"
+                >
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="mt-5 flex items-center justify-between gap-3">
+          <button
+            onClick={goPrev}
+            disabled={isFirst}
+            className="flex items-center gap-2 rounded-2xl border-2 border-slate-200 px-5 py-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronLeft size={18} /> Anterior
+          </button>
+
+          {isLast ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600"
+            >
+              Fim do livro! <BookOpen size={18} />
+            </button>
+          ) : (
+            <button
+              onClick={goNext}
+              className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+            >
+              Proxima <ChevronRight size={18} />
+            </button>
+          )}
+        </div>
+
       </div>
     </main>
   );
