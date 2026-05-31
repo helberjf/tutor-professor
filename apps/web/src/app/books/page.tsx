@@ -8,6 +8,9 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  Columns2,
+  Eye,
+  EyeOff,
   Loader2,
   Plus,
   Sparkles,
@@ -230,6 +233,10 @@ function BookReader({ book, onBack }: BookReaderProps) {
   const [pageIndex, setPageIndex] = useState(0);
   const [audioLoadingEn, setAudioLoadingEn] = useState(false);
   const [audioLoadingPt, setAudioLoadingPt] = useState(false);
+  // readingMode = true → imersivo (EN + toggle tradução)
+  // readingMode = false → split lado a lado
+  const [readingMode, setReadingMode] = useState(true);
+  const [showTranslation, setShowTranslation] = useState(false);
 
   const page = book.pages[pageIndex];
   const isFirst = pageIndex === 0;
@@ -238,9 +245,11 @@ function BookReader({ book, onBack }: BookReaderProps) {
 
   function goNext() {
     setPageIndex((i) => i + 1);
+    setShowTranslation(false);
   }
   function goPrev() {
     setPageIndex((i) => i - 1);
+    setShowTranslation(false);
   }
 
   async function playEn() {
@@ -289,6 +298,14 @@ function BookReader({ book, onBack }: BookReaderProps) {
             <p className="kid-tag text-xs">
               {pageIndex + 1} / {book.pages.length}
             </p>
+            {/* Mode toggle */}
+            <button
+              onClick={() => setReadingMode((m) => !m)}
+              title={readingMode ? 'Modo dividido' : 'Modo leitura'}
+              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-200 text-slate-500 transition hover:border-primary hover:text-primary"
+            >
+              {readingMode ? <Columns2 size={15} /> : <BookOpen size={15} />}
+            </button>
           </div>
         </div>
 
@@ -308,49 +325,108 @@ function BookReader({ book, onBack }: BookReaderProps) {
           </div>
         )}
 
-        {/* ── Split page ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* ── READING MODE (imersivo) ──────────────────────────────── */}
+        {readingMode ? (
+          <div className="kid-surface overflow-hidden border-sky-200">
+            {/* English block */}
+            <div className="p-6 md:p-8">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
+                  🇺🇸 English
+                </span>
+                <button
+                  onClick={() => void playEn()}
+                  disabled={audioLoadingEn}
+                  title="Ouvir em inglês"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+                >
+                  {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
+                </button>
+              </div>
+              <p className="text-2xl font-black leading-relaxed text-slate-800 md:text-3xl md:leading-relaxed">
+                {page.text_en}
+              </p>
+            </div>
 
-          {/* English side */}
-          <div className="kid-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                🇺🇸 English
-              </span>
+            {/* Translation toggle divider */}
+            <div className="border-t-2 border-dashed border-slate-100">
               <button
-                onClick={() => void playEn()}
-                disabled={audioLoadingEn}
-                title="Ouvir em inglês"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+                onClick={() => setShowTranslation((v) => !v)}
+                className="flex w-full items-center justify-center gap-2 py-3 text-sm font-black text-slate-400 transition hover:text-emerald-600"
               >
-                {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
+                {showTranslation ? (
+                  <><EyeOff size={16} /> Esconder tradução</>
+                ) : (
+                  <><Eye size={16} /> Ver tradução em português</>
+                )}
               </button>
             </div>
-            <p className="flex-1 text-lg font-black leading-relaxed text-slate-800 md:text-xl md:leading-relaxed">
-              {page.text_en}
-            </p>
-          </div>
 
-          {/* Portuguese side */}
-          <div className="kid-surface flex flex-col gap-4 border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                🇧🇷 Português
-              </span>
-              <button
-                onClick={() => void playPt()}
-                disabled={audioLoadingPt}
-                title="Ouvir em português"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
-              >
-                {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
-              </button>
-            </div>
-            <p className="flex-1 text-base leading-relaxed text-slate-700 md:text-lg md:leading-relaxed">
-              {page.text_pt}
-            </p>
+            {/* Portuguese block — revealed */}
+            {showTranslation && (
+              <div className="border-t-2 border-emerald-100 bg-emerald-50/60 p-6 md:p-8">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                    🇧🇷 Português
+                  </span>
+                  <button
+                    onClick={() => void playPt()}
+                    disabled={audioLoadingPt}
+                    title="Ouvir em português"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
+                  >
+                    {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
+                  </button>
+                </div>
+                <p className="text-lg leading-relaxed text-slate-700 md:text-xl md:leading-relaxed">
+                  {page.text_pt}
+                </p>
+              </div>
+            )}
           </div>
-        </div>
+        ) : (
+          /* ── SPLIT MODE (lado a lado) ──────────────────────────────── */
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {/* English side */}
+            <div className="kid-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
+                  🇺🇸 English
+                </span>
+                <button
+                  onClick={() => void playEn()}
+                  disabled={audioLoadingEn}
+                  title="Ouvir em inglês"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+                >
+                  {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
+                </button>
+              </div>
+              <p className="flex-1 text-lg font-black leading-relaxed text-slate-800 md:text-xl">
+                {page.text_en}
+              </p>
+            </div>
+            {/* Portuguese side */}
+            <div className="kid-surface flex flex-col gap-4 border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
+                  🇧🇷 Português
+                </span>
+                <button
+                  onClick={() => void playPt()}
+                  disabled={audioLoadingPt}
+                  title="Ouvir em português"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
+                >
+                  {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
+                </button>
+              </div>
+              <p className="flex-1 text-base leading-relaxed text-slate-700 md:text-lg">
+                {page.text_pt}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Vocabulary */}
         {page.vocabulary.length > 0 && (

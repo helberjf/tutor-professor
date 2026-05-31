@@ -64,56 +64,70 @@ class BookGenerationService:
         num_pages: int,
         theme: str | None = None,
         age_group: str = "7-9",
+        max_retries: int = 3,
     ) -> GeneratedBookDraftSchema:
         if not self.is_configured():
             raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
 
-        prompt = self._build_prompt(
-            level=level, num_pages=num_pages, theme=theme, age_group=age_group
-        )
-
-        payload = {
-            "system_instruction": {
-                "parts": [
-                    {
-                        "text": (
-                            "You create child-safe English mini-books for Brazilian Portuguese-speaking children. "
-                            "Each page has English text, its Portuguese translation, and 3-5 vocabulary words from the page. "
-                            "Always return valid JSON only — no markdown fences, no comments, no extra keys."
-                        )
-                    }
-                ]
-            },
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.9,
-                "responseMimeType": "application/json",
-            },
-        }
-
-        url = f"{self.api_base_url}/models/{self.model}:generateContent"
-        try:
-            response = requests.post(
-                url,
-                headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
-                json=payload,
-                timeout=self.timeout_seconds,
+        last_error: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            prompt = self._build_prompt(
+                level=level, num_pages=num_pages, theme=theme, age_group=age_group,
+                attempt=attempt,
             )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError(f"Gemini request failed: {exc}") from exc
 
-        raw_text = self._extract_text(response.json())
-        raw_text = self._strip_fences(raw_text)
+            payload = {
+                "system_instruction": {
+                    "parts": [
+                        {
+                            "text": (
+                                "You create child-safe English mini-books for Brazilian Portuguese-speaking children. "
+                                "Each page has English text, its Portuguese translation, and 3-5 vocabulary words from the page. "
+                                "Always return valid JSON only — no markdown fences, no comments, no extra keys."
+                            )
+                        }
+                    ]
+                },
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.7 + (attempt - 1) * 0.1,
+                    "responseMimeType": "application/json",
+                },
+            }
 
-        try:
-            data = json.loads(raw_text)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError("Gemini returned invalid JSON for the book draft.") from exc
+            url = f"{self.api_base_url}/models/{self.model}:generateContent"
+            try:
+                response = requests.post(
+                    url,
+                    headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=self.timeout_seconds,
+                )
+                response.raise_for_status()
+            except requests.RequestException as exc:
+                raise RuntimeError(f"Gemini request failed: {exc}") from exc
 
-        draft = GeneratedBookDraftSchema.model_validate(data)
-        self._validate(draft, num_pages=num_pages)
-        return draft
+            raw_text = self._extract_text(response.json())
+            raw_text = self._strip_fences(raw_text)
+
+            try:
+                data = json.loads(raw_text)
+            except json.JSONDecodeError as exc:
+                last_error = RuntimeError("Gemini returned invalid JSON for the book draft.")
+                continue
+
+            try:
+                draft = GeneratedBookDraftSchema.model_validate(data)
+                self._validate(draft, num_pages=num_pages)
+                return draft
+            except (Exception) as exc:
+                last_error = exc
+                continue
+
+        raise RuntimeError(
+            f"Gemini nao gerou {num_pages} paginas apos {max_retries} tentativas. "
+            f"Ultimo erro: {last_error}"
+        )
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
@@ -124,6 +138,7 @@ class BookGenerationService:
         num_pages: int,
         theme: str | None,
         age_group: str,
+        attempt: int = 1,
     ) -> str:
         difficulty = _difficulty_for_level(level)
 
@@ -134,27 +149,32 @@ class BookGenerationService:
         )
 
         pages_example = ",\n".join(
-            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 English sentences for page {i}>",\n      "text_pt": "<Portuguese translation>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
+            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 English sentences for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
             for i in range(1, num_pages + 1)
         )
 
-        return f"""Create a children's English mini-book with EXACTLY {num_pages} pages. Do NOT produce fewer pages.
+        retry_warning = (
+            f"\n⚠️ IMPORTANT: A previous attempt returned fewer than {num_pages} pages. "
+            f"You MUST output ALL {num_pages} page objects. Count them before responding.\n"
+            if attempt > 1 else ""
+        )
 
+        return f"""Create a children's English mini-book with EXACTLY {num_pages} pages.{retry_warning}
 Difficulty: {difficulty}
 {theme_instruction}Age group: {age_group} years old (Brazilian child learning English).
 
-RULES — follow all of them:
-1. The "pages" array MUST contain exactly {num_pages} objects, numbered 1 through {num_pages}.
-2. Each page MUST have 3-5 full sentences of English (not 1, not 2 — minimum 3 sentences per page).
-3. Build a clear narrative: page 1 introduces setting/character, middle pages develop the story, last page resolves it.
-4. The Portuguese translation must be natural Brazilian Portuguese, not word-for-word.
-5. vocabulary: list exactly 3-5 important English words from that page (no duplicates across all pages).
-6. All content must be child-safe and positive.
+CRITICAL RULES:
+1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
+2. Each page MUST have 3-5 full English sentences — NEVER just 1 or 2.
+3. Story structure: page 1 = introduction, pages 2-{num_pages-1} = development, page {num_pages} = resolution.
+4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
+5. vocabulary: 3-5 English words per page, no repeats across pages.
+6. Child-safe and positive content only.
 
-Return ONLY valid JSON — no markdown, no comments:
+Return ONLY this exact JSON structure with {num_pages} page objects:
 {{
   "title": "<book title in English>",
-  "theme": "<one-word or short theme tag>",
+  "theme": "<short theme tag>",
   "pages": [
 {pages_example}
   ]
