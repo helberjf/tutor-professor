@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from models.database import Book, BookPage, ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
@@ -109,6 +110,25 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
 
 
+def _run_schema_migrations() -> None:
+    """Apply schema changes that SQLModel.create_all cannot handle (add columns, relax constraints)."""
+    with engine.connect() as conn:
+        # Make book.child_id nullable so books can be shared across all users
+        try:
+            conn.execute(text("ALTER TABLE book ALTER COLUMN child_id DROP NOT NULL"))
+        except Exception:
+            pass
+        # Add lesson.level column for shared-pool lookup
+        try:
+            conn.execute(text("ALTER TABLE lesson ADD COLUMN IF NOT EXISTS level INTEGER"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE lesson ADD COLUMN level INTEGER"))
+            except Exception:
+                pass
+        conn.commit()
+
+
 def get_session():
     with Session(engine) as session:
         yield session
@@ -147,6 +167,7 @@ def normalize_existing_child_profiles() -> None:
 @app.on_event("startup")
 def on_startup() -> None:
     create_db_and_tables()
+    _run_schema_migrations()
     normalize_existing_child_profiles()
 
 
@@ -217,13 +238,29 @@ def is_generated_lesson(lesson: Lesson) -> bool:
     return content.get("generated_by") == "gemini"
 
 
-def list_accessible_lessons(session: Session, child_id: int) -> list[Lesson]:
+def list_accessible_lessons(session: Session, child_id: int, child_level: int | None = None) -> list[Lesson]:
+    """Return all lessons accessible to child_id.
+
+    - Static (non-generated) lessons are always visible to every child.
+    - Shared generated lessons (child_id=None) are visible when level matches child_level.
+    - Legacy private generated lessons (child_id==child_id) remain visible to that child.
+    """
     lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
-    return [
-        lesson
-        for lesson in lessons
-        if not is_generated_lesson(lesson) or lesson.child_id == child_id
-    ]
+    result: list[Lesson] = []
+    for lesson in lessons:
+        if not is_generated_lesson(lesson):
+            result.append(lesson)  # static content always visible
+        elif lesson.child_id == child_id:
+            result.append(lesson)  # legacy private lesson for this child
+        elif lesson.child_id is None:
+            # shared pool: include if level matches (or no level filter provided)
+            if child_level is None:
+                result.append(lesson)
+            else:
+                lesson_level = lesson.level or (lesson.content or {}).get("generated_level")
+                if lesson_level == child_level:
+                    result.append(lesson)
+    return result
 
 
 def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int, ChildLessonProgress]:
@@ -237,8 +274,8 @@ def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int,
     }
 
 
-def get_current_lesson(session: Session, child_id: int) -> Lesson | None:
-    lessons = list_accessible_lessons(session=session, child_id=child_id)
+def get_current_lesson(session: Session, child_id: int, child_level: int | None = None) -> Lesson | None:
+    lessons = list_accessible_lessons(session=session, child_id=child_id, child_level=child_level)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
 
     lesson = next(
@@ -322,7 +359,7 @@ def compute_and_update_child_level(session: Session, child: ChildProfile) -> int
 
 
 def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Lesson:
-    """Generate and persist a new Gemini lesson for *child* when no lesson exists."""
+    """Return a shared generated lesson at the child's level, generating one if none exists."""
     if not phrase_generation_service.is_configured():
         raise HTTPException(
             status_code=503,
@@ -333,6 +370,20 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
         )
 
     level = compute_and_update_child_level(session=session, child=child)
+
+    # ── Reuse from shared pool if a lesson at this level exists ─────────────
+    progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
+    shared_at_level = session.exec(
+        select(Lesson).where(Lesson.child_id == None, Lesson.level == level).order_by(Lesson.id)
+    ).all()
+    for candidate in shared_at_level:
+        if not is_generated_lesson(candidate):
+            continue
+        prog = progress_map.get(candidate.id or 0)
+        if prog is None or not prog.is_completed:
+            return candidate  # free reuse — no Gemini call needed
+
+    # ── Generate a new shared lesson ─────────────────────────────────────────
     next_day = get_next_lesson_day(session=session)
     existing_phrases = [
         item.word_en
@@ -372,7 +423,8 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             "generated_level": level,
             "generated_at": datetime.utcnow().isoformat(),
         },
-        child_id=child.id,
+        child_id=None,  # shared — available to all children at this level
+        level=level,
     )
     session.add(lesson)
     session.commit()
@@ -599,7 +651,7 @@ def health_check() -> dict[str, datetime | str]:
 @app.get("/api/lessons", response_model=list[LessonSummarySchema])
 def list_all_lessons(request: Request, session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
     child = get_requested_child(request=request, session=session)
-    lessons = list_accessible_lessons(session=session, child_id=child.id or 0)
+    lessons = list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
     return [
         LessonSummarySchema(
@@ -617,7 +669,7 @@ def list_all_lessons(request: Request, session: Session = Depends(get_session)) 
 @app.get("/api/lesson/today", response_model=LessonSchema)
 def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
     child = get_requested_child(request=request, session=session)
-    lesson = get_current_lesson(session=session, child_id=child.id or 0)
+    lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level)
     if lesson is None:
         lesson = auto_generate_lesson_for_child(session=session, child=child)
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
@@ -627,7 +679,7 @@ def get_today_lesson(request: Request, session: Session = Depends(get_session)) 
 def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> LessonSchema:
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
@@ -637,7 +689,7 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
 def complete_lesson(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> dict[str, str]:
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
@@ -669,13 +721,13 @@ def get_today_quiz(
     resolved_lesson_id = lesson_id
     lesson: Lesson | None = None
     if resolved_lesson_id is None:
-        lesson = get_current_lesson(session=session, child_id=child.id or 0)
+        lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level)
         if lesson is None:
             raise HTTPException(status_code=404, detail="Nenhuma licao encontrada para o quiz")
         resolved_lesson_id = lesson.id
     elif resolved_lesson_id is not None:
         lesson = session.get(Lesson, resolved_lesson_id)
-        accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0)}
+        accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
         if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
             raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
@@ -768,7 +820,7 @@ def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressS
         for progress in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
         if progress.is_completed
     ]
-    accessible_lesson_ids = {lesson.id or 0 for lesson in list_accessible_lessons(session=session, child_id=child.id or 0)}
+    accessible_lesson_ids = {lesson.id or 0 for lesson in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
     completed_lesson_ids = [
         progress.lesson_id
         for progress in completed_progress_items
@@ -1186,10 +1238,12 @@ def generate_parent_lesson(
             ],
             "generated_by": "gemini",
             "generated_model": phrase_generation_service.model,
+            "generated_level": level,
             "generated_topic": payload.topic.strip() if payload.topic else None,
             "generated_at": datetime.utcnow().isoformat(),
         },
-        child_id=child.id,
+        child_id=None,  # shared — available to all children at this level
+        level=level,
     )
     session.add(lesson)
     session.commit()
@@ -1262,8 +1316,11 @@ def list_books(
     session: Session = Depends(get_session),
 ) -> list[BookSummarySchema]:
     child = get_requested_child(request=request, session=session)
+    # Return shared books at the child's current level (visible to everyone at that level)
     books = session.exec(
-        select(Book).where(Book.child_id == child.id).order_by(Book.created_at.desc())
+        select(Book)
+        .where(Book.child_id == None, Book.level == child.current_level)
+        .order_by(Book.created_at.desc())
     ).all()
     return [
         BookSummarySchema(
@@ -1284,9 +1341,10 @@ def get_book(
     request: Request,
     session: Session = Depends(get_session),
 ) -> BookSchema:
-    child = get_requested_child(request=request, session=session)
+    get_requested_child(request=request, session=session)  # validate auth
     book = session.get(Book, book_id)
-    if book is None or book.child_id != child.id:
+    # Shared books (child_id=None) are readable by any authenticated user
+    if book is None:
         raise HTTPException(status_code=404, detail="Livro nao encontrado.")
     pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
     return _build_book_schema(book, list(pages))
@@ -1311,6 +1369,26 @@ def generate_book(
         session=session, child=child
     )
 
+    # ── Check shared pool before generating ──────────────────────────────────
+    theme_lower = (payload.theme or "").strip().lower()
+    shared_at_level = session.exec(
+        select(Book).where(Book.child_id == None, Book.level == level).order_by(Book.created_at.desc())
+    ).all()
+
+    if shared_at_level:
+        if not theme_lower:
+            # No theme specified: return a random book from the pool
+            candidate = shared_at_level[0]
+            pages = session.exec(select(BookPage).where(BookPage.book_id == candidate.id)).all()
+            return _build_book_schema(candidate, list(pages))
+        else:
+            # Theme specified: return a book with a matching theme if one exists
+            match = next((b for b in shared_at_level if b.theme.lower() == theme_lower), None)
+            if match:
+                pages = session.exec(select(BookPage).where(BookPage.book_id == match.id)).all()
+                return _build_book_schema(match, list(pages))
+
+    # ── Generate a new shared book ────────────────────────────────────────────
     try:
         draft = book_generation_service.generate_book(
             level=level,
@@ -1321,9 +1399,8 @@ def generate_book(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    # Persist book
     book = Book(
-        child_id=child.id or 0,
+        child_id=None,  # shared — visible to all users at this level
         title=draft.title,
         theme=draft.theme,
         level=level,
