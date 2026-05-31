@@ -10,8 +10,8 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: 'English Kids Tutor',
-  description: 'Um tutor de ingles infantil seguro, leve e acolhedor.',
+  title: 'Language Kids Tutor',
+  description: 'Um tutor de idiomas seguro, leve e acolhedor.',
 };
 
 export default function RootLayout({

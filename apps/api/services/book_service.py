@@ -65,6 +65,7 @@ class BookGenerationService:
         theme: str | None = None,
         age_group: str = "7-9",
         max_retries: int = 3,
+        target_language: str = "English",
     ) -> GeneratedBookDraftSchema:
         if not self.is_configured():
             raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
@@ -73,7 +74,7 @@ class BookGenerationService:
         for attempt in range(1, max_retries + 1):
             prompt = self._build_prompt(
                 level=level, num_pages=num_pages, theme=theme, age_group=age_group,
-                attempt=attempt,
+                attempt=attempt, target_language=target_language,
             )
 
             payload = {
@@ -81,8 +82,8 @@ class BookGenerationService:
                     "parts": [
                         {
                             "text": (
-                                "You create child-safe English mini-books for Brazilian Portuguese-speaking children. "
-                                "Each page has English text, its Portuguese translation, and 3-5 vocabulary words from the page. "
+                                f"You create child-safe {target_language} mini-books for Brazilian Portuguese-speaking learners. "
+                                f"Each page has {target_language} text, its Portuguese translation, and 3-5 vocabulary words from the page. "
                                 "Always return valid JSON only — no markdown fences, no comments, no extra keys."
                             )
                         }
@@ -139,6 +140,7 @@ class BookGenerationService:
         theme: str | None,
         age_group: str,
         attempt: int = 1,
+        target_language: str = "English",
     ) -> str:
         difficulty = _difficulty_for_level(level)
 
@@ -149,7 +151,7 @@ class BookGenerationService:
         )
 
         pages_example = ",\n".join(
-            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 English sentences for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
+            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 {target_language} sentences for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
             for i in range(1, num_pages + 1)
         )
 
@@ -159,21 +161,21 @@ class BookGenerationService:
             if attempt > 1 else ""
         )
 
-        return f"""Create a children's English mini-book with EXACTLY {num_pages} pages.{retry_warning}
+        return f"""Create a children's {target_language} mini-book with EXACTLY {num_pages} pages.{retry_warning}
 Difficulty: {difficulty}
-{theme_instruction}Age group: {age_group} years old (Brazilian child learning English).
+{theme_instruction}Age group: {age_group} years old (Brazilian learner studying {target_language}).
 
 CRITICAL RULES:
 1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
-2. Each page MUST have 3-5 full English sentences — NEVER just 1 or 2.
+2. Each page MUST have 3-5 full {target_language} sentences — NEVER just 1 or 2.
 3. Story structure: page 1 = introduction, pages 2-{num_pages-1} = development, page {num_pages} = resolution.
 4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
-5. vocabulary: 3-5 English words per page, no repeats across pages.
+5. vocabulary: 3-5 {target_language} words per page, no repeats across pages.
 6. Child-safe and positive content only.
 
 Return ONLY this exact JSON structure with {num_pages} page objects:
 {{
-  "title": "<book title in English>",
+  "title": "<book title in {target_language}>",
   "theme": "<short theme tag>",
   "pages": [
 {pages_example}

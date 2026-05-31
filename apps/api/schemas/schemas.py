@@ -18,6 +18,7 @@ class ChildProfileSchema(FromAttributesModel):
     last_activity: Optional[datetime] = None
     voice_preference: str = "af_bella"
     auto_audio: bool = True
+    target_language: str = "English"
 
 class LessonItemSchema(FromAttributesModel):
     word_en: str
@@ -138,6 +139,7 @@ class LevelAnalysisSchema(BaseModel):
     quiz_accuracy: float
     avg_review_difficulty: float
     next_level_at: int  # vocabulary needed to reach next level
+    target_language: str = "English"
 
 
 # ── Book schemas ───────────────────────────────────────────────────────────────
@@ -228,6 +230,7 @@ class UserRegisterSchema(BaseModel):
     cpf: str = Field(min_length=11, max_length=18)
     password: str = Field(min_length=6, max_length=128)
     child_name: Optional[str] = Field(default=None, max_length=80)
+    target_language: Optional[str] = Field(default=None, max_length=40)
 
 
 class UserLoginSchema(BaseModel):
@@ -248,6 +251,7 @@ class ParentSettingsUpdateSchema(BaseModel):
     voice_preference: Optional[str] = None
     auto_audio: Optional[bool] = None
     rhythm: Optional[str] = None
+    target_language: Optional[str] = Field(default=None, max_length=40)
 
 
 class CreateChildProfileSchema(BaseModel):
@@ -255,6 +259,7 @@ class CreateChildProfileSchema(BaseModel):
     age_group: str = Field(min_length=1, max_length=20)
     voice_preference: Optional[str] = Field(default=None, max_length=40)
     auto_audio: Optional[bool] = None
+    target_language: Optional[str] = Field(default=None, max_length=40)
 
 
 class GenerateLessonRequestSchema(BaseModel):

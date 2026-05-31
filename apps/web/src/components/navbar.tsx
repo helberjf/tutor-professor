@@ -37,7 +37,7 @@ export function Navbar() {
               <span className="text-xl font-black text-primary-dark">T</span>
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">Tutor infantil</p>
+              <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">Language Tutor</p>
               <p className="truncate text-base font-black text-slate-800 md:text-lg">English Kids Tutor</p>
             </div>
           </Link>

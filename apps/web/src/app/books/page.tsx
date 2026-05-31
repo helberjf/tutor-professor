@@ -25,8 +25,25 @@ import {
   type Book,
   type BookSummary,
   type GenerateBookPayload,
+  type LevelAnalysis,
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+
+// ── Language metadata ─────────────────────────────────────────────────────────────────────────────────
+export const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
+  English:  { flag: '🇺🇸', label: 'English',  ttsCode: 'en' },
+  French:   { flag: '🇫🇷', label: 'Français', ttsCode: 'fr' },
+  Spanish:  { flag: '🇪🇸', label: 'Español', ttsCode: 'es' },
+  German:   { flag: '🇩🇪', label: 'Deutsch',  ttsCode: 'de' },
+  Italian:  { flag: '🇮🇹', label: 'Italiano', ttsCode: 'it' },
+  Japanese: { flag: '🇯🇵', label: '日本語',  ttsCode: 'ja' },
+};
+
+const LEVEL_CACHE_KEY = 'child_level_cache';
+
+function getLangMeta(lang: string) {
+  return LANGUAGE_META[lang] ?? { flag: '🇺🇸', label: lang, ttsCode: 'en' };
+}
 
 // ── Level labels ────────────────────────────────────────────────────────────
 const LEVEL_LABELS: Record<number, string> = {
@@ -227,9 +244,10 @@ function GenerateForm({ onClose, onGenerate, generating }: GenerateFormProps) {
 interface BookReaderProps {
   book: Book;
   onBack: () => void;
+  targetLanguage?: string;
 }
 
-function BookReader({ book, onBack }: BookReaderProps) {
+function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProps) {
   const [pageIndex, setPageIndex] = useState(0);
   const [audioLoadingEn, setAudioLoadingEn] = useState(false);
   const [audioLoadingPt, setAudioLoadingPt] = useState(false);
@@ -237,6 +255,8 @@ function BookReader({ book, onBack }: BookReaderProps) {
   // readingMode = false → split lado a lado
   const [readingMode, setReadingMode] = useState(true);
   const [showTranslation, setShowTranslation] = useState(false);
+
+  const langMeta = getLangMeta(targetLanguage);
 
   const page = book.pages[pageIndex];
   const isFirst = pageIndex === 0;
@@ -328,16 +348,16 @@ function BookReader({ book, onBack }: BookReaderProps) {
         {/* ── READING MODE (imersivo) ──────────────────────────────── */}
         {readingMode ? (
           <div className="kid-surface overflow-hidden border-sky-200">
-            {/* English block */}
+            {/* Target language block */}
             <div className="p-6 md:p-8">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                  🇺🇸 English
+                  {langMeta.flag} {langMeta.label}
                 </span>
                 <button
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
-                  title="Ouvir em inglês"
+                  title={`Ouvir em ${langMeta.label}`}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -391,12 +411,12 @@ function BookReader({ book, onBack }: BookReaderProps) {
             <div className="kid-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                  🇺🇸 English
+                  {langMeta.flag} {langMeta.label}
                 </span>
                 <button
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
-                  title="Ouvir em inglês"
+                  title={`Ouvir em ${langMeta.label}`}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -489,6 +509,12 @@ function BooksPageContent() {
   const [showForm, setShowForm] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<string>(() => {
+    try {
+      const cached = typeof window !== 'undefined' ? localStorage.getItem(LEVEL_CACHE_KEY) : null;
+      return cached ? (JSON.parse(cached) as { target_language?: string }).target_language ?? 'English' : 'English';
+    } catch { return 'English'; }
+  });
 
   async function loadBooks() {
     setLoading(true);
@@ -496,6 +522,10 @@ function BooksPageContent() {
     try {
       const data = await api.listBooks();
       setBooks(data);
+      try {
+        const level = await api.getChildLevel();
+        if (level.target_language) setTargetLanguage(level.target_language);
+      } catch { /* ignore */ }
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar os livros.'));
     } finally {
@@ -554,7 +584,7 @@ function BooksPageContent() {
 
   // ── Reader mode ────────────────────────────────────────────────────────────
   if (openBook) {
-    return <BookReader book={openBook} onBack={() => setOpenBook(null)} />;
+    return <BookReader book={openBook} onBack={() => setOpenBook(null)} targetLanguage={targetLanguage} />;
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────

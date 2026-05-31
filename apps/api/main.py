@@ -126,6 +126,22 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE lesson ADD COLUMN level INTEGER"))
             except Exception:
                 pass
+        # Add target_language column to childprofile
+        try:
+            conn.execute(text("ALTER TABLE childprofile ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE childprofile ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
+            except Exception:
+                pass
+        # Add target_language column to book
+        try:
+            conn.execute(text("ALTER TABLE book ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE book ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
+            except Exception:
+                pass
         conn.commit()
 
 
@@ -414,6 +430,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             age_group=child.age_group,
             existing_phrases=existing_phrases,
             level=level,
+            target_language=child.target_language,
         )
     except Exception as exc:
         raise HTTPException(
@@ -423,9 +440,9 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
 
     lesson = Lesson(
         id=next_day,
-        title=f"Ingles de hoje - Dia {next_day}",
+        title=f"{child.target_language} de hoje - Dia {next_day}",
         theme="Frases do dia",
-        objective="Aprenda 3 frases uteis em ingles hoje.",
+        objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
         content={
             "daily_goal": "3 frases para hoje",
             "phrase_breakdowns": [
@@ -934,6 +951,7 @@ def get_child_level(request: Request, session: Session = Depends(get_session)) -
         quiz_accuracy=accuracy,
         avg_review_difficulty=avg_diff,
         next_level_at=next_at,
+        target_language=child.target_language,
     )
 
 
@@ -1072,7 +1090,12 @@ def user_register(
     session.refresh(user)
 
     child_name = (payload.child_name or payload.first_name).strip() or "Kid"
-    child = ChildProfile(name=child_name, age_group="7-9", user_id=user.id)
+    child = ChildProfile(
+        name=child_name,
+        age_group="7-9",
+        target_language=payload.target_language or "English",
+        user_id=user.id,
+    )
     session.add(child)
     session.commit()
 
@@ -1209,6 +1232,8 @@ def update_parent_settings(
         child.voice_preference = tts_service.normalize_voice(payload.voice_preference)
     if payload.auto_audio is not None:
         child.auto_audio = payload.auto_audio
+    if payload.target_language:
+        child.target_language = payload.target_language
 
     session.add(child)
     session.commit()
@@ -1245,6 +1270,7 @@ def generate_parent_lesson(
             existing_phrases=existing_phrases,
             topic=payload.topic,
             level=level,
+            target_language=child.target_language,
         )
     except Exception as exc:
         raise HTTPException(
@@ -1408,7 +1434,12 @@ def generate_book(
     requested_pages = payload.num_pages
     shared_at_level = session.exec(
         select(Book)
-        .where(Book.child_id == None, Book.level == level, Book.num_pages == requested_pages)
+        .where(
+            Book.child_id == None,
+            Book.level == level,
+            Book.num_pages == requested_pages,
+            Book.target_language == child.target_language,
+        )
         .order_by(Book.created_at.desc())
     ).all()
 
@@ -1432,6 +1463,7 @@ def generate_book(
             num_pages=payload.num_pages,
             theme=payload.theme or None,
             age_group=child.age_group,
+            target_language=child.target_language,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -1442,6 +1474,7 @@ def generate_book(
         theme=draft.theme,
         level=level,
         num_pages=len(draft.pages),
+        target_language=child.target_language,
     )
     session.add(book)
     session.commit()
