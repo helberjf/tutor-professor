@@ -39,6 +39,21 @@ function Get-ValueFromSecretsFile([string]$Key) {
   return (($match -split '=', 2)[1]).Trim()
 }
 
+# Carrega TODOS os pares chave=valor de local.secrets como variaveis de ambiente
+# do processo atual. Isso garante que o processo filho do backend herde DATABASE_URL,
+# GEMINI_API_KEY e outras variaveis necessarias.
+function Import-SecretsToEnv() {
+  if (-not (Test-Path $SecretsFile)) { return }
+  Get-Content $SecretsFile | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#') -and $line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+      $key   = $Matches[1]
+      $value = $Matches[2].Trim()
+      Set-Item -Path "env:$key" -Value $value
+    }
+  }
+}
+
 function Wait-ForTcpPort([string]$HostName, [int]$Port, [int]$TimeoutSeconds = 45) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   while ((Get-Date) -lt $deadline) {
@@ -96,6 +111,10 @@ Write-Host ''
 # ── 1. Token ──────────────────────────────────────────────────────────────────
 Write-Step 'Lendo configuracoes locais'
 Write-Progress -Activity $ProgressActivity -Status 'Lendo token...' -PercentComplete 5
+
+# Importa TODAS as variaveis de local.secrets para o ambiente atual.
+# Assim o processo filho do backend herda DATABASE_URL, GEMINI_API_KEY, etc.
+Import-SecretsToEnv
 
 $tokenFromFile = Get-ValueFromSecretsFile -Key 'ENGLISH_TUTOR_VERCEL_SYNC_TOKEN'
 if ($tokenFromFile) {
