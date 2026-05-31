@@ -264,10 +264,10 @@ function LessonPageContent() {
             <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Voce terminou</h1>
             <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
             <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
-              {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}. O quiz esta pronto!
+              {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}!
             </p>
 
-            {/* Primary CTA */}
+            {/* Primary CTA — Quiz */}
             <div className="relative mt-8 inline-flex">
               <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
               <Link
@@ -275,7 +275,18 @@ function LessonPageContent() {
                 className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:text-2xl"
               >
                 <ChevronRight size={24} />
-                Proxima atividade — Quiz
+                Faca o Quiz abaixo
+              </Link>
+            </div>
+
+            {/* Secondary CTA — Next lesson */}
+            <div className="mt-4">
+              <Link
+                href="/lesson"
+                className="inline-flex items-center gap-2 rounded-full border-2 border-primary/30 bg-white px-8 py-3 text-base font-black text-primary transition hover:border-primary hover:bg-primary/5"
+              >
+                <Sparkles size={18} />
+                Proxima licao
               </Link>
             </div>
           </div>
