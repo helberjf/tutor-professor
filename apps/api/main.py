@@ -278,7 +278,7 @@ def get_current_lesson(session: Session, child_id: int, child_level: int | None 
     lessons = list_accessible_lessons(session=session, child_id=child_id, child_level=child_level)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
 
-    lesson = next(
+    return next(
         (
             item
             for item in lessons
@@ -286,9 +286,6 @@ def get_current_lesson(session: Session, child_id: int, child_level: int | None 
         ),
         None,
     )
-    if lesson is None and lessons:
-        lesson = lessons[-1]
-    return lesson
 
 
 def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
