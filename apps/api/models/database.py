@@ -44,6 +44,7 @@ class Lesson(SQLModel, table=True):
     is_completed: bool = False
     completed_at: Optional[datetime] = None
     child_id: Optional[int] = Field(default=None, foreign_key="childprofile.id")
+    level: Optional[int] = Field(default=None, index=True)  # nivel para licoes compartilhadas
 
 class LessonItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -97,7 +98,7 @@ class ParentSettings(SQLModel, table=True):
 
 class Book(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    child_id: Optional[int] = Field(default=None, foreign_key="childprofile.id", index=True)  # None = livro compartilhado
     title: str
     theme: str
     level: int = 1
