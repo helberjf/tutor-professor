@@ -297,12 +297,12 @@ function LessonPageContent() {
             </div>
 
             {/* Secondary CTA — Next lesson */}
-            <div className="mt-4">
+            <div className="relative mt-4 inline-flex">
               <Link
                 href="/lesson"
-                className="inline-flex items-center gap-2 rounded-full border-2 border-primary/30 bg-white px-8 py-3 text-base font-black text-primary transition hover:border-primary hover:bg-primary/5"
+                className="relative inline-flex items-center gap-3 rounded-full bg-emerald-500 px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(16,185,129,0.35)] transition hover:scale-105 hover:bg-emerald-600 md:text-2xl"
               >
-                <Sparkles size={18} />
+                <Sparkles size={24} />
                 Proxima licao
               </Link>
             </div>
