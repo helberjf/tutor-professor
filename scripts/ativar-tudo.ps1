@@ -65,10 +65,23 @@ function Wait-ForTcpPort([string]$HostName, [int]$Port, [int]$TimeoutSeconds = 4
   return $false
 }
 
-function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 45) {
+function Find-UrlInLogFile([string]$LogPath) {
+  if (-not (Test-Path $LogPath)) { return $null }
+  $lines = Get-Content -Path $LogPath -ErrorAction SilentlyContinue
+  if (-not $lines) { return $null }
+  foreach ($line in $lines) {
+    if ($line -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
+      return $Matches[0].TrimEnd('/', ' ', '|')
+    }
+  }
+  return $null
+}
+
+function Wait-ForTunnelUrl([string]$FilePath, [string]$StderrLog = '', [string]$StdoutLog = '', [int]$TimeoutSeconds = 90) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $startTime = Get-Date
   while ((Get-Date) -lt $deadline) {
+    # Caminho primario: arquivo escrito por run-tunnel.ps1
     if (Test-Path $FilePath) {
       $raw = (Get-Content -Path $FilePath -ErrorAction SilentlyContinue | Select-Object -First 1)
       if ($raw) {
@@ -76,6 +89,11 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 45) {
         if ($url -match '^https://') { return $url }
       }
     }
+    # Fallback: ler o log do cloudflared diretamente (caso run-tunnel.ps1 falhe ao gravar o arquivo)
+    $url = Find-UrlInLogFile $StderrLog
+    if (-not $url) { $url = Find-UrlInLogFile $StdoutLog }
+    if ($url) { return $url }
+
     $elapsed = [int]((Get-Date) - $startTime).TotalSeconds
     $pct = [math]::Min(69, 30 + [int](($elapsed / $TimeoutSeconds) * 39))
     Write-Progress -Activity $ProgressActivity `
@@ -189,13 +207,35 @@ Start-Process -FilePath $PowerShellExe -ArgumentList @(
 ) | Out-Null
 
 # ── 6. Aguardar URL ───────────────────────────────────────────────────────────
-$tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds 45
+$tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -StderrLog $TunnelStderrFile -StdoutLog $TunnelStdoutFile -TimeoutSeconds 90
 
 if (-not $tunnelUrl) {
   Write-Progress -Activity $ProgressActivity -Completed
   Write-Host ''
-  Write-Host 'X Tunnel nao publicou URL em 45s.' -ForegroundColor Red
-  Write-Host "  Veja o log: $TunnelStderrFile" -ForegroundColor Yellow
+  Write-Host 'X Tunnel nao publicou URL em 90s.' -ForegroundColor Red
+  Write-Host "  Log: $TunnelStderrFile" -ForegroundColor Yellow
+
+  $logFile = if (Test-Path $TunnelStderrFile) { $TunnelStderrFile } `
+             elseif (Test-Path $TunnelStdoutFile) { $TunnelStdoutFile } `
+             else { $null }
+  if ($logFile) {
+    $logLines = Get-Content $logFile -ErrorAction SilentlyContinue
+    if ($logLines) {
+      Write-Host ''
+      Write-Host "Saida do cloudflared (ultimas 40 linhas de $([System.IO.Path]::GetFileName($logFile))):" -ForegroundColor Cyan
+      $logLines | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    } else {
+      Write-Host '  (log vazio — cloudflared pode nao ter iniciado)' -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host '  (nenhum log gerado — cloudflared pode nao ter iniciado)' -ForegroundColor Yellow
+  }
+
+  Write-Host ''
+  Write-Host 'Causas comuns:' -ForegroundColor Yellow
+  Write-Host '  - cloudflared nao instalado ou fora do PATH' -ForegroundColor White
+  Write-Host '  - Firewall bloqueando saida para a Cloudflare' -ForegroundColor White
+  Write-Host '  - Conexao lenta: tente rodar de novo' -ForegroundColor White
   Write-Host ''
   exit 1
 }
@@ -218,8 +258,8 @@ $payload = @{
 } | ConvertTo-Json
 
 $response = $null
-$postMaxRetries = 8
-$postRetryDelay = 5
+$postMaxRetries = 15
+$postRetryDelay = 8
 
 for ($attempt = 1; $attempt -le $postMaxRetries; $attempt++) {
   $pct = [math]::Min(97, 70 + ($attempt * 3))
