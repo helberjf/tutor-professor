@@ -16,6 +16,7 @@ const RUNTIME_BACKEND_GITHUB_BRANCH_FILE = 'runtime-backend.json';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function getGitHubRepoInfo() {
   const owner = process.env.VERCEL_GIT_REPO_OWNER?.trim() || 'helberjf';
@@ -265,15 +266,18 @@ async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
 }
 
 async function verifyBackendHealth(baseUrl: string) {
+  // Orçamento total: ~45s (bem abaixo do limite de 60s do Vercel Hobby)
+  // 5 tentativas × (5s timeout + 4s delay) - 4s final = 45s pior caso
   const maxAttempts = 5;
-  const delayMs = 8000;
+  const timeoutMs = 5000;
+  const delayMs = 4000;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (response.ok) return true;
