@@ -607,8 +607,9 @@ function BooksPageContent() {
         tone="offline"
         title="Servidor nao disponivel"
         message="Ative o backend para acessar os livros."
-        primaryHref="/connect"
-        primaryLabel="Conectar"
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
+        }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />

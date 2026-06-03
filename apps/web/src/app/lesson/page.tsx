@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, PartyPopper, Sparkles, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
+import { CelebrationOverlay } from '@/components/celebration';
 import { ApiError, api, type LevelAnalysis, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -59,6 +60,11 @@ function LessonPageContent() {
   const [completed, setCompleted] = useState(false);
   const [savingLesson, setSavingLesson] = useState(false);
   const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  useEffect(() => {
+    if (completed) setShowCelebration(true);
+  }, [completed]);
 
   async function loadLesson() {
     setLoading(true);
@@ -299,67 +305,70 @@ function LessonPageContent() {
 
   if (completed) {
     return (
-      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
-        <div className="mx-auto flex max-w-2xl flex-col items-center gap-5">
+      <>
+        <CelebrationOverlay show={showCelebration} />
+        <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-5">
 
-          {/* Celebration card */}
-          <div className="kid-surface w-full border-accent/60 p-7 text-center md:p-12">
-            <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
-              <PartyPopper className="text-accent-dark" size={52} />
+            {/* Celebration card */}
+            <div className="kid-surface w-full border-accent/60 p-7 text-center md:p-12 celebrate-pop">
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
+                <PartyPopper className="text-accent-dark" size={52} />
+              </div>
+              <p className="kid-tag mb-3">Licao concluida!</p>
+              <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Voce terminou</h1>
+              <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
+              <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
+                {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}. Agora pratique para fixar!
+              </p>
+
+              {/* Primary CTA — Revisao */}
+              <div className="relative mt-8 inline-flex">
+                <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-20" />
+                <Link
+                  href="/review"
+                  className="relative inline-flex items-center gap-3 rounded-full bg-emerald-500 px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(34,197,94,0.40)] transition hover:scale-105 hover:bg-emerald-600 md:text-2xl"
+                >
+                  <Brain size={24} />
+                  Praticar revisao
+                </Link>
+              </div>
+
+              {/* Secondary CTA — Next lesson */}
+              <div className="mt-4 inline-flex">
+                <button
+                  onClick={() => void loadLesson()}
+                  className="inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark md:text-2xl"
+                >
+                  <Sparkles size={24} />
+                  Proxima licao
+                </button>
+              </div>
             </div>
-            <p className="kid-tag mb-3">Licao concluida! 🎉</p>
-            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Voce terminou</h1>
-            <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
-            <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
-              {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}!
-            </p>
 
-            {/* Primary CTA — Quiz */}
-            <div className="relative mt-8 inline-flex">
-              <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+            {/* Secondary actions */}
+            <div className="grid w-full grid-cols-2 gap-3">
               <Link
-                href={`/quiz?lessonId=${lesson.id}`}
-                className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:text-2xl"
+                href="/quick-review"
+                className="kid-surface flex flex-col items-center gap-2 border-amber-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
               >
-                <ChevronRight size={24} />
-                Faca o Quiz abaixo
+                <ChevronRight size={28} className="text-amber-500" />
+                <p className="text-sm font-black text-slate-800">Revisao Rapida</p>
+                <p className="text-xs text-slate-500">3 opcoes, bem rapido</p>
+              </Link>
+              <Link
+                href="/"
+                className="kid-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <CheckCircle2 size={28} className="text-slate-400" />
+                <p className="text-sm font-black text-slate-800">Voltar ao inicio</p>
+                <p className="text-xs text-slate-500">Ver todas as atividades</p>
               </Link>
             </div>
 
-            {/* Secondary CTA — Next lesson */}
-            <div className="relative mt-4 inline-flex">
-              <button
-                onClick={() => void loadLesson()}
-                className="relative inline-flex items-center gap-3 rounded-full bg-emerald-500 px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(16,185,129,0.35)] transition hover:scale-105 hover:bg-emerald-600 md:text-2xl"
-              >
-                <Sparkles size={24} />
-                Proxima licao
-              </button>
-            </div>
           </div>
-
-          {/* Secondary actions */}
-          <div className="grid w-full grid-cols-2 gap-3">
-            <Link
-              href="/review"
-              className="kid-surface flex flex-col items-center gap-2 border-emerald-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <Brain size={28} className="text-emerald-600" />
-              <p className="text-sm font-black text-slate-800">Praticar revisao</p>
-              <p className="text-xs text-slate-500">Fixe o que aprendeu</p>
-            </Link>
-            <Link
-              href="/"
-              className="kid-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <CheckCircle2 size={28} className="text-slate-400" />
-              <p className="text-sm font-black text-slate-800">Voltar ao inicio</p>
-              <p className="text-xs text-slate-500">Ver todas as atividades</p>
-            </Link>
-          </div>
-
-        </div>
-      </main>
+        </main>
+      </>
     );
   }
 

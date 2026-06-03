@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Library, LogIn, Sparkles, Trophy, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BookOpen, Bot, Brain, Library, LogIn, Sparkles, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -178,17 +178,6 @@ export default function HomePage() {
             bg="bg-sky-50"
             border="border-sky-200"
             iconColor="text-sky-600"
-            disabled={cardsDisabled}
-          />
-          <ActivityCard
-            href="/quiz"
-            emoji="🏆"
-            icon={<Trophy size={28} />}
-            title="Quiz"
-            description="Responda e ganhe pontos"
-            bg="bg-amber-50"
-            border="border-amber-200"
-            iconColor="text-amber-600"
             disabled={cardsDisabled}
           />
           <ActivityCard
