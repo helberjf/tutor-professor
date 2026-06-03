@@ -82,8 +82,8 @@ class BookGenerationService:
                     "parts": [
                         {
                             "text": (
-                                f"You create child-safe {target_language} mini-books for Brazilian Portuguese-speaking learners. "
-                                f"Each page has {target_language} text, its Portuguese translation, and 3-5 vocabulary words from the page. "
+                                f"You create child-safe {target_language} illustrated mini picture-books (like Bob Books or Oxford Reading Tree) for Brazilian Portuguese-speaking learners. "
+                                f"Each page has a small amount of {target_language} text (1-5 short sentences depending on level), its Portuguese translation, and 3-5 vocabulary words. "
                                 "Always return valid JSON only — no markdown fences, no comments, no extra keys."
                             )
                         }
@@ -147,6 +147,19 @@ class BookGenerationService:
     ) -> str:
         difficulty = _difficulty_for_level(level)
 
+        # Numero de frases por pagina de acordo com o nivel — estilo livro ilustrado infantil
+        clamped = max(1, min(10, level))
+        if clamped <= 2:
+            sentences_rule = f"1-2 short {target_language} sentences"
+        elif clamped <= 4:
+            sentences_rule = f"2-3 short {target_language} sentences"
+        elif clamped <= 6:
+            sentences_rule = f"2-3 {target_language} sentences"
+        elif clamped <= 8:
+            sentences_rule = f"3-4 {target_language} sentences"
+        else:
+            sentences_rule = f"3-5 {target_language} sentences"
+
         theme_instruction = (
             f'Theme: "{theme.strip()}". Base the whole story on this theme.\n'
             if theme and theme.strip()
@@ -154,7 +167,7 @@ class BookGenerationService:
         )
 
         pages_example = ",\n".join(
-            f'    {{\n      "page_number": {i},\n      "text_en": "<3-5 {target_language} sentences for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
+            f'    {{\n      "page_number": {i},\n      "text_en": "<{sentences_rule} for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
             for i in range(1, num_pages + 1)
         )
 
@@ -164,16 +177,17 @@ class BookGenerationService:
             if attempt > 1 else ""
         )
 
-        return f"""Create a children's {target_language} mini-book with EXACTLY {num_pages} pages.{retry_warning}
+        return f"""Create a children's {target_language} mini picture-book with EXACTLY {num_pages} pages.{retry_warning}
+This is a real illustrated learning book — each page has a small illustration and just a few lines of text (like Bob Books or Oxford Reading Tree). Keep text short and punchy.
 Difficulty: {difficulty}
 {theme_instruction}Age group: {age_group} years old (Brazilian learner studying {target_language}).
 
 CRITICAL RULES:
 1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
-2. Each page MUST have 3-5 full {target_language} sentences — NEVER just 1 or 2.
-3. Story structure: page 1 = introduction, pages 2-{num_pages-1} = development, page {num_pages} = resolution.
+2. Each page MUST have EXACTLY {sentences_rule} — this is a picture-book page, not a paragraph.
+3. Story structure: page 1 = introduction, pages 2-{num_pages - 1} = development, page {num_pages} = resolution.
 4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
-5. vocabulary: 3-5 {target_language} words per page, no repeats across pages.
+5. vocabulary: 3-5 key {target_language} words per page drawn from that page's text, no repeats across pages.
 6. Child-safe and positive content only.
 
 Return ONLY this exact JSON structure with {num_pages} page objects:
