@@ -2,35 +2,38 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, ThumbsDown, ThumbsUp, Volume2, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Volume2, XCircle, Zap } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
+import { CelebrationOverlay } from '@/components/celebration';
 import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 
 export default function QuickReviewPage() {
+  const authState = useRequireAuth();
   const [session, setSession] = useState<ReviewSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [knewIt, setKnewIt] = useState<boolean | null>(null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   async function loadSession() {
     setLoading(true);
+    setCompleted(false);
+    setSelectedOption(null);
+    setCurrentIndex(0);
+    setCorrectCount(0);
+    setError(null);
+    setShowCelebration(false);
     try {
       const data = await api.getReviewSession(15);
       setSession(data);
-      setCurrentIndex(0);
-      setRevealed(false);
-      setKnewIt(null);
-      setCorrectCount(0);
-      setCompleted(false);
-      setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a revisao.'));
     } finally {
@@ -39,8 +42,11 @@ export default function QuickReviewPage() {
   }
 
   useEffect(() => {
-    void loadSession();
-  }, []);
+    if (authState.status === 'authenticated') {
+      void loadSession();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState.status]);
 
   async function playAudio(text: string) {
     setAudioLoading(true);
@@ -58,23 +64,24 @@ export default function QuickReviewPage() {
     }
   }
 
-  async function handleKnew(correct: boolean) {
-    if (!session || submitting || knewIt !== null) return;
+  async function handleSelect(option: string) {
+    if (!session || selectedOption || submitting) return;
 
     const card = session.items[currentIndex];
-    setKnewIt(correct);
+    const isCorrect = option === card.word_pt;
+    setSelectedOption(option);
     setSubmitting(true);
-    if (correct) setCorrectCount((v) => v + 1);
+    if (isCorrect) setCorrectCount((v) => v + 1);
 
     try {
       await api.submitReviewAttempt({
         review_item_id: card.review_item_id,
         word_en: card.word_en,
         word_pt: card.word_pt,
-        correct,
+        correct: isCorrect,
       });
     } catch {
-      // progress saved best-effort
+      // best-effort
     } finally {
       setSubmitting(false);
     }
@@ -84,14 +91,42 @@ export default function QuickReviewPage() {
     if (!session) return;
     if (currentIndex < session.items.length - 1) {
       setCurrentIndex((v) => v + 1);
-      setRevealed(false);
-      setKnewIt(null);
+      setSelectedOption(null);
     } else {
+      setShowCelebration(true);
       setCompleted(true);
     }
   }
 
-  // ─── Loading / error states ───────────────────────────────────────────────
+  // ─── Auth guards ──────────────────────────────────────────────────────────
+
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="loading"
+        title="Verificando acesso"
+        message="Confirmando seu cadastro..."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Servidor nao disponivel"
+        message="Ative o backend para acessar a revisao rapida."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+
+  // ─── Loading / error ──────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -112,9 +147,7 @@ export default function QuickReviewPage() {
         title="Conecte o tutor primeiro"
         message="Este aparelho precisa da URL do backend. Abra a pagina de conexao e salve a URL do tunnel."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Conectar
-          </Link>
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -161,7 +194,7 @@ export default function QuickReviewPage() {
       <StatusCard
         tone="empty"
         title="Nenhuma palavra para revisar"
-        message="Termine uma licao primeiro. As palavras aparecern aqui para revisao rapida."
+        message="Termine uma licao primeiro. As palavras aparecerao aqui para revisao rapida."
         secondaryHref="/lesson"
         secondaryLabel="Comecar uma licao"
       />
@@ -174,188 +207,169 @@ export default function QuickReviewPage() {
     const total = session.items.length;
     const pct = Math.round((correctCount / total) * 100);
     return (
-      <main className="flex min-h-screen items-center justify-center px-4 py-10">
-        <div className="mx-auto w-full max-w-sm">
-          <div className="kid-surface border-accent/60 p-6 text-center md:p-8">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
-              <CheckCircle2 className="text-accent-dark" size={44} />
-            </div>
-            <p className="kid-tag text-xs">Revisao rapida</p>
-            <h1 className="mt-3 text-3xl font-black text-slate-800">Muito bem!</h1>
-            <p className="mt-2 text-lg text-slate-600">
-              <span className="font-black text-slate-800">{correctCount}</span> de{' '}
-              <span className="font-black text-slate-800">{total}</span> palavras corretas
-            </p>
-            <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-accent transition-all duration-700"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <p className="mt-2 text-sm font-bold text-slate-500">{pct}% de acerto</p>
-            <div className="mt-7 flex flex-col gap-3">
-              <button
-                onClick={() => void loadSession()}
-                className="kid-button w-full justify-center bg-primary hover:bg-primary-dark"
-              >
-                Revisar de novo
-              </button>
-              <Link
-                href="/"
-                className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
-              >
-                Voltar ao inicio
-              </Link>
+      <>
+        <CelebrationOverlay show={showCelebration} />
+        <main className="flex min-h-screen items-center justify-center px-4 py-10">
+          <div className="mx-auto w-full max-w-sm">
+            <div className="kid-surface border-accent/60 p-6 text-center md:p-8 celebrate-pop">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
+                <CheckCircle2 className="text-accent-dark" size={44} />
+              </div>
+              <p className="kid-tag text-xs">Revisao Rapida</p>
+              <h1 className="mt-3 text-3xl font-black text-slate-800">
+                {pct >= 80 ? 'Incrivel!' : pct >= 50 ? 'Muito bem!' : 'Continue praticando!'}
+              </h1>
+              <p className="mt-2 text-lg text-slate-600">
+                <span className="font-black text-slate-800">{correctCount}</span> de{' '}
+                <span className="font-black text-slate-800">{total}</span> corretas
+              </p>
+              <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-accent transition-all duration-700"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-sm font-bold text-slate-500">{pct}% de acerto</p>
+              <div className="mt-7 flex flex-col gap-3">
+                <button
+                  onClick={() => void loadSession()}
+                  className="kid-button w-full justify-center bg-primary hover:bg-primary-dark"
+                >
+                  Revisar de novo
+                </button>
+                <Link
+                  href="/"
+                  className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
+                >
+                  Voltar ao inicio
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </>
     );
   }
 
-  // ─── Main flashcard ───────────────────────────────────────────────────────
+  // ─── Main card ────────────────────────────────────────────────────────────
 
   const card: ReviewCard = session.items[currentIndex];
   const total = session.items.length;
   const progressWidth = ((currentIndex + 1) / total) * 100;
+  const options = card.options.slice(0, 3);
 
   return (
-    <>
-      <main className="flex min-h-screen flex-col pb-36 px-4 py-6 md:px-8 md:py-8">
-        <div className="mx-auto w-full max-w-sm">
+    <main className="flex min-h-screen flex-col px-4 py-6 md:px-8 md:py-8">
+      <div className="mx-auto w-full max-w-sm">
 
-          {/* Nav */}
-          <div className="mb-5 flex items-center justify-between">
-            <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
-              <ArrowLeft size={18} /> Sair
-            </Link>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-                <Zap size={12} /> Revisao Rapida
-              </span>
-              <span className="kid-tag text-xs">{currentIndex + 1}/{total}</span>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mb-5 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${progressWidth}%` }}
-            />
-          </div>
-
-          {/* Flashcard */}
-          <div
-            className={`kid-surface cursor-pointer select-none overflow-hidden transition-all duration-200 active:scale-[.98] ${
-              !revealed ? 'border-primary/30' : knewIt === true ? 'border-accent' : knewIt === false ? 'border-kid-pink' : 'border-accent/30'
-            }`}
-            onClick={() => { if (!revealed) setRevealed(true); }}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (!revealed) setRevealed(true); } }}
-            aria-label={revealed ? 'Cartao revelado' : 'Toque para revelar a traducao'}
-          >
-            <div className="p-6 md:p-8">
-
-              {/* English word */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Ingles</p>
-                  <h1 className="mt-2 text-3xl font-black leading-tight text-slate-800 md:text-4xl">
-                    {card.word_en}
-                  </h1>
-                </div>
-
-                {/* Play button */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); void playAudio(card.word_en); }}
-                  disabled={audioLoading}
-                  className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_8px_20px_rgba(14,165,233,0.30)] transition active:scale-95 hover:bg-primary-dark disabled:opacity-60"
-                  aria-label={`Ouvir: ${card.word_en}`}
-                >
-                  {audioLoading ? <Loader2 size={20} className="animate-spin" /> : <Volume2 size={20} />}
-                </button>
-              </div>
-
-              {/* Divider */}
-              <div className="my-5 h-px bg-slate-100" />
-
-              {/* Translation — revealed state */}
-              {revealed ? (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Portugues</p>
-                  <p className="mt-2 text-2xl font-black text-slate-700 md:text-3xl">{card.word_pt}</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="rounded-2xl bg-primary-light px-5 py-3">
-                    <p className="text-sm font-black text-primary-dark">Toque para revelar a traducao</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Score pills */}
-          <div className="mt-4 flex justify-center gap-3">
-            <span className="rounded-full bg-accent-light px-3 py-1 text-xs font-bold text-accent-dark">
-              ✓ {correctCount} sabia
+        {/* Nav */}
+        <div className="mb-5 flex items-center justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
+            <ArrowLeft size={18} /> Sair
+          </Link>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+              <Zap size={12} /> Revisao Rapida
             </span>
-            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
-              ✗ {currentIndex - correctCount + (knewIt !== null ? 0 : 0)} nao sabia
-            </span>
+            <span className="kid-tag text-xs">{currentIndex + 1}/{total}</span>
           </div>
-
         </div>
-      </main>
 
-      {/* Sticky bottom actions */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm md:px-8">
-        <div className="mx-auto max-w-sm">
-          {!revealed ? (
-            /* Before reveal: single "Revelar" button */
+        {/* Progress */}
+        <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${progressWidth}%` }}
+          />
+        </div>
+
+        {/* Score pills */}
+        <div className="mb-4 flex justify-center gap-3">
+          <span className="rounded-full bg-accent-light px-3 py-1 text-xs font-bold text-accent-dark">
+            ✓ {correctCount} certas
+          </span>
+          <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600">
+            ✗ {currentIndex - correctCount} erradas
+          </span>
+        </div>
+
+        {/* Card */}
+        <div className="kid-surface border-primary/30 p-6 md:p-8">
+          {/* English word + audio */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">O que significa?</p>
+              <h1 className="mt-2 text-4xl font-black leading-tight text-slate-800 md:text-5xl">
+                {card.word_en}
+              </h1>
+            </div>
             <button
-              onClick={() => setRevealed(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-4 text-lg font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.30)] transition active:scale-[.98] hover:bg-primary-dark"
+              onClick={() => void playAudio(card.word_en)}
+              disabled={audioLoading}
+              className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_8px_20px_rgba(14,165,233,0.30)] transition active:scale-95 hover:bg-primary-dark disabled:opacity-60"
+              aria-label={`Ouvir: ${card.word_en}`}
             >
-              Revelar traducao
+              {audioLoading ? <Loader2 size={20} className="animate-spin" /> : <Volume2 size={20} />}
             </button>
-          ) : knewIt === null ? (
-            /* After reveal, before choosing: two choice buttons */
-            <div className="grid grid-cols-2 gap-3">
+          </div>
+
+          <div className="my-5 h-px bg-slate-100" />
+
+          {/* Options */}
+          <div className="flex flex-col gap-3">
+            {options.map((option) => {
+              const chosen = selectedOption === option;
+              const isCorrect = option === card.word_pt;
+              let cls = 'rounded-2xl border-2 px-4 py-4 text-left text-lg font-bold transition active:scale-[.98] w-full ';
+
+              if (!selectedOption) {
+                cls += 'border-slate-200 bg-white hover:border-primary hover:bg-primary-light cursor-pointer';
+              } else if (isCorrect) {
+                cls += 'border-accent bg-accent-light text-accent-dark';
+              } else if (chosen) {
+                cls += 'border-rose-300 bg-rose-50 text-rose-700';
+              } else {
+                cls += 'border-slate-100 bg-slate-50 text-slate-400';
+              }
+
+              return (
+                <button
+                  key={option}
+                  onClick={() => void handleSelect(option)}
+                  disabled={Boolean(selectedOption) || submitting}
+                  className={cls}
+                >
+                  <span className="flex items-center gap-2">
+                    {selectedOption && isCorrect && <CheckCircle2 size={18} className="shrink-0 text-accent-dark" />}
+                    {selectedOption && chosen && !isCorrect && <XCircle size={18} className="shrink-0 text-rose-600" />}
+                    {option}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feedback + Next */}
+          {selectedOption && (
+            <div className="mt-5">
+              <p className={`text-center text-base font-black ${selectedOption === card.word_pt ? 'text-accent-dark' : 'text-rose-600'}`}>
+                {selectedOption === card.word_pt
+                  ? '🎉 Acertou!'
+                  : `💪 Era: "${card.word_pt}"`}
+              </p>
               <button
-                onClick={() => void handleKnew(false)}
+                onClick={handleNext}
                 disabled={submitting}
-                className="flex items-center justify-center gap-2 rounded-2xl border-2 border-rose-200 bg-rose-50 py-4 text-base font-black text-rose-600 transition active:scale-[.98] hover:bg-rose-100 disabled:opacity-60"
+                className={`mt-4 flex w-full items-center justify-center rounded-2xl py-4 text-lg font-black text-white shadow-md transition active:scale-[.98] disabled:opacity-60 ${
+                  selectedOption === card.word_pt ? 'bg-accent hover:bg-accent-dark' : 'bg-primary hover:bg-primary-dark'
+                }`}
               >
-                <ThumbsDown size={20} />
-                Nao sabia
-              </button>
-              <button
-                onClick={() => void handleKnew(true)}
-                disabled={submitting}
-                className="flex items-center justify-center gap-2 rounded-2xl border-2 border-accent bg-accent-light py-4 text-base font-black text-accent-dark transition active:scale-[.98] hover:bg-emerald-100 disabled:opacity-60"
-              >
-                <ThumbsUp size={20} />
-                Sabia!
+                {currentIndex < total - 1 ? 'Proxima →' : 'Ver resultado'}
               </button>
             </div>
-          ) : (
-            /* After choosing: next button */
-            <button
-              onClick={handleNext}
-              disabled={submitting}
-              className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-black text-white shadow-md transition active:scale-[.98] disabled:opacity-60 ${
-                knewIt ? 'bg-accent hover:bg-accent-dark' : 'bg-primary hover:bg-primary-dark'
-              }`}
-            >
-              {knewIt ? '🎉 ' : '💪 '}
-              {currentIndex < total - 1 ? 'Proxima palavra' : 'Ver resultado'}
-            </button>
           )}
         </div>
       </div>
-    </>
+    </main>
   );
 }

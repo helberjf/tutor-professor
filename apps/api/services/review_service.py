@@ -166,7 +166,7 @@ def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[
             if candidate.word_pt in distractors:
                 continue
             distractors.append(candidate.word_pt)
-            if len(distractors) == 3:
+            if len(distractors) == 2:
                 break
 
         options = [review_item.word_pt, *distractors]
