@@ -8,8 +8,10 @@ import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { formatQuestionPrompt } from '@/lib/question-format';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function ReviewPage() {
+  const authState = useRequireAuth();
   const [reviewSession, setReviewSession] = useState<ReviewSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
@@ -97,6 +99,31 @@ export default function ReviewPage() {
     }
 
     setCompleted(true);
+  }
+
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="loading"
+        title="Verificando acesso"
+        message="Confirmando seu cadastro..."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Servidor nao disponivel"
+        message="Ative o backend para acessar a revisao."
+        primaryHref="/connect"
+        primaryLabel="Conectar"
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
   }
 
   if (loading) {

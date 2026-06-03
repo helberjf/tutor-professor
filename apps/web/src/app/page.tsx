@@ -2,14 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Library, Sparkles, Trophy, WifiOff, Zap } from 'lucide-react';
+import { BookOpen, Bot, Brain, Library, LogIn, Sparkles, Trophy, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
+type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
+
 export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [serverOk, setServerOk] = useState<boolean | null>(null);
+  const [status, setStatus] = useState<HomeStatus>('loading');
   const [connection, setConnection] = useState(() => getApiConnectionDetails());
 
   useEffect(() => {
@@ -21,28 +23,44 @@ export default function HomePage() {
 
   useEffect(() => {
     if (connection.source === 'missing') {
-      setServerOk(false);
+      setStatus('server_missing');
       return;
     }
 
+    setStatus('loading');
     api
-      .getProgress()
-      .then((data) => {
-        setProgress(data);
-        setServerOk(true);
+      .getUserMe()
+      .then(() => {
+        // Authenticated — now fetch progress
+        return api.getProgress().then((data) => {
+          setProgress(data);
+          setStatus('authenticated');
+        }).catch(() => {
+          setStatus('authenticated');
+        });
       })
       .catch((err) => {
-        setServerOk(err instanceof ApiError && err.isUnconfigured ? false : false);
+        if (err instanceof ApiError && err.code === 'unconfigured') {
+          setStatus('server_missing');
+        } else if (err instanceof ApiError && err.code === 'offline') {
+          setStatus('server_missing');
+        } else {
+          // 401 or other → not authenticated
+          setStatus('unauthenticated');
+        }
       });
   }, [connection.source]);
 
-  const serverMissing = serverOk === false;
+  const serverMissing = status === 'server_missing';
+  const isAuthenticated = status === 'authenticated';
+  const isUnauthenticated = status === 'unauthenticated';
+  const cardsDisabled = serverMissing || isUnauthenticated || status === 'loading';
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-3xl">
 
-        {/* Small server notice — only when offline */}
+        {/* Server notice */}
         {serverMissing && (
           <Link
             href="/connect"
@@ -51,6 +69,24 @@ export default function HomePage() {
             <WifiOff size={16} className="shrink-0" />
             <span>Servidor ainda nao ativado — toque aqui para conectar</span>
           </Link>
+        )}
+
+        {/* Login notice for unauthenticated users */}
+        {isUnauthenticated && (
+          <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-6 py-5 text-center sm:flex-row sm:text-left">
+            <LogIn size={20} className="shrink-0 text-sky-600" />
+            <span className="flex-1 text-sm font-semibold text-sky-700">
+              Faca cadastro ou entre para acessar as licoes, quiz e livros.
+            </span>
+            <div className="flex gap-2">
+              <Link href="/login" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700">
+                Entrar
+              </Link>
+              <Link href="/register" className="rounded-full border-2 border-sky-600 px-4 py-2 text-sm font-black text-sky-700 hover:bg-sky-100">
+                Cadastrar
+              </Link>
+            </div>
+          </div>
         )}
 
         {/* Hero */}
@@ -63,11 +99,13 @@ export default function HomePage() {
               Vamos aprender ingles!
             </h1>
             <p className="mt-3 text-lg font-semibold text-slate-500 md:text-xl">
-              Escolha uma atividade e comece a aventura de hoje.
+              {isUnauthenticated
+                ? 'Crie uma conta gratuita e comece sua jornada no idioma.'
+                : 'Escolha uma atividade e comece a aventura de hoje.'}
             </p>
 
-            {/* Progress pills */}
-            {progress && (
+            {/* Progress pills — authenticated only */}
+            {isAuthenticated && progress && (
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <span className="rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">
                   🔥 {progress.streak_count} dias seguidos
@@ -92,7 +130,24 @@ export default function HomePage() {
                 <WifiOff size={24} />
                 Conectar o tutor
               </Link>
-            ) : (
+            ) : isUnauthenticated ? (
+              <div className="mt-8 flex flex-wrap justify-center gap-4">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark"
+                >
+                  <UserPlus size={22} />
+                  Cadastrar gratis
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-primary px-8 py-4 text-xl font-black text-primary transition hover:bg-primary-light"
+                >
+                  <LogIn size={22} />
+                  Entrar
+                </Link>
+              </div>
+            ) : isAuthenticated ? (
               <div className="mt-8 flex flex-col items-center gap-3">
                 <div className="relative inline-flex">
                   <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
@@ -108,7 +163,7 @@ export default function HomePage() {
                   <p className="text-sm font-semibold text-slate-400">Continue de onde parou ▸</p>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         </section>
 
@@ -123,7 +178,7 @@ export default function HomePage() {
             bg="bg-sky-50"
             border="border-sky-200"
             iconColor="text-sky-600"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
           />
           <ActivityCard
             href="/quiz"
@@ -134,7 +189,7 @@ export default function HomePage() {
             bg="bg-amber-50"
             border="border-amber-200"
             iconColor="text-amber-600"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
           />
           <ActivityCard
             href="/review"
@@ -145,7 +200,7 @@ export default function HomePage() {
             bg="bg-emerald-50"
             border="border-emerald-200"
             iconColor="text-emerald-600"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
           />
           <ActivityCard
             href="/chat"
@@ -156,7 +211,7 @@ export default function HomePage() {
             bg="bg-rose-50"
             border="border-rose-200"
             iconColor="text-rose-500"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
           />
           <ActivityCard
             href="/quick-review"
@@ -167,7 +222,7 @@ export default function HomePage() {
             bg="bg-amber-50"
             border="border-amber-300"
             iconColor="text-amber-500"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
             highlight
           />
           <ActivityCard
@@ -179,12 +234,12 @@ export default function HomePage() {
             bg="bg-violet-50"
             border="border-violet-200"
             iconColor="text-violet-600"
-            disabled={serverMissing}
+            disabled={cardsDisabled}
           />
         </section>
 
         {/* Difficult words — only when there's data */}
-        {progress?.difficult_words && progress.difficult_words.length > 0 && (
+        {isAuthenticated && progress?.difficult_words && progress.difficult_words.length > 0 && (
           <section className="mt-6 kid-surface border-slate-200/60 p-6">
             <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Para praticar mais</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -200,6 +255,13 @@ export default function HomePage() {
             </div>
           </section>
         )}
+
+        {/* Parents area link */}
+        <div className="mt-6 text-center">
+          <Link href="/parents" className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition">
+            Area dos pais
+          </Link>
+        </div>
 
       </div>
     </main>

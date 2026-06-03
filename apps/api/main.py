@@ -685,6 +685,7 @@ def health_check() -> dict[str, datetime | str]:
 
 @app.get("/api/lessons", response_model=list[LessonSummarySchema])
 def list_all_lessons(request: Request, session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lessons = list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
@@ -703,6 +704,7 @@ def list_all_lessons(request: Request, session: Session = Depends(get_session)) 
 
 @app.get("/api/lesson/today", response_model=LessonSchema)
 def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level)
     if lesson is None:
@@ -712,6 +714,7 @@ def get_today_lesson(request: Request, session: Session = Depends(get_session)) 
 
 @app.get("/api/lesson/{lesson_id}", response_model=LessonSchema)
 def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> LessonSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
     accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
@@ -722,6 +725,7 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
 
 @app.post("/api/lesson/complete")
 def complete_lesson(lesson_id: int, request: Request, session: Session = Depends(get_session)) -> dict[str, str]:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
     accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
@@ -752,6 +756,7 @@ def get_today_quiz(
     lesson_id: int | None = None,
     session: Session = Depends(get_session),
 ) -> QuizSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     resolved_lesson_id = lesson_id
     lesson: Lesson | None = None
@@ -783,6 +788,7 @@ def submit_quiz(
     request: Request,
     session: Session = Depends(get_session),
 ) -> QuizSubmitResponseSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     attempt = QuizAttempt(
         lesson_id=payload.lesson_id,
@@ -811,6 +817,7 @@ def get_review_session(
     limit: int = 5,
     session: Session = Depends(get_session),
 ) -> ReviewSessionSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     return ReviewSessionSchema(
         total_due=count_due_review_items(session=session, child_id=child.id or 0),
@@ -824,6 +831,7 @@ def submit_review_attempt(
     request: Request,
     session: Session = Depends(get_session),
 ) -> ReviewResultSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     review_item = register_review_attempt(
         session=session,
@@ -890,6 +898,7 @@ def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressS
 
 @app.get("/api/progress", response_model=ProgressSchema)
 def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     return build_progress_for_child(session=session, child=child)
 
@@ -922,6 +931,7 @@ _LEVEL_THRESHOLDS = {
 
 @app.get("/api/child/level", response_model=LevelAnalysisSchema)
 def get_child_level(request: Request, session: Session = Depends(get_session)) -> LevelAnalysisSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
 
     # vocab
@@ -961,6 +971,7 @@ async def chat_with_tutor(
     request: Request,
     session: Session = Depends(get_session),
 ) -> ChatResponseSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     response_text = tutor_service.build_response(
         message=payload.message,
@@ -985,6 +996,7 @@ async def speak_text(
     request: Request,
     session: Session = Depends(get_session),
 ) -> SpeakResponseSchema:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     audio_file = await tts_service.generate_speech(
         payload.text,
@@ -1375,6 +1387,7 @@ def list_books(
     request: Request,
     session: Session = Depends(get_session),
 ) -> list[BookSummarySchema]:
+    require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     # Return shared books at the child's current level (visible to everyone at that level)
     books = session.exec(
@@ -1401,7 +1414,7 @@ def get_book(
     request: Request,
     session: Session = Depends(get_session),
 ) -> BookSchema:
-    get_requested_child(request=request, session=session)  # validate auth
+    require_parent_session(request, session)
     book = session.get(Book, book_id)
     # Shared books (child_id=None) are readable by any authenticated user
     if book is None:
@@ -1416,6 +1429,7 @@ def generate_book(
     request: Request,
     session: Session = Depends(get_session),
 ) -> BookSchema:
+    require_parent_session(request, session)
     if not book_generation_service.is_configured():
         raise HTTPException(
             status_code=503,
