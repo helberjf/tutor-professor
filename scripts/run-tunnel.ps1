@@ -40,10 +40,10 @@ function Save-TunnelUrl([string]$Line) {
       $url = $Matches[0].TrimEnd('/', ' ', '|')
       $lowerUrl = $url.ToLower()
 
-      # Bloqueia URLs institucionais da Cloudflare que aparecem em disclaimers/docs do log.
-      # So aceita *.trycloudflare.com (quick tunnel) ou hostnames custom (named tunnel).
+      # Bloqueia qualquer URL da cloudflare.com (api, dash, etc.) que aparece nos logs antes
+      # da URL real do tunnel. Permite trycloudflare.com (quick) e dominios custom (named).
       if ($lowerUrl -match 'website-terms' -or
-          $lowerUrl -match '://(?:www\.|developers\.|blog\.|dash\.)?cloudflare\.com(?:/|$)') {
+          ($lowerUrl -match 'cloudflare\.com' -and $lowerUrl -notmatch 'trycloudflare\.com')) {
         return
       }
 

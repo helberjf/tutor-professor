@@ -145,13 +145,30 @@ Start-Process -FilePath $PowerShellExe -ArgumentList @(
 ) | Out-Null
 
 # ── 5. Aguardar URL ───────────────────────────────────────────────────────────
-$tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds 45
+$tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds 90
 
 if (-not $tunnelUrl) {
   Write-Progress -Activity $ProgressActivity -Completed
   Write-Host ''
-  Write-Host 'X Tunnel nao publicou URL em 45s.' -ForegroundColor Red
-  Write-Host "  Veja o log: $TunnelStderrFile" -ForegroundColor Yellow
+  Write-Host 'X Tunnel nao publicou URL em 90s.' -ForegroundColor Red
+  Write-Host "  Log: $TunnelStderrFile" -ForegroundColor Yellow
+
+  $logFile = if (Test-Path $TunnelStderrFile) { $TunnelStderrFile } `
+             elseif (Test-Path $TunnelStdoutFile) { $TunnelStdoutFile } `
+             else { $null }
+  if ($logFile) {
+    $logLines = Get-Content $logFile -ErrorAction SilentlyContinue
+    if ($logLines) {
+      Write-Host ''
+      Write-Host "Saida do cloudflared (ultimas 40 linhas de $([System.IO.Path]::GetFileName($logFile))):" -ForegroundColor Cyan
+      $logLines | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    } else {
+      Write-Host '  (log vazio — cloudflared pode nao ter iniciado)' -ForegroundColor Yellow
+    }
+  } else {
+    Write-Host '  (nenhum log gerado — cloudflared pode nao ter iniciado)' -ForegroundColor Yellow
+  }
+
   Write-Host ''
   exit 1
 }
@@ -169,8 +186,8 @@ $payload = @{
 } | ConvertTo-Json
 
 $response = $null
-$maxRetries = 8
-$retryDelay = 5
+$maxRetries = 15
+$retryDelay = 8
 
 for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
   $pct = [math]::Min(97, 70 + ($attempt * 3))
