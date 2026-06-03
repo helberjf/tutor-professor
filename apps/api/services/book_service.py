@@ -120,6 +120,9 @@ class BookGenerationService:
             try:
                 draft = GeneratedBookDraftSchema.model_validate(data)
                 self._validate(draft, num_pages=num_pages)
+                # Trunca caso Gemini retorne mais paginas do que o solicitado
+                if len(draft.pages) > num_pages:
+                    draft.pages = draft.pages[:num_pages]
                 return draft
             except (Exception) as exc:
                 last_error = exc
