@@ -28,6 +28,7 @@ import {
   type LevelAnalysis,
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 // ── Language metadata ─────────────────────────────────────────────────────────────────────────────────
 export const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
@@ -499,6 +500,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
 
 // ── Main content ─────────────────────────────────────────────────────────────
 function BooksPageContent() {
+  const authState = useRequireAuth();
   const searchParams = useSearchParams();
   const bookIdParam = searchParams.get('bookId');
 
@@ -588,6 +590,31 @@ function BooksPageContent() {
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="loading"
+        title="Verificando acesso"
+        message="Confirmando seu cadastro..."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Servidor nao disponivel"
+        message="Ative o backend para acessar os livros."
+        primaryHref="/connect"
+        primaryLabel="Conectar"
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+
   if (loading) {
     return (
       <StatusCard

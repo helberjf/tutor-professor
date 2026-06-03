@@ -6,6 +6,7 @@ import { ArrowLeft, Bot, Loader2, Send, Volume2, WifiOff } from 'lucide-react';
 
 import { ApiError, api, type ChatMessage } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 type ChatBubble = ChatMessage & {
   audioUrl?: string | null;
@@ -18,6 +19,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPage() {
+  const authState = useRequireAuth();
   const [messages, setMessages] = useState<ChatBubble[]>([
     {
       role: 'assistant',
@@ -74,6 +76,29 @@ export default function ChatPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await handleSend(draft);
+  }
+
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4">
+        <div className="text-center text-slate-400">
+          <Loader2 size={32} className="mx-auto mb-3 animate-spin" />
+          <p className="font-semibold">Verificando acesso...</p>
+        </div>
+      </main>
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4">
+        <div className="text-center">
+          <WifiOff size={32} className="mx-auto mb-3 text-slate-400" />
+          <p className="font-bold text-slate-700">Servidor nao disponivel</p>
+          <p className="mt-1 text-sm text-slate-500">Ative o backend para usar o chat.</p>
+          <Link href="/connect" className="mt-4 inline-block font-bold text-primary hover:underline">Conectar</Link>
+        </div>
+      </main>
+    );
   }
 
   return (

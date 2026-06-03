@@ -8,6 +8,7 @@ import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, PartyPo
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type LevelAnalysis, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function LessonPage() {
   return (
@@ -30,6 +31,7 @@ export default function LessonPage() {
 const LEVEL_CACHE_KEY = 'child_level_cache';
 
 function LessonPageContent() {
+  const authState = useRequireAuth();
   const searchParams = useSearchParams();
   const lessonIdParam = searchParams.get('lessonId');
 
@@ -169,6 +171,34 @@ function LessonPageContent() {
     } finally {
       setSavingLesson(false);
     }
+  }
+
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="loading"
+        title="Verificando acesso"
+        message="Confirmando seu cadastro..."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Servidor nao disponivel"
+        message="Ative o backend para acessar as licoes."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Conectar
+          </Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
   }
 
   if (loading || generating) {

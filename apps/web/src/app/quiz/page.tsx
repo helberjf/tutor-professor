@@ -8,6 +8,7 @@ import { ArrowLeft, CheckCircle2, ChevronRight, Star, Trophy, XCircle } from 'lu
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Quiz, type QuizSubmitResponse } from '@/lib/api';
 import { formatQuestionPrompt } from '@/lib/question-format';
+import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function QuizPage() {
   return (
@@ -28,6 +29,7 @@ export default function QuizPage() {
 }
 
 function QuizPageContent() {
+  const authState = useRequireAuth();
   const searchParams = useSearchParams();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,34 @@ function QuizPageContent() {
     } finally {
       setSavingResult(false);
     }
+  }
+
+  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="loading"
+        title="Verificando acesso"
+        message="Confirmando seu cadastro..."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+  if (authState.status === 'server_missing') {
+    return (
+      <StatusCard
+        tone="offline"
+        title="Servidor nao disponivel"
+        message="Ative o backend para acessar o quiz."
+        primaryAction={
+          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+            Conectar
+          </Link>
+        }
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
   }
 
   if (loading) {
