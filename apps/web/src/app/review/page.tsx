@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Brain, Eye, Loader2, RotateCcw, Volume2 } from 'lucide-react';
+import { ArrowLeft, Brain, Loader2, RotateCcw, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { CelebrationOverlay } from '@/components/celebration';
@@ -10,7 +10,6 @@ import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 
-// Nível de confiança: 0=não sei, 1=dúvida, 2=quase certeza, 3=certeza
 interface ConfidenceLevel {
   value: 0 | 1 | 2 | 3;
   label: string;
@@ -18,15 +17,14 @@ interface ConfidenceLevel {
   bg: string;
   border: string;
   text: string;
-  // 0,1 → wrong; 2,3 → correct no backend
   correct: boolean;
 }
 
 const CONFIDENCE_LEVELS: ConfidenceLevel[] = [
-  { value: 0, label: 'Não sei',       emoji: '😵', bg: 'bg-rose-50',   border: 'border-rose-300',  text: 'text-rose-700',   correct: false },
-  { value: 1, label: 'Dúvida',        emoji: '🤔', bg: 'bg-amber-50',  border: 'border-amber-300', text: 'text-amber-700',  correct: false },
-  { value: 2, label: 'Quase certeza', emoji: '😊', bg: 'bg-sky-50',    border: 'border-sky-300',   text: 'text-sky-700',    correct: true  },
-  { value: 3, label: 'Sei!',          emoji: '🎉', bg: 'bg-emerald-50',border: 'border-emerald-400',text: 'text-emerald-700',correct: true  },
+  { value: 0, label: 'Não sei',       emoji: '😵', bg: 'bg-rose-50',    border: 'border-rose-300',   text: 'text-rose-700',    correct: false },
+  { value: 1, label: 'Dúvida',        emoji: '🤔', bg: 'bg-amber-50',   border: 'border-amber-300',  text: 'text-amber-700',   correct: false },
+  { value: 2, label: 'Quase certeza', emoji: '😊', bg: 'bg-sky-50',     border: 'border-sky-300',    text: 'text-sky-700',     correct: true  },
+  { value: 3, label: 'Sei!',          emoji: '🎉', bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700', correct: true  },
 ];
 
 export default function ReviewPage() {
@@ -35,7 +33,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const [chosenLevel, setChosenLevel] = useState<ConfidenceLevel | null>(null);
   const [masteredCount, setMasteredCount] = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
@@ -47,7 +45,7 @@ export default function ReviewPage() {
   async function loadReview() {
     setLoading(true);
     setCompleted(false);
-    setRevealed(false);
+    setFlipped(false);
     setChosenLevel(null);
     setCurrentIndex(0);
     setMasteredCount(0);
@@ -84,6 +82,11 @@ export default function ReviewPage() {
     }
   }
 
+  function handleFlip() {
+    if (chosenLevel) return;
+    setFlipped(true);
+  }
+
   async function handleConfidence(level: ConfidenceLevel) {
     if (!reviewSession || chosenLevel || submitting) return;
 
@@ -109,9 +112,10 @@ export default function ReviewPage() {
   function handleNext() {
     if (!reviewSession) return;
     if (currentIndex < reviewSession.items.length - 1) {
-      setCurrentIndex((v) => v + 1);
-      setRevealed(false);
+      setFlipped(false);
       setChosenLevel(null);
+      // small delay so the unflip animation runs before switching card
+      setTimeout(() => setCurrentIndex((v) => v + 1), 220);
     } else {
       setShowCelebration(true);
       setCompleted(true);
@@ -145,8 +149,6 @@ export default function ReviewPage() {
       />
     );
   }
-
-  // ─── Loading / error ──────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -268,7 +270,7 @@ export default function ReviewPage() {
     );
   }
 
-  // ─── Main card ────────────────────────────────────────────────────────────
+  // ─── Flashcard ────────────────────────────────────────────────────────────
 
   const card: ReviewCard = reviewSession.items[currentIndex];
   const total = reviewSession.items.length;
@@ -298,114 +300,136 @@ export default function ReviewPage() {
           />
         </div>
 
-        {/* Card */}
-        <div className="kid-surface border-emerald-200/60 p-6 md:p-8">
-
-          {/* Word + audio */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Ingles</p>
-              <h1 className="mt-2 text-5xl font-black leading-tight text-slate-800 md:text-6xl">
-                {card.word_en}
-              </h1>
-            </div>
-            <button
-              onClick={() => void playAudio(card.word_en)}
-              disabled={audioLoading}
-              className="mt-1 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_8px_24px_rgba(34,197,94,0.30)] transition hover:bg-emerald-600 active:scale-95 disabled:opacity-60"
-              aria-label={`Ouvir: ${card.word_en}`}
+        {/* ── 3-D Flashcard ─────────────────────────────────────────────── */}
+        <div
+          className="flashcard-scene mb-4"
+          style={{ perspective: '1200px', minHeight: '260px' }}
+        >
+          <div
+            className="flashcard-inner relative w-full transition-transform duration-500"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+              minHeight: '260px',
+            }}
+          >
+            {/* ── FRONT ─ target-language word ─────────────────────────── */}
+            <div
+              className="flashcard-face absolute inset-0 flex flex-col rounded-[1.75rem] border-2 border-emerald-200 bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.10)] md:p-8"
+              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
             >
-              {audioLoading ? <Loader2 size={22} className="animate-spin" /> : <Volume2 size={22} />}
-            </button>
-          </div>
-
-          {/* Speed */}
-          <div className="mt-3 flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Vel:</span>
-            {([0.5, 0.75, 1.0] as const).map((speed) => (
-              <button
-                key={speed}
-                onClick={() => setAudioSpeed(speed)}
-                className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
-                  audioSpeed === speed
-                    ? 'bg-emerald-500 text-white'
-                    : 'border border-slate-200 text-slate-500 hover:border-emerald-400'
-                }`}
-              >
-                {speed}x
-              </button>
-            ))}
-          </div>
-
-          <div className="my-6 h-px bg-slate-100" />
-
-          {/* Translation reveal */}
-          {!revealed ? (
-            <button
-              onClick={() => setRevealed(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 py-6 text-base font-black text-slate-400 transition hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50"
-            >
-              <Eye size={20} />
-              Revelar traducao
-            </button>
-          ) : (
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Portugues</p>
-              <p className="mt-2 text-3xl font-black text-slate-700 md:text-4xl">{card.word_pt}</p>
-            </div>
-          )}
-
-          {/* Confidence buttons — only after reveal */}
-          {revealed && (
-            <div className="mt-6">
-              <p className="mb-3 text-center text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
-                Como voce se saiu?
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {CONFIDENCE_LEVELS.map((level) => {
-                  const isChosen = chosenLevel?.value === level.value;
-                  return (
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-700">
+                  Frente
+                </span>
+                <div className="flex items-center gap-2">
+                  {([0.5, 0.75, 1.0] as const).map((speed) => (
                     <button
-                      key={level.value}
-                      onClick={() => void handleConfidence(level)}
-                      disabled={Boolean(chosenLevel) || submitting}
-                      className={`rounded-2xl border-2 px-3 py-4 text-center font-bold transition active:scale-[.97] disabled:cursor-default ${level.bg} ${level.border} ${level.text} ${
-                        isChosen ? 'ring-2 ring-offset-1 ring-current scale-[1.03]' : 'hover:scale-[1.02]'
+                      key={speed}
+                      onClick={(e) => { e.stopPropagation(); setAudioSpeed(speed); }}
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold transition ${
+                        audioSpeed === speed
+                          ? 'bg-emerald-500 text-white'
+                          : 'border border-slate-200 text-slate-500 hover:border-emerald-400'
                       }`}
                     >
-                      <span className="block text-2xl">{level.emoji}</span>
-                      <span className="mt-1 block text-sm">{level.label}</span>
+                      {speed}x
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
 
-              {/* Next button after choosing */}
-              {chosenLevel && (
-                <div className="mt-5">
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 py-4">
+                <p className="text-center text-4xl font-black leading-snug text-slate-800 md:text-5xl">
+                  {card.word_en}
+                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); void playAudio(card.word_en); }}
+                  disabled={audioLoading}
+                  className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_8px_24px_rgba(34,197,94,0.35)] transition hover:bg-emerald-600 active:scale-95 disabled:opacity-60"
+                  aria-label={`Ouvir: ${card.word_en}`}
+                >
+                  {audioLoading ? <Loader2 size={22} className="animate-spin" /> : <Volume2 size={22} />}
+                </button>
+              </div>
+
+              {/* Tap-to-flip hint */}
+              <button
+                onClick={handleFlip}
+                className="mt-2 w-full rounded-2xl border-2 border-dashed border-slate-200 py-3 text-sm font-black text-slate-400 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600"
+              >
+                Virar carta →
+              </button>
+            </div>
+
+            {/* ── BACK ─ translation + confidence ──────────────────────── */}
+            <div
+              className="flashcard-face absolute inset-0 flex flex-col rounded-[1.75rem] border-2 border-primary/30 bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.10)] md:p-8"
+              style={{
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'rotateY(180deg)',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary-dark">
+                  Verso
+                </span>
+                <span className="text-sm font-bold text-slate-400">{card.word_en}</span>
+              </div>
+
+              <div className="flex flex-1 flex-col items-center justify-center py-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Traducao</p>
+                <p className="mt-2 text-center text-3xl font-black text-slate-800 md:text-4xl">
+                  {card.word_pt}
+                </p>
+              </div>
+
+              {/* Confidence buttons */}
+              {!chosenLevel ? (
+                <div>
+                  <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                    Como voce se saiu?
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CONFIDENCE_LEVELS.map((level) => (
+                      <button
+                        key={level.value}
+                        onClick={() => void handleConfidence(level)}
+                        disabled={submitting}
+                        className={`rounded-2xl border-2 px-3 py-3 text-center font-bold transition active:scale-[.97] hover:scale-[1.02] disabled:opacity-60 ${level.bg} ${level.border} ${level.text}`}
+                      >
+                        <span className="block text-xl">{level.emoji}</span>
+                        <span className="mt-0.5 block text-xs">{level.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2">
                   <p className="mb-3 text-center text-sm font-semibold text-slate-500">
                     {chosenLevel.correct
-                      ? 'Otimo! Essa palavra voltara mais tarde.'
+                      ? 'Otimo! Essa frase voltara mais tarde.'
                       : 'Sem problema. Ela voltara em breve para mais pratica.'}
                   </p>
                   <button
                     onClick={handleNext}
                     disabled={submitting}
-                    className={`flex w-full items-center justify-center rounded-2xl py-4 text-lg font-black text-white shadow-md transition active:scale-[.98] disabled:opacity-60 ${
+                    className={`flex w-full items-center justify-center rounded-2xl py-4 text-base font-black text-white shadow-md transition active:scale-[.98] disabled:opacity-60 ${
                       chosenLevel.correct ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-primary hover:bg-primary-dark'
                     }`}
                   >
-                    {currentIndex < total - 1 ? 'Proxima palavra →' : 'Ver resultado'}
+                    {currentIndex < total - 1 ? 'Proxima carta →' : 'Ver resultado'}
                   </button>
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Difficulty indicator */}
         {card.difficulty_score > 0 && (
-          <p className="mt-3 text-center text-xs font-bold text-slate-400">
+          <p className="text-center text-xs font-bold text-slate-400">
             Dificuldade: {Math.round(card.difficulty_score * 100)}% · {card.error_count} erros anteriores
           </p>
         )}

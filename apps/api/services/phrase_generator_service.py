@@ -2,11 +2,89 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
+import tempfile
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
+import certifi
 import requests
 
 from schemas.schemas import GeneratedLessonDraftSchema
+
+
+@lru_cache(maxsize=1)
+def get_requests_verify() -> str | bool:
+    custom_ca_bundle = os.getenv("GEMINI_CA_BUNDLE", "").strip()
+    if custom_ca_bundle:
+        return custom_ca_bundle
+
+    if os.name != "nt":
+        return True
+
+    certifi_path = Path(certifi.where())
+    if not certifi_path.exists():
+        return True
+
+    bundle_path = Path(tempfile.gettempdir()) / "english_kids_tutor_windows_ca_bundle.pem"
+    seen_blocks: set[str] = set()
+    bundle_parts: list[str] = []
+
+    for block in certifi_path.read_text(encoding="ascii", errors="ignore").split("-----END CERTIFICATE-----"):
+        block = block.strip()
+        if not block:
+            continue
+        pem = f"{block}\n-----END CERTIFICATE-----\n"
+        seen_blocks.add(pem)
+        bundle_parts.append(pem)
+
+    for store_name in ("ROOT", "CA"):
+        try:
+            certificates = ssl.enum_certificates(store_name)
+        except Exception:
+            continue
+
+        for certificate, encoding, _trust in certificates:
+            if encoding != "x509_asn":
+                continue
+            pem = ssl.DER_cert_to_PEM_cert(certificate)
+            if pem in seen_blocks:
+                continue
+            seen_blocks.add(pem)
+            bundle_parts.append(pem)
+
+    if not bundle_parts:
+        return True
+
+    bundle_path.write_text("\n".join(bundle_parts), encoding="ascii")
+    return str(bundle_path)
+
+
+def format_gemini_request_error(exc: requests.RequestException) -> str:
+    response = getattr(exc, "response", None)
+    if response is None:
+        return f"Gemini request failed: {exc}"
+
+    detail = ""
+    try:
+        payload = response.json()
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if isinstance(error, dict):
+            detail = str(error.get("message") or "").strip()
+    except Exception:
+        detail = ""
+
+    if not detail:
+        try:
+            detail = response.text.strip()
+        except Exception:
+            detail = ""
+
+    if detail:
+        return f"Gemini request failed: {detail}"
+
+    return f"Gemini request failed: {exc}"
 
 
 class PhraseGenerationService:
@@ -75,11 +153,12 @@ class PhraseGenerationService:
                     "Content-Type": "application/json",
                 },
                 json=payload,
+                verify=get_requests_verify(),
                 timeout=self.timeout_seconds,
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise RuntimeError(f"Gemini request failed: {exc}") from exc
+            raise RuntimeError(format_gemini_request_error(exc)) from exc
 
         response_text = self._extract_response_text(response.json())
         try:

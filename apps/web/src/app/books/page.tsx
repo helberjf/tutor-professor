@@ -31,7 +31,7 @@ import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 // ── Language metadata ─────────────────────────────────────────────────────────────────────────────────
-export const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
+const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
   English:  { flag: '🇺🇸', label: 'English',  ttsCode: 'en' },
   French:   { flag: '🇫🇷', label: 'Français', ttsCode: 'fr' },
   Spanish:  { flag: '🇪🇸', label: 'Español', ttsCode: 'es' },

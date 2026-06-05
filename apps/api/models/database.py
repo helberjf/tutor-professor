@@ -46,6 +46,7 @@ class Lesson(SQLModel, table=True):
     completed_at: Optional[datetime] = None
     child_id: Optional[int] = Field(default=None, foreign_key="childprofile.id")
     level: Optional[int] = Field(default=None, index=True)  # nivel para licoes compartilhadas
+    target_language: str = Field(default="English")
 
 class LessonItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -115,3 +116,12 @@ class BookPage(SQLModel, table=True):
     text_en: str = Field(sa_column=Column(JSON))          # stored as str, long text
     text_pt: str = Field(sa_column=Column(JSON))
     vocabulary_json: str = Field(default="[]")            # JSON array of key words
+
+
+class AdminFlashcard(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    front: str = Field(max_length=300)       # term / question
+    back: str = Field(max_length=1000)       # definition / answer
+    category: str = Field(default="general", max_length=40)  # react | typescript | general
+    code_example: Optional[str] = Field(default=None, max_length=2000)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -6,6 +6,7 @@ import os
 import requests
 
 from schemas.schemas import GeneratedBookDraftSchema
+from services.phrase_generator_service import format_gemini_request_error, get_requests_verify
 
 
 _LEVEL_DIFFICULTY: dict[tuple[int, int], str] = {
@@ -102,11 +103,12 @@ class BookGenerationService:
                     url,
                     headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
                     json=payload,
+                    verify=get_requests_verify(),
                     timeout=self.timeout_seconds,
                 )
                 response.raise_for_status()
             except requests.RequestException as exc:
-                raise RuntimeError(f"Gemini request failed: {exc}") from exc
+                raise RuntimeError(format_gemini_request_error(exc)) from exc
 
             raw_text = self._extract_text(response.json())
             raw_text = self._strip_fences(raw_text)

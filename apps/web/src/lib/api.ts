@@ -124,6 +124,7 @@ export interface ParentSettings {
   last_activity: string | null;
   voice_preference: string;
   auto_audio: boolean;
+  target_language: string;
 }
 
 export interface ChildProfile {
@@ -136,6 +137,7 @@ export interface ChildProfile {
   last_activity: string | null;
   voice_preference: string;
   auto_audio: boolean;
+  target_language: string;
 }
 
 export interface ParentSettingsUpdatePayload {
@@ -148,6 +150,7 @@ export interface ParentSettingsUpdatePayload {
 
 export interface GenerateLessonPayload {
   topic?: string;
+  quantity?: number;
 }
 
 export interface CreateChildPayload {
@@ -161,6 +164,7 @@ export interface CreateChildPayload {
 export interface GenerateLessonResponse {
   status: string;
   lesson: Lesson;
+  lessons: Lesson[];
   message: string;
 }
 
@@ -223,6 +227,72 @@ export interface UserRegisterPayload {
   password: string;
   child_name?: string;
   target_language?: string;
+}
+
+// Admin Learn types
+export interface AdminModule {
+  slug: string;
+  title: string;
+  category: string;
+  description: string;
+  total_sections: number;
+  total_quiz: number;
+}
+
+export interface AdminModuleSection {
+  title: string;
+  body: string;
+  code_example?: string;
+}
+
+export interface AdminModuleQuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correct_option: string;
+  explanation: string;
+}
+
+export interface AdminModulePracticeCase {
+  input: string;
+  expected: string;
+}
+
+export interface AdminModulePractice {
+  id: number;
+  title: string;
+  difficulty: 'easy' | 'medium' | 'hard' | string;
+  prompt: string;
+  starter_code: string;
+  solution: string;
+  explanation: string;
+  test_cases: AdminModulePracticeCase[];
+}
+
+export interface AdminModuleDetail {
+  slug: string;
+  title: string;
+  category: string;
+  description: string;
+  sections: AdminModuleSection[];
+  practice?: AdminModulePractice[];
+  quiz: AdminModuleQuizQuestion[];
+}
+
+export interface AdminFlashcard {
+  id: number;
+  front: string;
+  back: string;
+  category: string;
+  code_example: string | null;
+  created_at: string;
+}
+
+export interface AdminFlashcardPayload {
+  front: string;
+  back: string;
+  category: string;
+  code_example?: string;
 }
 
 export class ApiError extends Error {
@@ -420,4 +490,16 @@ export const api = {
     const apiBaseUrl = getApiBaseUrl();
     return apiBaseUrl ? `${apiBaseUrl}${url}` : url;
   },
+  // Admin Learn
+  adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
+  adminListModules: () => fetchAPI<AdminModule[]>('/api/admin/learn/modules'),
+  adminGetModule: (slug: string) => fetchAPI<AdminModuleDetail>(`/api/admin/learn/modules/${slug}`),
+  adminListFlashcards: () => fetchAPI<AdminFlashcard[]>('/api/admin/learn/flashcards'),
+  adminCreateFlashcard: (payload: AdminFlashcardPayload) =>
+    fetchAPI<AdminFlashcard>('/api/admin/learn/flashcards', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  adminDeleteFlashcard: (id: number) =>
+    fetchAPI<void>(`/api/admin/learn/flashcards/${id}`, { method: 'DELETE' }),
 };
