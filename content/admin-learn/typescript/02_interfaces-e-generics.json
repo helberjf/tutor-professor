@@ -1,0 +1,78 @@
+{
+  "slug": "typescript-interfaces-e-tipos",
+  "title": "Interfaces, Type Aliases e Generics",
+  "category": "typescript",
+  "description": "Modelar dados com interface e type, quando escolher cada um, e como generics tornam o código reutilizável.",
+  "sections": [
+    {
+      "title": "Interface vs Type Alias",
+      "body": "Ambos descrevem a forma de um objeto. A principal diferença prática: interfaces podem ser estendidas com `extends` e mescladas (declaration merging); type aliases suportam unions, intersections e tipos mapeados. Na dúvida, prefira `interface` para objetos e `type` para unions/composições.",
+      "code_example": "// Interface — extensível e declarativa\ninterface User {\n  id: number;\n  name: string;\n  email?: string; // optional\n}\n\ninterface AdminUser extends User {\n  role: 'admin' | 'superadmin';\n}\n\n// Type alias — mais flexível\ntype UserId = number;\ntype Response<T> = { data: T; error: string | null };\ntype Status = 'idle' | 'loading' | 'success' | 'error';\n\n// Ambos funcionam para props React\ninterface ButtonProps { label: string; onClick: () => void; }\ntype ButtonProps2 = { label: string; onClick: () => void; };"
+    },
+    {
+      "title": "Generics",
+      "body": "Generics tornam funções e tipos reutilizáveis sem perder a segurança de tipos. Um parâmetro de tipo (convencionalmente `T`) é como um placeholder que será preenchido na chamada. Você pode restringir com `extends`.",
+      "code_example": "// Função genérica simples\nfunction first<T>(arr: T[]): T | undefined {\n  return arr[0];\n}\nconst n = first([1, 2, 3]);     // n é number\nconst s = first(['a', 'b']);    // s é string\n\n// Com restrição\nfunction getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {\n  return obj[key];\n}\nconst user = { id: 1, name: 'Ana' };\nconst id = getProperty(user, 'id');   // number ✅\n// getProperty(user, 'age');          // ❌ Erro — 'age' não existe\n\n// Tipo genérico\ninterface ApiResponse<T> {\n  data: T;\n  status: number;\n  error: string | null;\n}"
+    },
+    {
+      "title": "Utility Types",
+      "body": "TypeScript inclui utility types prontos para transformar tipos existentes. Os mais usados: `Partial`, `Required`, `Pick`, `Omit`, `Record`, `Readonly`, `ReturnType`, `Parameters`.",
+      "code_example": "interface User {\n  id: number;\n  name: string;\n  email: string;\n  password: string;\n}\n\n// Partial: todas as props opcionais\ntype UserUpdate = Partial<User>;  // { id?: number; name?: string; ... }\n\n// Pick: seleciona props específicas\ntype UserPublic = Pick<User, 'id' | 'name'>;\n\n// Omit: remove props\ntype UserWithoutPassword = Omit<User, 'password'>;\n\n// Record: mapa de chaves para valores\ntype UserMap = Record<number, User>;\n\n// ReturnType: extrai tipo de retorno de uma função\ntype FetchResult = ReturnType<typeof fetch>;  // Promise<Response>\n\n// Readonly: todas as props read-only\nconst config: Readonly<{ port: number }> = { port: 8080 };"
+    },
+    {
+      "title": "keyof e typeof",
+      "body": "`keyof` extrai as chaves de um tipo como uma union de strings. `typeof` (em contexto de tipo) extrai o tipo de uma variável JavaScript. Juntos, são poderosos para criar tipos derivados.",
+      "code_example": "const COLORS = {\n  primary: '#0ea5e9',\n  secondary: '#f97316',\n  accent: '#8b5cf6',\n} as const;\n\n// typeof extrai o tipo do objeto\ntype Colors = typeof COLORS;  // { primary: '...'; secondary: '...'; accent: '...' }\n\n// keyof extrai as chaves\ntype ColorKey = keyof Colors;  // 'primary' | 'secondary' | 'accent'\n\n// Função tipada com as chaves reais\nfunction getColor(key: ColorKey): string {\n  return COLORS[key];\n}\ngetColor('primary');   // ✅\ngetColor('red');       // ❌ Erro de compilação"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Qual a principal vantagem de `interface` sobre `type` para objetos?",
+      "options": [
+        "Suporte a declaration merging e extensão com `extends`",
+        "É mais rápida em tempo de compilação",
+        "Suporta union types",
+        "Pode ser usada como valor em runtime"
+      ],
+      "correct_option": "Suporte a declaration merging e extensão com `extends`",
+      "explanation": "Interfaces podem ser declaradas múltiplas vezes e o TypeScript as mescla automaticamente (útil para augmentar tipos de bibliotecas). `type` não suporta isso. Para extensão explícita, `extends` é mais legível que `&`."
+    },
+    {
+      "id": 2,
+      "question": "O que `Partial<User>` faz?",
+      "options": [
+        "Torna todas as propriedades de User opcionais",
+        "Remove as propriedades opcionais de User",
+        "Cria uma cópia imutável de User",
+        "Converte User em um union type"
+      ],
+      "correct_option": "Torna todas as propriedades de User opcionais",
+      "explanation": "Partial<T> é equivalente a mapear todas as propriedades de T adicionando `?`. É muito usado em funções de update onde você só passa o que quer modificar."
+    },
+    {
+      "id": 3,
+      "question": "Qual a diferença entre `typeof` em JavaScript e TypeScript?",
+      "options": [
+        "Em TypeScript, `typeof` em contexto de tipo extrai o tipo estático de uma variável; em JS, verifica o tipo em runtime",
+        "São exatamente iguais",
+        "TypeScript não tem `typeof`",
+        "`typeof` em TypeScript só funciona com `as const`"
+      ],
+      "correct_option": "Em TypeScript, `typeof` em contexto de tipo extrai o tipo estático de uma variável; em JS, verifica o tipo em runtime",
+      "explanation": "No código de tipo (`: typeof x`, `type T = typeof x`), typeof é um operador de tipo do TypeScript — existe apenas em tempo de compilação. Em expressões normais, é o typeof do JavaScript que roda em runtime."
+    },
+    {
+      "id": 4,
+      "question": "Por que usar `<K extends keyof T>` em uma função genérica?",
+      "options": [
+        "Garante que K é uma chave válida de T, dando acesso tipado a T[K]",
+        "Apenas por convenção de nomenclatura",
+        "Para permitir qualquer string como K",
+        "Para criar um novo tipo baseado em K"
+      ],
+      "correct_option": "Garante que K é uma chave válida de T, dando acesso tipado a T[K]",
+      "explanation": "Sem a constraint `extends keyof T`, você poderia passar qualquer string e o TypeScript não saberia o tipo de `obj[key]`. Com a constraint, o tipo de retorno `T[K]` é preciso — o compilador sabe exatamente qual tipo cada chave retorna."
+    }
+  ]
+}

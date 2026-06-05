@@ -264,9 +264,11 @@ class CreateChildProfileSchema(BaseModel):
 
 class GenerateLessonRequestSchema(BaseModel):
     topic: Optional[str] = Field(default=None, max_length=80)
+    quantity: int = Field(default=1, ge=1, le=10)
 
 
 class GenerateLessonResponseSchema(BaseModel):
     status: str
-    lesson: LessonSchema
+    lesson: LessonSchema  # last generated (kept for backward compat)
+    lessons: list[LessonSchema]
     message: str

@@ -26,6 +26,8 @@ os.environ["PARENT_COOKIE_SAMESITE"] = "lax"
 os.environ["TTS_PROVIDER"] = "none"
 os.environ["AUDIO_CACHE_DIR"] = str(TMP_DIR / "audio")
 os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:3000,https://english-tutor-kid.vercel.app"
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["ADMIN_EMAIL"] = "pai@example.com"
 
 sys.path.insert(0, str(API_DIR))
 
@@ -99,7 +101,7 @@ async def run() -> None:
         seed_lesson()
 
         assert_status(await client.get("/health"), 200, "health")
-        assert_status(await client.get("/api/progress"), 200, "anonymous progress")
+        assert_status(await client.get("/api/progress"), 401, "anonymous progress requires login")
 
         assert_status(
             await client.post(
@@ -203,6 +205,25 @@ async def run() -> None:
         assert_status(await client.post("/api/chat", headers=child_headers, json={"message": "hello", "history": []}), 200, "chat")
         assert_status(await client.post("/api/audio/speak", headers=child_headers, json={"text": "Hello"}), 200, "audio speak")
         assert_status(await client.post("/api/parent/generate-lesson", headers=child_headers, json={}), 503, "generate lesson unconfigured")
+
+        modules_response = await client.get("/api/admin/learn/modules")
+        assert_status(modules_response, 200, "admin learn modules")
+        modules = modules_response.json()
+        leetcode_modules = [module for module in modules if module["category"] == "leetcode"]
+        if not leetcode_modules:
+            raise AssertionError(f"expected at least one leetcode module, got {modules}")
+        if not any(module["slug"] == "leetcode-arrays-two-pointers" for module in leetcode_modules):
+            raise AssertionError(f"expected leetcode arrays/two pointers module, got {leetcode_modules}")
+
+        leetcode_response = await client.get("/api/admin/learn/modules/leetcode-arrays-two-pointers")
+        assert_status(leetcode_response, 200, "admin leetcode module detail")
+        leetcode_module = leetcode_response.json()
+        practice_items = leetcode_module.get("practice", [])
+        if len(practice_items) < 2:
+            raise AssertionError(f"expected at least two leetcode practice items, got {practice_items}")
+        first_practice = practice_items[0]
+        if not first_practice.get("starter_code") or not first_practice.get("test_cases"):
+            raise AssertionError(f"expected starter code and test cases, got {first_practice}")
 
         assert_status(await client.post("/api/auth/logout"), 200, "auth logout")
         assert_status(await client.get("/api/auth/me"), 401, "me after logout")

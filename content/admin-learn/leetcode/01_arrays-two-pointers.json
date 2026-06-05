@@ -1,0 +1,91 @@
+{
+  "slug": "leetcode-arrays-two-pointers",
+  "title": "LeetCode: Arrays e Dois Ponteiros",
+  "category": "leetcode",
+  "description": "Padroes essenciais para resolver problemas de arrays: leitura do enunciado, invariantes, dois ponteiros e testes pequenos.",
+  "sections": [
+    {
+      "title": "Como atacar um problema LeetCode",
+      "body": "Comece traduzindo o problema para entradas, saidas e restricoes. Depois escreva exemplos pequenos a mao. So entao escolha o padrao: hash map, dois ponteiros, janela deslizante, pilha, BFS/DFS ou DP. Para treino diario, explique em voz alta: o que estou mantendo verdadeiro a cada passo?",
+      "code_example": "type TestCase<TInput, TOutput> = {\n  input: TInput;\n  expected: TOutput;\n};\n\n// Antes de codar, escreva 2-3 casos pequenos.\nconst cases: TestCase<number[], number>[] = [\n  { input: [1, 2, 3], expected: 6 },\n  { input: [], expected: 0 },\n];"
+    },
+    {
+      "title": "Dois ponteiros",
+      "body": "Use dois ponteiros quando a resposta depende de comparar extremos, pares, subarrays ordenados ou movimento coordenado em uma lista. O truque e definir quando mover o ponteiro esquerdo, quando mover o direito e qual invariante continua verdadeira.",
+      "code_example": "function hasPairWithSum(sorted: number[], target: number): boolean {\n  let left = 0;\n  let right = sorted.length - 1;\n\n  while (left < right) {\n    const sum = sorted[left] + sorted[right];\n    if (sum === target) return true;\n    if (sum < target) left += 1;\n    else right -= 1;\n  }\n\n  return false;\n}"
+    },
+    {
+      "title": "Complexidade sem misterio",
+      "body": "Ao final, estime tempo e memoria. Dois ponteiros geralmente percorre o array uma vez: O(n) tempo e O(1) memoria. Se voce criar um novo array, mapa ou set, conte essa memoria extra.",
+      "code_example": "// Dois ponteiros em array ordenado\n// Tempo: O(n), porque cada ponteiro anda no maximo n passos.\n// Memoria: O(1), porque so usamos variaveis simples."
+    }
+  ],
+  "practice": [
+    {
+      "id": 1,
+      "title": "Two Sum em array ordenado",
+      "difficulty": "easy",
+      "prompt": "Dado um array de numeros ordenado em ordem crescente e um alvo, retorne true se existem dois numeros diferentes cuja soma e igual ao alvo.",
+      "starter_code": "export function hasPairWithSum(sorted: number[], target: number): boolean {\n  // escreva sua solucao aqui\n  return false;\n}",
+      "solution": "export function hasPairWithSum(sorted: number[], target: number): boolean {\n  let left = 0;\n  let right = sorted.length - 1;\n\n  while (left < right) {\n    const sum = sorted[left] + sorted[right];\n    if (sum === target) return true;\n    if (sum < target) left += 1;\n    else right -= 1;\n  }\n\n  return false;\n}",
+      "explanation": "Como o array esta ordenado, uma soma baixa demais pede aumentar o ponteiro esquerdo. Uma soma alta demais pede diminuir o ponteiro direito. Cada passo descarta pares impossiveis.",
+      "test_cases": [
+        { "input": "([1, 2, 4, 7, 11], 9)", "expected": "true" },
+        { "input": "([1, 2, 4, 7, 11], 10)", "expected": "false" },
+        { "input": "([3, 3], 6)", "expected": "true" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Remover duplicados in-place",
+      "difficulty": "easy",
+      "prompt": "Dado um array ordenado, mova os valores unicos para o inicio e retorne a quantidade de unicos. Nao precisa apagar o restante do array.",
+      "starter_code": "export function removeDuplicates(nums: number[]): number {\n  // escreva sua solucao aqui\n  return 0;\n}",
+      "solution": "export function removeDuplicates(nums: number[]): number {\n  if (nums.length === 0) return 0;\n\n  let write = 1;\n  for (let read = 1; read < nums.length; read += 1) {\n    if (nums[read] !== nums[write - 1]) {\n      nums[write] = nums[read];\n      write += 1;\n    }\n  }\n\n  return write;\n}",
+      "explanation": "O ponteiro read examina cada item. O ponteiro write marca onde o proximo valor unico deve ser escrito. A parte nums[0..write-1] fica sempre sem duplicados.",
+      "test_cases": [
+        { "input": "([1, 1, 2])", "expected": "2 e prefixo [1, 2]" },
+        { "input": "([0, 0, 1, 1, 2, 3, 3])", "expected": "4 e prefixo [0, 1, 2, 3]" },
+        { "input": "([])", "expected": "0" }
+      ]
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Quando dois ponteiros costuma ser uma boa escolha?",
+      "options": [
+        "Quando a solucao depende de comparar posicoes ou extremos de um array",
+        "Quando toda solucao precisa obrigatoriamente de recursao",
+        "Quando o array nunca esta ordenado",
+        "Quando queremos piorar a complexidade para O(n^2)"
+      ],
+      "correct_option": "Quando a solucao depende de comparar posicoes ou extremos de um array",
+      "explanation": "Dois ponteiros e forte quando cada movimento descarta possibilidades: esquerda/direita, lento/rapido ou leitura/escrita."
+    },
+    {
+      "id": 2,
+      "question": "No par com soma em array ordenado, se a soma atual esta baixa demais, o que fazer?",
+      "options": [
+        "Mover o ponteiro esquerdo para a direita",
+        "Mover o ponteiro direito para a esquerda",
+        "Reiniciar os dois ponteiros",
+        "Criar sempre um hash map"
+      ],
+      "correct_option": "Mover o ponteiro esquerdo para a direita",
+      "explanation": "Em array crescente, aumentar o ponteiro esquerdo aumenta ou mantem a soma. Isso aproxima do alvo."
+    },
+    {
+      "id": 3,
+      "question": "Qual e uma boa forma de validar uma solucao LeetCode antes de enviar?",
+      "options": [
+        "Rodar casos pequenos, caso vazio, caso minimo e um caso limite",
+        "Testar somente o exemplo do enunciado",
+        "Ignorar complexidade se passou uma vez",
+        "Trocar nomes de variaveis ate parecer certo"
+      ],
+      "correct_option": "Rodar casos pequenos, caso vazio, caso minimo e um caso limite",
+      "explanation": "Bons testes pequenos revelam erros de indice, arrays vazios, duplicatas e limites antes do submit."
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "slug": "typescript-tipos-basicos",
+  "title": "Tipos Básicos e Inferência",
+  "category": "typescript",
+  "description": "Primitivos, arrays, tuplas, union types e como o TypeScript infere tipos automaticamente.",
+  "sections": [
+    {
+      "title": "Primitivos e Anotações",
+      "body": "TypeScript adiciona um sistema de tipos ao JavaScript. Na maioria dos casos, você não precisa anotar explicitamente — o compilador infere. Anote quando a inferência não é possível ou o tipo não é óbvio.",
+      "code_example": "// Inferência automática — prefira isso\nconst name = 'Helber';      // TypeScript sabe: string\nconst age = 30;             // TypeScript sabe: number\nconst active = true;        // TypeScript sabe: boolean\n\n// Anotação explícita — use quando necessário\nlet result: string;\nresult = calcSomething();   // sem inferência possível antes da atribuição\n\n// Tipos especiais\nconst nothing: null = null;\nconst undef: undefined = undefined;\nconst anything: unknown = fetchData(); // prefira unknown a any"
+    },
+    {
+      "title": "Arrays e Tuplas",
+      "body": "Arrays são tipados com `Type[]` ou `Array<Type>`. Tuplas são arrays com comprimento e tipos fixos — úteis para retornos de hooks (como useState).",
+      "code_example": "// Arrays\nconst names: string[] = ['Ana', 'Bob'];\nconst ids: Array<number> = [1, 2, 3];\n\n// Array de objetos\nconst users: Array<{ id: number; name: string }> = [];\n\n// Tupla: posição 0 é string, posição 1 é número\nconst pair: [string, number] = ['idade', 30];\n\n// Tupla do useState\nconst [count, setCount]: [number, (n: number) => void] = useState(0);"
+    },
+    {
+      "title": "Union e Intersection Types",
+      "body": "Union (`|`) = pode ser A ou B. Intersection (`&`) = tem propriedades de A E de B. Use narrowing (typeof, in, instanceof) para trabalhar com unions.",
+      "code_example": "// Union\ntype Status = 'idle' | 'loading' | 'success' | 'error';\ntype StringOrNumber = string | number;\n\nfunction format(value: StringOrNumber): string {\n  if (typeof value === 'string') return value.toUpperCase(); // narrowing\n  return value.toFixed(2);\n}\n\n// Intersection\ntype WithTimestamps = { createdAt: Date; updatedAt: Date };\ntype User = { id: number; name: string };\ntype UserWithTimestamps = User & WithTimestamps;"
+    },
+    {
+      "title": "Literal Types e as const",
+      "body": "Literal types restringem um valor a constantes específicas. `as const` trava um objeto/array como somente leitura e infere os valores literais, não os tipos gerais.",
+      "code_example": "// Literal type\ntype Direction = 'north' | 'south' | 'east' | 'west';\n\nfunction move(dir: Direction) { /* ... */ }\nmove('north'); // ✅\nmove('up');    // ❌ Erro\n\n// as const: evita widening (string → 'north')\nconst DIRECTIONS = ['north', 'south', 'east', 'west'] as const;\ntype Direction2 = typeof DIRECTIONS[number]; // 'north' | 'south' | 'east' | 'west'\n\nconst CONFIG = { env: 'production', port: 8080 } as const;\n// CONFIG.env é 'production', não string"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Qual a diferença entre `unknown` e `any`?",
+      "options": [
+        "`unknown` exige verificação de tipo antes de usar; `any` desativa a checagem de tipo",
+        "`any` é mais estrito que `unknown`",
+        "São equivalentes mas `unknown` é mais novo",
+        "`unknown` só funciona em TypeScript 5+"
+      ],
+      "correct_option": "`unknown` exige verificação de tipo antes de usar; `any` desativa a checagem de tipo",
+      "explanation": "Com `any`, o TypeScript não verifica nada — é uma saída de emergência. Com `unknown`, você precisa fazer narrowing (typeof, instanceof, if) antes de usar o valor. Prefira `unknown` para valores externos."
+    },
+    {
+      "id": 2,
+      "question": "O que `as const` faz a um objeto TypeScript?",
+      "options": [
+        "Torna todas as propriedades readonly e infere os valores literais",
+        "Congela o objeto em tempo de execução",
+        "Converte para um tipo imutável no banco de dados",
+        "Apenas previne reatribuição da variável"
+      ],
+      "correct_option": "Torna todas as propriedades readonly e infere os valores literais",
+      "explanation": "`as const` é apenas para o compilador TypeScript — não afeta o runtime. Ele faz o tipo inferido usar os valores literais ('production') em vez dos tipos gerais (string), e marca tudo como readonly."
+    },
+    {
+      "id": 3,
+      "question": "Qual a diferença entre `[string, number]` e `(string | number)[]`?",
+      "options": [
+        "O primeiro é uma tupla com posições fixas; o segundo é um array de qualquer tamanho",
+        "São equivalentes",
+        "O segundo é mais eficiente em memória",
+        "Tuplas não existem em TypeScript, apenas em Python"
+      ],
+      "correct_option": "O primeiro é uma tupla com posições fixas; o segundo é um array de qualquer tamanho",
+      "explanation": "Tupla: comprimento e tipo por posição são fixos. `[string, number]` tem exatamente 2 elementos. `(string | number)[]` pode ter qualquer comprimento com string ou number em qualquer posição."
+    }
+  ]
+}

@@ -5,15 +5,17 @@ import re
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import Book, BookPage, ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
 from schemas.schemas import (
     BookPageSchema,
     BookSchema,
@@ -66,6 +68,7 @@ PROJECT_ROOT = BASE_DIR.parent.parent
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kids_tutor.sqlite")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "development-session-secret")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -142,6 +145,15 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE book ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
             except Exception:
                 pass
+        # Add target_language column to lesson
+        try:
+            conn.execute(text("ALTER TABLE lesson ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE lesson ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
+            except Exception:
+                pass
+        # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
 
@@ -254,22 +266,26 @@ def is_generated_lesson(lesson: Lesson) -> bool:
     return content.get("generated_by") == "gemini"
 
 
-def list_accessible_lessons(session: Session, child_id: int, child_level: int | None = None) -> list[Lesson]:
+def list_accessible_lessons(session: Session, child_id: int, child_level: int | None = None, target_language: str = "English") -> list[Lesson]:
     """Return all lessons accessible to child_id.
 
-    - Static (non-generated) lessons are always visible to every child.
-    - Shared generated lessons (child_id=None) are visible when level matches child_level.
+    - Static (non-generated) lessons are visible only when their target_language matches.
+    - Shared generated lessons (child_id=None) are visible when level and target_language match.
     - Legacy private generated lessons (child_id==child_id) remain visible to that child.
     """
     lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
     result: list[Lesson] = []
     for lesson in lessons:
         if not is_generated_lesson(lesson):
-            result.append(lesson)  # static content always visible
+            # Static content: only show to children learning the same language
+            if lesson.target_language == target_language:
+                result.append(lesson)
         elif lesson.child_id == child_id:
             result.append(lesson)  # legacy private lesson for this child
         elif lesson.child_id is None:
-            # shared pool: include if level matches (or no level filter provided)
+            # shared pool: include if language and level match
+            if lesson.target_language != target_language:
+                continue
             if child_level is None:
                 result.append(lesson)
             else:
@@ -290,8 +306,8 @@ def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int,
     }
 
 
-def get_current_lesson(session: Session, child_id: int, child_level: int | None = None) -> Lesson | None:
-    lessons = list_accessible_lessons(session=session, child_id=child_id, child_level=child_level)
+def get_current_lesson(session: Session, child_id: int, child_level: int | None = None, target_language: str = "English") -> Lesson | None:
+    lessons = list_accessible_lessons(session=session, child_id=child_id, child_level=child_level, target_language=target_language)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
 
     return next(
@@ -408,7 +424,11 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
     # ── Reuse from shared pool if a lesson at this level exists ─────────────
     progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
     shared_at_level = session.exec(
-        select(Lesson).where(Lesson.child_id == None, Lesson.level == level).order_by(Lesson.id)
+        select(Lesson).where(
+            Lesson.child_id == None,
+            Lesson.level == level,
+            Lesson.target_language == child.target_language,
+        ).order_by(Lesson.id)
     ).all()
     for candidate in shared_at_level:
         if not is_generated_lesson(candidate):
@@ -460,6 +480,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
         },
         child_id=None,  # shared — available to all children at this level
         level=level,
+        target_language=child.target_language,
     )
     session.add(lesson)
     session.commit()
@@ -478,7 +499,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
         created_items.append(lesson_item)
     session.commit()
 
-    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items)
+    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items, target_language=child.target_language)
     lesson.content = {
         **(lesson.content or {}),
         "quiz_questions": [q.model_dump() for q in quiz_questions],
@@ -512,13 +533,14 @@ def build_lesson_response(session: Session, lesson: Lesson, child_id: int) -> Le
     )
 
 
-def build_generated_quiz_questions(session: Session, lesson_items: list[LessonItem]) -> list[QuizQuestionSchema]:
+def build_generated_quiz_questions(session: Session, lesson_items: list[LessonItem], target_language: str = "English") -> list[QuizQuestionSchema]:
     phrase_pool = [
         item.word_en
         for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
         if item.word_en not in {lesson_item.word_en for lesson_item in lesson_items}
     ]
     generated_questions: list[QuizQuestionSchema] = []
+    lang_lower = target_language.lower()
 
     for index, lesson_item in enumerate(lesson_items, start=1):
         options = [lesson_item.word_en]
@@ -542,7 +564,7 @@ def build_generated_quiz_questions(session: Session, lesson_items: list[LessonIt
         generated_questions.append(
             QuizQuestionSchema(
                 id=index,
-                question=f"Como se diz '{lesson_item.word_pt}' em ingles?",
+                question=f"Como se diz '{lesson_item.word_pt}' em {lang_lower}?",
                 options=ordered_options,
                 correct_option=lesson_item.word_en,
                 explanation=f"{lesson_item.word_en} significa {lesson_item.word_pt}.",
@@ -687,7 +709,7 @@ def health_check() -> dict[str, datetime | str]:
 def list_all_lessons(request: Request, session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    lessons = list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)
+    lessons = list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
     progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
     return [
         LessonSummarySchema(
@@ -706,7 +728,7 @@ def list_all_lessons(request: Request, session: Session = Depends(get_session)) 
 def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level)
+    lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
     if lesson is None:
         lesson = auto_generate_lesson_for_child(session=session, child=child)
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
@@ -717,7 +739,7 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
@@ -728,7 +750,7 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     lesson = session.get(Lesson, lesson_id)
-    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
+    accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
@@ -761,13 +783,13 @@ def get_today_quiz(
     resolved_lesson_id = lesson_id
     lesson: Lesson | None = None
     if resolved_lesson_id is None:
-        lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level)
+        lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
         if lesson is None:
             raise HTTPException(status_code=404, detail="Nenhuma licao encontrada para o quiz")
         resolved_lesson_id = lesson.id
     elif resolved_lesson_id is not None:
         lesson = session.get(Lesson, resolved_lesson_id)
-        accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
+        accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
         if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
             raise HTTPException(status_code=404, detail="Licao nao encontrada")
 
@@ -863,7 +885,7 @@ def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressS
         for progress in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
         if progress.is_completed
     ]
-    accessible_lesson_ids = {lesson.id or 0 for lesson in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level)}
+    accessible_lesson_ids = {lesson.id or 0 for lesson in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
     completed_lesson_ids = [
         progress.lesson_id
         for progress in completed_progress_items
@@ -1220,6 +1242,7 @@ def create_parent_child(
         age_group=payload.age_group.strip(),
         voice_preference=tts_service.normalize_voice(payload.voice_preference),
         auto_audio=True if payload.auto_audio is None else payload.auto_audio,
+        target_language=payload.target_language or "English",
         user_id=user_id,
     )
     session.add(child)
@@ -1269,85 +1292,100 @@ def generate_parent_lesson(
 
     child = get_requested_child(request=request, session=session)
     level = compute_and_update_child_level(session=session, child=child)
-    next_day = get_next_lesson_day(session=session)
-    existing_phrases = [
-        item.word_en
-        for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
-    ]
+    quantity = max(1, min(10, payload.quantity or 1))
 
-    try:
-        draft = phrase_generation_service.generate_lesson_draft(
-            next_day=next_day,
-            age_group=child.age_group,
-            existing_phrases=existing_phrases,
-            topic=payload.topic,
+    generated_lessons: list[LessonSchema] = []
+
+    for i in range(quantity):
+        next_day = get_next_lesson_day(session=session)
+        existing_phrases = [
+            item.word_en
+            for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
+        ]
+
+        try:
+            draft = phrase_generation_service.generate_lesson_draft(
+                next_day=next_day,
+                age_group=child.age_group,
+                existing_phrases=existing_phrases,
+                topic=payload.topic,
+                level=level,
+                target_language=child.target_language,
+            )
+        except Exception as exc:
+            if i == 0:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Nao foi possivel gerar novas frases com o Gemini. {exc}",
+                ) from exc
+            break  # partial success — return what was already generated
+
+        lesson = Lesson(
+            id=next_day,
+            title=f"{child.target_language} de hoje - Dia {next_day}",
+            theme="Frases do dia",
+            objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
+            content={
+                "daily_goal": "3 frases para hoje",
+                "phrase_breakdowns": [
+                    {
+                        "phrase_en": phrase.phrase_en,
+                        "phrase_pt": phrase.phrase_pt,
+                        "word_by_word": [
+                            {"en": pair.en, "pt": pair.pt}
+                            for pair in phrase.word_by_word
+                        ],
+                    }
+                    for phrase in draft.phrases
+                ],
+                "generated_by": "gemini",
+                "generated_model": phrase_generation_service.model,
+                "generated_level": level,
+                "generated_topic": payload.topic.strip() if payload.topic else None,
+                "generated_at": datetime.utcnow().isoformat(),
+            },
+            child_id=None,  # shared — available to all children at this level
             level=level,
             target_language=child.target_language,
         )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Nao foi possivel gerar novas frases com o Gemini. {exc}",
-        ) from exc
+        session.add(lesson)
+        session.commit()
+        session.refresh(lesson)
 
-    lesson = Lesson(
-        id=next_day,
-        title=f"Ingles de hoje - Dia {next_day}",
-        theme="Frases do dia",
-        objective="Aprenda 3 frases uteis em ingles hoje.",
-        content={
-            "daily_goal": "3 frases para hoje",
-            "phrase_breakdowns": [
-                {
-                    "phrase_en": phrase.phrase_en,
-                    "phrase_pt": phrase.phrase_pt,
-                    "word_by_word": [
-                        {"en": pair.en, "pt": pair.pt}
-                        for pair in phrase.word_by_word
-                    ],
-                }
-                for phrase in draft.phrases
-            ],
-            "generated_by": "gemini",
-            "generated_model": phrase_generation_service.model,
-            "generated_level": level,
-            "generated_topic": payload.topic.strip() if payload.topic else None,
-            "generated_at": datetime.utcnow().isoformat(),
-        },
-        child_id=None,  # shared — available to all children at this level
-        level=level,
+        created_items: list[LessonItem] = []
+        for phrase in draft.phrases:
+            lesson_item = LessonItem(
+                word_en=phrase.phrase_en,
+                word_pt=phrase.phrase_pt,
+                example_sentence_en=phrase.example_sentence_en,
+                example_sentence_pt=phrase.example_sentence_pt,
+                lesson_id=lesson.id,
+            )
+            session.add(lesson_item)
+            created_items.append(lesson_item)
+
+        session.commit()
+
+        quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items, target_language=child.target_language)
+        lesson.content = {
+            **(lesson.content or {}),
+            "quiz_questions": [question.model_dump() for question in quiz_questions],
+        }
+        session.add(lesson)
+        session.commit()
+        session.refresh(lesson)
+
+        generated_lessons.append(build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0))
+
+    count = len(generated_lessons)
+    msg = (
+        f"{count} {'licao foi gerada' if count == 1 else 'licoes foram geradas'} e salva{'s' if count > 1 else ''} no banco de dados."
     )
-    session.add(lesson)
-    session.commit()
-    session.refresh(lesson)
-
-    created_items: list[LessonItem] = []
-    for phrase in draft.phrases:
-        lesson_item = LessonItem(
-            word_en=phrase.phrase_en,
-            word_pt=phrase.phrase_pt,
-            example_sentence_en=phrase.example_sentence_en,
-            example_sentence_pt=phrase.example_sentence_pt,
-            lesson_id=lesson.id,
-        )
-        session.add(lesson_item)
-        created_items.append(lesson_item)
-
-    session.commit()
-
-    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items)
-    lesson.content = {
-        **(lesson.content or {}),
-        "quiz_questions": [question.model_dump() for question in quiz_questions],
-    }
-    session.add(lesson)
-    session.commit()
-    session.refresh(lesson)
-
     return GenerateLessonResponseSchema(
         status="success",
-        lesson=build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0),
-        message=f"{lesson.title} foi gerado e salvo no banco de dados.",
+        lesson=generated_lessons[-1],
+        lessons=generated_lessons,
+        message=msg,
     )
 
 
@@ -1512,6 +1550,158 @@ def generate_book(
         session.refresh(page)
 
     return _build_book_schema(book, pages)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin Learn endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+ADMIN_LEARN_DIR = PROJECT_ROOT / "content" / "admin-learn"
+
+
+def _require_admin(request: Request, session: Session) -> User:
+    """Returns the logged-in user if their email matches ADMIN_EMAIL, else 403."""
+    session_record = require_parent_session(request, session)
+    if session_record.user_id is None:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
+    user = session.get(User, session_record.user_id)
+    if user is None:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
+    if not ADMIN_EMAIL or user.email.lower() != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
+    return user
+
+
+@app.get("/api/admin/check")
+def admin_check(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict[str, bool | str]:
+    session_record = get_request_user_session(request=request, session=session)
+    if session_record is None or session_record.user_id is None:
+        return {"is_admin": False}
+    user = session.get(User, session_record.user_id)
+    if user is None:
+        return {"is_admin": False}
+    is_admin = bool(ADMIN_EMAIL) and user.email.lower() == ADMIN_EMAIL
+    return {"is_admin": is_admin, "email": user.email if is_admin else ""}
+
+
+@app.get("/api/admin/learn/modules")
+def admin_list_modules(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    _require_admin(request, session)
+    modules: list[dict] = []
+    if not ADMIN_LEARN_DIR.exists():
+        return modules
+    for category_dir in sorted(ADMIN_LEARN_DIR.iterdir()):
+        if not category_dir.is_dir():
+            continue
+        for module_file in sorted(category_dir.glob("*.json")):
+            try:
+                data = json.loads(module_file.read_text(encoding="utf-8"))
+                modules.append({
+                    "slug": data.get("slug", module_file.stem),
+                    "title": data.get("title", module_file.stem),
+                    "category": data.get("category", category_dir.name),
+                    "description": data.get("description", ""),
+                    "total_sections": len(data.get("sections", [])),
+                    "total_quiz": len(data.get("quiz", [])),
+                })
+            except Exception:
+                continue
+    return modules
+
+
+@app.get("/api/admin/learn/modules/{slug}")
+def admin_get_module(
+    slug: str,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    _require_admin(request, session)
+    if not ADMIN_LEARN_DIR.exists():
+        raise HTTPException(status_code=404, detail="Modulo nao encontrado.")
+    for category_dir in ADMIN_LEARN_DIR.iterdir():
+        if not category_dir.is_dir():
+            continue
+        for module_file in category_dir.glob("*.json"):
+            try:
+                data = json.loads(module_file.read_text(encoding="utf-8"))
+                if data.get("slug") == slug or module_file.stem == slug:
+                    return data
+            except Exception:
+                continue
+    raise HTTPException(status_code=404, detail="Modulo nao encontrado.")
+
+
+@app.get("/api/admin/learn/flashcards")
+def admin_list_flashcards(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    _require_admin(request, session)
+    cards = session.exec(select(AdminFlashcard).order_by(AdminFlashcard.created_at.desc())).all()
+    return [
+        {
+            "id": c.id,
+            "front": c.front,
+            "back": c.back,
+            "category": c.category,
+            "code_example": c.code_example,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in cards
+    ]
+
+
+class AdminFlashcardCreateSchema(BaseModel):
+    front: str = Field(min_length=1, max_length=300)
+    back: str = Field(min_length=1, max_length=1000)
+    category: str = Field(default="general", max_length=40)
+    code_example: Optional[str] = Field(default=None, max_length=2000)
+
+
+@app.post("/api/admin/learn/flashcards", status_code=201)
+def admin_create_flashcard(
+    payload: AdminFlashcardCreateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    _require_admin(request, session)
+    card = AdminFlashcard(
+        front=payload.front.strip(),
+        back=payload.back.strip(),
+        category=payload.category.strip() or "general",
+        code_example=payload.code_example.strip() if payload.code_example else None,
+    )
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return {
+        "id": card.id,
+        "front": card.front,
+        "back": card.back,
+        "category": card.category,
+        "code_example": card.code_example,
+        "created_at": card.created_at.isoformat(),
+    }
+
+
+@app.delete("/api/admin/learn/flashcards/{card_id}", status_code=204)
+def admin_delete_flashcard(
+    card_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    _require_admin(request, session)
+    card = session.get(AdminFlashcard, card_id)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Flashcard nao encontrado.")
+    session.delete(card)
+    session.commit()
 
 
 if __name__ == "__main__":

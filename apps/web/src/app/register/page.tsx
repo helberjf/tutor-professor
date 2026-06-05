@@ -17,7 +17,7 @@ const LANGUAGES = [
   { value: 'Japanese', flag: '🇯🇵', label: 'Japonês' },
 ];
 
-export const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
+const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
   LANGUAGES.map(({ value, flag, label }) => [value, { flag, label }]),
 );
 

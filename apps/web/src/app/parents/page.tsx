@@ -10,11 +10,25 @@ import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@
 import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
 import { ApiError, api, type ChildProfile, type ChildProgressSummary, type Lesson } from '@/lib/api';
 
+const LANGUAGES = [
+  { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
+  { value: 'French',   flag: '🇫🇷', label: 'Francês' },
+  { value: 'Spanish',  flag: '🇪🇸', label: 'Espanhol' },
+  { value: 'German',   flag: '🇩🇪', label: 'Alemão' },
+  { value: 'Italian',  flag: '🇮🇹', label: 'Italiano' },
+  { value: 'Japanese', flag: '🇯🇵', label: 'Japonês' },
+];
+
+const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
+  LANGUAGES.map(({ value, flag, label }) => [value, { flag, label }]),
+);
+
 interface ParentFormState {
   child_name: string;
   age_group: string;
   voice_preference: string;
   auto_audio: boolean;
+  target_language: string;
 }
 
 const DEFAULT_FORM: ParentFormState = {
@@ -22,6 +36,7 @@ const DEFAULT_FORM: ParentFormState = {
   age_group: '7-9',
   voice_preference: 'af_bella',
   auto_audio: true,
+  target_language: 'English',
 };
 
 export default function ParentsPage() {
@@ -37,6 +52,7 @@ export default function ParentsPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [newChildName, setNewChildName] = useState('');
   const [newChildAgeGroup, setNewChildAgeGroup] = useState('7-9');
+  const [newChildTargetLanguage, setNewChildTargetLanguage] = useState('English');
   const [creatingChild, setCreatingChild] = useState(false);
   const [generatorTopic, setGeneratorTopic] = useState('');
   const [generatorMessage, setGeneratorMessage] = useState('');
@@ -73,6 +89,7 @@ export default function ParentsPage() {
         age_group: settings.age_group,
         voice_preference: settings.voice_preference,
         auto_audio: settings.auto_audio,
+        target_language: settings.target_language ?? 'English',
       });
       setIsLoggedIn(true);
       setError(null);
@@ -104,6 +121,7 @@ export default function ParentsPage() {
         age_group: settings.age_group,
         voice_preference: settings.voice_preference,
         auto_audio: settings.auto_audio,
+        target_language: settings.target_language ?? 'English',
       });
       setMessage('Configuracoes salvas.');
       setError(null);
@@ -157,11 +175,13 @@ export default function ParentsPage() {
         age_group: newChildAgeGroup,
         voice_preference: form.voice_preference,
         auto_audio: form.auto_audio,
+        target_language: newChildTargetLanguage,
       });
       saveActiveChildId(child.id);
       setActiveChildId(child.id);
       setNewChildName('');
       setNewChildAgeGroup('7-9');
+      setNewChildTargetLanguage('English');
       setMessage(`Novo aluno criado: ${child.name}.`);
       await loadSettings();
     } catch (err) {
@@ -382,6 +402,26 @@ export default function ParentsPage() {
                       <option value="10-12">10 a 12 anos</option>
                     </select>
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                      {LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.value}
+                          type="button"
+                          onClick={() => setForm((current) => ({ ...current, target_language: lang.value }))}
+                          className={`flex flex-col items-center gap-1 rounded-[1.25rem] border-2 px-3 py-2.5 text-xs font-black transition ${
+                            form.target_language === lang.value
+                              ? 'border-primary bg-primary-light text-primary-dark'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-primary'
+                          }`}
+                        >
+                          <span className="text-xl">{lang.flag}</span>
+                          {lang.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -441,7 +481,10 @@ export default function ParentsPage() {
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-lg font-black text-slate-800">{child.name}</p>
-                          <p className="text-sm text-slate-500">Faixa etaria: {child.age_group}</p>
+                          <p className="text-sm text-slate-500">
+                            {LANGUAGE_META[child.target_language]?.flag ?? '🇺🇸'}{' '}
+                            {LANGUAGE_META[child.target_language]?.label ?? child.target_language} &middot; {child.age_group}
+                          </p>
                         </div>
                         {isActive ? (
                           <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-primary-dark">
@@ -484,6 +527,26 @@ export default function ParentsPage() {
                     <option value="7-9">7 a 9 anos</option>
                     <option value="10-12">10 a 12 anos</option>
                   </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.value}
+                        type="button"
+                        onClick={() => setNewChildTargetLanguage(lang.value)}
+                        className={`flex flex-col items-center gap-1 rounded-[1.25rem] border-2 px-3 py-2 text-xs font-black transition ${
+                          newChildTargetLanguage === lang.value
+                            ? 'border-primary bg-primary-light text-primary-dark'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-primary'
+                        }`}
+                      >
+                        <span className="text-lg">{lang.flag}</span>
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <button
                   type="submit"

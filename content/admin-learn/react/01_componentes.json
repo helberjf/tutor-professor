@@ -1,0 +1,78 @@
+{
+  "slug": "react-componentes",
+  "title": "Componentes React",
+  "category": "react",
+  "description": "O bloco fundamental do React: componentes funcionais, JSX e props.",
+  "sections": [
+    {
+      "title": "O que é um componente?",
+      "body": "Um componente é uma função JavaScript que retorna JSX. O React renderiza a UI dividida em peças reutilizáveis chamadas componentes. Cada componente deve começar com letra maiúscula.",
+      "code_example": "function Greeting({ name }: { name: string }) {\n  return <h1>Olá, {name}!</h1>;\n}\n\n// Uso\n<Greeting name=\"Helber\" />"
+    },
+    {
+      "title": "Props",
+      "body": "Props (propriedades) são os argumentos de um componente. São read-only — um componente nunca deve modificar suas próprias props. Use TypeScript para tipar com uma interface.",
+      "code_example": "interface ButtonProps {\n  label: string;\n  onClick: () => void;\n  disabled?: boolean;\n}\n\nfunction Button({ label, onClick, disabled }: ButtonProps) {\n  return (\n    <button onClick={onClick} disabled={disabled}>\n      {label}\n    </button>\n  );\n}"
+    },
+    {
+      "title": "Children",
+      "body": "A prop especial `children` permite passar conteúdo JSX entre as tags de abertura e fechamento de um componente.",
+      "code_example": "interface CardProps {\n  children: React.ReactNode;\n  title: string;\n}\n\nfunction Card({ children, title }: CardProps) {\n  return (\n    <div className=\"card\">\n      <h2>{title}</h2>\n      {children}\n    </div>\n  );\n}\n\n// Uso\n<Card title=\"Meu Card\">\n  <p>Conteúdo aqui</p>\n</Card>"
+    },
+    {
+      "title": "Composição vs. Herança",
+      "body": "React prefere composição a herança. Em vez de estender componentes, componha-os. Um componente pode renderizar outros componentes e passar dados via props.",
+      "code_example": "function Avatar({ src, alt }: { src: string; alt: string }) {\n  return <img src={src} alt={alt} className=\"avatar\" />;\n}\n\nfunction UserCard({ user }: { user: User }) {\n  return (\n    <Card title={user.name}>\n      <Avatar src={user.avatarUrl} alt={user.name} />\n      <p>{user.email}</p>\n    </Card>\n  );\n}"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Como uma função React se torna um componente válido?",
+      "options": [
+        "Deve retornar JSX e começar com letra maiúscula",
+        "Deve estender React.Component",
+        "Deve ter um arquivo .jsx obrigatório",
+        "Deve receber obrigatoriamente props"
+      ],
+      "correct_option": "Deve retornar JSX e começar com letra maiúscula",
+      "explanation": "Componentes funcionais são funções que retornam JSX. O React os distingue de elementos HTML pela letra maiúscula inicial."
+    },
+    {
+      "id": 2,
+      "question": "O que acontece se um componente tentar modificar suas próprias props?",
+      "options": [
+        "É um erro — props são read-only",
+        "A mudança é refletida no componente pai",
+        "O React re-renderiza automaticamente",
+        "Funciona normalmente em desenvolvimento"
+      ],
+      "correct_option": "É um erro — props são read-only",
+      "explanation": "Props fluem de pai para filho (one-way data flow) e nunca devem ser mutadas. Para dados mutáveis, use state."
+    },
+    {
+      "id": 3,
+      "question": "Qual é o tipo correto para a prop `children` em TypeScript?",
+      "options": [
+        "React.ReactNode",
+        "string",
+        "React.Children",
+        "JSX.Element"
+      ],
+      "correct_option": "React.ReactNode",
+      "explanation": "React.ReactNode é o tipo mais amplo — aceita string, number, JSX.Element, arrays, null e boolean. Use JSX.Element quando quiser garantir que é sempre um único elemento."
+    },
+    {
+      "id": 4,
+      "question": "Qual prática o React favorece para reutilização de lógica e UI?",
+      "options": [
+        "Composição",
+        "Herança de classes",
+        "Mixins",
+        "Decorators"
+      ],
+      "correct_option": "Composição",
+      "explanation": "React é construído para composição: componentes menores combinados para formar interfaces complexas, evitando herança."
+    }
+  ]
+}

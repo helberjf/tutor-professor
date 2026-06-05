@@ -1,0 +1,83 @@
+{
+  "slug": "react-hooks",
+  "title": "Hooks Essenciais",
+  "category": "react",
+  "description": "useState, useEffect, useCallback, useMemo e useRef — os hooks que você usa todo dia.",
+  "sections": [
+    {
+      "title": "useState",
+      "body": "O hook mais fundamental. Retorna um valor de estado e uma função para atualizá-lo. Cada chamada de setState agenda um re-render. O estado nunca é mutado diretamente.",
+      "code_example": "import { useState } from 'react';\n\nfunction Counter() {\n  const [count, setCount] = useState(0);\n\n  // Forma funcional: use quando o novo valor depende do anterior\n  const increment = () => setCount((prev) => prev + 1);\n\n  return (\n    <div>\n      <p>Contagem: {count}</p>\n      <button onClick={increment}>+1</button>\n    </div>\n  );\n}"
+    },
+    {
+      "title": "useEffect",
+      "body": "Executa efeitos colaterais após renderização: chamadas de API, subscrições, timers. O array de dependências controla quando o efeito roda. Retornar uma função faz cleanup.",
+      "code_example": "import { useState, useEffect } from 'react';\n\nfunction UserProfile({ userId }: { userId: number }) {\n  const [user, setUser] = useState<User | null>(null);\n\n  useEffect(() => {\n    let cancelled = false;\n\n    async function load() {\n      const data = await fetchUser(userId);\n      if (!cancelled) setUser(data);\n    }\n\n    void load();\n\n    // cleanup: evita atualizar estado em componente desmontado\n    return () => { cancelled = true; };\n  }, [userId]); // roda novamente quando userId mudar\n\n  return <div>{user?.name ?? 'Carregando...'}</div>;\n}"
+    },
+    {
+      "title": "useCallback e useMemo",
+      "body": "useCallback memoriza uma função; useMemo memoriza um valor calculado. Úteis para evitar re-renders desnecessários em componentes filhos ou cálculos pesados. Não use prematuramente — só quando há problema real de performance.",
+      "code_example": "import { useCallback, useMemo } from 'react';\n\nfunction List({ items, onSelect }: Props) {\n  // useCallback: mesma referência de função entre renders\n  const handleClick = useCallback(\n    (id: number) => onSelect(id),\n    [onSelect]\n  );\n\n  // useMemo: recalcula só quando items mudar\n  const sorted = useMemo(\n    () => [...items].sort((a, b) => a.name.localeCompare(b.name)),\n    [items]\n  );\n\n  return sorted.map((item) => (\n    <div key={item.id} onClick={() => handleClick(item.id)}>\n      {item.name}\n    </div>\n  ));\n}"
+    },
+    {
+      "title": "useRef",
+      "body": "useRef retorna um objeto mutável `.current` que persiste entre renders sem causar re-render. Usado para acessar elementos DOM diretamente ou armazenar valores sem disparar renders.",
+      "code_example": "import { useRef, useEffect } from 'react';\n\nfunction AutoFocusInput() {\n  const inputRef = useRef<HTMLInputElement>(null);\n\n  useEffect(() => {\n    inputRef.current?.focus();\n  }, []);\n\n  return <input ref={inputRef} placeholder=\"foca automaticamente\" />;\n}\n\n// Também para guardar valores mutáveis\nfunction Timer() {\n  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);\n\n  function start() {\n    intervalRef.current = setInterval(() => console.log('tick'), 1000);\n  }\n\n  function stop() {\n    if (intervalRef.current) clearInterval(intervalRef.current);\n  }\n}"
+    },
+    {
+      "title": "Regras dos Hooks",
+      "body": "1. Chame hooks apenas no nível superior — nunca dentro de condicionais, loops ou funções aninhadas. 2. Chame hooks apenas em funções React (componentes ou hooks customizados). O ESLint plugin `eslint-plugin-react-hooks` verifica isso automaticamente.",
+      "code_example": "// ✅ CORRETO\nfunction Component() {\n  const [a, setA] = useState(0);\n  const [b, setB] = useState('');\n  // ...\n}\n\n// ❌ ERRADO — hook condicional\nfunction Component({ show }: { show: boolean }) {\n  if (show) {\n    const [value, setValue] = useState(''); // ERRO\n  }\n}"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Por que a forma funcional `setCount(prev => prev + 1)` é preferível a `setCount(count + 1)`?",
+      "options": [
+        "Garante que usa o valor mais recente do estado, mesmo em batched updates",
+        "É mais rápida em termos de performance",
+        "Evita re-renders desnecessários",
+        "É obrigatória para arrays e objetos"
+      ],
+      "correct_option": "Garante que usa o valor mais recente do estado, mesmo em batched updates",
+      "explanation": "React pode agrupar múltiplas atualizações de estado (batching). A forma funcional sempre recebe o valor atual na hora da aplicação, evitando condições de corrida."
+    },
+    {
+      "id": 2,
+      "question": "O que acontece se você não passar o array de dependências para useEffect?",
+      "options": [
+        "O efeito roda após CADA render",
+        "O efeito roda apenas uma vez",
+        "O efeito nunca roda",
+        "TypeScript gera um erro de compilação"
+      ],
+      "correct_option": "O efeito roda após CADA render",
+      "explanation": "Sem o array de dependências, useEffect se comporta como componentDidUpdate — roda após todo render, o que pode causar loops infinitos se o efeito atualiza estado."
+    },
+    {
+      "id": 3,
+      "question": "Qual hook você usaria para armazenar um timer sem causar re-render ao atualizá-lo?",
+      "options": [
+        "useRef",
+        "useState",
+        "useMemo",
+        "useCallback"
+      ],
+      "correct_option": "useRef",
+      "explanation": "Alterar `.current` de um useRef não dispara re-render. É perfeito para guardar IDs de timers, instâncias de bibliotecas externas ou qualquer valor que precise persistir sem causar renderização."
+    },
+    {
+      "id": 4,
+      "question": "Quando useCallback e useMemo são realmente necessários?",
+      "options": [
+        "Quando há problema de performance comprovado, especialmente com React.memo em filhos",
+        "Em todo componente para boa prática",
+        "Sempre que usar useEffect",
+        "Apenas em componentes de classe"
+      ],
+      "correct_option": "Quando há problema de performance comprovado, especialmente com React.memo em filhos",
+      "explanation": "Memorização tem custo próprio. Só vale a pena quando o componente filho usa React.memo E a prop é uma função/objeto criado no render, ou quando o cálculo é genuinamente pesado."
+    }
+  ]
+}
