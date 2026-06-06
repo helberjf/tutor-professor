@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, Dict, Any
+from sqlalchemy import UniqueConstraint
 from sqlmodel import SQLModel, Field, JSON, Column
 
 
@@ -85,6 +86,18 @@ class QuizAttempt(SQLModel, table=True):
     attempted_at: datetime = Field(default_factory=datetime.utcnow)
     child_id: Optional[int] = Field(default=None, foreign_key="childprofile.id")
 
+class StudyDay(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("child_id", "study_date"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    study_date: date = Field(index=True)
+    plan_text: str = ""
+    studied_text: str = ""
+    distractions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 class AudioCache(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     text_hash: str = Field(index=True)
@@ -116,6 +129,26 @@ class BookPage(SQLModel, table=True):
     text_en: str = Field(sa_column=Column(JSON))          # stored as str, long text
     text_pt: str = Field(sa_column=Column(JSON))
     vocabulary_json: str = Field(default="[]")            # JSON array of key words
+
+
+class DiverseDay(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("child_id", "study_date"),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    study_date: date = Field(index=True)
+    custom_subjects: list = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CodingDay(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("child_id", "study_date"),)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    study_date: date = Field(index=True)
+    subjects: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class AdminFlashcard(SQLModel, table=True):

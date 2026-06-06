@@ -52,6 +52,64 @@ export interface Progress {
   difficult_words: string[];
 }
 
+export interface StudyDay {
+  id: number | null;
+  study_date: string;
+  plan_text: string;
+  studied_text: string;
+  distractions: string[];
+  is_study_day: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface StudyDashboard {
+  today: StudyDay;
+  recent_days: StudyDay[];
+  study_streak_count: number;
+  last_study_date: string | null;
+}
+
+export interface StudyDayUpdatePayload {
+  plan_text?: string;
+  studied_text?: string;
+  distractions?: string[];
+}
+
+export interface CodingTopic {
+  topic: string;
+  done: boolean;
+}
+
+export interface CodingDay {
+  id: number | null;
+  study_date: string;
+  subjects: Record<string, CodingTopic[]>;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CodingDayUpdatePayload {
+  subjects: Record<string, CodingTopic[]>;
+}
+
+export interface DiverseSubject {
+  name: string;
+  topics: CodingTopic[];
+}
+
+export interface DiverseDay {
+  id: number | null;
+  study_date: string;
+  custom_subjects: DiverseSubject[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface DiverseDayUpdatePayload {
+  custom_subjects: DiverseSubject[];
+}
+
 export interface ChildProgressSummary {
   child: ChildProfile;
   progress: Progress;
@@ -404,6 +462,25 @@ export const api = {
     }),
   getProgress: () => fetchAPI<Progress>('/api/progress'),
   getChildLevel: () => fetchAPI<LevelAnalysis>('/api/child/level'),
+  getStudyDashboard: () => fetchAPI<StudyDashboard>('/api/study/dashboard'),
+  getStudyDay: (studyDate: string) => fetchAPI<StudyDay>(`/api/study/day/${studyDate}`),
+  saveStudyDay: (studyDate: string, payload: StudyDayUpdatePayload) =>
+    fetchAPI<StudyDay>(`/api/study/day/${studyDate}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  getCodingDay: (studyDate: string) => fetchAPI<CodingDay>(`/api/study/coding/${studyDate}`),
+  saveCodingDay: (studyDate: string, payload: CodingDayUpdatePayload) =>
+    fetchAPI<CodingDay>(`/api/study/coding/${studyDate}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  getDiverseDay: (studyDate: string) => fetchAPI<DiverseDay>(`/api/study/diverse/${studyDate}`),
+  saveDiverseDay: (studyDate: string, payload: DiverseDayUpdatePayload) =>
+    fetchAPI<DiverseDay>(`/api/study/diverse/${studyDate}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   getTodayQuiz: (lessonId?: number) =>
     fetchAPI<Quiz>(lessonId ? `/api/quiz/today?lesson_id=${lessonId}` : '/api/quiz/today'),
   submitQuiz: (payload: { lesson_id: number; score: number; total_questions: number }) =>

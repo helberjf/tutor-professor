@@ -3,7 +3,7 @@ import json
 import os
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, Lesson, LessonItem, QuizAttempt, ReviewItem, User, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, DiverseDay, Lesson, LessonItem, QuizAttempt, ReviewItem, StudyDay, User, UserSession
 from schemas.schemas import (
     BookPageSchema,
     BookSchema,
@@ -47,6 +47,15 @@ from schemas.schemas import (
     ReviewSessionSchema,
     SpeakRequestSchema,
     SpeakResponseSchema,
+    CodingDaySchema,
+    CodingDayUpdateSchema,
+    CodingTopicSchema,
+    DiverseDaySchema,
+    DiverseDayUpdateSchema,
+    DiverseSubjectSchema,
+    StudyDashboardSchema,
+    StudyDaySchema,
+    StudyDayUpdateSchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -918,11 +927,303 @@ def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressS
     )
 
 
+def sanitize_study_text(value: str | None, max_length: int) -> str:
+    return (value or "").strip()[:max_length]
+
+
+def sanitize_distractions(items: list[str] | None) -> list[str]:
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in items or []:
+        label = item.strip()[:80]
+        if not label:
+            continue
+        key = label.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(label)
+        if len(cleaned) >= 20:
+            break
+    return cleaned
+
+
+def get_study_day_record(session: Session, child_id: int, target_date: date) -> StudyDay | None:
+    return session.exec(
+        select(StudyDay).where(
+            StudyDay.child_id == child_id,
+            StudyDay.study_date == target_date,
+        )
+    ).first()
+
+
+def build_study_day_schema(record: StudyDay | None, target_date: date) -> StudyDaySchema:
+    if record is None:
+        return StudyDaySchema(
+            study_date=target_date,
+            is_study_day=False,
+        )
+
+    studied_text = record.studied_text or ""
+    return StudyDaySchema(
+        id=record.id,
+        study_date=record.study_date,
+        plan_text=record.plan_text or "",
+        studied_text=studied_text,
+        distractions=record.distractions or [],
+        is_study_day=bool(studied_text.strip()),
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def compute_study_streak(session: Session, child_id: int) -> tuple[int, date | None]:
+    records = session.exec(
+        select(StudyDay)
+        .where(StudyDay.child_id == child_id)
+        .order_by(StudyDay.study_date.desc())
+    ).all()
+    study_dates = sorted(
+        {record.study_date for record in records if (record.studied_text or "").strip()},
+        reverse=True,
+    )
+    if not study_dates:
+        return 0, None
+
+    streak = 1
+    expected_date = study_dates[0] - timedelta(days=1)
+    for study_date in study_dates[1:]:
+        if study_date == expected_date:
+            streak += 1
+            expected_date -= timedelta(days=1)
+        elif study_date < expected_date:
+            break
+
+    return streak, study_dates[0]
+
+
 @app.get("/api/progress", response_model=ProgressSchema)
 def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     return build_progress_for_child(session=session, child=child)
+
+
+@app.get("/api/study/dashboard", response_model=StudyDashboardSchema)
+def get_study_dashboard(request: Request, session: Session = Depends(get_session)) -> StudyDashboardSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    today = date.today()
+    today_record = get_study_day_record(session=session, child_id=child_id, target_date=today)
+    recent_records = session.exec(
+        select(StudyDay)
+        .where(StudyDay.child_id == child_id)
+        .order_by(StudyDay.study_date.desc())
+        .limit(14)
+    ).all()
+    streak_count, last_study_date = compute_study_streak(session=session, child_id=child_id)
+
+    return StudyDashboardSchema(
+        today=build_study_day_schema(today_record, today),
+        recent_days=[build_study_day_schema(record, record.study_date) for record in recent_records],
+        study_streak_count=streak_count,
+        last_study_date=last_study_date,
+    )
+
+
+@app.get("/api/study/day/{study_date}", response_model=StudyDaySchema)
+def get_study_day(
+    study_date: date,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    record = get_study_day_record(session=session, child_id=child.id or 0, target_date=study_date)
+    return build_study_day_schema(record, study_date)
+
+
+@app.put("/api/study/day/{study_date}", response_model=StudyDaySchema)
+def upsert_study_day(
+    study_date: date,
+    payload: StudyDayUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    now = datetime.utcnow()
+    record = get_study_day_record(session=session, child_id=child_id, target_date=study_date)
+    if record is None:
+        record = StudyDay(
+            child_id=child_id,
+            study_date=study_date,
+            created_at=now,
+            updated_at=now,
+        )
+
+    if payload.plan_text is not None:
+        record.plan_text = sanitize_study_text(payload.plan_text, 2000)
+    if payload.studied_text is not None:
+        record.studied_text = sanitize_study_text(payload.studied_text, 3000)
+    if payload.distractions is not None:
+        record.distractions = sanitize_distractions(payload.distractions)
+
+    record.updated_at = now
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return build_study_day_schema(record, record.study_date)
+
+
+_DEFAULT_CODING_SUBJECTS: dict[str, list[dict]] = {
+    "react": [
+        {"topic": "useState e useEffect", "done": False},
+        {"topic": "Componentes e props", "done": False},
+        {"topic": "Context API", "done": False},
+    ],
+    "leetcode": [
+        {"topic": "Arrays e sliding window", "done": False},
+        {"topic": "Strings e dois ponteiros", "done": False},
+        {"topic": "Hash maps", "done": False},
+    ],
+    "typescript": [
+        {"topic": "Types e interfaces", "done": False},
+        {"topic": "Generics", "done": False},
+        {"topic": "Utility types (Partial, Pick, Omit)", "done": False},
+    ],
+    "nextjs": [
+        {"topic": "App Router e layouts", "done": False},
+        {"topic": "Server Components", "done": False},
+        {"topic": "Route handlers e API", "done": False},
+    ],
+}
+
+
+def _build_coding_schema(record: CodingDay | None, study_date: date) -> CodingDaySchema:
+    if record is None:
+        return CodingDaySchema(
+            study_date=study_date,
+            subjects={k: [CodingTopicSchema(**t) for t in v] for k, v in _DEFAULT_CODING_SUBJECTS.items()},
+        )
+    return CodingDaySchema(
+        id=record.id,
+        study_date=record.study_date,
+        subjects={k: [CodingTopicSchema(**t) for t in v] for k, v in (record.subjects or {}).items()},
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+@app.get("/api/study/coding/{study_date}", response_model=CodingDaySchema)
+def get_coding_day(
+    study_date: date,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> CodingDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    record = session.exec(
+        select(CodingDay).where(CodingDay.child_id == child.id, CodingDay.study_date == study_date)
+    ).first()
+    return _build_coding_schema(record, study_date)
+
+
+@app.put("/api/study/coding/{study_date}", response_model=CodingDaySchema)
+def upsert_coding_day(
+    study_date: date,
+    payload: CodingDayUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> CodingDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    now = datetime.utcnow()
+    record = session.exec(
+        select(CodingDay).where(CodingDay.child_id == child_id, CodingDay.study_date == study_date)
+    ).first()
+    subjects_data = {
+        k: [{"topic": t.topic[:120], "done": t.done} for t in v]
+        for k, v in payload.subjects.items()
+    }
+    if record is None:
+        record = CodingDay(child_id=child_id, study_date=study_date, subjects=subjects_data, created_at=now, updated_at=now)
+    else:
+        record.subjects = subjects_data
+        record.updated_at = now
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return _build_coding_schema(record, record.study_date)
+
+
+@app.get("/api/study/diverse/{study_date}", response_model=DiverseDaySchema)
+def get_diverse_day(
+    study_date: date,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DiverseDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    record = session.exec(
+        select(DiverseDay).where(DiverseDay.child_id == child.id, DiverseDay.study_date == study_date)
+    ).first()
+    if record is None:
+        return DiverseDaySchema(study_date=study_date, custom_subjects=[])
+    return DiverseDaySchema(
+        id=record.id,
+        study_date=record.study_date,
+        custom_subjects=[
+            DiverseSubjectSchema(
+                name=s["name"],
+                topics=[CodingTopicSchema(**t) for t in s.get("topics", [])],
+            )
+            for s in (record.custom_subjects or [])
+        ],
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+@app.put("/api/study/diverse/{study_date}", response_model=DiverseDaySchema)
+def upsert_diverse_day(
+    study_date: date,
+    payload: DiverseDayUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DiverseDaySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    now = datetime.utcnow()
+    record = session.exec(
+        select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
+    ).first()
+    subjects_data = [
+        {"name": s.name[:60], "topics": [{"topic": t.topic[:120], "done": t.done} for t in s.topics]}
+        for s in payload.custom_subjects
+    ]
+    if record is None:
+        record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)
+    else:
+        record.custom_subjects = subjects_data
+        record.updated_at = now
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return DiverseDaySchema(
+        id=record.id,
+        study_date=record.study_date,
+        custom_subjects=[
+            DiverseSubjectSchema(name=s["name"], topics=[CodingTopicSchema(**t) for t in s.get("topics", [])])
+            for s in (record.custom_subjects or [])
+        ],
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
 
 
 _LEVEL_LABELS = {
