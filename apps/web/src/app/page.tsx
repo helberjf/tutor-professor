@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, Library, LogIn, Sparkles, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BookOpen, Bot, Brain, ClipboardList, Flame, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -167,6 +167,51 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Mini progress dashboard */}
+        {isAuthenticated && progress && (
+          <section className="mt-4 rounded-[1.5rem] border-2 border-white/80 bg-white/85 p-5 shadow-[0_8px_24px_rgba(14,165,233,0.08)]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Progresso do aluno</p>
+              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">
+                Nível {progress.current_level}
+              </span>
+            </div>
+
+            {/* Progress bar */}
+            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-700"
+                style={{ width: `${Math.min(100, Math.round((progress.vocabulary_learned / Math.max(progress.vocabulary_learned + 5, 15)) * 100))}%` }}
+              />
+            </div>
+
+            {/* Stats row */}
+            <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100">
+              <div className="flex flex-col items-center gap-1 px-2 text-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100">
+                  <Flame size={16} className="text-orange-600" />
+                </div>
+                <p className="text-xl font-black text-slate-800">{progress.streak_count}</p>
+                <p className="text-xs font-semibold text-slate-400">Dias</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 px-2 text-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
+                  <Target size={16} className="text-emerald-600" />
+                </div>
+                <p className="text-xl font-black text-slate-800">{progress.vocabulary_learned}</p>
+                <p className="text-xs font-semibold text-slate-400">Tópicos</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 px-2 text-center">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100">
+                  <BookOpen size={16} className="text-violet-600" />
+                </div>
+                <p className="text-xl font-black text-slate-800">{progress.themes_completed}</p>
+                <p className="text-xs font-semibold text-slate-400">Temas</p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Activity cards */}
         <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-2">
           <ActivityCard
@@ -189,6 +234,17 @@ export default function HomePage() {
             bg="bg-emerald-50"
             border="border-emerald-200"
             iconColor="text-emerald-600"
+            disabled={cardsDisabled}
+          />
+          <ActivityCard
+            href="/study"
+            emoji="ðŸ“"
+            icon={<ClipboardList size={28} />}
+            title="Estudos"
+            description="Planeje e registre seu foco"
+            bg="bg-teal-50"
+            border="border-teal-200"
+            iconColor="text-teal-600"
             disabled={cardsDisabled}
           />
           <ActivityCard
