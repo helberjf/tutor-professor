@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Star, Trophy, XCircle } from 'lucide-react';
 
@@ -40,6 +40,14 @@ function QuizPageContent() {
   const [finished, setFinished] = useState(false);
   const [savingResult, setSavingResult] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<QuizSubmitResponse | null>(null);
+
+  const shuffledOptionsMap = useMemo<Record<number, string[]>>(() => {
+    if (!quiz) return {};
+    return Object.fromEntries(
+      quiz.questions.map((q, i) => [i, [...q.options].sort(() => Math.random() - 0.5)])
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quiz?.id]);
 
   async function loadQuiz() {
     setLoading(true);
@@ -279,7 +287,7 @@ function QuizPageContent() {
             </h1>
           )}
           <div className="mt-6 grid gap-4 md:mt-8">
-            {question.options.map((option) => {
+            {(shuffledOptionsMap[currentIndex] ?? question.options).map((option) => {
               const isChosen = selectedOption === option;
               const optionClass = !selectedOption
                 ? 'border-slate-200 hover:border-secondary hover:bg-secondary-light'

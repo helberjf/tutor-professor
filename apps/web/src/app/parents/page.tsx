@@ -59,6 +59,7 @@ export default function ParentsPage() {
   const [generatorTone, setGeneratorTone] = useState<'idle' | 'success' | 'error'>('idle');
   const [generatedLesson, setGeneratedLesson] = useState<Lesson | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
+  const [showTokenWarning, setShowTokenWarning] = useState(false);
 
   // Tunnel URL state
   const [tunnelDraft, setTunnelDraft] = useState(() => getApiConnectionDetails().baseUrl ?? '');
@@ -577,14 +578,36 @@ export default function ParentsPage() {
                   placeholder="jogos, comida, escola..."
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => void handleGenerateLesson()}
-                disabled={generatingLesson}
-                className="kid-button mt-6 bg-primary hover:bg-primary-dark"
-              >
-                {generatingLesson ? 'Criando licao...' : 'Criar nova licao com IA'}
-              </button>
+              {showTokenWarning && !generatingLesson ? (
+                <div className="mt-5 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-black text-amber-800">⚠️ Esta ação consome tokens da API Gemini (custo real). Confirmar?</p>
+                  <div className="mt-3 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setShowTokenWarning(false); void handleGenerateLesson(); }}
+                      className="rounded-2xl bg-amber-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-amber-700"
+                    >
+                      Sim, gastar tokens
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenWarning(false)}
+                      className="rounded-2xl border-2 border-amber-200 bg-white px-5 py-2.5 text-sm font-black text-amber-700 transition hover:border-amber-400"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowTokenWarning(true)}
+                  disabled={generatingLesson}
+                  className="kid-button mt-6 bg-primary hover:bg-primary-dark"
+                >
+                  {generatingLesson ? 'Criando licao...' : 'Criar nova licao com IA'}
+                </button>
+              )}
               {generatorMessage ? (
                 <p className={`mt-4 text-sm font-bold ${generatorTone === 'error' ? 'text-kid-pink' : 'text-primary-dark'}`}>
                   {generatorMessage}

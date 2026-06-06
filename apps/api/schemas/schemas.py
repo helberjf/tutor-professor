@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -130,6 +130,64 @@ class ProgressSchema(BaseModel):
     last_activity: Optional[datetime]
     current_level: int
     difficult_words: List[str]
+
+
+class StudyDayUpdateSchema(BaseModel):
+    plan_text: Optional[str] = Field(default=None, max_length=2000)
+    studied_text: Optional[str] = Field(default=None, max_length=3000)
+    distractions: Optional[List[str]] = Field(default=None, max_length=20)
+
+
+class StudyDaySchema(BaseModel):
+    id: Optional[int] = None
+    study_date: date
+    plan_text: str = ""
+    studied_text: str = ""
+    distractions: List[str] = Field(default_factory=list)
+    is_study_day: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class StudyDashboardSchema(BaseModel):
+    today: StudyDaySchema
+    recent_days: List[StudyDaySchema] = Field(default_factory=list)
+    study_streak_count: int = 0
+    last_study_date: Optional[date] = None
+
+
+class DiverseSubjectSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=10)
+
+
+class DiverseDaySchema(BaseModel):
+    id: Optional[int] = None
+    study_date: date
+    custom_subjects: List[DiverseSubjectSchema] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class DiverseDayUpdateSchema(BaseModel):
+    custom_subjects: List[DiverseSubjectSchema]
+
+
+class CodingTopicSchema(BaseModel):
+    topic: str = Field(min_length=1, max_length=120)
+    done: bool = False
+
+
+class CodingDaySchema(BaseModel):
+    id: Optional[int] = None
+    study_date: date
+    subjects: Dict[str, List[CodingTopicSchema]] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class CodingDayUpdateSchema(BaseModel):
+    subjects: Dict[str, List[CodingTopicSchema]]
 
 
 class LevelAnalysisSchema(BaseModel):

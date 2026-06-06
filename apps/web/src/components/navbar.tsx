@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BookOpen, Bot, Brain, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 
 const primaryLinks = [
   { href: '/', label: 'Inicio', icon: Home },
   { href: '/lesson', label: 'Licao', icon: BookOpen },
+  { href: '/study', label: 'Estudos', icon: ClipboardList },
   { href: '/quiz', label: 'Quiz', icon: Trophy },
   { href: '/review', label: 'Revisao', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
@@ -33,8 +34,8 @@ export function Navbar() {
       <nav className="fixed left-0 top-0 z-40 w-full border-b border-white/70 bg-white/78 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_32px_rgba(14,165,233,0.12)]">
-              <span className="text-xl font-black text-primary-dark">T</span>
+            <div className="flex h-11 w-11 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-sky-400 via-indigo-500 to-emerald-400 shadow-[0_16px_32px_rgba(14,165,233,0.25)]">
+              <GraduationCap size={22} className="text-white" strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">Language Tutor</p>
