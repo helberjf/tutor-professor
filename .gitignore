@@ -33,6 +33,7 @@ Thumbs.db
 logs/
 *.log
 tmp/
+.superpowers/
 
 # Audio Cache
 apps/api/audio_cache/

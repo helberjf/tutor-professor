@@ -11,7 +11,22 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True, max_length=254)
     cpf_hash: str = Field(unique=True, index=True)
     password_hash: str
+    google_sub: Optional[str] = Field(default=None, unique=True, index=True)
+    auth_provider: str = Field(default="password", max_length=40)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserAISettings(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("user_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    provider: str = Field(default="gemini", max_length=40)
+    api_key_encrypted: str
+    model: str = Field(default="gemini-2.5-flash", max_length=120)
+    base_url: Optional[str] = Field(default=None, max_length=300)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class UserSession(SQLModel, table=True):

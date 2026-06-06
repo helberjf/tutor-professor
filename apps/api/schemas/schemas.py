@@ -176,6 +176,7 @@ class DiverseDayUpdateSchema(BaseModel):
 class CodingTopicSchema(BaseModel):
     topic: str = Field(min_length=1, max_length=120)
     done: bool = False
+    answer: Optional[str] = Field(default=None, max_length=300)
 
 
 class CodingDaySchema(BaseModel):
@@ -289,6 +290,10 @@ class UserRegisterSchema(BaseModel):
     password: str = Field(min_length=6, max_length=128)
     child_name: Optional[str] = Field(default=None, max_length=80)
     target_language: Optional[str] = Field(default=None, max_length=40)
+    ai_provider: Optional[str] = Field(default=None, max_length=40)
+    ai_api_key: Optional[str] = Field(default=None, max_length=500)
+    ai_model: Optional[str] = Field(default=None, max_length=120)
+    ai_base_url: Optional[str] = Field(default=None, max_length=300)
 
 
 class UserLoginSchema(BaseModel):
@@ -302,6 +307,29 @@ class UserResponseSchema(FromAttributesModel):
     last_name: str
     email: str
     created_at: datetime
+
+
+class AIProviderSchema(BaseModel):
+    id: str
+    label: str
+    default_model: str
+    requires_base_url: bool = False
+    is_default: bool = False
+
+
+class UserAISettingsSchema(BaseModel):
+    provider: str = "gemini"
+    model: str = "gemini-2.5-flash"
+    base_url: Optional[str] = None
+    has_api_key: bool = False
+    api_key_preview: Optional[str] = None
+
+
+class UserAISettingsUpdateSchema(BaseModel):
+    provider: str = Field(default="gemini", max_length=40)
+    api_key: Optional[str] = Field(default=None, max_length=500)
+    model: Optional[str] = Field(default=None, max_length=120)
+    base_url: Optional[str] = Field(default=None, max_length=300)
 
 class ParentSettingsUpdateSchema(BaseModel):
     child_name: Optional[str] = None

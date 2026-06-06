@@ -79,6 +79,12 @@ export interface StudyDayUpdatePayload {
 export interface CodingTopic {
   topic: string;
   done: boolean;
+  answer?: string;
+}
+
+export interface CatalogSubject {
+  name: string;
+  topics: CodingTopic[];
 }
 
 export interface CodingDay {
@@ -476,6 +482,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  getDiverseCatalog: () => fetchAPI<CatalogSubject[]>('/api/study/diverse/catalog'),
   getDiverseDay: (studyDate: string) => fetchAPI<DiverseDay>(`/api/study/diverse/${studyDate}`),
   saveDiverseDay: (studyDate: string, payload: DiverseDayUpdatePayload) =>
     fetchAPI<DiverseDay>(`/api/study/diverse/${studyDate}`, {

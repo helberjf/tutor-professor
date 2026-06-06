@@ -3,18 +3,28 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
 import {
-  ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ClipboardList, Code2,
-  Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Timer, Trash2, X,
+  ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2,
+  Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Timer, Trash2, X, Zap,
 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
+import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 const FOCUS_SECONDS = 25 * 60;
 const BREAK_SECONDS = 5 * 60;
 
 type StudyTab = 'english' | 'coding' | 'diverse';
+
+interface StudySession {
+  subjectIndex: number;
+  subjectName: string;
+  topics: CodingTopic[];
+  currentIndex: number;
+  revealed: boolean;
+  results: Array<'knew' | 'partial' | 'unknown'>;
+  done: boolean;
+}
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -73,6 +83,8 @@ export default function StudyPage() {
   const [diverseSaved, setDiverseSaved] = useState('');
   const [diverseError, setDiverseError] = useState('');
   const [newSubjectName, setNewSubjectName] = useState('');
+  const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
+  const [studySession, setStudySession] = useState<StudySession | null>(null);
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -133,6 +145,12 @@ export default function StudyPage() {
       .finally(() => { if (!cancelled) setLoadingDiverse(false); });
     return () => { cancelled = true; };
   }, [authState.status, selectedDate]);
+
+  // ── Load Diverse catalog ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    api.getDiverseCatalog().then(setCatalog).catch(() => {});
+  }, [authState.status]);
 
   // ── Load Coding day ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -243,11 +261,10 @@ export default function StudyPage() {
     if (!name) return;
     const subjects = diverseDay?.custom_subjects ?? [];
     if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
-    const defaultTopics: CodingTopic[] = [
-      { topic: 'Tópico 1', done: false },
-      { topic: 'Tópico 2', done: false },
-      { topic: 'Tópico 3', done: false },
-    ];
+    const catalogEntry = catalog.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
+      ? catalogEntry.topics.map((t) => ({ topic: t.topic, done: false, answer: t.answer ?? '' }))
+      : [{ topic: 'Tópico 1', done: false, answer: '' }, { topic: 'Tópico 2', done: false, answer: '' }, { topic: 'Tópico 3', done: false, answer: '' }];
     const newDay: DiverseDay = {
       id: diverseDay?.id ?? null,
       study_date: selectedDate,
@@ -257,6 +274,30 @@ export default function StudyPage() {
     };
     setDiverseDay(newDay);
     setNewSubjectName('');
+  }
+
+  function updateDiverseTopicAnswer(subjectIndex: number, topicIndex: number, value: string) {
+    if (!diverseDay) return;
+    const subjects = diverseDay.custom_subjects.map((s, si) =>
+      si === subjectIndex
+        ? { ...s, topics: s.topics.map((t, ti) => ti === topicIndex ? { ...t, answer: value } : t) }
+        : s
+    );
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+  }
+
+  function startStudySession(subjectIndex: number) {
+    const subject = diverseDay?.custom_subjects[subjectIndex];
+    if (!subject || subject.topics.length === 0) return;
+    setStudySession({
+      subjectIndex,
+      subjectName: subject.name,
+      topics: subject.topics,
+      currentIndex: 0,
+      revealed: false,
+      results: [],
+      done: false,
+    });
   }
 
   function removeDiverseSubject(index: number) {
@@ -394,6 +435,7 @@ export default function StudyPage() {
           <DiverseTab
             selectedDate={selectedDate}
             diverseDay={diverseDay}
+            catalog={catalog}
             loadingDiverse={loadingDiverse}
             savingDiverse={savingDiverse}
             diverseSaved={diverseSaved}
@@ -404,7 +446,9 @@ export default function StudyPage() {
             onRemoveSubject={removeDiverseSubject}
             onToggleTopic={toggleDiverseTopic}
             onUpdateTopicText={updateDiverseTopicText}
+            onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
+            onStartStudy={startStudySession}
             onSave={() => void saveDiverseDay()}
             pomodoroMode={pomodoroMode}
             pomodoroSeconds={pomodoroSeconds}
@@ -441,6 +485,25 @@ export default function StudyPage() {
           />
         )}
       </div>
+
+      {studySession && (
+        <StudySessionModal
+          session={studySession}
+          onReveal={() => setStudySession((prev) => prev ? { ...prev, revealed: true } : null)}
+          onRate={(rating) => {
+            setStudySession((prev) => {
+              if (!prev) return null;
+              const newResults = [...prev.results, rating];
+              const nextIndex = prev.currentIndex + 1;
+              if (nextIndex >= prev.topics.length) {
+                return { ...prev, results: newResults, done: true, revealed: false };
+              }
+              return { ...prev, results: newResults, currentIndex: nextIndex, revealed: false };
+            });
+          }}
+          onClose={() => setStudySession(null)}
+        />
+      )}
     </main>
   );
 }
@@ -811,15 +874,17 @@ function CodingTab({
 // DIVERSE TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function DiverseTab({
-  selectedDate, diverseDay, loadingDiverse, savingDiverse,
+  selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
-  onAddSubject, onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateSubjectName, onSave,
+  onAddSubject, onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
+  onUpdateSubjectName, onStartStudy, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
   selectedDate: string;
   diverseDay: DiverseDay | null;
+  catalog: CatalogSubject[];
   loadingDiverse: boolean; savingDiverse: boolean;
   diverseSaved: string; diverseError: string;
   newSubjectName: string; setNewSubjectName: (v: string) => void;
@@ -827,7 +892,9 @@ function DiverseTab({
   onRemoveSubject: (i: number) => void;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
+  onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
+  onStartStudy: (si: number) => void;
   onSave: () => void;
   pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
@@ -835,6 +902,8 @@ function DiverseTab({
   onSwitchPomodoro: (m: 'focus' | 'break') => void;
   onRequestNotifications: () => void;
 }) {
+  const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null); // "si-ti"
+
   const subjects = diverseDay?.custom_subjects ?? [];
   const totalDone = subjects.flatMap((s) => s.topics).filter((t) => t.done).length;
   const totalTopics = subjects.flatMap((s) => s.topics).length;
@@ -856,16 +925,22 @@ function DiverseTab({
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="space-y-4">
-          {/* Add subject */}
+          {/* Add subject with datalist */}
           <div className="flex gap-2">
-            <input
-              value={newSubjectName}
-              onChange={(e) => setNewSubjectName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAddSubject(); } }}
-              maxLength={60}
-              placeholder="Nova matéria: Filosofia, Piano, Culinária..."
-              className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
-            />
+            <>
+              <input
+                list="catalog-subjects"
+                value={newSubjectName}
+                onChange={(e) => setNewSubjectName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAddSubject(); } }}
+                maxLength={60}
+                placeholder="Matéria: Francês, Piano, Culinária..."
+                className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
+              />
+              <datalist id="catalog-subjects">
+                {catalog.map((c) => <option key={c.name} value={c.name} />)}
+              </datalist>
+            </>
             <button type="button" onClick={onAddSubject}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700">
               <Plus size={18} /> Criar
@@ -889,6 +964,7 @@ function DiverseTab({
               const allDone = subject.topics.length > 0 && doneCount === subject.topics.length;
               return (
                 <div key={si} className={`rounded-[1.5rem] border-2 bg-white p-5 transition ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
+                  {/* Subject header */}
                   <div className="flex items-center justify-between gap-3">
                     <input
                       value={subject.name}
@@ -906,28 +982,59 @@ function DiverseTab({
                     </div>
                   </div>
 
+                  {/* Progress bar */}
                   <div className="mt-3 flex gap-1">
                     {subject.topics.map((t, ti) => (
                       <div key={ti} className={`h-1.5 flex-1 rounded-full transition-all ${t.done ? 'bg-emerald-400' : 'bg-slate-100'}`} />
                     ))}
                   </div>
 
-                  <ul className="mt-4 space-y-2">
-                    {subject.topics.map((t, ti) => (
-                      <li key={ti} className="flex items-center gap-3">
-                        <button type="button" onClick={() => onToggleTopic(si, ti)}
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
-                          {t.done && <CheckCircle2 size={13} />}
-                        </button>
-                        <input
-                          value={t.topic}
-                          onChange={(e) => onUpdateTopicText(si, ti, e.target.value)}
-                          maxLength={120}
-                          className={`flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold outline-none transition focus:border-primary focus:bg-white ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                        />
-                      </li>
-                    ))}
+                  {/* Topics with answer fields */}
+                  <ul className="mt-4 space-y-3">
+                    {subject.topics.map((t, ti) => {
+                      const answerKey = `${si}-${ti}`;
+                      const answerOpen = expandedAnswer === answerKey;
+                      return (
+                        <li key={ti} className="space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            <button type="button" onClick={() => onToggleTopic(si, ti)}
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
+                              {t.done && <CheckCircle2 size={13} />}
+                            </button>
+                            <input
+                              value={t.topic}
+                              onChange={(e) => onUpdateTopicText(si, ti, e.target.value)}
+                              maxLength={120}
+                              placeholder="Pergunta / tópico"
+                              className={`flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold outline-none transition focus:border-primary focus:bg-white ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                            />
+                            <button type="button"
+                              onClick={() => setExpandedAnswer(answerOpen ? null : answerKey)}
+                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 transition text-xs font-black ${answerOpen ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+                              title="Resposta">
+                              R
+                            </button>
+                          </div>
+                          {answerOpen && (
+                            <input
+                              value={t.answer ?? ''}
+                              onChange={(e) => onUpdateTopicAnswer(si, ti, e.target.value)}
+                              maxLength={300}
+                              placeholder="Resposta (opcional para o modo de estudo)"
+                              className="ml-9 w-[calc(100%-2.5rem)] rounded-xl border-2 border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
+                            />
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
+
+                  {/* Iniciar Estudo button */}
+                  <button type="button" onClick={() => onStartStudy(si)}
+                    disabled={subject.topics.length === 0}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    <Zap size={16} /> Iniciar Estudo
+                  </button>
                 </div>
               );
             })
@@ -951,13 +1058,140 @@ function DiverseTab({
           <div className="kid-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Crie qualquer matéria: um instrumento, um idioma, uma habilidade, um hobby.</p>
-              <p>Edite o nome da matéria e os tópicos clicando diretamente no texto.</p>
-              <p>Salve ao final do dia para manter o histórico.</p>
+              <p>Crie qualquer matéria: idioma, instrumento, hobby. Selecione um já existente no campo de texto para reaproveitar os tópicos.</p>
+              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a resposta.</p>
+              <p>Clique em <strong>Iniciar Estudo</strong> para revisar por flashcards.</p>
             </div>
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STUDY SESSION MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+function StudySessionModal({
+  session, onReveal, onRate, onClose,
+}: {
+  session: StudySession;
+  onReveal: () => void;
+  onRate: (r: 'knew' | 'partial' | 'unknown') => void;
+  onClose: () => void;
+}) {
+  const topic = session.topics[session.currentIndex];
+  const total = session.topics.length;
+  const progress = session.done ? total : session.currentIndex;
+
+  const knewCount = session.results.filter((r) => r === 'knew').length;
+  const partialCount = session.results.filter((r) => r === 'partial').length;
+  const unknownCount = session.results.filter((r) => r === 'unknown').length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 p-4 md:p-8">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-300">Modo estudo</p>
+          <h2 className="text-xl font-black text-white">{session.subjectName}</h2>
+        </div>
+        <button type="button" onClick={onClose}
+          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20">
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-5 flex gap-1.5">
+        {session.topics.map((_, i) => (
+          <div key={i} className={`h-2 flex-1 rounded-full transition-all ${
+            i < progress ? (session.results[i] === 'knew' ? 'bg-emerald-400' : session.results[i] === 'partial' ? 'bg-amber-400' : 'bg-rose-400')
+            : i === session.currentIndex && !session.done ? 'bg-white/60' : 'bg-white/15'
+          }`} />
+        ))}
+      </div>
+      <p className="mt-2 text-center text-sm font-bold text-indigo-300">{progress}/{total}</p>
+
+      {/* Content */}
+      {session.done ? (
+        /* Summary screen */
+        <div className="mx-auto mt-10 flex w-full max-w-md flex-col items-center gap-6 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-[2rem] bg-white/10 text-4xl">
+            {knewCount >= total * 0.7 ? '🎉' : knewCount >= total * 0.4 ? '💪' : '📚'}
+          </div>
+          <div>
+            <h3 className="text-3xl font-black text-white">Sessão concluída!</h3>
+            <p className="mt-2 text-base text-indigo-300">{session.subjectName}</p>
+          </div>
+          <div className="grid w-full grid-cols-3 gap-3">
+            <div className="rounded-[1.25rem] bg-emerald-500/20 p-4 text-center">
+              <p className="text-3xl font-black text-emerald-300">{knewCount}</p>
+              <p className="mt-1 text-xs font-bold text-emerald-400">Sabia</p>
+            </div>
+            <div className="rounded-[1.25rem] bg-amber-500/20 p-4 text-center">
+              <p className="text-3xl font-black text-amber-300">{partialCount}</p>
+              <p className="mt-1 text-xs font-bold text-amber-400">Mais ou menos</p>
+            </div>
+            <div className="rounded-[1.25rem] bg-rose-500/20 p-4 text-center">
+              <p className="text-3xl font-black text-rose-300">{unknownCount}</p>
+              <p className="mt-1 text-xs font-bold text-rose-400">Não sabia</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose}
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-base font-black text-indigo-900 transition hover:bg-indigo-100">
+            Voltar às matérias
+          </button>
+        </div>
+      ) : topic ? (
+        /* Card */
+        <div className="mx-auto mt-8 flex w-full max-w-md flex-1 flex-col">
+          <div className="flex flex-1 flex-col rounded-[1.75rem] bg-white/10 p-7 backdrop-blur-sm">
+            <p className="text-center text-xs font-bold uppercase tracking-[0.18em] text-indigo-300">
+              Pergunta {session.currentIndex + 1}
+            </p>
+            <div className="mt-6 flex flex-1 items-center justify-center">
+              <p className="text-center text-2xl font-black leading-snug text-white md:text-3xl">
+                {topic.topic}
+              </p>
+            </div>
+
+            {session.revealed ? (
+              <div className="mt-6 rounded-[1.25rem] bg-white/15 p-5">
+                <p className="text-center text-xs font-bold uppercase tracking-[0.16em] text-indigo-300">Resposta</p>
+                <p className="mt-3 text-center text-lg font-black text-white">
+                  {topic.answer?.trim() || <span className="italic text-indigo-300">Sem resposta cadastrada</span>}
+                </p>
+              </div>
+            ) : (
+              <button type="button" onClick={onReveal}
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/20 px-5 py-4 text-base font-black text-white transition hover:bg-white/30">
+                <ChevronRight size={18} /> Revelar resposta
+              </button>
+            )}
+          </div>
+
+          {session.revealed && (
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <button type="button" onClick={() => onRate('knew')}
+                className="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-500 px-3 py-4 font-black text-white transition hover:bg-emerald-400">
+                <span className="text-2xl">✓</span>
+                <span className="text-xs">Sabia</span>
+              </button>
+              <button type="button" onClick={() => onRate('partial')}
+                className="flex flex-col items-center gap-1.5 rounded-2xl bg-amber-500 px-3 py-4 font-black text-white transition hover:bg-amber-400">
+                <span className="text-2xl">~</span>
+                <span className="text-xs">Mais ou menos</span>
+              </button>
+              <button type="button" onClick={() => onRate('unknown')}
+                className="flex flex-col items-center gap-1.5 rounded-2xl bg-rose-500 px-3 py-4 font-black text-white transition hover:bg-rose-400">
+                <span className="text-2xl">✗</span>
+                <span className="text-xs">Não sabia</span>
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
