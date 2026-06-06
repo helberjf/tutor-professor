@@ -61,6 +61,8 @@ function LessonPageContent() {
   const [savingLesson, setSavingLesson] = useState(false);
   const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [allDone, setAllDone] = useState(false);
+  const [generatingNew, setGeneratingNew] = useState(false);
 
   useEffect(() => {
     if (completed) setShowCelebration(true);
@@ -69,17 +71,29 @@ function LessonPageContent() {
   async function loadLesson() {
     setLoading(true);
     setGenerating(false);
+    setAllDone(false);
     try {
       const id = lessonIdParam ? parseInt(lessonIdParam, 10) : null;
-      if (!id || isNaN(id)) {
-        // No lesson yet — the backend will auto-generate; show generating state
-        setGenerating(true);
+
+      let lessonPromise: Promise<Lesson>;
+      if (id && !isNaN(id)) {
+        lessonPromise = api.getLessonById(id);
+      } else {
+        // Try to resume from where the user left off — no AI generation
+        lessonPromise = api.getNextLesson().catch((err) => {
+          if (err instanceof ApiError && err.status === 404) {
+            setAllDone(true);
+            return Promise.reject(err);
+          }
+          return Promise.reject(err);
+        });
       }
-      // Fetch lesson + level in parallel
+
       const [data, level] = await Promise.all([
-        id && !isNaN(id) ? api.getLessonById(id) : api.getTodayLesson(),
+        lessonPromise,
         api.getChildLevel().catch(() => null),
       ]);
+
       setLesson(data);
       setCurrentIndex(0);
       setCompleted(false);
@@ -92,9 +106,40 @@ function LessonPageContent() {
         try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(level)); } catch { /* ignore */ }
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a licao.'));
+      if (err instanceof ApiError && err.status === 404) {
+        // allDone already set — not a real error
+      } else {
+        setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a licao.'));
+      }
     } finally {
       setLoading(false);
+      setGenerating(false);
+    }
+  }
+
+  async function generateNewLesson() {
+    setGeneratingNew(true);
+    setAllDone(false);
+    setError(null);
+    try {
+      setGenerating(true);
+      const [data, level] = await Promise.all([
+        api.getTodayLesson(),
+        api.getChildLevel().catch(() => null),
+      ]);
+      setLesson(data);
+      setCurrentIndex(0);
+      setCompleted(false);
+      setSelectedAnswer(null);
+      setSaveError(null);
+      if (level) {
+        setLevelInfo(level);
+        try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(level)); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel gerar a licao.'));
+    } finally {
+      setGeneratingNew(false);
       setGenerating(false);
     }
   }
@@ -211,15 +256,57 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title={generating ? 'Gerando sua licao com IA...' : 'Abrindo a licao de hoje'}
+        title={generating ? 'Gerando nova licao com IA...' : 'Abrindo onde voce parou'}
         message={
           generating
             ? 'O Gemini esta criando frases no nivel certo para voce. Pode demorar alguns segundos.'
-            : 'Estamos preparando as frases, os sons e a miniatividade para voce.'
+            : 'Buscando sua proxima licao...'
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
+    );
+  }
+
+  if (allDone) {
+    return (
+      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+        <div className="mx-auto max-w-2xl">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary mb-6">
+            <ArrowLeft size={18} /> Voltar
+          </Link>
+          <div className="kid-surface border-emerald-200 p-8 text-center md:p-12">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+              <CheckCircle2 className="text-emerald-600" size={44} />
+            </div>
+            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Tudo em dia!</h1>
+            <p className="mt-3 text-base leading-7 text-slate-500 md:text-lg">
+              Voce completou todas as licoes disponiveis no seu nivel. Quer continuar com uma nova licao gerada por IA?
+            </p>
+
+            <div className="mt-8 flex flex-col items-center gap-4">
+              <div className="rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-700">
+                ⚠️ Gerar uma nova licao consome tokens da API Gemini.
+              </div>
+              <button
+                type="button"
+                onClick={() => void generateNewLesson()}
+                disabled={generatingNew}
+                className="inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark disabled:opacity-70"
+              >
+                {generatingNew ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
+                {generatingNew ? 'Gerando...' : 'Gerar nova licao com IA'}
+              </button>
+              <Link href="/review" className="rounded-full border-2 border-slate-200 px-8 py-4 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary">
+                Praticar revisao das frases
+              </Link>
+              <Link href="/" className="text-sm font-semibold text-slate-400 hover:text-slate-600 transition">
+                Voltar ao inicio
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
     );
   }
 

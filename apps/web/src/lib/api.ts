@@ -453,6 +453,7 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
 
 export const api = {
   request: fetchAPI,
+  getNextLesson: () => fetchAPI<Lesson>('/api/lesson/next'),
   getTodayLesson: () => fetchAPI<Lesson>('/api/lesson/today'),
   getAllLessons: () => fetchAPI<LessonSummary[]>('/api/lessons'),
   getLessonById: (id: number) => fetchAPI<Lesson>(`/api/lesson/${id}`),

@@ -733,6 +733,17 @@ def list_all_lessons(request: Request, session: Session = Depends(get_session)) 
     ]
 
 
+@app.get("/api/lesson/next", response_model=LessonSchema)
+def get_next_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
+    """Returns the next incomplete lesson without generating — 404 if all done."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
+    if lesson is None:
+        raise HTTPException(status_code=404, detail="Nenhuma licao pendente")
+    return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
+
+
 @app.get("/api/lesson/today", response_model=LessonSchema)
 def get_today_lesson(request: Request, session: Session = Depends(get_session)) -> LessonSchema:
     require_parent_session(request, session)
