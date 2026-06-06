@@ -1171,6 +1171,23 @@ def upsert_coding_day(
     return _build_coding_schema(record, record.study_date)
 
 
+@app.get("/api/study/diverse/catalog")
+def get_diverse_catalog(request: Request, session: Session = Depends(get_session)) -> list[dict]:
+    """Returns all unique subjects ever created, most recent topics per name."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    records = session.exec(
+        select(DiverseDay).where(DiverseDay.child_id == child.id).order_by(DiverseDay.study_date.desc()).limit(60)
+    ).all()
+    seen: dict[str, dict] = {}
+    for record in records:
+        for subject in (record.custom_subjects or []):
+            name = subject.get("name", "").strip()
+            if name and name not in seen:
+                seen[name] = {"name": name, "topics": subject.get("topics", [])}
+    return list(seen.values())
+
+
 @app.get("/api/study/diverse/{study_date}", response_model=DiverseDaySchema)
 def get_diverse_day(
     study_date: date,
@@ -1214,7 +1231,7 @@ def upsert_diverse_day(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
     subjects_data = [
-        {"name": s.name[:60], "topics": [{"topic": t.topic[:120], "done": t.done} for t in s.topics]}
+        {"name": s.name[:60], "topics": [{"topic": t.topic[:120], "done": t.done, "answer": (t.answer or "")[:300]} for t in s.topics]}
         for s in payload.custom_subjects
     ]
     if record is None:

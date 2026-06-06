@@ -19,7 +19,9 @@ from models.database import (  # noqa: F401
     ParentSettings,
     QuizAttempt,
     ReviewItem,
+    StudyDay,
     User,
+    UserSession,
 )
 
 config = context.config
