@@ -104,6 +104,26 @@ export default function StudyPage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [pomodoroMessage, setPomodoroMessage] = useState('');
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'english' || tab === 'coding' || tab === 'diverse') {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  function selectStudyTab(tab: StudyTab) {
+    setActiveTab(tab);
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (tab === 'english') {
+      url.searchParams.delete('tab');
+    } else {
+      url.searchParams.set('tab', tab);
+    }
+    window.history.replaceState(null, '', url.toString());
+  }
+
   // ── Load dashboard ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
@@ -347,7 +367,7 @@ export default function StudyPage() {
       setDiverseDay(newDay);
       setNewSubjectName('');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel gerar flashcards com IA.';
+      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar aula com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); }
   }
@@ -419,10 +439,10 @@ export default function StudyPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="mb-6 flex gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
-          <TabButton active={activeTab === 'english'} onClick={() => setActiveTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
-          <TabButton active={activeTab === 'coding'} onClick={() => setActiveTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
-          <TabButton active={activeTab === 'diverse'} onClick={() => setActiveTab('diverse')} icon={<Layers size={17} />} label="Diverso" />
+        <div className="mb-6 grid gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5 sm:grid-cols-3">
+          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
+          <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
+          <TabButton active={activeTab === 'diverse'} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras materias" />
         </div>
 
         {/* Date picker (shared) */}
@@ -964,8 +984,8 @@ function DiverseTab({
     <div className="space-y-6">
       {/* Header */}
       <section className="kid-surface border-primary/30 p-6 md:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aprendizado Diverso · crie suas matérias</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Suas matérias</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras materias</p>
+        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <MetricCard icon={<Layers size={22} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
@@ -1006,7 +1026,7 @@ function DiverseTab({
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-base font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generatingAI ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-              {generatingAI ? 'Gerando flashcards com IA...' : 'Gerar flashcards com IA'}
+              {generatingAI ? 'Criando aula com IA...' : 'Criar aula com IA'}
             </button>
             {aiError && (
               <div className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
@@ -1044,7 +1064,7 @@ function DiverseTab({
             <div className="rounded-[1.5rem] border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
               <Layers className="mx-auto text-slate-300" size={40} />
               <p className="mt-4 text-base font-bold text-slate-400">Nenhuma matéria ainda.</p>
-              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e pressione Criar.</p>
+              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar aula com IA.</p>
             </div>
           ) : (
             subjects.map((subject, si) => (
@@ -1078,7 +1098,7 @@ function DiverseTab({
           <div className="kid-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Gerar flashcards com IA</strong> para criar flashcards automaticamente.</p>
+              <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar aula com IA</strong>.</p>
               <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
               <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>

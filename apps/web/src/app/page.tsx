@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, ClipboardList, Flame, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -246,6 +246,18 @@ export default function HomePage() {
             border="border-teal-200"
             iconColor="text-teal-600"
             disabled={cardsDisabled}
+          />
+          <ActivityCard
+            href="/diverse"
+            emoji="AI"
+            icon={<Layers size={28} />}
+            title="Outras materias"
+            description="Crie aulas com IA"
+            bg="bg-indigo-50"
+            border="border-indigo-200"
+            iconColor="text-indigo-600"
+            disabled={cardsDisabled}
+            highlight
           />
           <ActivityCard
             href="/chat"
