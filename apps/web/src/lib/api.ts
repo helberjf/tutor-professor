@@ -291,6 +291,10 @@ export interface UserRegisterPayload {
   password: string;
   child_name?: string;
   target_language?: string;
+  ai_provider?: string;
+  ai_api_key?: string;
+  ai_model?: string;
+  ai_base_url?: string;
 }
 
 // Admin Learn types
@@ -357,6 +361,44 @@ export interface AdminFlashcardPayload {
   back: string;
   category: string;
   code_example?: string;
+}
+
+export interface GenerateFlashcardsPayload {
+  subject: string;
+  count?: number;
+}
+
+export interface GeneratedFlashcard {
+  topic: string;
+  answer: string;
+}
+
+export interface GenerateFlashcardsResponse {
+  subject: string;
+  flashcards: GeneratedFlashcard[];
+}
+
+export interface UserAISettings {
+  provider: string;
+  model: string;
+  base_url: string | null;
+  has_api_key: boolean;
+  api_key_preview: string | null;
+}
+
+export interface AIProvider {
+  id: string;
+  label: string;
+  default_model: string;
+  requires_base_url: boolean;
+  is_default: boolean;
+}
+
+export interface UserAISettingsPayload {
+  provider: string;
+  api_key?: string;
+  model?: string;
+  base_url?: string;
 }
 
 export class ApiError extends Error {
@@ -541,6 +583,15 @@ export const api = {
     fetchAPI<{ status: string }>('/api/auth/logout', {
       method: 'POST',
     }),
+  getGoogleLoginUrl: async (next = '/parents') => {
+    const apiBaseUrl = await resolveApiBaseUrl();
+    if (!apiBaseUrl) {
+      throw new ApiError('Este aparelho ainda nao esta conectado a um backend.', {
+        code: 'unconfigured',
+      });
+    }
+    return `${apiBaseUrl}/api/auth/google/start?next=${encodeURIComponent(next)}`;
+  },
   getParentSettings: () => fetchAPI<ParentSettings>('/api/parent/settings'),
   listParentChildren: () => fetchAPI<ChildProfile[]>('/api/parent/children'),
   getParentProgress: () => fetchAPI<ChildProgressSummary[]>('/api/parent/progress'),
@@ -587,4 +638,16 @@ export const api = {
     }),
   adminDeleteFlashcard: (id: number) =>
     fetchAPI<void>(`/api/admin/learn/flashcards/${id}`, { method: 'DELETE' }),
+  generateStudyFlashcards: (payload: GenerateFlashcardsPayload) =>
+    fetchAPI<GenerateFlashcardsResponse>('/api/study/diverse/generate-flashcards', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getAIProviders: () => fetchAPI<AIProvider[]>('/api/ai/providers'),
+  getUserAISettings: () => fetchAPI<UserAISettings>('/api/ai/settings'),
+  saveUserAISettings: (payload: UserAISettingsPayload) =>
+    fetchAPI<UserAISettings>('/api/ai/settings', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 };

@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import os
@@ -6,17 +7,23 @@ import secrets
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlencode
+
+import requests
+from cryptography.fernet import Fernet, InvalidToken
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, DiverseDay, Lesson, LessonItem, QuizAttempt, ReviewItem, StudyDay, User, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, DiverseDay, Lesson, LessonItem, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
+    AIProviderSchema,
     BookPageSchema,
     BookSchema,
     BookSummarySchema,
@@ -26,6 +33,9 @@ from schemas.schemas import (
     ChildProfileSchema,
     CreateChildProfileSchema,
     GenerateBookRequestSchema,
+    GenerateFlashcardsRequestSchema,
+    GenerateFlashcardsResponseSchema,
+    GeneratedFlashcardSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LevelAnalysisSchema,
@@ -34,6 +44,8 @@ from schemas.schemas import (
     LessonSummarySchema,
     ParentLoginSchema,
     ParentSettingsUpdateSchema,
+    UserAISettingsSchema,
+    UserAISettingsUpdateSchema,
     UserLoginSchema,
     UserRegisterSchema,
     UserResponseSchema,
@@ -59,7 +71,7 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
-from services.phrase_generator_service import PhraseGenerationService
+from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.review_service import (
     build_review_cards,
     compute_review_priority,
@@ -83,6 +95,22 @@ PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
 PARENT_COOKIE_MAX_AGE = int(os.getenv("PARENT_COOKIE_MAX_AGE", str(60 * 60 * 24 * 7)))
 PARENT_SESSION_COOKIE_NAME = "parent_session"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+GOOGLE_OAUTH_STATE_COOKIE_NAME = "google_oauth_state"
+GOOGLE_OAUTH_NEXT_COOKIE_NAME = "google_oauth_next"
+
+AI_PROVIDER_OPTIONS: list[dict[str, str | bool]] = [
+    {"id": "gemini", "label": "Gemini", "default_model": AI_PROVIDER_DEFAULT_MODELS["gemini"], "requires_base_url": False, "is_default": True},
+    {"id": "openai", "label": "OpenAI", "default_model": AI_PROVIDER_DEFAULT_MODELS["openai"], "requires_base_url": False, "is_default": False},
+    {"id": "anthropic", "label": "Anthropic", "default_model": AI_PROVIDER_DEFAULT_MODELS["anthropic"], "requires_base_url": False, "is_default": False},
+    {"id": "openrouter", "label": "OpenRouter", "default_model": AI_PROVIDER_DEFAULT_MODELS["openrouter"], "requires_base_url": False, "is_default": False},
+    {"id": "groq", "label": "Groq", "default_model": AI_PROVIDER_DEFAULT_MODELS["groq"], "requires_base_url": False, "is_default": False},
+    {"id": "mistral", "label": "Mistral", "default_model": AI_PROVIDER_DEFAULT_MODELS["mistral"], "requires_base_url": False, "is_default": False},
+]
+AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
@@ -162,6 +190,25 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE lesson ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
             except Exception:
                 pass
+        # Add Google OAuth fields to user records
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS google_sub TEXT'))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN google_sub TEXT'))
+            except Exception:
+                pass
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT \'password\''))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN auth_provider TEXT NOT NULL DEFAULT \'password\''))
+            except Exception:
+                pass
+        try:
+            conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ix_user_google_sub_unique ON "user" (google_sub)'))
+        except Exception:
+            pass
         # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
@@ -419,15 +466,6 @@ def compute_and_update_child_level(session: Session, child: ChildProfile) -> int
 
 def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Lesson:
     """Return a shared generated lesson at the child's level, generating one if none exists."""
-    if not phrase_generation_service.is_configured():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Nenhuma licao foi encontrada e o GEMINI_API_KEY nao esta configurado no backend. "
-                "Configure a chave para gerar licoes automaticamente."
-            ),
-        )
-
     level = compute_and_update_child_level(session=session, child=child)
 
     # ── Reuse from shared pool if a lesson at this level exists ─────────────
@@ -452,6 +490,20 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
         item.word_en
         for item in session.exec(select(LessonItem).order_by(LessonItem.id)).all()
     ]
+    ai_config = _get_user_ai_config_for_user_id(child.user_id, session)
+    if child.user_id is not None and ai_config is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Configure uma chave de API de IA na sua conta antes de gerar novas licoes.",
+        )
+    if not phrase_generation_service.is_configured(ai_config):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Nenhuma licao foi encontrada e uma chave de API de IA nao esta configurada. "
+                "Configure a chave para gerar licoes automaticamente."
+            ),
+        )
 
     try:
         draft = phrase_generation_service.generate_lesson_draft(
@@ -460,6 +512,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             existing_phrases=existing_phrases,
             level=level,
             target_language=child.target_language,
+            ai_config=ai_config,
         )
     except Exception as exc:
         raise HTTPException(
@@ -482,8 +535,8 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
                 }
                 for phrase in draft.phrases
             ],
-            "generated_by": "gemini",
-            "generated_model": phrase_generation_service.model,
+            "generated_by": ai_config.provider if ai_config else "gemini",
+            "generated_model": ai_config.model if ai_config else phrase_generation_service.model,
             "generated_level": level,
             "generated_at": datetime.utcnow().isoformat(),
         },
@@ -1423,6 +1476,130 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
+# ── API key encryption (Fernet symmetric, key derived from SESSION_SECRET) ───
+
+def _derive_fernet_key() -> bytes:
+    raw = hashlib.sha256(SESSION_SECRET.encode()).digest()
+    return base64.urlsafe_b64encode(raw)
+
+
+def encrypt_api_key(api_key: str) -> str:
+    return Fernet(_derive_fernet_key()).encrypt(api_key.encode()).decode()
+
+
+def decrypt_api_key(encrypted: str) -> str:
+    return Fernet(_derive_fernet_key()).decrypt(encrypted.encode()).decode()
+
+
+def mask_api_key(api_key: str) -> str:
+    clean = api_key.strip()
+    if len(clean) >= 8:
+        return f"{clean[:4]}...{clean[-4:]}"
+    return "****"
+
+
+def validate_ai_provider(provider: str | None) -> str:
+    normalized = (provider or "gemini").strip().lower()
+    if normalized not in AI_PROVIDER_IDS:
+        raise HTTPException(status_code=422, detail="Provedor de IA nao suportado.")
+    return normalized
+
+
+def default_model_for_provider(provider: str) -> str:
+    return AI_PROVIDER_DEFAULT_MODELS.get(provider, AI_PROVIDER_DEFAULT_MODELS["gemini"])
+
+
+def build_ai_settings_schema(record: UserAISettings | None) -> UserAISettingsSchema:
+    if record is None:
+        return UserAISettingsSchema(
+            provider="gemini",
+            model=AI_PROVIDER_DEFAULT_MODELS["gemini"],
+            has_api_key=False,
+        )
+    preview = "****"
+    try:
+        preview = mask_api_key(decrypt_api_key(record.api_key_encrypted))
+    except InvalidToken:
+        preview = "****"
+    except Exception:
+        preview = "****"
+    return UserAISettingsSchema(
+        provider=record.provider,
+        model=record.model,
+        base_url=record.base_url,
+        has_api_key=True,
+        api_key_preview=preview,
+    )
+
+
+def get_user_ai_settings_record(user_id: int, session: Session) -> UserAISettings | None:
+    return session.exec(select(UserAISettings).where(UserAISettings.user_id == user_id)).first()
+
+
+def save_ai_settings_for_user(
+    *,
+    user_id: int,
+    payload: UserAISettingsUpdateSchema,
+    session: Session,
+) -> UserAISettings:
+    provider = validate_ai_provider(payload.provider)
+    model = (payload.model or "").strip() or default_model_for_provider(provider)
+    api_key = (payload.api_key or "").strip()
+    base_url = (payload.base_url or "").strip() or None
+    now = datetime.utcnow()
+
+    record = get_user_ai_settings_record(user_id, session)
+    if record is None:
+        if not api_key:
+            raise HTTPException(status_code=422, detail="Chave de API obrigatoria para salvar as configuracoes.")
+        record = UserAISettings(
+            user_id=user_id,
+            provider=provider,
+            api_key_encrypted=encrypt_api_key(api_key),
+            model=model,
+            base_url=base_url,
+            created_at=now,
+            updated_at=now,
+        )
+    else:
+        record.provider = provider
+        if api_key:
+            record.api_key_encrypted = encrypt_api_key(api_key)
+        record.model = model
+        record.base_url = base_url
+        record.updated_at = now
+
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return record
+
+
+def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AIProviderConfig | None:
+    if user_id is None:
+        return None
+    record = get_user_ai_settings_record(user_id, session)
+    if record is None:
+        return None
+    try:
+        api_key = decrypt_api_key(record.api_key_encrypted)
+    except Exception:
+        return None
+    return AIProviderConfig(
+        provider=record.provider,
+        api_key=api_key,
+        model=record.model,
+        base_url=record.base_url,
+    )
+
+
+def _get_user_ai_config(session_record: UserSession | None, session: Session) -> AIProviderConfig | None:
+    """Return the stored AIProviderConfig for the current user, or None if not configured."""
+    if session_record is None:
+        return None
+    return _get_user_ai_config_for_user_id(session_record.user_id, session)
+
+
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
 @app.post("/api/auth/register", response_model=UserResponseSchema, status_code=201)
@@ -1440,6 +1617,9 @@ def user_register(
     cpf_hash = hash_cpf(payload.cpf)
     if session.exec(select(User).where(User.cpf_hash == cpf_hash)).first():
         raise HTTPException(status_code=409, detail="Este CPF já está cadastrado.")
+
+    if payload.ai_api_key:
+        validate_ai_provider(payload.ai_provider)
 
     user = User(
         first_name=payload.first_name.strip(),
@@ -1461,6 +1641,18 @@ def user_register(
     )
     session.add(child)
     session.commit()
+
+    if payload.ai_api_key and user.id is not None:
+        save_ai_settings_for_user(
+            user_id=user.id,
+            payload=UserAISettingsUpdateSchema(
+                provider=payload.ai_provider or "gemini",
+                api_key=payload.ai_api_key,
+                model=payload.ai_model,
+                base_url=payload.ai_base_url,
+            ),
+            session=session,
+        )
 
     return UserResponseSchema.model_validate(user)
 
@@ -1506,6 +1698,169 @@ def user_logout(
 ) -> dict[str, str]:
     clear_parent_session(request=request, response=response, session=session)
     return {"status": "success"}
+
+
+def normalize_oauth_next(next_path: str | None) -> str:
+    value = (next_path or "/parents").strip()
+    if not value.startswith("/") or value.startswith("//"):
+        return "/parents"
+    return value
+
+
+def google_oauth_configured() -> bool:
+    return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI)
+
+
+def build_frontend_redirect(next_path: str | None) -> str:
+    return f"{FRONTEND_BASE_URL}{normalize_oauth_next(next_path)}"
+
+
+def get_or_create_google_user(profile: dict, session: Session) -> User:
+    google_sub = str(profile.get("sub") or "").strip()
+    email = str(profile.get("email") or "").strip().lower()
+    if not google_sub or not email:
+        raise HTTPException(status_code=400, detail="Perfil do Google sem e-mail ou identificador.")
+
+    user = session.exec(select(User).where(User.google_sub == google_sub)).first()
+    if user is None:
+        user = session.exec(select(User).where(User.email == email)).first()
+
+    first_name = str(profile.get("given_name") or "").strip() or email.split("@")[0]
+    last_name = str(profile.get("family_name") or "").strip() or "Google"
+    if user is None:
+        user = User(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            cpf_hash=f"google:{hashlib.sha256(google_sub.encode()).hexdigest()}",
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            google_sub=google_sub,
+            auth_provider="google",
+        )
+    else:
+        user.google_sub = google_sub
+        user.auth_provider = "google" if user.auth_provider == "password" else user.auth_provider
+        if not user.first_name:
+            user.first_name = first_name
+        if not user.last_name:
+            user.last_name = last_name
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
+        session.add(ChildProfile(name=user.first_name or "Kid", age_group="7-9", user_id=user.id))
+        session.commit()
+
+    return user
+
+
+@app.get("/api/auth/google/start")
+def google_auth_start(next: str = "/parents") -> RedirectResponse:
+    if not google_oauth_configured():
+        raise HTTPException(status_code=503, detail="OAuth do Google nao esta configurado no backend.")
+
+    state = secrets.token_urlsafe(32)
+    redirect = RedirectResponse(
+        "https://accounts.google.com/o/oauth2/v2/auth?"
+        + urlencode(
+            {
+                "client_id": GOOGLE_CLIENT_ID,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "prompt": "select_account",
+            }
+        )
+    )
+    redirect.set_cookie(
+        key=GOOGLE_OAUTH_STATE_COOKIE_NAME,
+        value=state,
+        httponly=True,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+        domain=PARENT_COOKIE_DOMAIN,
+        max_age=600,
+    )
+    redirect.set_cookie(
+        key=GOOGLE_OAUTH_NEXT_COOKIE_NAME,
+        value=normalize_oauth_next(next),
+        httponly=True,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+        domain=PARENT_COOKIE_DOMAIN,
+        max_age=600,
+    )
+    return redirect
+
+
+@app.get("/api/auth/google/callback")
+def google_auth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
+    if not google_oauth_configured():
+        raise HTTPException(status_code=503, detail="OAuth do Google nao esta configurado no backend.")
+    expected_state = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE_NAME)
+    if not state or not expected_state or state != expected_state:
+        raise HTTPException(status_code=400, detail="State do Google invalido.")
+    if not code:
+        raise HTTPException(status_code=400, detail="Codigo do Google ausente.")
+
+    try:
+        token_response = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+            },
+            timeout=20,
+        )
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        access_token = tokens.get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Google nao retornou access_token.")
+
+        profile_response = requests.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20,
+        )
+        profile_response.raise_for_status()
+        profile = profile_response.json()
+    except HTTPException:
+        raise
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Falha no login com Google: {exc}") from exc
+
+    if profile.get("email_verified") is False:
+        raise HTTPException(status_code=403, detail="E-mail do Google nao verificado.")
+
+    user = get_or_create_google_user(profile, session)
+    next_path = request.cookies.get(GOOGLE_OAUTH_NEXT_COOKIE_NAME)
+    redirect = RedirectResponse(build_frontend_redirect(next_path))
+    create_parent_session(response=redirect, session=session, user_id=user.id)
+    redirect.delete_cookie(
+        key=GOOGLE_OAUTH_STATE_COOKIE_NAME,
+        domain=PARENT_COOKIE_DOMAIN,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+    )
+    redirect.delete_cookie(
+        key=GOOGLE_OAUTH_NEXT_COOKIE_NAME,
+        domain=PARENT_COOKIE_DOMAIN,
+        secure=PARENT_COOKIE_SECURE,
+        samesite=PARENT_COOKIE_SAMESITE,
+    )
+    return redirect
 
 
 @app.get("/api/parent/settings", response_model=ChildProfileSchema)
@@ -1611,12 +1966,18 @@ def generate_parent_lesson(
     payload: GenerateLessonRequestSchema,
     session: Session = Depends(get_session),
 ) -> GenerateLessonResponseSchema:
-    require_parent_session(request, session)
+    session_record = require_parent_session(request, session)
+    ai_config = _get_user_ai_config(session_record, session)
 
-    if not phrase_generation_service.is_configured():
+    if session_record.user_id is not None and ai_config is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Configure uma chave de API de IA na sua conta antes de gerar licoes.",
+        )
+    if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
-            detail="GEMINI_API_KEY nao esta configurada no backend.",
+            detail="Chave de API de IA nao esta configurada.",
         )
 
     child = get_requested_child(request=request, session=session)
@@ -1640,6 +2001,7 @@ def generate_parent_lesson(
                 topic=payload.topic,
                 level=level,
                 target_language=child.target_language,
+                ai_config=ai_config,
             )
         except Exception as exc:
             if i == 0:
@@ -1667,8 +2029,8 @@ def generate_parent_lesson(
                     }
                     for phrase in draft.phrases
                 ],
-                "generated_by": "gemini",
-                "generated_model": phrase_generation_service.model,
+                "generated_by": ai_config.provider if ai_config else "gemini",
+                "generated_model": ai_config.model if ai_config else phrase_generation_service.model,
                 "generated_level": level,
                 "generated_topic": payload.topic.strip() if payload.topic else None,
                 "generated_at": datetime.utcnow().isoformat(),
@@ -1716,6 +2078,131 @@ def generate_parent_lesson(
         lessons=generated_lessons,
         message=msg,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# USER AI SETTINGS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/ai/providers", response_model=list[AIProviderSchema])
+def list_ai_providers() -> list[AIProviderSchema]:
+    return [AIProviderSchema(**provider) for provider in AI_PROVIDER_OPTIONS]
+
+
+@app.get("/api/ai/settings", response_model=UserAISettingsSchema)
+@app.get("/api/user/ai-settings", response_model=UserAISettingsSchema)
+def get_user_ai_settings(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> UserAISettingsSchema:
+    session_record = require_parent_session(request, session)
+    if session_record.user_id is None:
+        raise HTTPException(status_code=403, detail="Configuracoes de IA requerem login de usuario.")
+    return build_ai_settings_schema(get_user_ai_settings_record(session_record.user_id, session))
+
+
+@app.put("/api/ai/settings", response_model=UserAISettingsSchema)
+@app.post("/api/user/ai-settings", response_model=UserAISettingsSchema)
+def save_user_ai_settings(
+    payload: UserAISettingsUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> UserAISettingsSchema:
+    session_record = require_parent_session(request, session)
+    if session_record.user_id is None:
+        raise HTTPException(status_code=403, detail="Configuracoes de IA requerem login de usuario.")
+    record = save_ai_settings_for_user(user_id=session_record.user_id, payload=payload, session=session)
+    return build_ai_settings_schema(record)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI FLASHCARD GENERATION (Diverse Tab)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/study/diverse/generate-flashcards", response_model=GenerateFlashcardsResponseSchema)
+def generate_diverse_flashcards(
+    payload: GenerateFlashcardsRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> GenerateFlashcardsResponseSchema:
+    require_parent_session(request, session)
+    session_record = get_request_user_session(request=request, session=session)
+    ai_config = _get_user_ai_config(session_record, session)
+
+    if session_record is not None and session_record.user_id is not None and ai_config is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Configure uma chave de API de IA na sua conta antes de gerar flashcards.",
+        )
+    if not phrase_generation_service.is_configured(ai_config):
+        raise HTTPException(
+            status_code=503,
+            detail="Nenhuma chave de API de IA configurada. Configure sua chave em Configuracoes de IA.",
+        )
+
+    subject = payload.subject.strip()
+    count = payload.count
+
+    system_text = (
+        "Voce cria flashcards educativos em formato JSON. "
+        "Gere flashcards com perguntas claras e respostas concisas. "
+        "Retorne apenas JSON valido, sem markdown ou comentarios extras."
+    )
+    prompt = (
+        f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
+        "Regras:\n"
+        "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+        "- As perguntas devem ser claras, diretas e educativas.\n"
+        "- As respostas devem ser concisas (ate 2 frases).\n"
+        "- Cubra os conceitos mais importantes do assunto.\n"
+        "- Escreva em portugues brasileiro.\n"
+        "- Se o assunto for tecnico (ex: programacao, React, Python), use exemplos praticos curtos.\n"
+        "Retorne exatamente neste formato JSON:\n"
+        "{\n"
+        '  "flashcards": [\n'
+        "    {\n"
+        '      "question": "string",\n'
+        '      "answer": "string"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n"
+    )
+
+    try:
+        response_text = phrase_generation_service.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=0.7,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    cleaned = response_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+
+    try:
+        data = json.loads(cleaned.strip())
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.") from exc
+
+    raw_cards = data.get("flashcards") or []
+    flashcards = [
+        GeneratedFlashcardSchema(
+            topic=str(card.get("question", "")).strip()[:120],
+            answer=str(card.get("answer", "")).strip()[:300],
+        )
+        for card in raw_cards
+        if isinstance(card, dict) and card.get("question") and card.get("answer")
+    ]
+
+    if not flashcards:
+        raise HTTPException(status_code=502, detail="IA nao gerou flashcards validos.")
+
+    return GenerateFlashcardsResponseSchema(subject=subject, flashcards=flashcards)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1796,11 +2283,17 @@ def generate_book(
     request: Request,
     session: Session = Depends(get_session),
 ) -> BookSchema:
-    require_parent_session(request, session)
-    if not book_generation_service.is_configured():
+    session_record = require_parent_session(request, session)
+    ai_config = _get_user_ai_config(session_record, session)
+    if session_record.user_id is not None and ai_config is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Configure uma chave de API de IA na sua conta antes de gerar livros.",
+        )
+    if not book_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
-            detail="GEMINI_API_KEY nao esta configurada no backend. Adicione a chave e reinicie a API.",
+            detail="Chave de API de IA nao esta configurada.",
         )
 
     child = get_requested_child(request=request, session=session)
@@ -1845,6 +2338,7 @@ def generate_book(
             theme=payload.theme or None,
             age_group=child.age_group,
             target_language=child.target_language,
+            ai_config=ai_config,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

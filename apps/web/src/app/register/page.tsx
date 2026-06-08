@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, Globe, Lock, Mail, User } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCircle2, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
 
@@ -20,6 +20,15 @@ const LANGUAGES = [
 const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
   LANGUAGES.map(({ value, flag, label }) => [value, { flag, label }]),
 );
+
+const AI_PROVIDERS = [
+  { id: 'gemini', label: 'Gemini', defaultModel: 'gemini-2.5-flash' },
+  { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
+  { id: 'anthropic', label: 'Anthropic', defaultModel: 'claude-3-5-haiku-latest' },
+  { id: 'openrouter', label: 'OpenRouter', defaultModel: 'openrouter/auto' },
+  { id: 'groq', label: 'Groq', defaultModel: 'llama-3.1-8b-instant' },
+  { id: 'mistral', label: 'Mistral', defaultModel: 'mistral-small-latest' },
+];
 
 // ── CPF validation ────────────────────────────────────────────────────────────
 function validateCPF(raw: string): boolean {
@@ -85,17 +94,32 @@ export default function RegisterPage() {
     cpf: '',
     password: '',
     confirm: '',
+    ai_provider: 'gemini',
+    ai_api_key: '',
+    ai_model: 'gemini-2.5-flash',
+    ai_base_url: '',
   });
   const [targetLanguage, setTargetLanguage] = useState('English');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Partial<typeof form & { submit: string }>>({});
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   function set(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: '' }));
+  }
+
+  function setAIProvider(providerId: string) {
+    const provider = AI_PROVIDERS.find((item) => item.id === providerId) ?? AI_PROVIDERS[0];
+    setForm((prev) => ({
+      ...prev,
+      ai_provider: provider.id,
+      ai_model: provider.defaultModel,
+    }));
+    setErrors((prev) => ({ ...prev, ai_provider: '', ai_model: '' }));
   }
 
   function validate(): boolean {
@@ -133,6 +157,10 @@ export default function RegisterPage() {
       next.confirm = 'As senhas não coincidem.';
     }
 
+    if (!form.ai_provider) next.ai_provider = 'Escolha o provedor.';
+    if (!form.ai_model.trim()) next.ai_model = 'Informe o modelo.';
+    if (!form.ai_api_key.trim()) next.ai_api_key = 'Informe sua chave de API.';
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -153,6 +181,10 @@ export default function RegisterPage() {
         password: form.password,
         child_name: form.child_name.trim(),
         target_language: targetLanguage,
+        ai_provider: form.ai_provider,
+        ai_api_key: form.ai_api_key.trim(),
+        ai_model: form.ai_model.trim(),
+        ai_base_url: form.ai_base_url.trim() || undefined,
       });
       setSuccess(true);
       setTimeout(() => router.push('/login'), 2500);
@@ -164,6 +196,21 @@ export default function RegisterPage() {
       setErrors({ submit: msg });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleRegister() {
+    setGoogleLoading(true);
+    setErrors({});
+    try {
+      window.location.href = await api.getGoogleLoginUrl('/parents');
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? (err.detail ?? err.message)
+          : 'Nao foi possivel iniciar o Google.';
+      setErrors({ submit: msg });
+      setGoogleLoading(false);
     }
   }
 
@@ -212,6 +259,22 @@ export default function RegisterPage() {
         </div>
 
         <div className="kid-surface border-slate-200/60 p-7 md:p-9">
+          <button
+            type="button"
+            onClick={() => void handleGoogleRegister()}
+            disabled={loading || googleLoading}
+            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-primary hover:text-primary disabled:opacity-60"
+          >
+            <Chrome size={18} />
+            {googleLoading ? 'Abrindo Google...' : 'Continuar com Google'}
+          </button>
+
+          <div className="mb-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">ou</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Name row */}
             <div className="grid grid-cols-2 gap-3">
@@ -274,6 +337,59 @@ export default function RegisterPage() {
                 ))}
               </div>
             </div>
+
+            {/* Email */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field id="ai_provider" label="IA" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_provider}>
+                <select
+                  id="ai_provider"
+                  value={form.ai_provider}
+                  onChange={(e) => setAIProvider(e.target.value)}
+                  className={inputCls}
+                >
+                  {AI_PROVIDERS.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field id="ai_model" label="Modelo" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_model}>
+                <input
+                  id="ai_model"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="gemini-2.5-flash"
+                  value={form.ai_model}
+                  onChange={(e) => set('ai_model', e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </div>
+
+            <Field id="ai_api_key" label="Chave API da IA" icon={<KeyRound size={16} className="text-slate-400" />} error={errors.ai_api_key}>
+              <input
+                id="ai_api_key"
+                type="password"
+                autoComplete="off"
+                placeholder="Cole sua chave"
+                value={form.ai_api_key}
+                onChange={(e) => set('ai_api_key', e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+
+            <Field id="ai_base_url" label="URL base opcional" icon={<Globe size={16} className="text-slate-400" />} error={errors.ai_base_url}>
+              <input
+                id="ai_base_url"
+                type="url"
+                autoComplete="off"
+                placeholder="https://api.exemplo.com/v1"
+                value={form.ai_base_url}
+                onChange={(e) => set('ai_base_url', e.target.value)}
+                className={inputCls}
+              />
+            </Field>
 
             {/* Email */}
             <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email}>

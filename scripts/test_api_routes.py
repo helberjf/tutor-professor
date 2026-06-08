@@ -9,6 +9,7 @@ import os
 import sys
 import asyncio
 import tempfile
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -28,6 +29,10 @@ os.environ["AUDIO_CACHE_DIR"] = str(TMP_DIR / "audio")
 os.environ["CORS_ALLOWED_ORIGINS"] = "http://localhost:3000,https://english-tutor-kid.vercel.app"
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["ADMIN_EMAIL"] = "pai@example.com"
+os.environ["GOOGLE_CLIENT_ID"] = "test-google-client"
+os.environ["GOOGLE_CLIENT_SECRET"] = "test-google-secret"
+os.environ["GOOGLE_REDIRECT_URI"] = "http://testserver/api/auth/google/callback"
+os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
 
 sys.path.insert(0, str(API_DIR))
 
@@ -43,6 +48,20 @@ VALID_CPF = "52998224725"
 def assert_status(response, expected: int, label: str) -> None:
     if response.status_code != expected:
         raise AssertionError(f"{label}: expected {expected}, got {response.status_code}: {response.text}")
+
+
+class MockGoogleResponse:
+    def __init__(self, payload: dict, status_code: int = 200) -> None:
+        self.payload = payload
+        self.status_code = status_code
+        self.text = str(payload)
+
+    def json(self) -> dict:
+        return self.payload
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"mock google error: {self.status_code}")
 
 
 def seed_lesson() -> None:
@@ -102,6 +121,7 @@ async def run() -> None:
 
         assert_status(await client.get("/health"), 200, "health")
         assert_status(await client.get("/api/progress"), 401, "anonymous progress requires login")
+        assert_status(await client.get("/api/study/dashboard"), 401, "anonymous study dashboard requires login")
 
         assert_status(
             await client.post(
@@ -151,6 +171,23 @@ async def run() -> None:
         )
         assert_status(await client.post("/api/auth/login", json={"email": "pai@example.com", "password": "secret123"}), 200, "login")
         assert_status(await client.get("/api/auth/me"), 200, "me")
+
+        providers_response = await client.get("/api/ai/providers")
+        assert_status(providers_response, 200, "ai providers")
+        providers = providers_response.json()
+        provider_ids = [provider["id"] for provider in providers]
+        for required_provider in ["gemini", "openai", "anthropic", "openrouter", "groq", "mistral"]:
+            if required_provider not in provider_ids:
+                raise AssertionError(f"expected {required_provider} in AI providers, got {providers}")
+        gemini_provider = next(provider for provider in providers if provider["id"] == "gemini")
+        if not gemini_provider.get("is_default"):
+            raise AssertionError(f"expected Gemini to be default provider, got {providers}")
+
+        ai_settings_response = await client.get("/api/ai/settings")
+        assert_status(ai_settings_response, 200, "initial ai settings")
+        ai_settings = ai_settings_response.json()
+        if ai_settings["provider"] != "gemini" or ai_settings["has_api_key"]:
+            raise AssertionError(f"expected missing Gemini settings by default, got {ai_settings}")
 
         children_response = await client.get("/api/parent/children")
         assert_status(children_response, 200, "parent children")
@@ -202,9 +239,82 @@ async def run() -> None:
         if progress_response.json()["themes_completed"] != 1:
             raise AssertionError(f"expected completed theme in progress, got {progress_response.text}")
 
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        assert_status(
+            await client.put(
+                f"/api/study/day/{yesterday.isoformat()}",
+                headers=child_headers,
+                json={
+                    "plan_text": "Revisar as frases da licao antes de dormir.",
+                    "studied_text": "Revisei greetings e pratiquei speaking.",
+                    "distractions": ["celular"],
+                },
+            ),
+            200,
+            "create yesterday study day",
+        )
+        today_response = await client.put(
+            f"/api/study/day/{today.isoformat()}",
+            headers=child_headers,
+            json={
+                "plan_text": "Estudar 20 minutos depois do almoco.",
+                "studied_text": "Fiz a licao, revisei flashcards e li um livro curto.",
+                "distractions": [" celular ", "YouTube", ""],
+            },
+        )
+        assert_status(today_response, 200, "create today study day")
+        today_payload = today_response.json()
+        if today_payload["distractions"] != ["celular", "YouTube"]:
+            raise AssertionError(f"expected sanitized distractions, got {today_payload}")
+        if today_payload["is_study_day"] is not True:
+            raise AssertionError(f"expected studied_text to mark study day, got {today_payload}")
+
+        selected_day_response = await client.get(f"/api/study/day/{today.isoformat()}", headers=child_headers)
+        assert_status(selected_day_response, 200, "get selected study day")
+        if selected_day_response.json()["studied_text"] != "Fiz a licao, revisei flashcards e li um livro curto.":
+            raise AssertionError(f"expected selected study day details, got {selected_day_response.text}")
+
+        dashboard_response = await client.get("/api/study/dashboard", headers=child_headers)
+        assert_status(dashboard_response, 200, "study dashboard")
+        dashboard = dashboard_response.json()
+        if dashboard["study_streak_count"] != 2:
+            raise AssertionError(f"expected 2-day study streak, got {dashboard}")
+        if dashboard["last_study_date"] != today.isoformat():
+            raise AssertionError(f"expected last study date today, got {dashboard}")
+        if dashboard["today"]["plan_text"] != "Estudar 20 minutos depois do almoco.":
+            raise AssertionError(f"expected today's plan in dashboard, got {dashboard}")
+        if len(dashboard["recent_days"]) < 2:
+            raise AssertionError(f"expected recent study history, got {dashboard}")
+
         assert_status(await client.post("/api/chat", headers=child_headers, json={"message": "hello", "history": []}), 200, "chat")
         assert_status(await client.post("/api/audio/speak", headers=child_headers, json={"text": "Hello"}), 200, "audio speak")
-        assert_status(await client.post("/api/parent/generate-lesson", headers=child_headers, json={}), 503, "generate lesson unconfigured")
+        missing_ai_response = await client.post("/api/parent/generate-lesson", headers=child_headers, json={})
+        assert_status(missing_ai_response, 403, "generate lesson requires user ai settings")
+        if "chave" not in missing_ai_response.text.lower() and "api" not in missing_ai_response.text.lower():
+            raise AssertionError(f"expected missing AI key message, got {missing_ai_response.text}")
+        missing_flashcards_response = await client.post(
+            "/api/study/diverse/generate-flashcards",
+            headers=child_headers,
+            json={"subject": "React", "count": 3},
+        )
+        assert_status(missing_flashcards_response, 403, "generate flashcards requires user ai settings")
+
+        save_ai_response = await client.put(
+            "/api/ai/settings",
+            json={"provider": "gemini", "api_key": "test-ai-key", "model": "gemini-2.5-flash"},
+        )
+        assert_status(save_ai_response, 200, "save ai settings")
+        saved_ai_settings = save_ai_response.json()
+        if not saved_ai_settings["has_api_key"] or saved_ai_settings.get("api_key_preview") == "test-ai-key":
+            raise AssertionError(f"expected masked AI key after save, got {saved_ai_settings}")
+        if "test-ai-key" in save_ai_response.text:
+            raise AssertionError("raw AI key leaked in save response")
+
+        stored_ai_response = await client.get("/api/ai/settings")
+        assert_status(stored_ai_response, 200, "stored ai settings")
+        if "test-ai-key" in stored_ai_response.text:
+            raise AssertionError("raw AI key leaked in settings response")
 
         modules_response = await client.get("/api/admin/learn/modules")
         assert_status(modules_response, 200, "admin learn modules")
@@ -227,6 +337,45 @@ async def run() -> None:
 
         assert_status(await client.post("/api/auth/logout"), 200, "auth logout")
         assert_status(await client.get("/api/auth/me"), 401, "me after logout")
+
+        google_start_response = await client.get("/api/auth/google/start?next=/parents", follow_redirects=False)
+        if google_start_response.status_code not in (302, 307):
+            raise AssertionError(f"google start: expected redirect, got {google_start_response.status_code}: {google_start_response.text}")
+        google_state = client.cookies.get("google_oauth_state")
+        if not google_state:
+            raise AssertionError("expected google_oauth_state cookie after Google OAuth start")
+
+        original_post = main.requests.post
+        original_get = main.requests.get
+        try:
+            main.requests.post = lambda *args, **kwargs: MockGoogleResponse({"access_token": "google-access-token", "id_token": "google-id-token"})
+            main.requests.get = lambda *args, **kwargs: MockGoogleResponse(
+                {
+                    "sub": "google-sub-123",
+                    "email": "google@example.com",
+                    "email_verified": True,
+                    "given_name": "Google",
+                    "family_name": "User",
+                }
+            )
+            google_callback_response = await client.get(
+                f"/api/auth/google/callback?state={google_state}&code=test-code",
+                follow_redirects=False,
+            )
+        finally:
+            main.requests.post = original_post
+            main.requests.get = original_get
+
+        if google_callback_response.status_code not in (302, 307):
+            raise AssertionError(
+                f"google callback: expected redirect, got {google_callback_response.status_code}: {google_callback_response.text}"
+            )
+        google_me_response = await client.get("/api/auth/me")
+        assert_status(google_me_response, 200, "me after google login")
+        if google_me_response.json()["email"] != "google@example.com":
+            raise AssertionError(f"expected Google-created user session, got {google_me_response.text}")
+        assert_status(await client.post("/api/auth/logout"), 200, "google auth logout")
+
         assert_status(await client.post("/api/parent/login", json={"password": "parent-pass"}), 200, "legacy parent login")
         assert_status(await client.post("/api/parent/logout"), 200, "parent logout")
 
