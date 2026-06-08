@@ -403,6 +403,87 @@ export interface UserAISettingsPayload {
   base_url?: string;
 }
 
+// ── Coding Curriculum ──────────────────────────────────────────────────────
+
+export interface ProgrammingSubject {
+  id: number;
+  child_id: number;
+  name: string;
+  description: string | null;
+  icon_emoji: string | null;
+  created_at: string;
+  topic_count: number;
+  studied_count: number;
+  due_review_count: number;
+}
+
+export interface AISectionContent {
+  title: string;
+  body: string;
+  code_example?: string | null;
+}
+
+export interface AIQuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correct_option: string;
+  explanation: string;
+}
+
+export interface TopicAIContent {
+  sections: AISectionContent[];
+  quiz: AIQuizQuestion[];
+  flashcards: { front: string; back: string; code_example?: string | null }[];
+}
+
+export interface ProgrammingTopic {
+  id: number;
+  subject_id: number;
+  title: string;
+  order_index: number;
+  status: 'not_started' | 'studied' | 'mastered';
+  ai_content: TopicAIContent | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  flashcard_count: number;
+}
+
+export interface ProgrammingFlashcard {
+  id: number;
+  topic_id: number;
+  subject_id: number;
+  front: string;
+  back: string;
+  code_example: string | null;
+  created_at: string;
+}
+
+export interface CodingReviewCard {
+  review_item_id: number;
+  flashcard_id: number;
+  subject_id: number;
+  front: string;
+  back: string;
+  code_example: string | null;
+  difficulty_score: number;
+  error_count: number;
+}
+
+export interface CodingReviewSession {
+  total_due: number;
+  items: CodingReviewCard[];
+}
+
+export interface CodingReviewAttemptResult {
+  review_item_id: number;
+  difficulty_score: number;
+  next_review: string;
+  error_count: number;
+  correct_count: number;
+}
+
 export class ApiError extends Error {
   readonly status?: number;
   readonly detail?: string;
@@ -652,4 +733,35 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  // Coding Curriculum
+  getCodingSubjects: () =>
+    fetchAPI<ProgrammingSubject[]>('/api/coding/subjects'),
+  createCodingSubject: (payload: { name: string; description?: string; icon_emoji?: string }) =>
+    fetchAPI<ProgrammingSubject>('/api/coding/subjects', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCodingSubject: (id: number, payload: { name?: string; description?: string; icon_emoji?: string }) =>
+    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCodingSubject: (id: number) =>
+    fetchAPI<void>(`/api/coding/subjects/${id}`, { method: 'DELETE' }),
+  getCodingTopics: (subjectId: number) =>
+    fetchAPI<ProgrammingTopic[]>(`/api/coding/subjects/${subjectId}/topics`),
+  createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean }) =>
+    fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object }) =>
+    fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCodingTopic: (id: number) =>
+    fetchAPI<void>(`/api/coding/topics/${id}`, { method: 'DELETE' }),
+  generateCodingTopicContent: (id: number) =>
+    fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}/generate`, { method: 'POST' }),
+  getTopicFlashcards: (topicId: number) =>
+    fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards`),
+  createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
+    fetchAPI<ProgrammingFlashcard>(`/api/coding/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateCodingFlashcard: (id: number, payload: { front?: string; back?: string; code_example?: string }) =>
+    fetchAPI<ProgrammingFlashcard>(`/api/coding/flashcards/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCodingFlashcard: (id: number) =>
+    fetchAPI<void>(`/api/coding/flashcards/${id}`, { method: 'DELETE' }),
+  getCodingReview: (subjectId?: number, limit = 20) =>
+    fetchAPI<CodingReviewSession>(`/api/coding/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
+  submitCodingReviewAttempt: (payload: { review_item_id: number; correct: boolean }) =>
+    fetchAPI<CodingReviewAttemptResult>('/api/coding/review/attempt', { method: 'POST', body: JSON.stringify(payload) }),
 };
