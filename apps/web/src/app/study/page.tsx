@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
@@ -10,11 +10,20 @@ import {
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import {
+  createInitialPomodoroState,
+  formatTimer,
+  getTodaysPomodoroCount,
+  parseStoredPomodoroState,
+  pausePomodoro,
+  POMODORO_STORAGE_KEY,
+  resetPomodoro,
+  resolvePomodoroState,
+  startPomodoro,
+  type PomodoroMode,
+} from '@/lib/pomodoro';
 
 const AI_FLASHCARD_COUNT = 5;
-
-const FOCUS_SECONDS = 25 * 60;
-const BREAK_SECONDS = 5 * 60;
 
 type StudyTab = 'english' | 'coding' | 'diverse';
 
@@ -22,9 +31,11 @@ interface InlineStudyState {
   currentIndex: number;
   userAnswer: string;
   revealed: boolean;
-  results: Array<'knew' | 'partial' | 'unknown'>;
+  results: StudyRating[];
   done: boolean;
 }
+
+type StudyRating = 'knew' | 'partial' | 'unknown';
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -52,10 +63,29 @@ function buildEmptyDay(studyDate: string): StudyDay {
   return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, created_at: null, updated_at: null };
 }
 
-function formatTimer(seconds: number) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+function getPomodoroCompletionMessage(mode: PomodoroMode) {
+  return mode === 'focus'
+    ? 'Bloco de foco concluido. Hora de uma pausa.'
+    : 'Pausa concluida. Hora de voltar ao foco.';
+}
+
+function slugifySubjectName(name: string) {
+  const normalized = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || 'materia';
+}
+
+function getDiverseSubjectSlug(subject: DiverseSubject, index: number, subjects: DiverseSubject[]) {
+  const baseSlug = slugifySubjectName(subject.name);
+  const previousMatches = subjects
+    .slice(0, index)
+    .filter((candidate) => slugifySubjectName(candidate.name) === baseSlug).length;
+  return previousMatches === 0 ? baseSlug : `${baseSlug}-${previousMatches + 1}`;
 }
 
 export default function StudyPage() {
@@ -86,6 +116,7 @@ export default function StudyPage() {
   const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [selectedDiverseSubjectSlug, setSelectedDiverseSubjectSlug] = useState<string | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
   const [lessonGenMessage, setLessonGenMessage] = useState('');
 
@@ -96,32 +127,54 @@ export default function StudyPage() {
   const [codingSaved, setCodingSaved] = useState('');
   const [codingError, setCodingError] = useState('');
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
+  const [generatingCodingAI, setGeneratingCodingAI] = useState<string | null>(null);
+  const [codingAIError, setCodingAIError] = useState<{ subject: string; message: string } | null>(null);
 
   // ── Pomodoro state (shared) ─────────────────────────────────────────────────
-  const [pomodoroMode, setPomodoroMode] = useState<'focus' | 'break'>('focus');
-  const [pomodoroSeconds, setPomodoroSeconds] = useState(FOCUS_SECONDS);
-  const [pomodoroRunning, setPomodoroRunning] = useState(false);
+  const [pomodoroState, setPomodoroState] = useState(createInitialPomodoroState);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [pomodoroMessage, setPomodoroMessage] = useState('');
+  const todayPomodoroCount = getTodaysPomodoroCount(pomodoroState);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const tab = new URLSearchParams(window.location.search).get('tab');
     if (tab === 'english' || tab === 'coding' || tab === 'diverse') {
       setActiveTab(tab);
+      setSelectedDiverseSubjectSlug(null);
+    } else if (tab) {
+      setActiveTab('diverse');
+      setSelectedDiverseSubjectSlug(tab);
     }
   }, []);
 
-  function selectStudyTab(tab: StudyTab) {
-    setActiveTab(tab);
+  function setStudyUrlTab(slug: string | null) {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
-    if (tab === 'english') {
+    if (!slug || slug === 'english') {
       url.searchParams.delete('tab');
     } else {
-      url.searchParams.set('tab', tab);
+      url.searchParams.set('tab', slug);
     }
     window.history.replaceState(null, '', url.toString());
+  }
+
+  function selectStudyTab(tab: StudyTab) {
+    setActiveTab(tab);
+    setSelectedDiverseSubjectSlug(null);
+    setStudyUrlTab(tab === 'english' ? null : tab);
+  }
+
+  function selectDiverseSubjectTab(slug: string) {
+    setActiveTab('diverse');
+    setSelectedDiverseSubjectSlug(slug);
+    setStudyUrlTab(slug);
+  }
+
+  function selectDiverseOverview() {
+    setActiveTab('diverse');
+    setSelectedDiverseSubjectSlug(null);
+    setStudyUrlTab('diverse');
   }
 
   // ── Load dashboard ──────────────────────────────────────────────────────────
@@ -169,6 +222,17 @@ export default function StudyPage() {
     return () => { cancelled = true; };
   }, [authState.status, selectedDate]);
 
+  useEffect(() => {
+    if (activeTab !== 'diverse' || !selectedDiverseSubjectSlug || !diverseDay) return;
+    const exists = diverseDay.custom_subjects.some(
+      (subject, index, subjects) => getDiverseSubjectSlug(subject, index, subjects) === selectedDiverseSubjectSlug
+    );
+    if (!exists) {
+      setSelectedDiverseSubjectSlug(null);
+      setStudyUrlTab('diverse');
+    }
+  }, [activeTab, diverseDay, selectedDiverseSubjectSlug]);
+
   // ── Load Diverse catalog ─────────────────────────────────────────────────────
   useEffect(() => {
     if (authState.status !== 'authenticated') return;
@@ -194,29 +258,64 @@ export default function StudyPage() {
     setNotificationPermission('Notification' in window ? Notification.permission : 'unsupported');
   }, []);
 
+  // ── Pomodoro persistence ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = parseStoredPomodoroState(window.localStorage.getItem(POMODORO_STORAGE_KEY));
+    const resolved = resolvePomodoroState(stored, Date.now());
+    setPomodoroState(resolved);
+    if (stored.running && stored.endsAt !== null && stored.endsAt <= Date.now()) {
+      setPomodoroMessage(getPomodoroCompletionMessage(stored.mode));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(POMODORO_STORAGE_KEY, JSON.stringify(pomodoroState));
+  }, [pomodoroState]);
+
   // ── Pomodoro timer ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!pomodoroRunning) return;
-    const id = window.setInterval(() => {
-      setPomodoroSeconds((s) => {
-        if (s > 1) return s - 1;
-        const next = pomodoroMode === 'focus' ? 'break' : 'focus';
-        const msg = pomodoroMode === 'focus' ? 'Bloco de foco concluido. Hora de uma pausa.' : 'Pausa concluida. Hora de voltar ao foco.';
-        setPomodoroRunning(false);
-        setPomodoroMode(next);
-        setPomodoroMessage(msg);
-        if (notificationPermission === 'granted') new Notification('English Kids Tutor', { body: msg });
-        return next === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS;
+    if (typeof window === 'undefined') return;
+
+    const tick = () => {
+      setPomodoroState((current) => {
+        const now = Date.now();
+        const completed = current.running && current.endsAt !== null && current.endsAt <= now;
+        const previousMode = current.mode;
+        const resolved = resolvePomodoroState(current, now);
+        if (completed && resolved.mode !== previousMode) {
+          const msg = getPomodoroCompletionMessage(previousMode);
+          setPomodoroMessage(msg);
+          if (notificationPermission === 'granted') new Notification('English Kids Tutor', { body: msg });
+        }
+        return resolved;
       });
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [notificationPermission, pomodoroMode, pomodoroRunning]);
+    };
+
+    const id = window.setInterval(tick, 1000);
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', tick);
+    tick();
+
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', tick);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [notificationPermission]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
-  function switchPomodoro(mode: 'focus' | 'break') {
-    setPomodoroMode(mode);
-    setPomodoroSeconds(mode === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS);
-    setPomodoroRunning(false);
+  function togglePomodoro() {
+    setPomodoroState((current) => {
+      const resolved = resolvePomodoroState(current, Date.now());
+      return resolved.running ? pausePomodoro(resolved) : startPomodoro(resolved);
+    });
+    setPomodoroMessage('');
+  }
+
+  function switchPomodoro(mode: PomodoroMode) {
+    setPomodoroState((current) => resetPomodoro(current, mode));
     setPomodoroMessage('');
   }
 
@@ -279,6 +378,26 @@ export default function StudyPage() {
     } finally { setSavingCoding(false); }
   }
 
+  async function generateAICodingTopics(subjectKey: string, inlineApiKey?: string) {
+    if (!codingDay) return;
+    const meta = SUBJECT_META[subjectKey];
+    if (!meta) return;
+    setGeneratingCodingAI(subjectKey);
+    setCodingAIError(null);
+    try {
+      const payload = { subject: meta.label, count: 3, ...(inlineApiKey ? { api_key: inlineApiKey } : {}) };
+      const result = await api.generateStudyFlashcards(payload);
+      const newTopics: CodingTopic[] = result.flashcards.slice(0, 3).map((f) => ({ topic: f.topic, done: false }));
+      while (newTopics.length < 3) newTopics.push({ topic: '', done: false });
+      setCodingDay({ ...codingDay, subjects: { ...codingDay.subjects, [subjectKey]: newTopics } });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Nao foi possivel criar topicos com IA.';
+      setCodingAIError({ subject: subjectKey, message });
+    } finally {
+      setGeneratingCodingAI(null);
+    }
+  }
+
   function addDiverseSubject() {
     const name = newSubjectName.trim();
     if (!name) return;
@@ -288,15 +407,18 @@ export default function StudyPage() {
     const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
       ? catalogEntry.topics.map((t) => ({ topic: t.topic, done: false, answer: t.answer ?? '' }))
       : [{ topic: 'Tópico 1', done: false, answer: '' }, { topic: 'Tópico 2', done: false, answer: '' }, { topic: 'Tópico 3', done: false, answer: '' }];
+    const newSubject: DiverseSubject = { name, topics: defaultTopics };
+    const nextSubjects = [...subjects, newSubject];
     const newDay: DiverseDay = {
       id: diverseDay?.id ?? null,
       study_date: selectedDate,
-      custom_subjects: [...subjects, { name, topics: defaultTopics }],
+      custom_subjects: nextSubjects,
       created_at: diverseDay?.created_at ?? null,
       updated_at: diverseDay?.updated_at ?? null,
     };
     setDiverseDay(newDay);
     setNewSubjectName('');
+    selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
   }
 
   function updateDiverseTopicAnswer(subjectIndex: number, topicIndex: number, value: string) {
@@ -311,7 +433,10 @@ export default function StudyPage() {
 
   function removeDiverseSubject(index: number) {
     if (!diverseDay) return;
-    setDiverseDay({ ...diverseDay, custom_subjects: diverseDay.custom_subjects.filter((_, i) => i !== index) });
+    const removedSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[index], index, diverseDay.custom_subjects);
+    const subjects = diverseDay.custom_subjects.filter((_, i) => i !== index);
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+    if (selectedDiverseSubjectSlug === removedSlug) selectDiverseOverview();
   }
 
   function toggleDiverseTopic(subjectIndex: number, topicIndex: number) {
@@ -336,8 +461,12 @@ export default function StudyPage() {
 
   function updateDiverseSubjectName(subjectIndex: number, value: string) {
     if (!diverseDay) return;
+    const previousSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[subjectIndex], subjectIndex, diverseDay.custom_subjects);
     const subjects = diverseDay.custom_subjects.map((s, si) => si === subjectIndex ? { ...s, name: value } : s);
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+    if (selectedDiverseSubjectSlug === previousSlug) {
+      selectDiverseSubjectTab(getDiverseSubjectSlug(subjects[subjectIndex], subjectIndex, subjects));
+    }
   }
 
   async function generateAIFlashcards(inlineApiKey?: string) {
@@ -357,15 +486,18 @@ export default function StudyPage() {
         done: false,
         answer: f.answer,
       }));
+      const newSubject: DiverseSubject = { name: result.subject, topics: newTopics };
+      const nextSubjects = [...subjects, newSubject];
       const newDay: DiverseDay = {
         id: diverseDay?.id ?? null,
         study_date: selectedDate,
-        custom_subjects: [...subjects, { name: result.subject, topics: newTopics }],
+        custom_subjects: nextSubjects,
         created_at: diverseDay?.created_at ?? null,
         updated_at: diverseDay?.updated_at ?? null,
       };
       setDiverseDay(newDay);
       setNewSubjectName('');
+      selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar aula com IA.';
       setAiError(msg);
@@ -476,12 +608,13 @@ export default function StudyPage() {
             generatingLesson={generatingLesson}
             lessonGenMessage={lessonGenMessage}
             onGenerateLesson={() => void generateNewLesson()}
-            pomodoroMode={pomodoroMode}
-            pomodoroSeconds={pomodoroSeconds}
-            pomodoroRunning={pomodoroRunning}
+            pomodoroMode={pomodoroState.mode}
+            pomodoroSeconds={pomodoroState.seconds}
+            pomodoroRunning={pomodoroState.running}
+            todayPomodoroCount={todayPomodoroCount}
             notificationPermission={notificationPermission}
             pomodoroMessage={pomodoroMessage}
-            onTogglePomodoro={() => setPomodoroRunning((v) => !v)}
+            onTogglePomodoro={togglePomodoro}
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
@@ -500,18 +633,22 @@ export default function StudyPage() {
             onGenerateAI={(key) => void generateAIFlashcards(key)}
             generatingAI={generatingAI}
             aiError={aiError}
+            selectedSubjectSlug={selectedDiverseSubjectSlug}
+            onSelectSubjectTab={selectDiverseSubjectTab}
+            onSelectOverview={selectDiverseOverview}
             onRemoveSubject={removeDiverseSubject}
             onToggleTopic={toggleDiverseTopic}
             onUpdateTopicText={updateDiverseTopicText}
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
             onSave={() => void saveDiverseDay()}
-            pomodoroMode={pomodoroMode}
-            pomodoroSeconds={pomodoroSeconds}
-            pomodoroRunning={pomodoroRunning}
+            pomodoroMode={pomodoroState.mode}
+            pomodoroSeconds={pomodoroState.seconds}
+            pomodoroRunning={pomodoroState.running}
+            todayPomodoroCount={todayPomodoroCount}
             notificationPermission={notificationPermission}
             pomodoroMessage={pomodoroMessage}
-            onTogglePomodoro={() => setPomodoroRunning((v) => !v)}
+            onTogglePomodoro={togglePomodoro}
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
@@ -530,12 +667,16 @@ export default function StudyPage() {
             onToggleTopic={toggleTopic}
             onUpdateTopicText={updateTopicText}
             onSave={() => void saveCodingDay()}
-            pomodoroMode={pomodoroMode}
-            pomodoroSeconds={pomodoroSeconds}
-            pomodoroRunning={pomodoroRunning}
+            generatingCodingAI={generatingCodingAI}
+            codingAIError={codingAIError}
+            onGenerateCodingAI={(key, apiKey) => void generateAICodingTopics(key, apiKey)}
+            pomodoroMode={pomodoroState.mode}
+            pomodoroSeconds={pomodoroState.seconds}
+            pomodoroRunning={pomodoroState.running}
+            todayPomodoroCount={todayPomodoroCount}
             notificationPermission={notificationPermission}
             pomodoroMessage={pomodoroMessage}
-            onTogglePomodoro={() => setPomodoroRunning((v) => !v)}
+            onTogglePomodoro={togglePomodoro}
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
@@ -573,7 +714,7 @@ function EnglishTab({
   addDistraction, removeDistraction,
   loadingDay, saving, error, savedMessage, onSave,
   generatingLesson, lessonGenMessage, onGenerateLesson,
-  pomodoroMode, pomodoroSeconds, pomodoroRunning,
+  pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
@@ -590,10 +731,10 @@ function EnglishTab({
   onSave: () => void;
   generatingLesson: boolean; lessonGenMessage: string;
   onGenerateLesson: () => void;
-  pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
+  pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
   onTogglePomodoro: () => void;
-  onSwitchPomodoro: (m: 'focus' | 'break') => void;
+  onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
   const selectedIsToday = dashboard?.today.study_date === selectedDate;
@@ -713,6 +854,7 @@ function EnglishTab({
         <aside className="space-y-6">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
+            todayCount={todayPomodoroCount}
             notificationPermission={notificationPermission} message={pomodoroMessage}
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
@@ -793,7 +935,8 @@ function CodingTab({
   codingSaved, codingError, codingDoneCount, codingTotalCount,
   editingSubject, setEditingSubject,
   onToggleTopic, onUpdateTopicText, onSave,
-  pomodoroMode, pomodoroSeconds, pomodoroRunning,
+  generatingCodingAI, codingAIError, onGenerateCodingAI,
+  pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
@@ -807,12 +950,16 @@ function CodingTab({
   onToggleTopic: (subject: string, index: number) => void;
   onUpdateTopicText: (subject: string, index: number, value: string) => void;
   onSave: () => void;
-  pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
+  generatingCodingAI: string | null;
+  codingAIError: { subject: string; message: string } | null;
+  onGenerateCodingAI: (subjectKey: string, apiKey?: string) => void;
+  pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
   onTogglePomodoro: () => void;
-  onSwitchPomodoro: (m: 'focus' | 'break') => void;
+  onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
+  const [aiKeyDraft, setAiKeyDraft] = useState('');
   const subjectsCompleted = codingDay
     ? Object.entries(codingDay.subjects).filter(([, topics]) => topics.every((t) => t.done)).length
     : 0;
@@ -865,6 +1012,15 @@ function CodingTab({
                     </div>
                     <div className="flex items-center gap-2">
                       {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
+                      <button
+                        type="button"
+                        onClick={() => onGenerateCodingAI(key)}
+                        disabled={!!generatingCodingAI}
+                        title="Gerar tópicos com IA"
+                        className={`flex h-9 w-9 items-center justify-center rounded-2xl border-2 transition disabled:opacity-50 ${generatingCodingAI === key ? 'border-violet-300 bg-violet-50 text-violet-600' : 'border-slate-200 bg-white text-slate-400 hover:border-violet-300 hover:text-violet-600'}`}
+                      >
+                        {generatingCodingAI === key ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
+                      </button>
                       <button type="button" onClick={() => setEditingSubject(isEditing ? null : key)}
                         className={`flex h-9 w-9 items-center justify-center rounded-2xl border-2 transition ${isEditing ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary-dark'}`}>
                         {isEditing ? <X size={15} /> : <Pencil size={15} />}
@@ -900,6 +1056,35 @@ function CodingTab({
                       </li>
                     ))}
                   </ul>
+
+                  {codingAIError?.subject === key && (() => {
+                    const needsKey = codingAIError.message.toLowerCase().includes('chave') || codingAIError.message.toLowerCase().includes('configur') || codingAIError.message.toLowerCase().includes('api');
+                    return (
+                      <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
+                        <p className="text-sm font-bold text-rose-700">{codingAIError.message}</p>
+                        {needsKey && (
+                          <div className="mt-1 flex flex-col gap-2">
+                            <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
+                            <input
+                              type="password"
+                              value={aiKeyDraft}
+                              onChange={(e) => setAiKeyDraft(e.target.value)}
+                              placeholder="AIza..."
+                              className="min-h-10 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => { if (aiKeyDraft.trim()) onGenerateCodingAI(key, aiKeyDraft.trim()); }}
+                              disabled={!aiKeyDraft.trim() || !!generatingCodingAI}
+                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+                            >
+                              <Sparkles size={14} /> Tentar com esta chave
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })
@@ -921,6 +1106,7 @@ function CodingTab({
         <aside className="space-y-6">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
+            todayCount={todayPomodoroCount}
             notificationPermission={notificationPermission} message={pomodoroMessage}
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
@@ -946,9 +1132,10 @@ function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onGenerateAI, generatingAI, aiError,
+  selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onSave,
-  pomodoroMode, pomodoroSeconds, pomodoroRunning,
+  pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
@@ -962,21 +1149,26 @@ function DiverseTab({
   onGenerateAI: (apiKey?: string) => void;
   generatingAI: boolean;
   aiError: string;
+  selectedSubjectSlug: string | null;
+  onSelectSubjectTab: (slug: string) => void;
+  onSelectOverview: () => void;
   onRemoveSubject: (i: number) => void;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
   onSave: () => void;
-  pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
+  pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
   onTogglePomodoro: () => void;
-  onSwitchPomodoro: (m: 'focus' | 'break') => void;
+  onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
   const subjects = diverseDay?.custom_subjects ?? [];
   const totalDone = subjects.flatMap((s) => s.topics).filter((t) => t.done).length;
   const totalTopics = subjects.flatMap((s) => s.topics).length;
+  const subjectTabs = subjects.map((subject, index) => ({ subject, index, slug: getDiverseSubjectSlug(subject, index, subjects) }));
+  const selectedSubject = subjectTabs.find((item) => item.slug === selectedSubjectSlug) ?? null;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
@@ -995,6 +1187,55 @@ function DiverseTab({
         </div>
       </section>
 
+      {subjectTabs.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
+          <button
+            type="button"
+            onClick={onSelectOverview}
+            className={`shrink-0 rounded-2xl px-4 py-3 text-sm font-black transition ${selectedSubject ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-white'}`}
+          >
+            Todas
+          </button>
+          {subjectTabs.map((item) => (
+            <button
+              key={item.slug}
+              type="button"
+              data-subject-tab={item.slug}
+              onClick={() => onSelectSubjectTab(item.slug)}
+              className={`shrink-0 rounded-2xl px-4 py-3 text-sm font-black transition ${selectedSubjectSlug === item.slug ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              {item.subject.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selectedSubject ? (
+        <DiverseSubjectDashboard
+          selectedDate={selectedDate}
+          subject={selectedSubject.subject}
+          onBack={onSelectOverview}
+          onRemove={() => onRemoveSubject(selectedSubject.index)}
+          onToggleTopic={(ti) => onToggleTopic(selectedSubject.index, ti)}
+          onUpdateTopicText={(ti, v) => onUpdateTopicText(selectedSubject.index, ti, v)}
+          onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
+          onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
+          onSave={onSave}
+          savingDiverse={savingDiverse}
+          loadingDiverse={loadingDiverse}
+          diverseSaved={diverseSaved}
+          diverseError={diverseError}
+          pomodoroMode={pomodoroMode}
+          pomodoroSeconds={pomodoroSeconds}
+          pomodoroRunning={pomodoroRunning}
+          todayPomodoroCount={todayPomodoroCount}
+          notificationPermission={notificationPermission}
+          pomodoroMessage={pomodoroMessage}
+          onTogglePomodoro={onTogglePomodoro}
+          onSwitchPomodoro={onSwitchPomodoro}
+          onRequestNotifications={onRequestNotifications}
+        />
+      ) : (
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="space-y-4">
           {/* Add subject with datalist */}
@@ -1067,17 +1308,42 @@ function DiverseTab({
               <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar aula com IA.</p>
             </div>
           ) : (
-            subjects.map((subject, si) => (
-              <SubjectStudyCard
-                key={si}
-                subject={subject}
-                onRemove={() => onRemoveSubject(si)}
-                onToggleTopic={(ti) => onToggleTopic(si, ti)}
-                onUpdateTopicText={(ti, v) => onUpdateTopicText(si, ti, v)}
-                onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(si, ti, v)}
-                onUpdateSubjectName={(v) => onUpdateSubjectName(si, v)}
-              />
-            ))
+            <div className="grid gap-3 sm:grid-cols-2">
+              {subjectTabs.map((item) => {
+                const done = item.subject.topics.filter((topic) => topic.done).length;
+                const total = item.subject.topics.length;
+                return (
+                  <article key={item.slug} className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Materia</p>
+                        <h2 className="mt-1 text-xl font-black text-slate-800">{item.subject.name}</h2>
+                      </div>
+                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
+                        tab={item.slug}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-2xl bg-slate-50 p-3">
+                        <p className="text-2xl font-black text-slate-800">{total}</p>
+                        <p className="text-xs font-bold text-slate-400">Topicos</p>
+                      </div>
+                      <div className="rounded-2xl bg-emerald-50 p-3">
+                        <p className="text-2xl font-black text-emerald-600">{done}</p>
+                        <p className="text-xs font-bold text-emerald-500">Feitos</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onSelectSubjectTab(item.slug)}
+                      className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700"
+                    >
+                      <Layers size={16} /> Abrir dashboard
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
           )}
 
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
@@ -1092,6 +1358,7 @@ function DiverseTab({
         <aside className="space-y-6">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
+            todayCount={todayPomodoroCount}
             notificationPermission={notificationPermission} message={pomodoroMessage}
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
@@ -1106,6 +1373,7 @@ function DiverseTab({
           </div>
         </aside>
       </div>
+      )}
     </div>
   );
 }
@@ -1113,6 +1381,102 @@ function DiverseTab({
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUBJECT STUDY CARD (Diverse tab — inline study mode)
 // ═══════════════════════════════════════════════════════════════════════════════
+function DiverseSubjectDashboard({
+  selectedDate, subject, onBack, onRemove, onToggleTopic, onUpdateTopicText,
+  onUpdateTopicAnswer, onUpdateSubjectName, onSave, savingDiverse, loadingDiverse,
+  diverseSaved, diverseError, pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
+  notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
+  onRequestNotifications,
+}: {
+  selectedDate: string;
+  subject: DiverseSubject;
+  onBack: () => void;
+  onRemove: () => void;
+  onToggleTopic: (ti: number) => void;
+  onUpdateTopicText: (ti: number, value: string) => void;
+  onUpdateTopicAnswer: (ti: number, value: string) => void;
+  onUpdateSubjectName: (value: string) => void;
+  onSave: () => void;
+  savingDiverse: boolean;
+  loadingDiverse: boolean;
+  diverseSaved: string;
+  diverseError: string;
+  pomodoroMode: PomodoroMode;
+  pomodoroSeconds: number;
+  pomodoroRunning: boolean;
+  todayPomodoroCount: number;
+  notificationPermission: NotificationPermission | 'unsupported';
+  pomodoroMessage: string;
+  onTogglePomodoro: () => void;
+  onSwitchPomodoro: (m: PomodoroMode) => void;
+  onRequestNotifications: () => void;
+}) {
+  const doneCount = subject.topics.filter((topic) => topic.done).length;
+  const totalTopics = subject.topics.length;
+  const pendingCount = Math.max(totalTopics - doneCount, 0);
+  const completed = totalTopics > 0 && doneCount === totalTopics;
+
+  return (
+    <div className="space-y-6">
+      <section className="kid-surface border-indigo-200 p-6 md:p-8">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-200"
+        >
+          <ArrowLeft size={16} /> Voltar para materias
+        </button>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da materia</p>
+        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{subject.name}</h1>
+        <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <MetricCard icon={<Layers size={22} />} label="Topicos" value={`${totalTopics}`} helper="Nesta materia" tone="sky" />
+          <MetricCard icon={<CheckCircle2 size={22} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
+          <MetricCard icon={<Flame size={22} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="space-y-4">
+          <SubjectStudyCard
+            subject={subject}
+            onRemove={onRemove}
+            onToggleTopic={onToggleTopic}
+            onUpdateTopicText={onUpdateTopicText}
+            onUpdateTopicAnswer={onUpdateTopicAnswer}
+            onUpdateSubjectName={onUpdateSubjectName}
+          />
+
+          {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
+          {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
+          <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse}
+            className="kid-button w-full bg-primary hover:bg-primary-dark">
+            {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+            Salvar materia
+          </button>
+        </div>
+
+        <aside className="space-y-6">
+          <PomodoroWidget
+            mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
+            todayCount={todayPomodoroCount}
+            notificationPermission={notificationPermission} message={pomodoroMessage}
+            onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
+          />
+          <div className="kid-surface border-slate-100 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Foco da materia</p>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+              <p>Use Lista para ajustar os topicos e respostas.</p>
+              <p>Use Estudar para revisar a materia como flashcards.</p>
+              <p>A URL desta aba segue o formato <strong>tab=nomedamateria</strong>.</p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
 }: {
@@ -1123,6 +1487,7 @@ function SubjectStudyCard({
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
 }) {
+  const studyCardRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'topics' | 'study'>('topics');
   const [expandedAnswer, setExpandedAnswer] = useState<number | null>(null);
   const [studyState, setStudyState] = useState<InlineStudyState>({
@@ -1138,7 +1503,12 @@ function SubjectStudyCard({
     setStudyState({ currentIndex: 0, userAnswer: '', revealed: false, results: [], done: false });
   }
 
-  function rateAndAdvance(rating: 'knew' | 'partial' | 'unknown') {
+  function revealCurrentTopic() {
+    setStudyState((prev) => ({ ...prev, revealed: true }));
+    window.setTimeout(() => studyCardRef.current?.focus(), 0);
+  }
+
+  function rateAndAdvance(rating: StudyRating) {
     const { currentIndex, results } = studyState;
     const newResults = [...results, rating];
     const topic = subject.topics[currentIndex];
@@ -1153,12 +1523,37 @@ function SubjectStudyCard({
     }
   }
 
+  function handleStudyKeyDown(event: KeyboardEvent) {
+    if (activeTab !== 'study' || !studyState.revealed || studyState.done) return;
+    if (!studyCardRef.current?.contains(document.activeElement)) return;
+
+    const target = event.target as HTMLElement | null;
+    const tagName = target?.tagName;
+    if (target?.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') return;
+
+    if (event.key === '1') {
+      event.preventDefault();
+      rateAndAdvance('partial');
+    } else if (event.key === '2') {
+      event.preventDefault();
+      rateAndAdvance('knew');
+    } else if (event.key === '3') {
+      event.preventDefault();
+      rateAndAdvance('unknown');
+    }
+  }
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleStudyKeyDown);
+    return () => window.removeEventListener('keydown', handleStudyKeyDown);
+  });
+
   const knewCount = studyState.results.filter((r) => r === 'knew').length;
   const partialCount = studyState.results.filter((r) => r === 'partial').length;
   const unknownCount = studyState.results.filter((r) => r === 'unknown').length;
 
   return (
-    <div className={`rounded-[1.5rem] border-2 bg-white transition ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
+    <div ref={studyCardRef} tabIndex={-1} className={`rounded-[1.5rem] border-2 bg-white transition focus:outline-none ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-5 pt-5">
         <input
@@ -1309,7 +1704,7 @@ function SubjectStudyCard({
                       className="w-full resize-none rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
                     />
                   </div>
-                  <button type="button" onClick={() => setStudyState((prev) => ({ ...prev, revealed: true }))}
+                  <button type="button" onClick={revealCurrentTopic}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-black text-white transition hover:bg-indigo-700">
                     <ChevronRight size={16} /> Revelar explicação
                   </button>
@@ -1330,19 +1725,19 @@ function SubjectStudyCard({
                     )}
                   </div>
                   {/* Rating */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => rateAndAdvance('knew')}
-                      className="flex flex-col items-center gap-1 rounded-2xl bg-emerald-500 py-3 text-white transition hover:bg-emerald-400">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <button type="button" onClick={() => rateAndAdvance('knew')} aria-keyshortcuts="2"
+                      className="order-2 sm:order-2 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-500 px-4 py-4 text-white shadow-sm transition hover:bg-emerald-400 active:scale-[.98]">
                       <span className="text-lg font-black">✓</span>
                       <span className="text-xs font-black">Sabia</span>
                     </button>
-                    <button type="button" onClick={() => rateAndAdvance('partial')}
-                      className="flex flex-col items-center gap-1 rounded-2xl bg-amber-500 py-3 text-white transition hover:bg-amber-400">
+                    <button type="button" onClick={() => rateAndAdvance('partial')} aria-keyshortcuts="1"
+                      className="order-1 sm:order-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-amber-500 px-4 py-4 text-white transition hover:bg-amber-400 active:scale-[.98]">
                       <span className="text-lg font-black">~</span>
                       <span className="text-xs font-black">Parcial</span>
                     </button>
-                    <button type="button" onClick={() => rateAndAdvance('unknown')}
-                      className="flex flex-col items-center gap-1 rounded-2xl bg-rose-500 py-3 text-white transition hover:bg-rose-400">
+                    <button type="button" onClick={() => rateAndAdvance('unknown')} aria-keyshortcuts="3"
+                      className="order-3 sm:order-3 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-500 px-4 py-4 text-white transition hover:bg-rose-400 active:scale-[.98]">
                       <span className="text-lg font-black">✗</span>
                       <span className="text-xs font-black">Não sabia</span>
                     </button>
@@ -1361,13 +1756,13 @@ function SubjectStudyCard({
 // POMODORO WIDGET (shared)
 // ═══════════════════════════════════════════════════════════════════════════════
 function PomodoroWidget({
-  mode, seconds, running, notificationPermission, message,
+  mode, seconds, running, todayCount, notificationPermission, message,
   onToggle, onSwitch, onRequestNotifications,
 }: {
-  mode: 'focus' | 'break'; seconds: number; running: boolean;
+  mode: PomodoroMode; seconds: number; running: boolean; todayCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; message: string;
   onToggle: () => void;
-  onSwitch: (m: 'focus' | 'break') => void;
+  onSwitch: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
   return (
@@ -1385,6 +1780,12 @@ function PomodoroWidget({
 
       <div className="mt-5 rounded-[1.5rem] border-2 border-slate-100 bg-white p-5 text-center">
         <p className="font-mono text-5xl font-black text-slate-800 md:text-6xl">{formatTimer(seconds)}</p>
+        <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-left">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">Pomodoros hoje</p>
+          <p className="mt-1 text-2xl font-black text-emerald-700">
+            {todayCount} <span className="text-sm font-bold text-emerald-600">{todayCount === 1 ? 'feito' : 'feitos'}</span>
+          </p>
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" onClick={() => onSwitch('focus')}
             className={`rounded-2xl px-3 py-2 text-sm font-black transition ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>

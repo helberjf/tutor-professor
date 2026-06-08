@@ -1,17 +1,17 @@
-import type { Metadata } from 'next';
-import { Baloo_2 } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 import { Navbar } from '@/components/navbar';
 
-const baloo = Baloo_2({
-  subsets: ['latin'],
-  variable: '--font-baloo',
-});
-
 export const metadata: Metadata = {
   title: 'Language Kids Tutor',
   description: 'Um tutor de idiomas seguro, leve e acolhedor.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={baloo.variable}>
+      <body>
         <Navbar />
         <div className="pt-16">{children}</div>
       </body>
