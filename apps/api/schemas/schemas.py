@@ -336,7 +336,7 @@ class ProgrammingTopicSchema(FromAttributesModel):
     subject_id: int
     title: str
     order_index: int
-    status: str
+    status: Literal["not_started", "studied", "mastered"]
     ai_content: Optional[Dict[str, Any]] = None
     notes: Optional[str] = None
     created_at: datetime
@@ -353,7 +353,7 @@ class CreateProgrammingTopicSchema(BaseModel):
 class UpdateProgrammingTopicSchema(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     order_index: Optional[int] = None
-    status: Optional[str] = None
+    status: Optional[Literal["not_started", "studied", "mastered"]] = None
     notes: Optional[str] = Field(default=None, max_length=5000)
     ai_content: Optional[Dict[str, Any]] = None
 
