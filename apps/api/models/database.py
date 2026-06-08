@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
 from sqlalchemy import UniqueConstraint
 from sqlmodel import SQLModel, Field, JSON, Column
@@ -175,9 +176,6 @@ class AdminFlashcard(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-from enum import Enum as PyEnum
-
-
 class TopicStatus(str, PyEnum):
     not_started = "not_started"
     studied = "studied"
@@ -198,7 +196,7 @@ class ProgrammingTopic(SQLModel, table=True):
     subject_id: int = Field(foreign_key="programmingsubject.id", index=True)
     title: str = Field(min_length=1, max_length=200)
     order_index: int = Field(default=0)
-    status: str = Field(default="not_started")
+    status: TopicStatus = Field(default=TopicStatus.not_started)
     ai_content: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     notes: Optional[str] = Field(default=None, max_length=5000)
     created_at: datetime = Field(default_factory=datetime.utcnow)
