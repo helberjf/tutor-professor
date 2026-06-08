@@ -173,3 +173,57 @@ class AdminFlashcard(SQLModel, table=True):
     category: str = Field(default="general", max_length=40)  # react | typescript | general
     code_example: Optional[str] = Field(default=None, max_length=2000)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+from enum import Enum as PyEnum
+
+
+class TopicStatus(str, PyEnum):
+    not_started = "not_started"
+    studied = "studied"
+    mastered = "mastered"
+
+
+class ProgrammingSubject(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ProgrammingTopic(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    subject_id: int = Field(foreign_key="programmingsubject.id", index=True)
+    title: str = Field(min_length=1, max_length=200)
+    order_index: int = Field(default=0)
+    status: str = Field(default="not_started")
+    ai_content: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    notes: Optional[str] = Field(default=None, max_length=5000)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ProgrammingFlashcard(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    topic_id: int = Field(foreign_key="programmingtopic.id", index=True)
+    subject_id: int = Field(foreign_key="programmingsubject.id", index=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    front: str = Field(min_length=1, max_length=500)
+    back: str = Field(min_length=1, max_length=2000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CodingReviewItem(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    flashcard_id: int = Field(foreign_key="programmingflashcard.id", index=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    difficulty_score: float = Field(default=0.5)
+    attempt_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    error_count: int = Field(default=0)
+    streak: int = Field(default=0)
+    last_reviewed: Optional[datetime] = Field(default=None)
+    next_review: datetime = Field(default_factory=datetime.utcnow)
