@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
+import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
@@ -959,171 +960,24 @@ function CodingTab({
   onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
-  const [aiKeyDraft, setAiKeyDraft] = useState('');
-  const subjectsCompleted = codingDay
-    ? Object.entries(codingDay.subjects).filter(([, topics]) => topics.every((t) => t.done)).length
-    : 0;
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <section className="kid-surface border-primary/30 p-6 md:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · meta do dia</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">3 tópicos por matéria</h1>
-        <p className="mt-2 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <MetricCard icon={<CheckCircle2 size={22} />} label="Topicos feitos"
-            value={`${codingDoneCount}/${codingTotalCount}`} helper="No total hoje" tone="green" />
-          <MetricCard icon={<Code2 size={22} />} label="Materias completas"
-            value={`${subjectsCompleted}/${SUBJECT_ORDER.length}`} helper="Todas as 3 marcadas" tone="sky" />
-          <MetricCard icon={<Flame size={22} />} label="Meta do dia"
-            value={codingDoneCount >= codingTotalCount ? 'Completa!' : 'Em progresso'}
-            helper={`${codingTotalCount - codingDoneCount} topicos restantes`} tone={codingDoneCount >= codingTotalCount ? 'green' : 'orange'} />
-        </div>
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-        {/* Subject cards */}
-        <div className="space-y-4">
-          {loadingCoding ? (
-            <div className="flex items-center justify-center rounded-[1.5rem] border-2 border-slate-100 bg-white p-12">
-              <Loader2 className="animate-spin text-primary" size={32} />
-            </div>
-          ) : codingDay ? (
-            SUBJECT_ORDER.map((key) => {
-              const meta = SUBJECT_META[key];
-              const topics: CodingTopic[] = codingDay.subjects[key] ?? [];
-              const doneCount = topics.filter((t) => t.done).length;
-              const isEditing = editingSubject === key;
-              const allDone = topics.length > 0 && topics.every((t) => t.done);
-
-              return (
-                <div key={key} className={`rounded-[1.5rem] border-2 bg-white p-5 transition ${allDone ? 'border-emerald-200 bg-emerald-50/40' : meta.borderColor}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black ${meta.bgColor} ${meta.iconColor}`}>
-                        {meta.badge}
-                      </div>
-                      <div>
-                        <h3 className="font-black text-slate-800">{meta.label}</h3>
-                        <p className="text-xs font-semibold text-slate-400">{doneCount}/{topics.length} tópicos</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
-                      <button
-                        type="button"
-                        onClick={() => onGenerateCodingAI(key)}
-                        disabled={!!generatingCodingAI}
-                        title="Gerar tópicos com IA"
-                        className={`flex h-9 w-9 items-center justify-center rounded-2xl border-2 transition disabled:opacity-50 ${generatingCodingAI === key ? 'border-violet-300 bg-violet-50 text-violet-600' : 'border-slate-200 bg-white text-slate-400 hover:border-violet-300 hover:text-violet-600'}`}
-                      >
-                        {generatingCodingAI === key ? <Loader2 className="animate-spin" size={15} /> : <Sparkles size={15} />}
-                      </button>
-                      <button type="button" onClick={() => setEditingSubject(isEditing ? null : key)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-2xl border-2 transition ${isEditing ? 'border-primary bg-primary-light text-primary-dark' : 'border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary-dark'}`}>
-                        {isEditing ? <X size={15} /> : <Pencil size={15} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-3 flex gap-1">
-                    {topics.map((t, i) => (
-                      <div key={i} className={`h-1.5 flex-1 rounded-full transition-all ${t.done ? 'bg-emerald-400' : 'bg-slate-100'}`} />
-                    ))}
-                  </div>
-
-                  {/* Topics */}
-                  <ul className="mt-4 space-y-2">
-                    {topics.map((t, i) => (
-                      <li key={i} className="flex items-center gap-3">
-                        <button type="button" onClick={() => onToggleTopic(key, i)}
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
-                          {t.done && <CheckCircle2 size={13} />}
-                        </button>
-                        {isEditing ? (
-                          <input
-                            value={t.topic}
-                            onChange={(e) => onUpdateTopicText(key, i, e.target.value)}
-                            maxLength={120}
-                            className="flex-1 rounded-xl border-2 border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
-                          />
-                        ) : (
-                          <span className={`text-sm font-semibold leading-5 transition ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.topic}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {codingAIError?.subject === key && (() => {
-                    const needsKey = codingAIError.message.toLowerCase().includes('chave') || codingAIError.message.toLowerCase().includes('configur') || codingAIError.message.toLowerCase().includes('api');
-                    return (
-                      <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
-                        <p className="text-sm font-bold text-rose-700">{codingAIError.message}</p>
-                        {needsKey && (
-                          <div className="mt-1 flex flex-col gap-2">
-                            <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
-                            <input
-                              type="password"
-                              value={aiKeyDraft}
-                              onChange={(e) => setAiKeyDraft(e.target.value)}
-                              placeholder="AIza..."
-                              className="min-h-10 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => { if (aiKeyDraft.trim()) onGenerateCodingAI(key, aiKeyDraft.trim()); }}
-                              disabled={!aiKeyDraft.trim() || !!generatingCodingAI}
-                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
-                            >
-                              <Sparkles size={14} /> Tentar com esta chave
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })
-          ) : (
-            <p className="rounded-[1.5rem] bg-slate-50 px-6 py-10 text-center text-sm font-semibold text-slate-500">Nao foi possivel carregar os topicos.</p>
-          )}
-
-          {/* Save button */}
-          {codingError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{codingError}</p>}
-          {codingSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{codingSaved}</p>}
-          <button type="button" onClick={onSave} disabled={savingCoding || loadingCoding || !codingDay}
-            className="kid-button w-full bg-primary hover:bg-primary-dark">
-            {savingCoding ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-            Salvar progresso
-          </button>
-        </div>
-
-        {/* Sidebar */}
-        <aside className="space-y-6">
-          <PomodoroWidget
-            mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
-            todayCount={todayPomodoroCount}
-            notificationPermission={notificationPermission} message={pomodoroMessage}
-            onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
-          />
-
-          <div className="kid-surface border-sky-100 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Como usar</p>
-            <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Marque cada topico conforme estudar. Use o icone de lapis para editar os topicos do dia.</p>
-              <p>3 topicos por materia é a meta — foco em profundidade, nao quantidade.</p>
-              <p>Salve ao final do dia para registrar o progresso.</p>
-            </div>
-          </div>
-        </aside>
+    <div className="grid gap-6 lg:grid-cols-[1fr_0.45fr]">
+      <div>
+        <CodingCurriculum />
       </div>
+      <aside className="space-y-6">
+        <PomodoroWidget
+          mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
+          todayCount={todayPomodoroCount} notificationPermission={notificationPermission}
+          message={pomodoroMessage} onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro}
+          onRequestNotifications={onRequestNotifications}
+        />
+      </aside>
     </div>
   );
+
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DIVERSE TAB
