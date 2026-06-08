@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2,
-  Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Timer, Trash2, X, Zap,
+  Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+
+const AI_FLASHCARD_COUNT = 5;
 
 const FOCUS_SECONDS = 25 * 60;
 const BREAK_SECONDS = 5 * 60;
@@ -85,6 +87,8 @@ export default function StudyPage() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
   const [studySession, setStudySession] = useState<StudySession | null>(null);
+  const [generatingAI, setGeneratingAI] = useState(false);
+  const [aiError, setAiError] = useState('');
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -331,6 +335,37 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
+  async function generateAIFlashcards() {
+    const name = newSubjectName.trim();
+    if (!name) return;
+    setGeneratingAI(true); setAiError('');
+    try {
+      const result = await api.generateStudyFlashcards({ subject: name, count: AI_FLASHCARD_COUNT });
+      const subjects = diverseDay?.custom_subjects ?? [];
+      if (subjects.some((s) => s.name.toLowerCase() === result.subject.toLowerCase())) {
+        setAiError('Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova.');
+        return;
+      }
+      const newTopics: CodingTopic[] = result.flashcards.map((f) => ({
+        topic: f.topic,
+        done: false,
+        answer: f.answer,
+      }));
+      const newDay: DiverseDay = {
+        id: diverseDay?.id ?? null,
+        study_date: selectedDate,
+        custom_subjects: [...subjects, { name: result.subject, topics: newTopics }],
+        created_at: diverseDay?.created_at ?? null,
+        updated_at: diverseDay?.updated_at ?? null,
+      };
+      setDiverseDay(newDay);
+      setNewSubjectName('');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel gerar flashcards com IA.';
+      setAiError(msg);
+    } finally { setGeneratingAI(false); }
+  }
+
   async function saveDiverseDay() {
     if (!diverseDay) return;
     setSavingDiverse(true); setDiverseSaved(''); setDiverseError('');
@@ -443,6 +478,9 @@ export default function StudyPage() {
             newSubjectName={newSubjectName}
             setNewSubjectName={setNewSubjectName}
             onAddSubject={addDiverseSubject}
+            onGenerateAI={() => void generateAIFlashcards()}
+            generatingAI={generatingAI}
+            aiError={aiError}
             onRemoveSubject={removeDiverseSubject}
             onToggleTopic={toggleDiverseTopic}
             onUpdateTopicText={updateDiverseTopicText}
@@ -876,7 +914,8 @@ function CodingTab({
 function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
-  onAddSubject, onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
+  onAddSubject, onGenerateAI, generatingAI, aiError,
+  onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onStartStudy, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning,
   notificationPermission, pomodoroMessage,
@@ -889,6 +928,9 @@ function DiverseTab({
   diverseSaved: string; diverseError: string;
   newSubjectName: string; setNewSubjectName: (v: string) => void;
   onAddSubject: () => void;
+  onGenerateAI: () => void;
+  generatingAI: boolean;
+  aiError: string;
   onRemoveSubject: (i: number) => void;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
@@ -926,25 +968,39 @@ function DiverseTab({
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="space-y-4">
           {/* Add subject with datalist */}
-          <div className="flex gap-2">
-            <>
-              <input
-                list="catalog-subjects"
-                value={newSubjectName}
-                onChange={(e) => setNewSubjectName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAddSubject(); } }}
-                maxLength={60}
-                placeholder="Matéria: Francês, Piano, Culinária..."
-                className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
-              />
-              <datalist id="catalog-subjects">
-                {catalog.map((c) => <option key={c.name} value={c.name} />)}
-              </datalist>
-            </>
-            <button type="button" onClick={onAddSubject}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700">
-              <Plus size={18} /> Criar
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <>
+                <input
+                  list="catalog-subjects"
+                  value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAddSubject(); } }}
+                  maxLength={60}
+                  placeholder="Matéria: React, Python, Francês..."
+                  className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
+                />
+                <datalist id="catalog-subjects">
+                  {catalog.map((c) => <option key={c.name} value={c.name} />)}
+                </datalist>
+              </>
+              <button type="button" onClick={onAddSubject} disabled={!newSubjectName.trim()}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700 disabled:opacity-50">
+                <Plus size={18} /> Criar
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={onGenerateAI}
+              disabled={generatingAI || !newSubjectName.trim()}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-base font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {generatingAI ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {generatingAI ? 'Gerando flashcards com IA...' : 'Gerar flashcards com IA'}
             </button>
+            {aiError && (
+              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{aiError}</p>
+            )}
           </div>
 
           {/* Subject cards */}
@@ -1058,9 +1114,10 @@ function DiverseTab({
           <div className="kid-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Crie qualquer matéria: idioma, instrumento, hobby. Selecione um já existente no campo de texto para reaproveitar os tópicos.</p>
-              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a resposta.</p>
-              <p>Clique em <strong>Iniciar Estudo</strong> para revisar por flashcards.</p>
+              <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Gerar flashcards com IA</strong> para criar flashcards automaticamente.</p>
+              <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
+              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a resposta. Clique em <strong>Iniciar Estudo</strong> para revisar por flashcards.</p>
+              <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
             </div>
           </div>
         </aside>

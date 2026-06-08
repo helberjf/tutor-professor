@@ -358,3 +358,18 @@ class GenerateLessonResponseSchema(BaseModel):
     lesson: LessonSchema  # last generated (kept for backward compat)
     lessons: list[LessonSchema]
     message: str
+
+
+class GenerateFlashcardsRequestSchema(BaseModel):
+    subject: str = Field(min_length=1, max_length=80)
+    count: int = Field(default=5, ge=3, le=10)
+
+
+class GeneratedFlashcardSchema(BaseModel):
+    topic: str
+    answer: str
+
+
+class GenerateFlashcardsResponseSchema(BaseModel):
+    subject: str
+    flashcards: list[GeneratedFlashcardSchema]

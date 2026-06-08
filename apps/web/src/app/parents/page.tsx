@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Baby, BarChart3, BookOpen, CheckCircle2, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
+import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
 import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
-import { ApiError, api, type ChildProfile, type ChildProgressSummary, type Lesson } from '@/lib/api';
+import { ApiError, api, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
 const LANGUAGES = [
   { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
@@ -60,6 +60,16 @@ export default function ParentsPage() {
   const [generatedLesson, setGeneratedLesson] = useState<Lesson | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
   const [showTokenWarning, setShowTokenWarning] = useState(false);
+  const [aiProviders, setAiProviders] = useState<AIProvider[]>([]);
+  const [aiSettings, setAiSettings] = useState<UserAISettings | null>(null);
+  const [aiForm, setAiForm] = useState({
+    provider: 'gemini',
+    api_key: '',
+    model: 'gemini-2.5-flash',
+    base_url: '',
+  });
+  const [aiSaving, setAiSaving] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
 
   // Tunnel URL state
   const [tunnelDraft, setTunnelDraft] = useState(() => getApiConnectionDetails().baseUrl ?? '');
@@ -70,13 +80,23 @@ export default function ParentsPage() {
 
   async function loadSettings() {
     try {
-      const [settings, childList, progressList] = await Promise.all([
+      const [settings, childList, progressList, providers, userAiSettings] = await Promise.all([
         api.getParentSettings(),
         api.listParentChildren(),
         api.getParentProgress(),
+        api.getAIProviders(),
+        api.getUserAISettings(),
       ]);
       setChildren(childList);
       setProgressSummaries(progressList);
+      setAiProviders(providers);
+      setAiSettings(userAiSettings);
+      setAiForm({
+        provider: userAiSettings.provider || 'gemini',
+        api_key: '',
+        model: userAiSettings.model || 'gemini-2.5-flash',
+        base_url: userAiSettings.base_url ?? '',
+      });
       const storedActiveChildId = getStoredActiveChildId();
       const hasStoredChild = storedActiveChildId && childList.some((child) => child.id === storedActiveChildId);
       if (!hasStoredChild) {
@@ -135,6 +155,51 @@ export default function ParentsPage() {
     }
   }
 
+  function handleAIProviderChange(providerId: string) {
+    const provider = aiProviders.find((item) => item.id === providerId) ?? aiProviders.find((item) => item.id === 'gemini');
+    setAiForm((current) => ({
+      ...current,
+      provider: provider?.id ?? 'gemini',
+      model: provider?.default_model ?? current.model,
+    }));
+    setAiMessage('');
+  }
+
+  async function handleSaveAISettings(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAiSaving(true);
+    setAiMessage('');
+
+    if (!aiForm.api_key.trim() && !aiSettings?.has_api_key) {
+      setAiMessage('Informe a chave de API.');
+      setAiSaving(false);
+      return;
+    }
+
+    try {
+      const saved = await api.saveUserAISettings({
+        provider: aiForm.provider,
+        model: aiForm.model.trim(),
+        base_url: aiForm.base_url.trim() || undefined,
+        api_key: aiForm.api_key.trim() || undefined,
+      });
+      setAiSettings(saved);
+      setAiForm({
+        provider: saved.provider,
+        api_key: '',
+        model: saved.model,
+        base_url: saved.base_url ?? '',
+      });
+      setAiMessage('Configuracao de IA salva.');
+    } catch (err) {
+      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar a IA.');
+      setAiMessage(nextError.message);
+      setError(nextError);
+    } finally {
+      setAiSaving(false);
+    }
+  }
+
   async function handleLogout() {
     setSaving(true);
     try {
@@ -149,6 +214,9 @@ export default function ParentsPage() {
       setGeneratorMessage('');
       setGeneratedLesson(null);
       setGeneratorTone('idle');
+      setAiSettings(null);
+      setAiForm({ provider: 'gemini', api_key: '', model: 'gemini-2.5-flash', base_url: '' });
+      setAiMessage('');
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.'));
@@ -286,6 +354,11 @@ export default function ParentsPage() {
   if (!isLoggedIn) {
     return null;
   }
+
+  const availableAIProviders =
+    aiProviders.length > 0
+      ? aiProviders
+      : [{ id: 'gemini', label: 'Gemini', default_model: 'gemini-2.5-flash', requires_base_url: false, is_default: true }];
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
@@ -560,13 +633,91 @@ export default function ParentsPage() {
               </form>
             </div>
 
+            <div className="kid-surface border-indigo-200 p-5 md:p-8">
+              <div className="flex items-center gap-3">
+                <Bot className="text-indigo-700" size={28} />
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">IA da conta</h2>
+              </div>
+
+              <form onSubmit={handleSaveAISettings} className="mt-5 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Provedor</label>
+                    <select
+                      value={aiForm.provider}
+                      onChange={(event) => handleAIProviderChange(event.target.value)}
+                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
+                    >
+                      {availableAIProviders.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Modelo</label>
+                    <input
+                      type="text"
+                      value={aiForm.model}
+                      onChange={(event) => setAiForm((current) => ({ ...current, model: event.target.value }))}
+                      className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
+                      placeholder="gemini-2.5-flash"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
+                    <KeyRound size={14} />
+                    Chave API
+                  </label>
+                  <input
+                    type="password"
+                    value={aiForm.api_key}
+                    onChange={(event) => setAiForm((current) => ({ ...current, api_key: event.target.value }))}
+                    className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
+                    placeholder={aiSettings?.has_api_key ? 'Preencha para trocar a chave' : 'Cole sua chave'}
+                    autoComplete="off"
+                  />
+                  {aiSettings?.has_api_key ? (
+                    <p className="mt-2 text-xs font-bold text-slate-500">Chave salva: {aiSettings.api_key_preview ?? '****'}</p>
+                  ) : (
+                    <p className="mt-2 text-xs font-bold text-kid-pink">Chave obrigatoria para gerar conteudo.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">URL base opcional</label>
+                  <input
+                    type="url"
+                    value={aiForm.base_url}
+                    onChange={(event) => setAiForm((current) => ({ ...current, base_url: event.target.value }))}
+                    className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
+                    placeholder="https://api.exemplo.com/v1"
+                    autoComplete="off"
+                  />
+                </div>
+
+                {aiMessage ? <p className="text-sm font-bold text-primary-dark">{aiMessage}</p> : null}
+                <button
+                  type="submit"
+                  disabled={aiSaving || !aiForm.model.trim()}
+                  className="kid-button bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Save className="mr-2" size={18} />
+                  {aiSaving ? 'Salvando IA...' : 'Salvar IA'}
+                </button>
+              </form>
+            </div>
+
             <div className="kid-surface border-primary/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-primary-dark" size={28} />
                 <h2 className="text-xl font-black text-slate-800 md:text-2xl">Criar nova licao com IA</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Gere o proximo dia com 3 frases novas usando o Gemini e salve a nova licao direto no banco de dados.
+                Gere o proximo dia com 3 frases novas usando a IA configurada na sua conta.
               </p>
               <div className="mt-5">
                 <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
@@ -580,7 +731,7 @@ export default function ParentsPage() {
               </div>
               {showTokenWarning && !generatingLesson ? (
                 <div className="mt-5 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-black text-amber-800">⚠️ Esta ação consome tokens da API Gemini (custo real). Confirmar?</p>
+                  <p className="text-sm font-black text-amber-800">Esta acao consome tokens da API de IA. Confirmar?</p>
                   <div className="mt-3 flex gap-3">
                     <button
                       type="button"
@@ -703,7 +854,7 @@ export default function ParentsPage() {
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuracao util</p>
               <h2 className="mt-3 text-2xl font-black text-slate-800 md:text-3xl">Ambiente</h2>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                A senha da area de pais vem de <code>PARENT_PASSWORD</code>. A geracao de frases usa <code>GEMINI_API_KEY</code> e <code>GEMINI_MODEL</code>. O audio usa <code>KOKORO_DEFAULT_VOICE</code>, <code>KOKORO_URL</code> e <code>AUDIO_CACHE_DIR</code> no backend.
+                Login Google usa <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> e <code>GOOGLE_REDIRECT_URI</code>. Cada conta usa sua propria chave de IA salva acima.
               </p>
             </div>
           </aside>

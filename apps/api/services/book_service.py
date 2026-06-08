@@ -3,10 +3,8 @@ from __future__ import annotations
 import json
 import os
 
-import requests
-
 from schemas.schemas import GeneratedBookDraftSchema
-from services.phrase_generator_service import format_gemini_request_error, get_requests_verify
+from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
 
 
 _LEVEL_DIFFICULTY: dict[tuple[int, int], str] = {
@@ -54,8 +52,11 @@ class BookGenerationService:
             "GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
         ).rstrip("/")
         self.timeout_seconds = int(os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "60"))
+        self.text_generation_service = PhraseGenerationService()
 
-    def is_configured(self) -> bool:
+    def is_configured(self, ai_config: AIProviderConfig | None = None) -> bool:
+        if ai_config is not None:
+            return bool(ai_config.api_key)
         return bool(self.api_key)
 
     def generate_book(
@@ -67,75 +68,59 @@ class BookGenerationService:
         age_group: str = "7-9",
         max_retries: int = 3,
         target_language: str = "English",
+        ai_config: AIProviderConfig | None = None,
     ) -> GeneratedBookDraftSchema:
-        if not self.is_configured():
-            raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
+        if not self.is_configured(ai_config):
+            raise RuntimeError("Chave de API da IA nao esta configurada.")
+
+        active_config = ai_config or AIProviderConfig(
+            provider="gemini",
+            api_key=self.api_key,
+            model=self.model,
+            base_url=self.api_base_url,
+        )
 
         last_error: Exception | None = None
         for attempt in range(1, max_retries + 1):
             prompt = self._build_prompt(
-                level=level, num_pages=num_pages, theme=theme, age_group=age_group,
-                attempt=attempt, target_language=target_language,
+                level=level,
+                num_pages=num_pages,
+                theme=theme,
+                age_group=age_group,
+                attempt=attempt,
+                target_language=target_language,
+            )
+            system_text = (
+                f"You create child-safe {target_language} illustrated mini picture-books "
+                "for Brazilian Portuguese-speaking learners. "
+                f"Each page has a small amount of {target_language} text, its Portuguese translation, "
+                "and 3-5 vocabulary words. Always return valid JSON only, with no markdown fences, "
+                "no comments, and no extra keys."
             )
 
-            payload = {
-                "system_instruction": {
-                    "parts": [
-                        {
-                            "text": (
-                                f"You create child-safe {target_language} illustrated mini picture-books (like Bob Books or Oxford Reading Tree) for Brazilian Portuguese-speaking learners. "
-                                f"Each page has a small amount of {target_language} text (1-5 short sentences depending on level), its Portuguese translation, and 3-5 vocabulary words. "
-                                "Always return valid JSON only — no markdown fences, no comments, no extra keys."
-                            )
-                        }
-                    ]
-                },
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.7 + (attempt - 1) * 0.1,
-                    "responseMimeType": "application/json",
-                },
-            }
-
-            url = f"{self.api_base_url}/models/{self.model}:generateContent"
             try:
-                response = requests.post(
-                    url,
-                    headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
-                    json=payload,
-                    verify=get_requests_verify(),
-                    timeout=self.timeout_seconds,
+                raw_text = self.text_generation_service.generate_json_text(
+                    system_text=system_text,
+                    prompt=prompt,
+                    temperature=0.7 + (attempt - 1) * 0.1,
+                    ai_config=active_config,
+                    timeout_seconds=self.timeout_seconds,
                 )
-                response.raise_for_status()
-            except requests.RequestException as exc:
-                raise RuntimeError(format_gemini_request_error(exc)) from exc
-
-            raw_text = self._extract_text(response.json())
-            raw_text = self._strip_fences(raw_text)
-
-            try:
-                data = json.loads(raw_text)
-            except json.JSONDecodeError as exc:
-                last_error = RuntimeError("Gemini returned invalid JSON for the book draft.")
-                continue
-
-            try:
+                data = json.loads(self._strip_fences(raw_text))
                 draft = GeneratedBookDraftSchema.model_validate(data)
                 self._validate(draft, num_pages=num_pages)
-                # Trunca caso Gemini retorne mais paginas do que o solicitado
                 if len(draft.pages) > num_pages:
                     draft.pages = draft.pages[:num_pages]
                 return draft
-            except (Exception) as exc:
+            except json.JSONDecodeError as exc:
+                last_error = RuntimeError("AI provider returned invalid JSON for the book draft.")
+            except Exception as exc:
                 last_error = exc
-                continue
 
         raise RuntimeError(
-            f"Gemini nao gerou {num_pages} paginas apos {max_retries} tentativas. "
+            f"IA nao gerou {num_pages} paginas apos {max_retries} tentativas. "
             f"Ultimo erro: {last_error}"
         )
-
-    # ── helpers ───────────────────────────────────────────────────────────────
 
     def _build_prompt(
         self,
@@ -149,7 +134,6 @@ class BookGenerationService:
     ) -> str:
         difficulty = _difficulty_for_level(level)
 
-        # Numero de frases por pagina de acordo com o nivel — estilo livro ilustrado infantil
         clamped = max(1, min(10, level))
         if clamped <= 2:
             sentences_rule = f"1-2 short {target_language} sentences"
@@ -174,19 +158,20 @@ class BookGenerationService:
         )
 
         retry_warning = (
-            f"\n⚠️ IMPORTANT: A previous attempt returned fewer than {num_pages} pages. "
+            f"\nIMPORTANT: A previous attempt returned fewer than {num_pages} pages. "
             f"You MUST output ALL {num_pages} page objects. Count them before responding.\n"
-            if attempt > 1 else ""
+            if attempt > 1
+            else ""
         )
 
         return f"""Create a children's {target_language} mini picture-book with EXACTLY {num_pages} pages.{retry_warning}
-This is a real illustrated learning book — each page has a small illustration and just a few lines of text (like Bob Books or Oxford Reading Tree). Keep text short and punchy.
+This is a real illustrated learning book. Each page has a small illustration and just a few lines of text. Keep text short and punchy.
 Difficulty: {difficulty}
 {theme_instruction}Age group: {age_group} years old (Brazilian learner studying {target_language}).
 
 CRITICAL RULES:
 1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
-2. Each page MUST have EXACTLY {sentences_rule} — this is a picture-book page, not a paragraph.
+2. Each page MUST have EXACTLY {sentences_rule}. This is a picture-book page, not a paragraph.
 3. Story structure: page 1 = introduction, pages 2-{num_pages - 1} = development, page {num_pages} = resolution.
 4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
 5. vocabulary: 3-5 key {target_language} words per page drawn from that page's text, no repeats across pages.
@@ -202,13 +187,6 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
 }}"""
 
     @staticmethod
-    def _extract_text(response_json: dict) -> str:
-        try:
-            return response_json["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError) as exc:
-            raise RuntimeError(f"Unexpected Gemini response structure: {exc}") from exc
-
-    @staticmethod
     def _strip_fences(text: str) -> str:
         text = text.strip()
         if text.startswith("```"):
@@ -221,9 +199,9 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
     @staticmethod
     def _validate(draft: GeneratedBookDraftSchema, num_pages: int) -> None:
         if not draft.pages:
-            raise RuntimeError("Gemini returned a book with no pages.")
+            raise RuntimeError("AI provider returned a book with no pages.")
         if len(draft.pages) < num_pages:
             raise RuntimeError(
-                f"Gemini returned {len(draft.pages)} pages but {num_pages} were requested. "
+                f"AI provider returned {len(draft.pages)} pages but {num_pages} were requested. "
                 "Try again."
             )

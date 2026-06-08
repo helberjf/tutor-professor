@@ -4,6 +4,7 @@ import json
 import os
 import ssl
 import tempfile
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,34 @@ import certifi
 import requests
 
 from schemas.schemas import GeneratedLessonDraftSchema
+
+
+@dataclass(frozen=True)
+class AIProviderConfig:
+    provider: str
+    api_key: str
+    model: str
+    base_url: str | None = None
+
+
+AI_PROVIDER_DEFAULT_MODELS = {
+    "gemini": "gemini-2.5-flash",
+    "openai": "gpt-4o-mini",
+    "anthropic": "claude-3-5-haiku-latest",
+    "openrouter": "openrouter/auto",
+    "groq": "llama-3.1-8b-instant",
+    "mistral": "mistral-small-latest",
+}
+
+
+OPENAI_COMPATIBLE_BASE_URLS = {
+    "openai": "https://api.openai.com/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
+    "groq": "https://api.groq.com/openai/v1",
+    "mistral": "https://api.mistral.ai/v1",
+}
+
+ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 
 
 @lru_cache(maxsize=1)
@@ -61,10 +90,10 @@ def get_requests_verify() -> str | bool:
     return str(bundle_path)
 
 
-def format_gemini_request_error(exc: requests.RequestException) -> str:
+def format_provider_request_error(provider_label: str, exc: requests.RequestException) -> str:
     response = getattr(exc, "response", None)
     if response is None:
-        return f"Gemini request failed: {exc}"
+        return f"{provider_label} request failed: {exc}"
 
     detail = ""
     try:
@@ -82,9 +111,13 @@ def format_gemini_request_error(exc: requests.RequestException) -> str:
             detail = ""
 
     if detail:
-        return f"Gemini request failed: {detail}"
+        return f"{provider_label} request failed: {detail}"
 
-    return f"Gemini request failed: {exc}"
+    return f"{provider_label} request failed: {exc}"
+
+
+def format_gemini_request_error(exc: requests.RequestException) -> str:
+    return format_provider_request_error("Gemini", exc)
 
 
 class PhraseGenerationService:
@@ -94,8 +127,9 @@ class PhraseGenerationService:
         self.api_base_url = os.getenv("GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
         self.timeout_seconds = int(os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "45"))
 
-    def is_configured(self) -> bool:
-        return bool(self.api_key)
+    def is_configured(self, ai_config: AIProviderConfig | None = None) -> bool:
+        config = self._resolve_config(ai_config)
+        return bool(config.api_key)
 
     def generate_lesson_draft(
         self,
@@ -106,69 +140,233 @@ class PhraseGenerationService:
         topic: str | None = None,
         level: int = 1,
         target_language: str = "English",
+        ai_config: AIProviderConfig | None = None,
     ) -> GeneratedLessonDraftSchema:
-        if not self.is_configured():
-            raise RuntimeError("GEMINI_API_KEY nao esta configurada no backend.")
+        config = self._resolve_config(ai_config)
+        provider_label = self._provider_label(config.provider)
+        system_text = (
+            f"You create child-safe {target_language} lessons for Brazilian Portuguese speakers. "
+            "Always return valid JSON only, with no markdown fences, no commentary, and no extra keys."
+        )
+        prompt = self._build_prompt(
+            next_day=next_day,
+            age_group=age_group,
+            existing_phrases=existing_phrases,
+            topic=topic,
+            level=level,
+            target_language=target_language,
+        )
 
-        payload = {
-            "system_instruction": {
-                "parts": [
-                    {
-                        "text": (
-                            f"You create child-safe {target_language} lessons for Brazilian Portuguese speakers. "
-                            "Always return valid JSON only, with no markdown fences, no commentary, and no extra keys."
-                        )
-                    }
-                ]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {
-                            "text": self._build_prompt(
-                                next_day=next_day,
-                                age_group=age_group,
-                                existing_phrases=existing_phrases,
-                                topic=topic,
-                                level=level,
-                                target_language=target_language,
-                            )
-                        }
-                    ],
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.8,
-                "responseMimeType": "application/json",
-            },
-        }
-
-        url = f"{self.api_base_url}/models/{self.model}:generateContent"
-        try:
-            response = requests.post(
-                url,
-                headers={
-                    "x-goog-api-key": self.api_key,
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                verify=get_requests_verify(),
-                timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError(format_gemini_request_error(exc)) from exc
-
-        response_text = self._extract_response_text(response.json())
+        response_text = self.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=0.8,
+            ai_config=config,
+        )
         try:
             draft_payload = json.loads(self._strip_code_fences(response_text))
         except json.JSONDecodeError as exc:
-            raise RuntimeError("Gemini returned invalid JSON for the lesson draft.") from exc
+            raise RuntimeError(f"{provider_label} returned invalid JSON for the lesson draft.") from exc
 
         draft = GeneratedLessonDraftSchema.model_validate(draft_payload)
         self._validate_draft(draft)
         return draft
+
+    def generate_json_text(
+        self,
+        *,
+        system_text: str,
+        prompt: str,
+        temperature: float,
+        ai_config: AIProviderConfig | None = None,
+        timeout_seconds: int | None = None,
+    ) -> str:
+        config = self._resolve_config(ai_config)
+        if not config.api_key:
+            raise RuntimeError(f"{self._provider_label(config.provider)} API key nao esta configurada.")
+
+        timeout = timeout_seconds or self.timeout_seconds
+        provider = config.provider
+        if provider == "gemini":
+            return self._generate_gemini_json_text(
+                system_text=system_text,
+                prompt=prompt,
+                temperature=temperature,
+                config=config,
+                timeout_seconds=timeout,
+            )
+        if provider == "anthropic":
+            return self._generate_anthropic_json_text(
+                system_text=system_text,
+                prompt=prompt,
+                temperature=temperature,
+                config=config,
+                timeout_seconds=timeout,
+            )
+        if provider in OPENAI_COMPATIBLE_BASE_URLS:
+            return self._generate_openai_compatible_json_text(
+                system_text=system_text,
+                prompt=prompt,
+                temperature=temperature,
+                config=config,
+                timeout_seconds=timeout,
+            )
+        raise RuntimeError(f"Provedor de IA nao suportado: {config.provider}")
+
+    def _resolve_config(self, ai_config: AIProviderConfig | None = None) -> AIProviderConfig:
+        if ai_config is None:
+            return AIProviderConfig(
+                provider="gemini",
+                api_key=self.api_key,
+                model=self.model,
+                base_url=self.api_base_url,
+            )
+
+        provider = (ai_config.provider or "gemini").strip().lower()
+        model = (ai_config.model or AI_PROVIDER_DEFAULT_MODELS.get(provider, "")).strip()
+        return AIProviderConfig(
+            provider=provider,
+            api_key=(ai_config.api_key or "").strip(),
+            model=model or AI_PROVIDER_DEFAULT_MODELS.get(provider, ""),
+            base_url=(ai_config.base_url or "").strip() or None,
+        )
+
+    def _generate_gemini_json_text(
+        self,
+        *,
+        system_text: str,
+        prompt: str,
+        temperature: float,
+        config: AIProviderConfig,
+        timeout_seconds: int,
+    ) -> str:
+        payload = {
+            "system_instruction": {"parts": [{"text": system_text}]},
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": temperature,
+                "responseMimeType": "application/json",
+            },
+        }
+        base_url = (config.base_url or self.api_base_url).rstrip("/")
+        url = f"{base_url}/models/{config.model}:generateContent"
+        try:
+            response = requests.post(
+                url,
+                headers={
+                    "x-goog-api-key": config.api_key,
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                verify=get_requests_verify(),
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(format_provider_request_error("Gemini", exc)) from exc
+
+        return self._extract_response_text(response.json(), provider_label="Gemini")
+
+    def _generate_openai_compatible_json_text(
+        self,
+        *,
+        system_text: str,
+        prompt: str,
+        temperature: float,
+        config: AIProviderConfig,
+        timeout_seconds: int,
+    ) -> str:
+        base_url = (config.base_url or OPENAI_COMPATIBLE_BASE_URLS[config.provider]).rstrip("/")
+        payload = {
+            "model": config.model,
+            "messages": [
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": temperature,
+            "response_format": {"type": "json_object"},
+        }
+        headers = {
+            "Authorization": f"Bearer {config.api_key}",
+            "Content-Type": "application/json",
+        }
+        if config.provider == "openrouter":
+            headers["X-Title"] = "English Kids Tutor"
+
+        try:
+            response = requests.post(
+                f"{base_url}/chat/completions",
+                headers=headers,
+                json=payload,
+                verify=get_requests_verify(),
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(format_provider_request_error(self._provider_label(config.provider), exc)) from exc
+
+        data = response.json()
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(f"{self._provider_label(config.provider)} returned an unexpected response.") from exc
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError(f"{self._provider_label(config.provider)} returned no text content.")
+        return content
+
+    def _generate_anthropic_json_text(
+        self,
+        *,
+        system_text: str,
+        prompt: str,
+        temperature: float,
+        config: AIProviderConfig,
+        timeout_seconds: int,
+    ) -> str:
+        base_url = (config.base_url or ANTHROPIC_BASE_URL).rstrip("/")
+        payload = {
+            "model": config.model,
+            "max_tokens": 4000,
+            "temperature": temperature,
+            "system": system_text,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        try:
+            response = requests.post(
+                f"{base_url}/messages",
+                headers={
+                    "x-api-key": config.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                verify=get_requests_verify(),
+                timeout=timeout_seconds,
+            )
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise RuntimeError(format_provider_request_error("Anthropic", exc)) from exc
+
+        data = response.json()
+        blocks = data.get("content") or []
+        for block in blocks:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text")
+                if isinstance(text, str) and text.strip():
+                    return text
+        raise RuntimeError("Anthropic returned no text content.")
+
+    @staticmethod
+    def _provider_label(provider: str) -> str:
+        labels = {
+            "gemini": "Gemini",
+            "openai": "OpenAI",
+            "anthropic": "Anthropic",
+            "openrouter": "OpenRouter",
+            "groq": "Groq",
+            "mistral": "Mistral",
+        }
+        return labels.get(provider, provider)
 
     def _build_prompt(
         self,
@@ -255,7 +453,7 @@ class PhraseGenerationService:
             f"{existing_text}\n"
         )
 
-    def _extract_response_text(self, payload: dict[str, Any]) -> str:
+    def _extract_response_text(self, payload: dict[str, Any], provider_label: str = "Gemini") -> str:
         candidates = payload.get("candidates") or []
         for candidate in candidates:
             content = candidate.get("content") or {}
@@ -268,9 +466,9 @@ class PhraseGenerationService:
         prompt_feedback = payload.get("promptFeedback") or {}
         block_reason = prompt_feedback.get("blockReason")
         if block_reason:
-            raise RuntimeError(f"Gemini blocked the request: {block_reason}")
+            raise RuntimeError(f"{provider_label} blocked the request: {block_reason}")
 
-        raise RuntimeError("Gemini returned no text content for the lesson draft.")
+        raise RuntimeError(f"{provider_label} returned no text content.")
 
     def _strip_code_fences(self, text: str) -> str:
         cleaned = text.strip()
@@ -288,7 +486,7 @@ class PhraseGenerationService:
         for phrase in draft.phrases:
             normalized = phrase.phrase_en.strip().lower()
             if normalized in seen_phrases:
-                raise RuntimeError("Gemini returned duplicate English phrases.")
+                raise RuntimeError("AI provider returned duplicate English phrases.")
             seen_phrases.add(normalized)
 
             if not phrase.word_by_word:

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, Suspense } from 'react';
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Chrome, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
 
@@ -16,6 +16,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,6 +40,21 @@ function LoginForm() {
       setError(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      window.location.href = await api.getGoogleLoginUrl(next);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? (err.detail ?? err.message)
+          : 'Não foi possível iniciar o login com Google.';
+      setError(message);
+      setGoogleLoading(false);
     }
   }
 
@@ -76,6 +92,22 @@ function LoginForm() {
         </div>
 
         <div className="kid-surface border-slate-200/60 p-7 md:p-9">
+          <button
+            type="button"
+            onClick={() => void handleGoogleLogin()}
+            disabled={loading || googleLoading}
+            className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-primary hover:text-primary disabled:opacity-60"
+          >
+            <Chrome size={18} />
+            {googleLoading ? 'Abrindo Google…' : 'Entrar com Google'}
+          </button>
+
+          <div className="mb-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">ou</span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             {/* Email */}
             <div className="space-y-1.5">
