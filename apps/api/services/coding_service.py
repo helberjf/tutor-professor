@@ -105,7 +105,7 @@ def build_coding_review_cards(
 
 
 def count_due_coding_items(session: Session, child_id: int, subject_id: int | None = None) -> int:
-    return len(build_coding_review_cards(session, child_id, subject_id=subject_id))
+    return len(build_coding_review_cards(session, child_id, subject_id=subject_id, limit=10_000))
 
 
 def seed_coding_review_item(session: Session, child_id: int, flashcard_id: int) -> CodingReviewItem:
