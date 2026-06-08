@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, DiverseDay, Lesson, LessonItem, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingReviewItem, DiverseDay, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookPageSchema,
@@ -62,6 +62,20 @@ from schemas.schemas import (
     CodingDaySchema,
     CodingDayUpdateSchema,
     CodingTopicSchema,
+    CodingReviewAttemptSchema,
+    CodingReviewCardSchema,
+    CodingReviewResultSchema,
+    CodingReviewSessionSchema,
+    CreateProgrammingFlashcardSchema,
+    CreateProgrammingSubjectSchema,
+    CreateProgrammingTopicSchema,
+    ProgrammingFlashcardSchema,
+    ProgrammingSubjectSchema,
+    ProgrammingTopicSchema,
+    TopicAIContentSchema,
+    UpdateProgrammingFlashcardSchema,
+    UpdateProgrammingSubjectSchema,
+    UpdateProgrammingTopicSchema,
     DiverseDaySchema,
     DiverseDayUpdateSchema,
     DiverseSubjectSchema,
@@ -72,6 +86,13 @@ from schemas.schemas import (
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
+from services.coding_service import (
+    build_coding_review_cards,
+    count_due_coding_items,
+    generate_topic_ai_content,
+    register_coding_review_attempt,
+    seed_coding_review_item,
+)
 from services.review_service import (
     build_review_cards,
     compute_review_priority,
@@ -1598,6 +1619,467 @@ def _get_user_ai_config(session_record: UserSession | None, session: Session) ->
     if session_record is None:
         return None
     return _get_user_ai_config_for_user_id(session_record.user_id, session)
+
+
+# ── Coding Curriculum endpoints ───────────────────────────────────────────────
+
+@app.get("/api/coding/subjects", response_model=list[ProgrammingSubjectSchema])
+def list_coding_subjects(request: Request, session: Session = Depends(get_session)) -> list[ProgrammingSubjectSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subjects = session.exec(select(ProgrammingSubject).where(ProgrammingSubject.child_id == child.id)).all()
+    result = []
+    for s in subjects:
+        topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == s.id)).all()
+        result.append(ProgrammingSubjectSchema(
+            id=s.id or 0, child_id=s.child_id, name=s.name,
+            description=s.description, icon_emoji=s.icon_emoji,
+            created_at=s.created_at,
+            topic_count=len(topics),
+            studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
+            due_review_count=count_due_coding_items(session, child.id or 0, subject_id=s.id),
+        ))
+    return result
+
+
+@app.post("/api/coding/subjects", response_model=ProgrammingSubjectSchema, status_code=201)
+def create_coding_subject(
+    payload: CreateProgrammingSubjectSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingSubjectSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = ProgrammingSubject(
+        child_id=child.id or 0,
+        name=payload.name.strip(),
+        description=(payload.description or "").strip() or None,
+        icon_emoji=(payload.icon_emoji or "").strip() or None,
+        created_at=datetime.utcnow(),
+    )
+    session.add(subject)
+    session.commit()
+    session.refresh(subject)
+    return ProgrammingSubjectSchema(
+        id=subject.id or 0, child_id=subject.child_id, name=subject.name,
+        description=subject.description, icon_emoji=subject.icon_emoji,
+        created_at=subject.created_at,
+    )
+
+
+@app.put("/api/coding/subjects/{subject_id}", response_model=ProgrammingSubjectSchema)
+def update_coding_subject(
+    subject_id: int,
+    payload: UpdateProgrammingSubjectSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingSubjectSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    if payload.name is not None:
+        subject.name = payload.name.strip()
+    if payload.description is not None:
+        subject.description = payload.description.strip() or None
+    if payload.icon_emoji is not None:
+        subject.icon_emoji = payload.icon_emoji.strip() or None
+    session.add(subject)
+    session.commit()
+    session.refresh(subject)
+    topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject.id)).all()
+    return ProgrammingSubjectSchema(
+        id=subject.id or 0, child_id=subject.child_id, name=subject.name,
+        description=subject.description, icon_emoji=subject.icon_emoji,
+        created_at=subject.created_at,
+        topic_count=len(topics),
+        studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
+        due_review_count=count_due_coding_items(session, child.id or 0, subject_id=subject.id),
+    )
+
+
+@app.delete("/api/coding/subjects/{subject_id}", status_code=204)
+def delete_coding_subject(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all()
+    for topic in topics:
+        flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all()
+        for fc in flashcards:
+            for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():
+                session.delete(ri)
+            session.delete(fc)
+        session.delete(topic)
+    session.delete(subject)
+    session.commit()
+
+
+@app.get("/api/coding/subjects/{subject_id}/topics", response_model=list[ProgrammingTopicSchema])
+def list_coding_topics(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingTopicSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    topics = sorted(
+        session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
+        key=lambda t: t.order_index,
+    )
+    return [
+        ProgrammingTopicSchema(
+            id=t.id or 0, subject_id=t.subject_id, title=t.title,
+            order_index=t.order_index, status=t.status,
+            ai_content=t.ai_content, notes=t.notes,
+            created_at=t.created_at, updated_at=t.updated_at,
+            flashcard_count=len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == t.id)).all()),
+        )
+        for t in topics
+    ]
+
+
+@app.post("/api/coding/subjects/{subject_id}/topics", response_model=ProgrammingTopicSchema, status_code=201)
+def create_coding_topic(
+    subject_id: int,
+    payload: CreateProgrammingTopicSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingTopicSchema:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    existing_count = len(session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all())
+    order_index = payload.order_index if payload.order_index is not None else existing_count
+    now = datetime.utcnow()
+    topic = ProgrammingTopic(
+        subject_id=subject_id,
+        title=payload.title.strip(),
+        order_index=order_index,
+        status="not_started",
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(topic)
+    session.commit()
+    session.refresh(topic)
+    if payload.generate_ai:
+        ai_config = _get_user_ai_config(user_session, session)
+        if ai_config:
+            try:
+                content = generate_topic_ai_content(
+                    subject_name=subject.name,
+                    topic_title=topic.title,
+                    ai_config=ai_config,
+                )
+                topic.ai_content = content.model_dump()
+                for fc_draft in content.flashcards:
+                    fc = ProgrammingFlashcard(
+                        topic_id=topic.id or 0,
+                        subject_id=subject_id,
+                        child_id=child.id or 0,
+                        front=fc_draft.front[:500],
+                        back=fc_draft.back[:2000],
+                        code_example=(fc_draft.code_example or "")[:3000] or None,
+                        created_at=now,
+                    )
+                    session.add(fc)
+                    session.flush()
+                    seed_coding_review_item(session, child.id or 0, fc.id or 0)
+                topic.updated_at = datetime.utcnow()
+                session.add(topic)
+                session.commit()
+                session.refresh(topic)
+            except Exception:
+                pass  # topic was saved; AI failed silently — user can retry via /generate
+    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
+    return ProgrammingTopicSchema(
+        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
+        order_index=topic.order_index, status=topic.status,
+        ai_content=topic.ai_content, notes=topic.notes,
+        created_at=topic.created_at, updated_at=topic.updated_at,
+        flashcard_count=fc_count,
+    )
+
+
+@app.put("/api/coding/topics/{topic_id}", response_model=ProgrammingTopicSchema)
+def update_coding_topic(
+    topic_id: int,
+    payload: UpdateProgrammingTopicSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingTopicSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    if payload.title is not None:
+        topic.title = payload.title.strip()
+    if payload.order_index is not None:
+        topic.order_index = payload.order_index
+    if payload.status is not None:
+        from services.coding_service import VALID_TOPIC_STATUSES
+        if payload.status not in VALID_TOPIC_STATUSES:
+            raise HTTPException(status_code=422, detail="Status inválido. Use: not_started, studied, mastered.")
+        topic.status = payload.status
+    if payload.notes is not None:
+        topic.notes = payload.notes
+    if payload.ai_content is not None:
+        topic.ai_content = payload.ai_content
+    topic.updated_at = datetime.utcnow()
+    session.add(topic)
+    session.commit()
+    session.refresh(topic)
+    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
+    return ProgrammingTopicSchema(
+        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
+        order_index=topic.order_index, status=topic.status,
+        ai_content=topic.ai_content, notes=topic.notes,
+        created_at=topic.created_at, updated_at=topic.updated_at,
+        flashcard_count=fc_count,
+    )
+
+
+@app.delete("/api/coding/topics/{topic_id}", status_code=204)
+def delete_coding_topic(
+    topic_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
+    for fc in flashcards:
+        for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():
+            session.delete(ri)
+        session.delete(fc)
+    session.delete(topic)
+    session.commit()
+
+
+@app.post("/api/coding/topics/{topic_id}/generate", response_model=ProgrammingTopicSchema)
+def generate_coding_topic_content(
+    topic_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingTopicSchema:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
+    try:
+        content = generate_topic_ai_content(
+            subject_name=subject.name,
+            topic_title=topic.title,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    topic.ai_content = content.model_dump()
+    topic.updated_at = datetime.utcnow()
+    session.add(topic)
+    # Only seed flashcards if topic has none yet
+    existing_fcs = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
+    if not existing_fcs:
+        for fc_draft in content.flashcards:
+            fc = ProgrammingFlashcard(
+                topic_id=topic_id,
+                subject_id=subject.id or 0,
+                child_id=child.id or 0,
+                front=fc_draft.front[:500],
+                back=fc_draft.back[:2000],
+                code_example=(fc_draft.code_example or "")[:3000] or None,
+                created_at=datetime.utcnow(),
+            )
+            session.add(fc)
+            session.flush()
+            seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    session.commit()
+    session.refresh(topic)
+    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
+    return ProgrammingTopicSchema(
+        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
+        order_index=topic.order_index, status=topic.status,
+        ai_content=topic.ai_content, notes=topic.notes,
+        created_at=topic.created_at, updated_at=topic.updated_at,
+        flashcard_count=fc_count,
+    )
+
+
+@app.get("/api/coding/topics/{topic_id}/flashcards", response_model=list[ProgrammingFlashcardSchema])
+def list_topic_flashcards(
+    topic_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingFlashcardSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
+    return [
+        ProgrammingFlashcardSchema(
+            id=fc.id or 0, topic_id=fc.topic_id, subject_id=fc.subject_id,
+            front=fc.front, back=fc.back, code_example=fc.code_example,
+            created_at=fc.created_at,
+        )
+        for fc in flashcards
+    ]
+
+
+@app.post("/api/coding/topics/{topic_id}/flashcards", response_model=ProgrammingFlashcardSchema, status_code=201)
+def create_topic_flashcard(
+    topic_id: int,
+    payload: CreateProgrammingFlashcardSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingFlashcardSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+    fc = ProgrammingFlashcard(
+        topic_id=topic_id,
+        subject_id=topic.subject_id,
+        child_id=child.id or 0,
+        front=payload.front.strip(),
+        back=payload.back.strip(),
+        code_example=(payload.code_example or "").strip() or None,
+        created_at=datetime.utcnow(),
+    )
+    session.add(fc)
+    session.flush()
+    seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    session.commit()
+    session.refresh(fc)
+    return ProgrammingFlashcardSchema(
+        id=fc.id or 0, topic_id=fc.topic_id, subject_id=fc.subject_id,
+        front=fc.front, back=fc.back, code_example=fc.code_example,
+        created_at=fc.created_at,
+    )
+
+
+@app.put("/api/coding/flashcards/{flashcard_id}", response_model=ProgrammingFlashcardSchema)
+def update_coding_flashcard(
+    flashcard_id: int,
+    payload: UpdateProgrammingFlashcardSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingFlashcardSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    fc = session.get(ProgrammingFlashcard, flashcard_id)
+    if fc is None or fc.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
+    if payload.front is not None:
+        fc.front = payload.front.strip()
+    if payload.back is not None:
+        fc.back = payload.back.strip()
+    if payload.code_example is not None:
+        fc.code_example = payload.code_example.strip() or None
+    session.add(fc)
+    session.commit()
+    session.refresh(fc)
+    return ProgrammingFlashcardSchema(
+        id=fc.id or 0, topic_id=fc.topic_id, subject_id=fc.subject_id,
+        front=fc.front, back=fc.back, code_example=fc.code_example,
+        created_at=fc.created_at,
+    )
+
+
+@app.delete("/api/coding/flashcards/{flashcard_id}", status_code=204)
+def delete_coding_flashcard(
+    flashcard_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    fc = session.get(ProgrammingFlashcard, flashcard_id)
+    if fc is None or fc.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
+    for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == flashcard_id)).all():
+        session.delete(ri)
+    session.delete(fc)
+    session.commit()
+
+
+@app.get("/api/coding/review", response_model=CodingReviewSessionSchema)
+def get_coding_review(
+    subject_id: Optional[int] = None,
+    limit: int = 20,
+    request: Request = None,
+    session: Session = Depends(get_session),
+) -> CodingReviewSessionSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    cards = build_coding_review_cards(session, child.id or 0, subject_id=subject_id, limit=limit)
+    return CodingReviewSessionSchema(total_due=len(cards), items=cards)
+
+
+@app.post("/api/coding/review/attempt", response_model=CodingReviewResultSchema)
+def submit_coding_review_attempt(
+    payload: CodingReviewAttemptSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> CodingReviewResultSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    try:
+        item = register_coding_review_attempt(
+            session=session,
+            child_id=child.id or 0,
+            review_item_id=payload.review_item_id,
+            correct=payload.correct,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    session.commit()
+    session.refresh(item)
+    return CodingReviewResultSchema(
+        review_item_id=item.id or 0,
+        difficulty_score=item.difficulty_score,
+        next_review=item.next_review,
+        error_count=item.error_count,
+        correct_count=item.correct_count,
+    )
 
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
