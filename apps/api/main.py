@@ -2140,6 +2140,14 @@ def generate_diverse_flashcards(
         )
     else:
         ai_config = _get_user_ai_config(session_record, session)
+        if session_record is not None and session_record.user_id is not None and ai_config is None:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Configure uma chave de API de IA na sua conta antes de criar aulas "
+                    "para materias diversas."
+                ),
+            )
 
     if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
