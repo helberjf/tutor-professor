@@ -366,6 +366,8 @@ export interface AdminFlashcardPayload {
 export interface GenerateFlashcardsPayload {
   subject: string;
   count?: number;
+  api_key?: string;
+  provider?: string;
 }
 
 export interface GeneratedFlashcard {
