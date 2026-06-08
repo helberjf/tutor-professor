@@ -278,6 +278,136 @@ class SpeakResponseSchema(BaseModel):
     audio_url: Optional[str] = None
     fallback_text: Optional[str] = None
 
+
+# ── Coding Curriculum ─────────────────────────────────────────────────────────
+
+class AISectionSchema(BaseModel):
+    title: str
+    body: str
+    code_example: Optional[str] = None
+
+
+class AIQuizQuestionSchema(BaseModel):
+    id: int
+    question: str
+    options: List[str]
+    correct_option: str
+    explanation: str
+
+
+class AIFlashcardDraftSchema(BaseModel):
+    front: str
+    back: str
+    code_example: Optional[str] = None
+
+
+class TopicAIContentSchema(BaseModel):
+    sections: List[AISectionSchema] = Field(default_factory=list)
+    quiz: List[AIQuizQuestionSchema] = Field(default_factory=list)
+    flashcards: List[AIFlashcardDraftSchema] = Field(default_factory=list)
+
+
+class ProgrammingSubjectSchema(FromAttributesModel):
+    id: int
+    child_id: int
+    name: str
+    description: Optional[str] = None
+    icon_emoji: Optional[str] = None
+    created_at: datetime
+    topic_count: int = 0
+    studied_count: int = 0
+    due_review_count: int = 0
+
+
+class CreateProgrammingSubjectSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+
+
+class UpdateProgrammingSubjectSchema(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+
+
+class ProgrammingTopicSchema(FromAttributesModel):
+    id: int
+    subject_id: int
+    title: str
+    order_index: int
+    status: str
+    ai_content: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    flashcard_count: int = 0
+
+
+class CreateProgrammingTopicSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    order_index: Optional[int] = None
+    generate_ai: bool = False
+
+
+class UpdateProgrammingTopicSchema(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    order_index: Optional[int] = None
+    status: Optional[str] = None
+    notes: Optional[str] = Field(default=None, max_length=5000)
+    ai_content: Optional[Dict[str, Any]] = None
+
+
+class ProgrammingFlashcardSchema(FromAttributesModel):
+    id: int
+    topic_id: int
+    subject_id: int
+    front: str
+    back: str
+    code_example: Optional[str] = None
+    created_at: datetime
+
+
+class CreateProgrammingFlashcardSchema(BaseModel):
+    front: str = Field(min_length=1, max_length=500)
+    back: str = Field(min_length=1, max_length=2000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
+
+
+class UpdateProgrammingFlashcardSchema(BaseModel):
+    front: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    back: Optional[str] = Field(default=None, min_length=1, max_length=2000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
+
+
+class CodingReviewCardSchema(BaseModel):
+    review_item_id: int
+    flashcard_id: int
+    subject_id: int
+    front: str
+    back: str
+    code_example: Optional[str] = None
+    difficulty_score: float
+    error_count: int
+
+
+class CodingReviewSessionSchema(BaseModel):
+    total_due: int
+    items: List[CodingReviewCardSchema]
+
+
+class CodingReviewAttemptSchema(BaseModel):
+    review_item_id: int
+    correct: bool
+
+
+class CodingReviewResultSchema(BaseModel):
+    review_item_id: int
+    difficulty_score: float
+    next_review: datetime
+    error_count: int
+    correct_count: int
+
 class ParentLoginSchema(BaseModel):
     password: str
 
