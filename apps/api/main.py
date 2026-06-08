@@ -92,6 +92,7 @@ from services.coding_service import (
     generate_topic_ai_content,
     register_coding_review_attempt,
     seed_coding_review_item,
+    VALID_TOPIC_STATUSES,
 )
 from services.review_service import (
     build_review_cards,
@@ -1664,6 +1665,9 @@ def create_coding_subject(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
         description=subject.description, icon_emoji=subject.icon_emoji,
         created_at=subject.created_at,
+        topic_count=0,
+        studied_count=0,
+        due_review_count=0,
     )
 
 
@@ -1803,7 +1807,8 @@ def create_coding_topic(
                 session.commit()
                 session.refresh(topic)
             except Exception:
-                pass  # topic was saved; AI failed silently — user can retry via /generate
+                session.rollback()
+                session.refresh(topic)  # re-attach topic after rollback
     fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
     return ProgrammingTopicSchema(
         id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
@@ -1828,13 +1833,12 @@ def update_coding_topic(
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     if payload.title is not None:
         topic.title = payload.title.strip()
     if payload.order_index is not None:
         topic.order_index = payload.order_index
     if payload.status is not None:
-        from services.coding_service import VALID_TOPIC_STATUSES
         if payload.status not in VALID_TOPIC_STATUSES:
             raise HTTPException(status_code=422, detail="Status inválido. Use: not_started, studied, mastered.")
         topic.status = payload.status
@@ -1869,7 +1873,7 @@ def delete_coding_topic(
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
     for fc in flashcards:
         for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():
@@ -1892,7 +1896,7 @@ def generate_coding_topic_content(
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
@@ -1948,7 +1952,7 @@ def list_topic_flashcards(
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
     return [
         ProgrammingFlashcardSchema(
@@ -1974,7 +1978,7 @@ def create_topic_flashcard(
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=403, detail="Acesso negado.")
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
     fc = ProgrammingFlashcard(
         topic_id=topic_id,
         subject_id=topic.subject_id,
@@ -2043,9 +2047,9 @@ def delete_coding_flashcard(
 
 @app.get("/api/coding/review", response_model=CodingReviewSessionSchema)
 def get_coding_review(
+    request: Request,
     subject_id: Optional[int] = None,
     limit: int = 20,
-    request: Request = None,
     session: Session = Depends(get_session),
 ) -> CodingReviewSessionSchema:
     require_parent_session(request, session)
