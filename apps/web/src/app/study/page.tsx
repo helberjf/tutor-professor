@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
@@ -18,11 +18,9 @@ const BREAK_SECONDS = 5 * 60;
 
 type StudyTab = 'english' | 'coding' | 'diverse';
 
-interface StudySession {
-  subjectIndex: number;
-  subjectName: string;
-  topics: CodingTopic[];
+interface InlineStudyState {
   currentIndex: number;
+  userAnswer: string;
   revealed: boolean;
   results: Array<'knew' | 'partial' | 'unknown'>;
   done: boolean;
@@ -86,9 +84,10 @@ export default function StudyPage() {
   const [diverseError, setDiverseError] = useState('');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
-  const [studySession, setStudySession] = useState<StudySession | null>(null);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiError, setAiError] = useState('');
+  const [generatingLesson, setGeneratingLesson] = useState(false);
+  const [lessonGenMessage, setLessonGenMessage] = useState('');
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -290,20 +289,6 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
-  function startStudySession(subjectIndex: number) {
-    const subject = diverseDay?.custom_subjects[subjectIndex];
-    if (!subject || subject.topics.length === 0) return;
-    setStudySession({
-      subjectIndex,
-      subjectName: subject.name,
-      topics: subject.topics,
-      currentIndex: 0,
-      revealed: false,
-      results: [],
-      done: false,
-    });
-  }
-
   function removeDiverseSubject(index: number) {
     if (!diverseDay) return;
     setDiverseDay({ ...diverseDay, custom_subjects: diverseDay.custom_subjects.filter((_, i) => i !== index) });
@@ -335,12 +320,13 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
-  async function generateAIFlashcards() {
+  async function generateAIFlashcards(inlineApiKey?: string) {
     const name = newSubjectName.trim();
     if (!name) return;
     setGeneratingAI(true); setAiError('');
     try {
-      const result = await api.generateStudyFlashcards({ subject: name, count: AI_FLASHCARD_COUNT });
+      const payload = { subject: name, count: AI_FLASHCARD_COUNT, ...(inlineApiKey ? { api_key: inlineApiKey } : {}) };
+      const result = await api.generateStudyFlashcards(payload);
       const subjects = diverseDay?.custom_subjects ?? [];
       if (subjects.some((s) => s.name.toLowerCase() === result.subject.toLowerCase())) {
         setAiError('Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova.');
@@ -364,6 +350,16 @@ export default function StudyPage() {
       const msg = err instanceof ApiError ? err.message : 'Nao foi possivel gerar flashcards com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); }
+  }
+
+  async function generateNewLesson() {
+    setGeneratingLesson(true); setLessonGenMessage('');
+    try {
+      await api.generateMorePhrases({ quantity: 1 });
+      setLessonGenMessage('Nova lição criada com sucesso!');
+    } catch (err) {
+      setLessonGenMessage(err instanceof ApiError ? err.message : 'Não foi possível criar a lição.');
+    } finally { setGeneratingLesson(false); }
   }
 
   async function saveDiverseDay() {
@@ -457,6 +453,9 @@ export default function StudyPage() {
             error={error}
             savedMessage={savedMessage}
             onSave={() => void saveEnglishDay()}
+            generatingLesson={generatingLesson}
+            lessonGenMessage={lessonGenMessage}
+            onGenerateLesson={() => void generateNewLesson()}
             pomodoroMode={pomodoroMode}
             pomodoroSeconds={pomodoroSeconds}
             pomodoroRunning={pomodoroRunning}
@@ -478,7 +477,7 @@ export default function StudyPage() {
             newSubjectName={newSubjectName}
             setNewSubjectName={setNewSubjectName}
             onAddSubject={addDiverseSubject}
-            onGenerateAI={() => void generateAIFlashcards()}
+            onGenerateAI={(key) => void generateAIFlashcards(key)}
             generatingAI={generatingAI}
             aiError={aiError}
             onRemoveSubject={removeDiverseSubject}
@@ -486,7 +485,6 @@ export default function StudyPage() {
             onUpdateTopicText={updateDiverseTopicText}
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
-            onStartStudy={startStudySession}
             onSave={() => void saveDiverseDay()}
             pomodoroMode={pomodoroMode}
             pomodoroSeconds={pomodoroSeconds}
@@ -524,24 +522,6 @@ export default function StudyPage() {
         )}
       </div>
 
-      {studySession && (
-        <StudySessionModal
-          session={studySession}
-          onReveal={() => setStudySession((prev) => prev ? { ...prev, revealed: true } : null)}
-          onRate={(rating) => {
-            setStudySession((prev) => {
-              if (!prev) return null;
-              const newResults = [...prev.results, rating];
-              const nextIndex = prev.currentIndex + 1;
-              if (nextIndex >= prev.topics.length) {
-                return { ...prev, results: newResults, done: true, revealed: false };
-              }
-              return { ...prev, results: newResults, currentIndex: nextIndex, revealed: false };
-            });
-          }}
-          onClose={() => setStudySession(null)}
-        />
-      )}
     </main>
   );
 }
@@ -572,6 +552,7 @@ function EnglishTab({
   distractions, newDistraction, setNewDistraction,
   addDistraction, removeDistraction,
   loadingDay, saving, error, savedMessage, onSave,
+  generatingLesson, lessonGenMessage, onGenerateLesson,
   pomodoroMode, pomodoroSeconds, pomodoroRunning,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
@@ -587,6 +568,8 @@ function EnglishTab({
   loadingDay: boolean; saving: boolean;
   error: ApiError | null; savedMessage: string;
   onSave: () => void;
+  generatingLesson: boolean; lessonGenMessage: string;
+  onGenerateLesson: () => void;
   pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
   onTogglePomodoro: () => void;
@@ -727,6 +710,34 @@ function EnglishTab({
               <p>Depois do estudo, registre o que realmente fez. Esse campo alimenta os dias seguidos.</p>
               <p>Use as distracoes como observacao, sem culpa.</p>
             </div>
+          </div>
+
+          {/* Generate lesson with AI */}
+          <div className="kid-surface border-violet-100 p-5 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">IA</p>
+                <h2 className="text-xl font-black text-slate-800">Criar lição</h2>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-slate-600">Gere uma nova lição de inglês com inteligência artificial.</p>
+            <button
+              type="button"
+              onClick={onGenerateLesson}
+              disabled={generatingLesson}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {generatingLesson ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+              {generatingLesson ? 'Criando lição...' : 'Criar lição com IA'}
+            </button>
+            {lessonGenMessage && (
+              <p className={`mt-3 rounded-2xl px-4 py-3 text-sm font-bold ${lessonGenMessage.startsWith('Nova') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                {lessonGenMessage}
+              </p>
+            )}
           </div>
 
           {historyDays.length > 0 && (
@@ -916,7 +927,7 @@ function DiverseTab({
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onGenerateAI, generatingAI, aiError,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
-  onUpdateSubjectName, onStartStudy, onSave,
+  onUpdateSubjectName, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
@@ -928,7 +939,7 @@ function DiverseTab({
   diverseSaved: string; diverseError: string;
   newSubjectName: string; setNewSubjectName: (v: string) => void;
   onAddSubject: () => void;
-  onGenerateAI: () => void;
+  onGenerateAI: (apiKey?: string) => void;
   generatingAI: boolean;
   aiError: string;
   onRemoveSubject: (i: number) => void;
@@ -936,7 +947,6 @@ function DiverseTab({
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
-  onStartStudy: (si: number) => void;
   onSave: () => void;
   pomodoroMode: 'focus' | 'break'; pomodoroSeconds: number; pomodoroRunning: boolean;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
@@ -944,11 +954,11 @@ function DiverseTab({
   onSwitchPomodoro: (m: 'focus' | 'break') => void;
   onRequestNotifications: () => void;
 }) {
-  const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null); // "si-ti"
-
   const subjects = diverseDay?.custom_subjects ?? [];
   const totalDone = subjects.flatMap((s) => s.topics).filter((t) => t.done).length;
   const totalTopics = subjects.flatMap((s) => s.topics).length;
+  const [aiKeyDraft, setAiKeyDraft] = useState('');
+  const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
   return (
     <div className="space-y-6">
@@ -991,7 +1001,7 @@ function DiverseTab({
             </div>
             <button
               type="button"
-              onClick={onGenerateAI}
+              onClick={() => onGenerateAI()}
               disabled={generatingAI || !newSubjectName.trim()}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-base font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -999,7 +1009,29 @@ function DiverseTab({
               {generatingAI ? 'Gerando flashcards com IA...' : 'Gerar flashcards com IA'}
             </button>
             {aiError && (
-              <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{aiError}</p>
+              <div className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
+                <p className="text-sm font-bold text-rose-700">{aiError}</p>
+                {needsKeyConfig && (
+                  <div className="mt-1 flex flex-col gap-2">
+                    <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
+                    <input
+                      type="password"
+                      value={aiKeyDraft}
+                      onChange={(e) => setAiKeyDraft(e.target.value)}
+                      placeholder="AIza..."
+                      className="min-h-10 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { if (aiKeyDraft.trim()) onGenerateAI(aiKeyDraft.trim()); }}
+                      disabled={!aiKeyDraft.trim() || generatingAI}
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      <Sparkles size={14} /> Tentar com esta chave
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1015,85 +1047,17 @@ function DiverseTab({
               <p className="mt-1 text-sm text-slate-400">Digite o nome acima e pressione Criar.</p>
             </div>
           ) : (
-            subjects.map((subject, si) => {
-              const doneCount = subject.topics.filter((t) => t.done).length;
-              const allDone = subject.topics.length > 0 && doneCount === subject.topics.length;
-              return (
-                <div key={si} className={`rounded-[1.5rem] border-2 bg-white p-5 transition ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
-                  {/* Subject header */}
-                  <div className="flex items-center justify-between gap-3">
-                    <input
-                      value={subject.name}
-                      onChange={(e) => onUpdateSubjectName(si, e.target.value)}
-                      maxLength={60}
-                      className="flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-lg font-black text-slate-800 outline-none transition focus:border-primary focus:bg-white"
-                    />
-                    <div className="flex items-center gap-2">
-                      {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
-                      <span className="text-sm font-black text-slate-400">{doneCount}/{subject.topics.length}</span>
-                      <button type="button" onClick={() => onRemoveSubject(si)}
-                        className="flex h-9 w-9 items-center justify-center rounded-2xl border-2 border-rose-100 bg-white text-rose-400 transition hover:border-rose-300 hover:bg-rose-50">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-3 flex gap-1">
-                    {subject.topics.map((t, ti) => (
-                      <div key={ti} className={`h-1.5 flex-1 rounded-full transition-all ${t.done ? 'bg-emerald-400' : 'bg-slate-100'}`} />
-                    ))}
-                  </div>
-
-                  {/* Topics with answer fields */}
-                  <ul className="mt-4 space-y-3">
-                    {subject.topics.map((t, ti) => {
-                      const answerKey = `${si}-${ti}`;
-                      const answerOpen = expandedAnswer === answerKey;
-                      return (
-                        <li key={ti} className="space-y-1.5">
-                          <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => onToggleTopic(si, ti)}
-                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
-                              {t.done && <CheckCircle2 size={13} />}
-                            </button>
-                            <input
-                              value={t.topic}
-                              onChange={(e) => onUpdateTopicText(si, ti, e.target.value)}
-                              maxLength={120}
-                              placeholder="Pergunta / tópico"
-                              className={`flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold outline-none transition focus:border-primary focus:bg-white ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                            />
-                            <button type="button"
-                              onClick={() => setExpandedAnswer(answerOpen ? null : answerKey)}
-                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 transition text-xs font-black ${answerOpen ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
-                              title="Resposta">
-                              R
-                            </button>
-                          </div>
-                          {answerOpen && (
-                            <input
-                              value={t.answer ?? ''}
-                              onChange={(e) => onUpdateTopicAnswer(si, ti, e.target.value)}
-                              maxLength={300}
-                              placeholder="Resposta (opcional para o modo de estudo)"
-                              className="ml-9 w-[calc(100%-2.5rem)] rounded-xl border-2 border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
-                            />
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {/* Iniciar Estudo button */}
-                  <button type="button" onClick={() => onStartStudy(si)}
-                    disabled={subject.topics.length === 0}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-black text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
-                    <Zap size={16} /> Iniciar Estudo
-                  </button>
-                </div>
-              );
-            })
+            subjects.map((subject, si) => (
+              <SubjectStudyCard
+                key={si}
+                subject={subject}
+                onRemove={() => onRemoveSubject(si)}
+                onToggleTopic={(ti) => onToggleTopic(si, ti)}
+                onUpdateTopicText={(ti, v) => onUpdateTopicText(si, ti, v)}
+                onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(si, ti, v)}
+                onUpdateSubjectName={(v) => onUpdateSubjectName(si, v)}
+              />
+            ))
           )}
 
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
@@ -1116,7 +1080,7 @@ function DiverseTab({
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Gerar flashcards com IA</strong> para criar flashcards automaticamente.</p>
               <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
-              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a resposta. Clique em <strong>Iniciar Estudo</strong> para revisar por flashcards.</p>
+              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
             </div>
           </div>
@@ -1127,128 +1091,248 @@ function DiverseTab({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STUDY SESSION MODAL
+// SUBJECT STUDY CARD (Diverse tab — inline study mode)
 // ═══════════════════════════════════════════════════════════════════════════════
-function StudySessionModal({
-  session, onReveal, onRate, onClose,
+function SubjectStudyCard({
+  subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
 }: {
-  session: StudySession;
-  onReveal: () => void;
-  onRate: (r: 'knew' | 'partial' | 'unknown') => void;
-  onClose: () => void;
+  subject: DiverseSubject;
+  onRemove: () => void;
+  onToggleTopic: (ti: number) => void;
+  onUpdateTopicText: (ti: number, value: string) => void;
+  onUpdateTopicAnswer: (ti: number, value: string) => void;
+  onUpdateSubjectName: (value: string) => void;
 }) {
-  const topic = session.topics[session.currentIndex];
-  const total = session.topics.length;
-  const progress = session.done ? total : session.currentIndex;
+  const [activeTab, setActiveTab] = useState<'topics' | 'study'>('topics');
+  const [expandedAnswer, setExpandedAnswer] = useState<number | null>(null);
+  const [studyState, setStudyState] = useState<InlineStudyState>({
+    currentIndex: 0, userAnswer: '', revealed: false, results: [], done: false,
+  });
 
-  const knewCount = session.results.filter((r) => r === 'knew').length;
-  const partialCount = session.results.filter((r) => r === 'partial').length;
-  const unknownCount = session.results.filter((r) => r === 'unknown').length;
+  const doneCount = subject.topics.filter((t) => t.done).length;
+  const totalTopics = subject.topics.length;
+  const allDone = totalTopics > 0 && doneCount === totalTopics;
+  const currentTopic = subject.topics[studyState.currentIndex];
+
+  function resetStudy() {
+    setStudyState({ currentIndex: 0, userAnswer: '', revealed: false, results: [], done: false });
+  }
+
+  function rateAndAdvance(rating: 'knew' | 'partial' | 'unknown') {
+    const { currentIndex, results } = studyState;
+    const newResults = [...results, rating];
+    const topic = subject.topics[currentIndex];
+    if ((rating === 'knew' || rating === 'partial') && !topic.done) {
+      onToggleTopic(currentIndex);
+    }
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= totalTopics) {
+      setStudyState((prev) => ({ ...prev, results: newResults, done: true, revealed: false }));
+    } else {
+      setStudyState({ currentIndex: nextIndex, userAnswer: '', revealed: false, results: newResults, done: false });
+    }
+  }
+
+  const knewCount = studyState.results.filter((r) => r === 'knew').length;
+  const partialCount = studyState.results.filter((r) => r === 'partial').length;
+  const unknownCount = studyState.results.filter((r) => r === 'unknown').length;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900 p-4 md:p-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-0.5">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-300">Modo estudo</p>
-          <h2 className="text-xl font-black text-white">{session.subjectName}</h2>
+    <div className={`rounded-[1.5rem] border-2 bg-white transition ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-5 pt-5">
+        <input
+          value={subject.name}
+          onChange={(e) => onUpdateSubjectName(e.target.value)}
+          maxLength={60}
+          className="flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-lg font-black text-slate-800 outline-none transition focus:border-primary focus:bg-white"
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
+          <span className="text-sm font-black text-slate-400">{doneCount}/{totalTopics}</span>
+          <button type="button" onClick={onRemove}
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border-2 border-rose-100 bg-white text-rose-400 transition hover:border-rose-300 hover:bg-rose-50">
+            <Trash2 size={15} />
+          </button>
         </div>
-        <button type="button" onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white transition hover:bg-white/20">
-          <X size={18} />
+      </div>
+
+      {/* Tab switcher */}
+      <div className="mt-3 flex gap-1.5 px-5">
+        <button type="button" onClick={() => setActiveTab('topics')}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'topics' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+          Lista
+        </button>
+        <button type="button" onClick={() => { resetStudy(); setActiveTab('study'); }} disabled={totalTopics === 0}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'study' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
+          <Zap size={12} className="inline mr-1" />Estudar
         </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="mt-5 flex gap-1.5">
-        {session.topics.map((_, i) => (
-          <div key={i} className={`h-2 flex-1 rounded-full transition-all ${
-            i < progress ? (session.results[i] === 'knew' ? 'bg-emerald-400' : session.results[i] === 'partial' ? 'bg-amber-400' : 'bg-rose-400')
-            : i === session.currentIndex && !session.done ? 'bg-white/60' : 'bg-white/15'
-          }`} />
-        ))}
-      </div>
-      <p className="mt-2 text-center text-sm font-bold text-indigo-300">{progress}/{total}</p>
-
-      {/* Content */}
-      {session.done ? (
-        /* Summary screen */
-        <div className="mx-auto mt-10 flex w-full max-w-md flex-col items-center gap-6 text-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-[2rem] bg-white/10 text-4xl">
-            {knewCount >= total * 0.7 ? '🎉' : knewCount >= total * 0.4 ? '💪' : '📚'}
-          </div>
-          <div>
-            <h3 className="text-3xl font-black text-white">Sessão concluída!</h3>
-            <p className="mt-2 text-base text-indigo-300">{session.subjectName}</p>
-          </div>
-          <div className="grid w-full grid-cols-3 gap-3">
-            <div className="rounded-[1.25rem] bg-emerald-500/20 p-4 text-center">
-              <p className="text-3xl font-black text-emerald-300">{knewCount}</p>
-              <p className="mt-1 text-xs font-bold text-emerald-400">Sabia</p>
-            </div>
-            <div className="rounded-[1.25rem] bg-amber-500/20 p-4 text-center">
-              <p className="text-3xl font-black text-amber-300">{partialCount}</p>
-              <p className="mt-1 text-xs font-bold text-amber-400">Mais ou menos</p>
-            </div>
-            <div className="rounded-[1.25rem] bg-rose-500/20 p-4 text-center">
-              <p className="text-3xl font-black text-rose-300">{unknownCount}</p>
-              <p className="mt-1 text-xs font-bold text-rose-400">Não sabia</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose}
-            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-base font-black text-indigo-900 transition hover:bg-indigo-100">
-            Voltar às matérias
-          </button>
-        </div>
-      ) : topic ? (
-        /* Card */
-        <div className="mx-auto mt-8 flex w-full max-w-md flex-1 flex-col">
-          <div className="flex flex-1 flex-col rounded-[1.75rem] bg-white/10 p-7 backdrop-blur-sm">
-            <p className="text-center text-xs font-bold uppercase tracking-[0.18em] text-indigo-300">
-              Pergunta {session.currentIndex + 1}
-            </p>
-            <div className="mt-6 flex flex-1 items-center justify-center">
-              <p className="text-center text-2xl font-black leading-snug text-white md:text-3xl">
-                {topic.topic}
-              </p>
-            </div>
-
-            {session.revealed ? (
-              <div className="mt-6 rounded-[1.25rem] bg-white/15 p-5">
-                <p className="text-center text-xs font-bold uppercase tracking-[0.16em] text-indigo-300">Resposta</p>
-                <p className="mt-3 text-center text-lg font-black text-white">
-                  {topic.answer?.trim() || <span className="italic text-indigo-300">Sem resposta cadastrada</span>}
-                </p>
-              </div>
-            ) : (
-              <button type="button" onClick={onReveal}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/20 px-5 py-4 text-base font-black text-white transition hover:bg-white/30">
-                <ChevronRight size={18} /> Revelar resposta
-              </button>
-            )}
-          </div>
-
-          {session.revealed && (
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <button type="button" onClick={() => onRate('knew')}
-                className="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-500 px-3 py-4 font-black text-white transition hover:bg-emerald-400">
-                <span className="text-2xl">✓</span>
-                <span className="text-xs">Sabia</span>
-              </button>
-              <button type="button" onClick={() => onRate('partial')}
-                className="flex flex-col items-center gap-1.5 rounded-2xl bg-amber-500 px-3 py-4 font-black text-white transition hover:bg-amber-400">
-                <span className="text-2xl">~</span>
-                <span className="text-xs">Mais ou menos</span>
-              </button>
-              <button type="button" onClick={() => onRate('unknown')}
-                className="flex flex-col items-center gap-1.5 rounded-2xl bg-rose-500 px-3 py-4 font-black text-white transition hover:bg-rose-400">
-                <span className="text-2xl">✗</span>
-                <span className="text-xs">Não sabia</span>
-              </button>
+      {activeTab === 'topics' ? (
+        <div className="p-5">
+          {/* Progress bar */}
+          {totalTopics > 0 && (
+            <div className="flex gap-1">
+              {subject.topics.map((t, ti) => (
+                <div key={ti} className={`h-1.5 flex-1 rounded-full transition-all ${t.done ? 'bg-emerald-400' : 'bg-slate-100'}`} />
+              ))}
             </div>
           )}
+          {/* Topics list */}
+          <ul className="mt-4 space-y-3">
+            {subject.topics.map((t, ti) => {
+              const answerOpen = expandedAnswer === ti;
+              return (
+                <li key={ti} className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => onToggleTopic(ti)}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
+                      {t.done && <CheckCircle2 size={13} />}
+                    </button>
+                    <input
+                      value={t.topic}
+                      onChange={(e) => onUpdateTopicText(ti, e.target.value)}
+                      maxLength={120}
+                      placeholder="Pergunta / tópico"
+                      className={`flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold outline-none transition focus:border-primary focus:bg-white ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                    />
+                    <button type="button" onClick={() => setExpandedAnswer(answerOpen ? null : ti)}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 transition text-xs font-black ${answerOpen ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+                      title="Resposta / explicação">
+                      R
+                    </button>
+                  </div>
+                  {answerOpen && (
+                    <textarea
+                      value={t.answer ?? ''}
+                      onChange={(e) => onUpdateTopicAnswer(ti, e.target.value)}
+                      rows={2}
+                      maxLength={300}
+                      placeholder="Explicação / resposta (usada no modo Estudar)"
+                      className="ml-9 w-[calc(100%-2.5rem)] resize-none rounded-xl border-2 border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
-      ) : null}
+      ) : (
+        /* Study tab */
+        <div className="p-5">
+          {totalTopics === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm font-semibold text-slate-400">Nenhum tópico cadastrado.</p>
+              <button type="button" onClick={() => setActiveTab('topics')}
+                className="mt-2 text-sm font-black text-primary hover:underline">
+                Ir para Lista
+              </button>
+            </div>
+          ) : studyState.done ? (
+            /* Summary */
+            <div className="flex flex-col items-center gap-4 py-3 text-center">
+              <span className="text-4xl">{knewCount >= totalTopics * 0.7 ? '🎉' : knewCount >= totalTopics * 0.4 ? '💪' : '📚'}</span>
+              <p className="text-lg font-black text-slate-800">Sessão completa!</p>
+              <div className="grid w-full grid-cols-3 gap-2">
+                <div className="rounded-xl bg-emerald-50 p-3">
+                  <p className="text-2xl font-black text-emerald-600">{knewCount}</p>
+                  <p className="mt-0.5 text-xs font-bold text-emerald-500">Sabia</p>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-3">
+                  <p className="text-2xl font-black text-amber-600">{partialCount}</p>
+                  <p className="mt-0.5 text-xs font-bold text-amber-500">Parcial</p>
+                </div>
+                <div className="rounded-xl bg-rose-50 p-3">
+                  <p className="text-2xl font-black text-rose-600">{unknownCount}</p>
+                  <p className="mt-0.5 text-xs font-bold text-rose-500">Não sabia</p>
+                </div>
+              </div>
+              <button type="button" onClick={resetStudy}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 py-3 text-sm font-black text-white transition hover:bg-slate-700">
+                <RotateCcw size={14} /> Revisar de novo
+              </button>
+            </div>
+          ) : currentTopic ? (
+            /* Active question */
+            <div className="space-y-4">
+              {/* Progress bar */}
+              <div className="flex gap-1">
+                {subject.topics.map((_, ti) => (
+                  <div key={ti} className={`h-1.5 flex-1 rounded-full transition-all ${
+                    ti < studyState.results.length
+                      ? studyState.results[ti] === 'knew' ? 'bg-emerald-400' : studyState.results[ti] === 'partial' ? 'bg-amber-400' : 'bg-rose-400'
+                      : ti === studyState.currentIndex ? 'bg-indigo-400' : 'bg-slate-100'
+                  }`} />
+                ))}
+              </div>
+              <p className="text-center text-xs font-bold text-slate-400">
+                {studyState.currentIndex + 1} / {totalTopics}
+              </p>
+
+              {/* Question */}
+              <div className="rounded-2xl bg-indigo-50 px-4 py-5">
+                <p className="text-center text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Pergunta</p>
+                <p className="text-center text-base font-black leading-snug text-slate-800">{currentTopic.topic}</p>
+              </div>
+
+              {!studyState.revealed ? (
+                <>
+                  <div>
+                    <p className="mb-1.5 text-xs font-bold text-slate-500">Sua resposta (opcional)</p>
+                    <textarea
+                      value={studyState.userAnswer}
+                      onChange={(e) => setStudyState((prev) => ({ ...prev, userAnswer: e.target.value }))}
+                      rows={3}
+                      maxLength={300}
+                      placeholder="Escreva o que você sabe sobre este tema..."
+                      className="w-full resize-none rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
+                    />
+                  </div>
+                  <button type="button" onClick={() => setStudyState((prev) => ({ ...prev, revealed: true }))}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-black text-white transition hover:bg-indigo-700">
+                    <ChevronRight size={16} /> Revelar explicação
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {/* Explanation */}
+                  <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2">Explicação</p>
+                    <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                      {currentTopic.answer?.trim() || <span className="italic text-slate-400">Sem explicação cadastrada. Adicione uma na aba Lista.</span>}
+                    </p>
+                    {studyState.userAnswer.trim() && (
+                      <div className="mt-3 border-t border-emerald-200 pt-3">
+                        <p className="text-xs font-bold text-slate-400 mb-1">Sua resposta</p>
+                        <p className="text-sm text-slate-600 italic">{studyState.userAnswer}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Rating */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => rateAndAdvance('knew')}
+                      className="flex flex-col items-center gap-1 rounded-2xl bg-emerald-500 py-3 text-white transition hover:bg-emerald-400">
+                      <span className="text-lg font-black">✓</span>
+                      <span className="text-xs font-black">Sabia</span>
+                    </button>
+                    <button type="button" onClick={() => rateAndAdvance('partial')}
+                      className="flex flex-col items-center gap-1 rounded-2xl bg-amber-500 py-3 text-white transition hover:bg-amber-400">
+                      <span className="text-lg font-black">~</span>
+                      <span className="text-xs font-black">Parcial</span>
+                    </button>
+                    <button type="button" onClick={() => rateAndAdvance('unknown')}
+                      className="flex flex-col items-center gap-1 rounded-2xl bg-rose-500 py-3 text-white transition hover:bg-rose-400">
+                      <span className="text-lg font-black">✗</span>
+                      <span className="text-xs font-black">Não sabia</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

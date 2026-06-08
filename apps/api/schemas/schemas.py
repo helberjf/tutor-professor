@@ -363,6 +363,8 @@ class GenerateLessonResponseSchema(BaseModel):
 class GenerateFlashcardsRequestSchema(BaseModel):
     subject: str = Field(min_length=1, max_length=80)
     count: int = Field(default=5, ge=3, le=10)
+    api_key: Optional[str] = Field(default=None, max_length=500)
+    provider: str = Field(default="gemini", max_length=40)
 
 
 class GeneratedFlashcardSchema(BaseModel):

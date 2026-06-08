@@ -2127,17 +2127,27 @@ def generate_diverse_flashcards(
 ) -> GenerateFlashcardsResponseSchema:
     require_parent_session(request, session)
     session_record = get_request_user_session(request=request, session=session)
-    ai_config = _get_user_ai_config(session_record, session)
 
-    if session_record is not None and session_record.user_id is not None and ai_config is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Configure uma chave de API de IA na sua conta antes de gerar flashcards.",
+    # Inline api_key in payload takes priority; otherwise fall back to saved
+    # user settings, then the server-wide GEMINI_API_KEY env var.
+    if payload.api_key and payload.api_key.strip():
+        from services.phrase_generator_service import AIProviderConfig  # noqa: PLC0415
+        provider = getattr(payload, "provider", "gemini") or "gemini"
+        ai_config = AIProviderConfig(
+            provider=provider,
+            api_key=payload.api_key.strip(),
+            model=AI_PROVIDER_DEFAULT_MODELS.get(provider, "gemini-2.5-flash"),
         )
+    else:
+        ai_config = _get_user_ai_config(session_record, session)
+
     if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
-            detail="Nenhuma chave de API de IA configurada. Configure sua chave em Configuracoes de IA.",
+            detail=(
+                "Nenhuma chave de API de IA configurada. "
+                "Informe sua chave Gemini no campo abaixo ou salve-a nas Configuracoes de IA."
+            ),
         )
 
     subject = payload.subject.strip()
