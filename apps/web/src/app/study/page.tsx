@@ -128,8 +128,6 @@ export default function StudyPage() {
   const [codingSaved, setCodingSaved] = useState('');
   const [codingError, setCodingError] = useState('');
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
-  const [generatingCodingAI, setGeneratingCodingAI] = useState<string | null>(null);
-  const [codingAIError, setCodingAIError] = useState<{ subject: string; message: string } | null>(null);
 
   // ── Pomodoro state (shared) ─────────────────────────────────────────────────
   const [pomodoroState, setPomodoroState] = useState(createInitialPomodoroState);
@@ -377,26 +375,6 @@ export default function StudyPage() {
     } catch {
       setCodingError('Nao foi possivel salvar o progresso.');
     } finally { setSavingCoding(false); }
-  }
-
-  async function generateAICodingTopics(subjectKey: string, inlineApiKey?: string) {
-    if (!codingDay) return;
-    const meta = SUBJECT_META[subjectKey];
-    if (!meta) return;
-    setGeneratingCodingAI(subjectKey);
-    setCodingAIError(null);
-    try {
-      const payload = { subject: meta.label, count: 3, ...(inlineApiKey ? { api_key: inlineApiKey } : {}) };
-      const result = await api.generateStudyFlashcards(payload);
-      const newTopics: CodingTopic[] = result.flashcards.slice(0, 3).map((f) => ({ topic: f.topic, done: false }));
-      while (newTopics.length < 3) newTopics.push({ topic: '', done: false });
-      setCodingDay({ ...codingDay, subjects: { ...codingDay.subjects, [subjectKey]: newTopics } });
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Nao foi possivel criar topicos com IA.';
-      setCodingAIError({ subject: subjectKey, message });
-    } finally {
-      setGeneratingCodingAI(null);
-    }
   }
 
   function addDiverseSubject() {
@@ -668,9 +646,6 @@ export default function StudyPage() {
             onToggleTopic={toggleTopic}
             onUpdateTopicText={updateTopicText}
             onSave={() => void saveCodingDay()}
-            generatingCodingAI={generatingCodingAI}
-            codingAIError={codingAIError}
-            onGenerateCodingAI={(key, apiKey) => void generateAICodingTopics(key, apiKey)}
             pomodoroMode={pomodoroState.mode}
             pomodoroSeconds={pomodoroState.seconds}
             pomodoroRunning={pomodoroState.running}
@@ -936,7 +911,6 @@ function CodingTab({
   codingSaved, codingError, codingDoneCount, codingTotalCount,
   editingSubject, setEditingSubject,
   onToggleTopic, onUpdateTopicText, onSave,
-  generatingCodingAI, codingAIError, onGenerateCodingAI,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
@@ -951,9 +925,6 @@ function CodingTab({
   onToggleTopic: (subject: string, index: number) => void;
   onUpdateTopicText: (subject: string, index: number, value: string) => void;
   onSave: () => void;
-  generatingCodingAI: string | null;
-  codingAIError: { subject: string; message: string } | null;
-  onGenerateCodingAI: (subjectKey: string, apiKey?: string) => void;
   pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
   onTogglePomodoro: () => void;
