@@ -1308,6 +1308,21 @@ def _lesson_payload(lesson: DiverseLessonBlockSchema) -> dict:
     }
 
 
+def _extract_json_object(raw_text: str) -> dict:
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+    try:
+        data = json.loads(cleaned.strip())
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.") from exc
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.")
+    return data
+
+
 @app.get("/api/study/diverse/{study_date}", response_model=DiverseDaySchema)
 def get_diverse_day(
     study_date: date,
@@ -1799,6 +1814,108 @@ def list_coding_topics(
         )
         for t in topics
     ]
+
+
+@app.post("/api/coding/subjects/{subject_id}/topics/generate", response_model=ProgrammingTopicSchema, status_code=201)
+def generate_coding_subject_topic(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingTopicSchema:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+        )
+
+    existing_topics = sorted(
+        session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
+        key=lambda t: t.order_index,
+    )
+    existing_titles = [topic.title for topic in existing_topics]
+    existing_titles_text = ", ".join(existing_titles) if existing_titles else "nenhum"
+    prompt = (
+        "Sugira o proximo topico de estudo para uma materia de programacao.\n"
+        f"Materia: {subject.name}\n"
+        f"Topicos existentes: {existing_titles_text}\n"
+        "Escolha algo pratico, especifico e progressivo para estudar agora.\n"
+        "Evite repetir topicos existentes.\n"
+        "Retorne apenas JSON valido neste formato:\n"
+        '{ "title": "string" }\n'
+    )
+    try:
+        response_text = phrase_generation_service.generate_json_text(
+            system_text=(
+                "Voce e um professor de programacao. "
+                "Retorne somente JSON valido, sem markdown e sem comentarios."
+            ),
+            prompt=prompt,
+            temperature=0.6,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    data = _extract_json_object(response_text)
+    title = str(data.get("title") or data.get("topic") or "").strip()[:200]
+    if not title:
+        raise HTTPException(status_code=502, detail="IA nao sugeriu um topico valido.")
+
+    existing_normalized = {item.lower().strip() for item in existing_titles}
+    if title.lower().strip() in existing_normalized:
+        title = f"{title} - pratica"[:200]
+
+    try:
+        content = generate_topic_ai_content(
+            subject_name=subject.name,
+            topic_title=title,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    now = datetime.utcnow()
+    topic = ProgrammingTopic(
+        subject_id=subject_id,
+        title=title,
+        order_index=len(existing_topics),
+        status="not_started",
+        ai_content=content.model_dump(),
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(topic)
+    session.flush()
+    for fc_draft in content.flashcards:
+        fc = ProgrammingFlashcard(
+            topic_id=topic.id or 0,
+            subject_id=subject_id,
+            child_id=child.id or 0,
+            front=fc_draft.front[:500],
+            back=fc_draft.back[:2000],
+            code_example=(fc_draft.code_example or "")[:3000] or None,
+            created_at=now,
+        )
+        session.add(fc)
+        session.flush()
+        seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    session.commit()
+    session.refresh(topic)
+    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
+    return ProgrammingTopicSchema(
+        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
+        order_index=topic.order_index, status=topic.status,
+        ai_content=topic.ai_content, notes=topic.notes,
+        created_at=topic.created_at, updated_at=topic.updated_at,
+        flashcard_count=fc_count,
+    )
 
 
 @app.post("/api/coding/subjects/{subject_id}/topics", response_model=ProgrammingTopicSchema, status_code=201)

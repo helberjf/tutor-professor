@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { api, type CodingReviewCard, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
@@ -23,6 +23,8 @@ export function CodingCurriculum() {
   const [showCreateSubject, setShowCreateSubject] = useState(false);
   const [showCreateTopic, setShowCreateTopic] = useState(false);
   const [loadingReview, setLoadingReview] = useState(false);
+  const [generatingTopicAI, setGeneratingTopicAI] = useState(false);
+  const [topicAIError, setTopicAIError] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -78,6 +80,21 @@ export function CodingCurriculum() {
     setTopics((prev) => prev.filter((t) => t.id !== id));
     await loadSubjects();
     if (view.type === 'topic') setView({ type: 'topics', subject });
+  }
+
+  async function handleGenerateTopicAI(subject: ProgrammingSubject) {
+    setGeneratingTopicAI(true);
+    setTopicAIError('');
+    try {
+      const topic = await api.generateCodingTopic(subject.id);
+      setTopics((prev) => [...prev, topic]);
+      await loadSubjects();
+      setView({ type: 'topic', subject, topic });
+    } catch (err: unknown) {
+      setTopicAIError(err instanceof Error ? err.message : 'Erro ao gerar topico com IA.');
+    } finally {
+      setGeneratingTopicAI(false);
+    }
   }
 
   // ── Subjects view ────────────────────────────────────────────────────────
@@ -208,6 +225,26 @@ export function CodingCurriculum() {
           </div>
         </section>
 
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setShowCreateTopic(true)}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 font-black text-slate-500 hover:border-primary hover:text-primary-dark"
+          >
+            <Plus size={18} /> Novo Topico
+          </button>
+          <button
+            type="button"
+            onClick={() => handleGenerateTopicAI(subject)}
+            disabled={generatingTopicAI}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {generatingTopicAI ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+            {generatingTopicAI ? 'Gerando topico...' : 'Gerar topico por IA'}
+          </button>
+        </div>
+        {topicAIError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{topicAIError}</p>}
+
         <div className="space-y-3">
           {loadingTopics ? (
             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" size={28} /></div>
@@ -242,13 +279,6 @@ export function CodingCurriculum() {
               </div>
             ))
           )}
-          <button
-            type="button"
-            onClick={() => setShowCreateTopic(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white py-4 font-black text-slate-400 hover:border-primary hover:text-primary-dark"
-          >
-            <Plus size={18} /> Novo Tópico
-          </button>
         </div>
 
         {showCreateTopic && (

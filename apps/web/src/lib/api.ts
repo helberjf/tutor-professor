@@ -755,6 +755,8 @@ export const api = {
     fetchAPI<ProgrammingTopic[]>(`/api/coding/subjects/${subjectId}/topics`),
   createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean }) =>
     fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
+  generateCodingTopic: (subjectId: number) =>
+    fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics/generate`, { method: 'POST' }),
   updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object }) =>
     fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCodingTopic: (id: number) =>
