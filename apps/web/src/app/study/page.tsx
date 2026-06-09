@@ -707,6 +707,15 @@ export default function StudyPage() {
     return Object.values(codingDay.subjects).flat().length;
   }, [codingDay]);
 
+  const diverseSubjectTabs = useMemo(() => {
+    const subjects = diverseDay?.custom_subjects ?? [];
+    return subjects.map((subject, index) => ({
+      subject,
+      index,
+      slug: getDiverseSubjectSlug(subject, index, subjects),
+    }));
+  }, [diverseDay]);
+
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
     return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando seu cadastro..." secondaryHref="/" secondaryLabel="Voltar ao inicio" />;
@@ -742,10 +751,19 @@ export default function StudyPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="mb-6 grid gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5 sm:grid-cols-3">
+        <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
-          <TabButton active={activeTab === 'diverse'} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras materias" />
+          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras materias" />
+          {diverseSubjectTabs.map((item) => (
+            <TabButton
+              key={item.slug}
+              active={activeTab === 'diverse' && selectedDiverseSubjectSlug === item.slug}
+              onClick={() => selectDiverseSubjectTab(item.slug)}
+              icon={<Layers size={17} />}
+              label={item.subject.name}
+            />
+          ))}
         </div>
 
         {/* Date picker (shared) */}
@@ -802,7 +820,6 @@ export default function StudyPage() {
             setNewSubjectName={setNewSubjectName}
             onAddSubject={addDiverseSubject}
             onGenerateAI={(key) => void generateAIFlashcards(key)}
-            onSuggestSubjectAI={(key) => void generateAIFlashcards(key, true)}
             generatingAI={generatingAI}
             aiAction={aiAction}
             lastAIAction={lastAIAction}
@@ -873,7 +890,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-[1.15rem] px-4 py-2.5 text-sm font-black transition ${
+      className={`flex min-w-fit shrink-0 items-center justify-center gap-2 rounded-[1.15rem] px-4 py-2.5 text-sm font-black transition ${
         active ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
       }`}
     >
@@ -1158,7 +1175,7 @@ function CodingTab({
 function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
-  onAddSubject, onGenerateAI, onSuggestSubjectAI, generatingAI, aiAction, lastAIAction, aiError,
+  onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI,
@@ -1176,7 +1193,6 @@ function DiverseTab({
   newSubjectName: string; setNewSubjectName: (v: string) => void;
   onAddSubject: () => void;
   onGenerateAI: (apiKey?: string) => void;
-  onSuggestSubjectAI: (apiKey?: string) => void;
   generatingAI: boolean;
   aiAction: DiverseAIAction | null;
   lastAIAction: DiverseAIAction | null;
@@ -1318,19 +1334,10 @@ function DiverseTab({
               {aiAction === 'create-subject' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
               {aiAction === 'create-subject' ? 'Criando aula com IA...' : 'Criar aula com IA'}
             </button>
-            <button
-              type="button"
-              onClick={() => onSuggestSubjectAI()}
-              disabled={generatingAI}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-5 text-base font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {aiAction === 'suggest-subject' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-              {aiAction === 'suggest-subject' ? 'Sugerindo materia...' : 'Sugerir materia com IA'}
-            </button>
             {aiError && (
               <div className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
                 <p className="text-sm font-bold text-rose-700">{aiError}</p>
-                {needsKeyConfig && (
+                {needsKeyConfig && lastAIAction === 'create-subject' && (
                   <div className="mt-1 flex flex-col gap-2">
                     <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
                     <input
@@ -1344,8 +1351,7 @@ function DiverseTab({
                       type="button"
                       onClick={() => {
                         if (!aiKeyDraft.trim()) return;
-                        if (lastAIAction === 'suggest-subject') onSuggestSubjectAI(aiKeyDraft.trim());
-                        else onGenerateAI(aiKeyDraft.trim());
+                        if (lastAIAction === 'create-subject') onGenerateAI(aiKeyDraft.trim());
                       }}
                       disabled={!aiKeyDraft.trim() || generatingAI}
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
@@ -1434,9 +1440,8 @@ function DiverseTab({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar aula com IA</strong>.</p>
-              <p>Ou deixe a IA sugerir a materia e abrir a primeira licao automaticamente.</p>
               <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
-              <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
+              <p>Abra cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
             </div>
           </div>
@@ -1529,7 +1534,7 @@ function DiverseSubjectDashboard({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'topic' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'topic' ? 'Escolhendo topico...' : 'IA escolher topico'}
+            {aiAction === 'topic' ? 'Escolhendo topico...' : 'Sugerir topico com IA'}
           </button>
           <button
             type="button"
@@ -1728,36 +1733,50 @@ function SubjectStudyCard({
           {/* Topics list */}
           <ul className="mt-4 space-y-3">
             {subject.topics.map((t, ti) => {
-              const answerOpen = expandedAnswer === ti;
+              const topicOpen = expandedAnswer === ti;
               return (
-                <li key={ti} className="space-y-1.5">
-                  <div className="flex items-center gap-3">
+                <li key={ti} className={`rounded-2xl border-2 transition ${topicOpen ? 'border-indigo-200 bg-indigo-50/60' : 'border-slate-100 bg-slate-50'}`}>
+                  <div className="flex items-center gap-3 p-3">
                     <button type="button" onClick={() => onToggleTopic(ti)}
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${t.done ? 'border-emerald-400 bg-emerald-400 text-white' : 'border-slate-300 bg-white hover:border-emerald-400'}`}>
                       {t.done && <CheckCircle2 size={13} />}
                     </button>
-                    <input
-                      value={t.topic}
-                      onChange={(e) => onUpdateTopicText(ti, e.target.value)}
-                      maxLength={120}
-                      placeholder="Pergunta / tópico"
-                      className={`flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold outline-none transition focus:border-primary focus:bg-white ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
-                    />
-                    <button type="button" onClick={() => setExpandedAnswer(answerOpen ? null : ti)}
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 transition text-xs font-black ${answerOpen ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedAnswer(topicOpen ? null : ti)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <span className={`block break-words text-sm font-black ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        {t.topic || `Topico ${ti + 1}`}
+                      </span>
+                      {t.answer && !topicOpen && (
+                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-400">Resposta salva</span>
+                      )}
+                    </button>
+                    <button type="button" onClick={() => setExpandedAnswer(topicOpen ? null : ti)}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition ${topicOpen ? 'border-indigo-300 bg-white text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
                       title="Resposta / explicação">
-                      R
+                      <ChevronRight size={16} className={`transition ${topicOpen ? 'rotate-90' : ''}`} />
                     </button>
                   </div>
-                  {answerOpen && (
-                    <textarea
-                      value={t.answer ?? ''}
-                      onChange={(e) => onUpdateTopicAnswer(ti, e.target.value)}
-                      rows={2}
-                      maxLength={300}
-                      placeholder="Explicação / resposta (usada no modo Estudar)"
-                      className="ml-9 w-[calc(100%-2.5rem)] resize-none rounded-xl border-2 border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
-                    />
+                  {topicOpen && (
+                    <div className="space-y-2 px-3 pb-3">
+                      <input
+                        value={t.topic}
+                        onChange={(e) => onUpdateTopicText(ti, e.target.value)}
+                        maxLength={120}
+                        placeholder="Pergunta / topico"
+                        className={`w-full rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:border-primary ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                      />
+                      <textarea
+                        value={t.answer ?? ''}
+                        onChange={(e) => onUpdateTopicAnswer(ti, e.target.value)}
+                        rows={2}
+                        maxLength={300}
+                        placeholder="Explicacao / resposta (usada no modo Estudar)"
+                        className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
+                      />
+                    </div>
                   )}
                 </li>
               );
