@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, Loader2, Plus, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle2, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
 
 interface Props {
@@ -12,6 +12,69 @@ interface Props {
 }
 
 type QuizState = { answered: boolean; selected: string; correct: boolean }[];
+type FlashcardDraft = { front: string; back: string; code_example?: string };
+
+function pickTextField(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+  return '';
+}
+
+function normalizeFlashcardDraft(item: unknown): FlashcardDraft | null {
+  if (!item || typeof item !== 'object') return null;
+  const record = item as Record<string, unknown>;
+  const front = pickTextField(record, ['front', 'question', 'pergunta', 'term', 'conceito']).slice(0, 500);
+  const back = pickTextField(record, ['back', 'answer', 'resposta', 'definition', 'explicacao']).slice(0, 2000);
+  const code = pickTextField(record, ['code_example', 'code', 'codigo', 'example']).slice(0, 3000);
+  if (!front || !back) return null;
+  return { front, back, ...(code ? { code_example: code } : {}) };
+}
+
+function parseTextFlashcards(text: string): FlashcardDraft[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const separator = ['=>', '|', '\t', '::'].find((item) => block.includes(item));
+      if (separator) {
+        const [front, ...backParts] = block.split(separator);
+        return normalizeFlashcardDraft({ front, back: backParts.join(separator) });
+      }
+      const [front, ...backParts] = block.split(/\r?\n/);
+      return normalizeFlashcardDraft({ front, back: backParts.join('\n') });
+    })
+    .filter((draft): draft is FlashcardDraft => Boolean(draft))
+    .slice(0, 50);
+}
+
+function parseFlashcardImport(raw: string): FlashcardDraft[] {
+  const text = raw.trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    const drafts = items
+      .map(normalizeFlashcardDraft)
+      .filter((draft): draft is FlashcardDraft => Boolean(draft))
+      .slice(0, 50);
+    if (drafts.length > 0) return drafts;
+    throw new Error('JSON sem campos front/back ou question/answer.');
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) throw err;
+    // Plain text import is handled below.
+  }
+
+  const drafts = parseTextFlashcards(text);
+  if (drafts.length === 0) {
+    throw new Error('Cole JSON valido ou texto no formato Frente | Verso.');
+  }
+  return drafts;
+}
 
 export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpdated }: Props) {
   const [topic, setTopic] = useState(initialTopic);
@@ -27,6 +90,11 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [addFcBack, setAddFcBack] = useState('');
   const [addFcCode, setAddFcCode] = useState('');
   const [addingFc, setAddingFc] = useState(false);
+  const [showImportFc, setShowImportFc] = useState(false);
+  const [importFcText, setImportFcText] = useState('');
+  const [importFcError, setImportFcError] = useState('');
+  const [importingFc, setImportingFc] = useState(false);
+  const [copyMessage, setCopyMessage] = useState('');
 
   useEffect(() => {
     setLoadingFc(true);
@@ -91,6 +159,59 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       setShowAddFc(false);
     } finally {
       setAddingFc(false);
+    }
+  }
+
+  async function handleCopyFlashcards() {
+    setCopyMessage('');
+    setImportFcError('');
+    const payload = flashcards.map((fc) => ({
+      front: fc.front,
+      back: fc.back,
+      ...(fc.code_example ? { code_example: fc.code_example } : {}),
+    }));
+    const text = JSON.stringify(payload, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyMessage('JSON copiado.');
+    } catch {
+      setImportFcText(text);
+      setShowImportFc(true);
+      setCopyMessage('Nao consegui copiar automaticamente; deixei o JSON no campo de importacao.');
+    }
+  }
+
+  async function handleImportFlashcards(e: React.FormEvent) {
+    e.preventDefault();
+    setImportFcError('');
+    setCopyMessage('');
+
+    let drafts: FlashcardDraft[];
+    try {
+      drafts = parseFlashcardImport(importFcText);
+    } catch (err) {
+      setImportFcError(err instanceof Error ? err.message : 'Nao foi possivel ler os flashcards.');
+      return;
+    }
+    if (drafts.length === 0) {
+      setImportFcError('Cole pelo menos um flashcard.');
+      return;
+    }
+
+    setImportingFc(true);
+    try {
+      const created: ProgrammingFlashcard[] = [];
+      for (const draft of drafts) {
+        created.push(await api.createTopicFlashcard(topic.id, draft));
+      }
+      setFlashcards((prev) => [...prev, ...created]);
+      setImportFcText('');
+      setShowImportFc(false);
+      setCopyMessage(`${created.length} flashcard${created.length === 1 ? '' : 's'} importado${created.length === 1 ? '' : 's'}.`);
+    } catch (err) {
+      setImportFcError(err instanceof Error ? err.message : 'Nao foi possivel importar os flashcards.');
+    } finally {
+      setImportingFc(false);
     }
   }
 
@@ -249,17 +370,66 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
       {/* Flashcards */}
       <div className="rounded-3xl border-2 border-slate-100 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-black text-slate-800">Flashcards ({loadingFc ? '...' : flashcards.length})</h2>
-          <button
-            type="button"
-            onClick={() => setShowAddFc((v) => !v)}
-            className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
-          >
-            {showAddFc ? <X size={14} /> : <Plus size={14} />}
-            {showAddFc ? 'Cancelar' : 'Adicionar'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleCopyFlashcards}
+              disabled={loadingFc || flashcards.length === 0}
+              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary disabled:opacity-40"
+            >
+              <Copy size={14} />
+              Copiar JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowImportFc((value) => !value);
+                setShowAddFc(false);
+                setImportFcError('');
+              }}
+              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
+            >
+              {showImportFc ? <X size={14} /> : <Upload size={14} />}
+              {showImportFc ? 'Cancelar' : 'Importar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddFc((v) => !v);
+                setShowImportFc(false);
+              }}
+              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
+            >
+              {showAddFc ? <X size={14} /> : <Plus size={14} />}
+              {showAddFc ? 'Cancelar' : 'Adicionar'}
+            </button>
+          </div>
         </div>
+        {copyMessage && (
+          <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">{copyMessage}</p>
+        )}
+        {showImportFc && (
+          <form onSubmit={handleImportFlashcards} className="mb-4 space-y-3 rounded-2xl bg-slate-50 p-4">
+            <textarea
+              value={importFcText}
+              onChange={(e) => setImportFcText(e.target.value)}
+              placeholder={'[\n  {"front":"O que e closure?","back":"Funcao que lembra o escopo onde foi criada.","code_example":"function outer() { return function inner() {} }"}\n]\n\nou:\nPergunta | Resposta\nOutra pergunta => Outra resposta'}
+              rows={8}
+              className="w-full resize-y rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary"
+            />
+            {importFcError && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{importFcError}</p>}
+            <button
+              type="submit"
+              disabled={importingFc || !importFcText.trim()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2 font-black text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {importingFc ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              Importar flashcards
+            </button>
+          </form>
+        )}
         {showAddFc && (
           <form onSubmit={handleAddFlashcard} className="mb-4 space-y-3 rounded-2xl bg-slate-50 p-4">
             <input value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder="Frente (conceito / pergunta)" maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
