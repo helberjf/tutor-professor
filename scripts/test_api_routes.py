@@ -309,7 +309,7 @@ async def run() -> None:
         missing_flashcards_response = await client.post(
             "/api/study/diverse/generate-flashcards",
             headers=child_headers,
-            json={"subject": "React", "count": 3},
+            json={"subject": "React", "count": 3, "avoid_topics": ["Componentes", "Props"]},
         )
         assert_status(missing_flashcards_response, 403, "generate flashcards requires user ai settings")
         missing_suggested_flashcards_response = await client.post(
