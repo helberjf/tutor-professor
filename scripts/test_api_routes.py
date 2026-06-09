@@ -299,6 +299,44 @@ async def run() -> None:
             json={"subject": "React", "count": 3},
         )
         assert_status(missing_flashcards_response, 403, "generate flashcards requires user ai settings")
+        missing_suggested_flashcards_response = await client.post(
+            "/api/study/diverse/generate-flashcards",
+            headers=child_headers,
+            json={"subject": "", "count": 1, "suggest_subject": True},
+        )
+        assert_status(
+            missing_suggested_flashcards_response,
+            403,
+            "suggested flashcards accepts empty subject before AI auth",
+        )
+
+        diverse_response = await client.put(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers=child_headers,
+            json={
+                "custom_subjects": [
+                    {
+                        "name": "Frances",
+                        "topics": [{"topic": "Cumprimentos", "done": False, "answer": "Bonjour e Bonsoir."}],
+                        "lessons": [
+                            {
+                                "id": "lesson-test-1",
+                                "title": "Licao 1: basico",
+                                "created_at": "2026-06-08T00:00:00.000Z",
+                                "topics": [
+                                    {"topic": "Je m'appelle", "done": True, "answer": "Significa eu me chamo."}
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+        assert_status(diverse_response, 200, "save diverse day with lesson blocks")
+        diverse_payload = diverse_response.json()
+        saved_subject = diverse_payload["custom_subjects"][0]
+        if saved_subject["lessons"][0]["topics"][0]["topic"] != "Je m'appelle":
+            raise AssertionError(f"expected diverse lesson block to round-trip, got {diverse_payload}")
 
         save_ai_response = await client.put(
             "/api/ai/settings",

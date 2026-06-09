@@ -72,6 +72,7 @@ from schemas.schemas import (
     ProgrammingFlashcardSchema,
     ProgrammingSubjectSchema,
     ProgrammingTopicSchema,
+    DiverseLessonBlockSchema,
     TopicAIContentSchema,
     UpdateProgrammingFlashcardSchema,
     UpdateProgrammingSubjectSchema,
@@ -1257,10 +1258,54 @@ def get_diverse_catalog(request: Request, session: Session = Depends(get_session
     seen: dict[str, dict] = {}
     for record in records:
         for subject in (record.custom_subjects or []):
+            if not isinstance(subject, dict):
+                continue
             name = subject.get("name", "").strip()
             if name and name not in seen:
                 seen[name] = {"name": name, "topics": subject.get("topics", [])}
     return list(seen.values())
+
+
+def _build_diverse_topic_schema(raw_topic: dict) -> CodingTopicSchema:
+    return CodingTopicSchema(
+        topic=str(raw_topic.get("topic", "")).strip()[:120] or "Topico",
+        done=bool(raw_topic.get("done", False)),
+        answer=str(raw_topic.get("answer") or "")[:300],
+    )
+
+
+def _build_diverse_lesson_schema(raw_lesson: dict) -> DiverseLessonBlockSchema:
+    return DiverseLessonBlockSchema(
+        id=str(raw_lesson.get("id") or secrets.token_urlsafe(8))[:80],
+        title=str(raw_lesson.get("title") or "Licao")[:80],
+        topics=[_build_diverse_topic_schema(t) for t in raw_lesson.get("topics", []) if isinstance(t, dict)],
+        created_at=(str(raw_lesson.get("created_at"))[:40] if raw_lesson.get("created_at") else None),
+    )
+
+
+def _build_diverse_subject_schema(raw_subject: dict) -> DiverseSubjectSchema:
+    return DiverseSubjectSchema(
+        name=str(raw_subject.get("name", "")).strip()[:60] or "Materia",
+        topics=[_build_diverse_topic_schema(t) for t in raw_subject.get("topics", []) if isinstance(t, dict)],
+        lessons=[
+            _build_diverse_lesson_schema(lesson)
+            for lesson in raw_subject.get("lessons", [])
+            if isinstance(lesson, dict)
+        ],
+    )
+
+
+def _topic_payload(topic: CodingTopicSchema) -> dict:
+    return {"topic": topic.topic[:120], "done": topic.done, "answer": (topic.answer or "")[:300]}
+
+
+def _lesson_payload(lesson: DiverseLessonBlockSchema) -> dict:
+    return {
+        "id": lesson.id[:80],
+        "title": lesson.title[:80],
+        "created_at": (lesson.created_at or "")[:40] or None,
+        "topics": [_topic_payload(topic) for topic in lesson.topics],
+    }
 
 
 @app.get("/api/study/diverse/{study_date}", response_model=DiverseDaySchema)
@@ -1280,11 +1325,9 @@ def get_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            DiverseSubjectSchema(
-                name=s["name"],
-                topics=[CodingTopicSchema(**t) for t in s.get("topics", [])],
-            )
+            _build_diverse_subject_schema(s)
             for s in (record.custom_subjects or [])
+            if isinstance(s, dict)
         ],
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -1306,7 +1349,11 @@ def upsert_diverse_day(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
     subjects_data = [
-        {"name": s.name[:60], "topics": [{"topic": t.topic[:120], "done": t.done, "answer": (t.answer or "")[:300]} for t in s.topics]}
+        {
+            "name": s.name[:60],
+            "topics": [_topic_payload(t) for t in s.topics],
+            "lessons": [_lesson_payload(lesson) for lesson in s.lessons],
+        }
         for s in payload.custom_subjects
     ]
     if record is None:
@@ -1321,8 +1368,9 @@ def upsert_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            DiverseSubjectSchema(name=s["name"], topics=[CodingTopicSchema(**t) for t in s.get("topics", [])])
+            _build_diverse_subject_schema(s)
             for s in (record.custom_subjects or [])
+            if isinstance(s, dict)
         ],
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -2645,6 +2693,10 @@ def generate_diverse_flashcards(
         )
 
     subject = payload.subject.strip()
+    suggest_subject = payload.suggest_subject
+    if not subject and not suggest_subject:
+        raise HTTPException(status_code=400, detail="Informe uma materia ou peca para a IA sugerir uma.")
+
     count = payload.count
 
     system_text = (
@@ -2652,25 +2704,51 @@ def generate_diverse_flashcards(
         "Gere flashcards com perguntas claras e respostas concisas. "
         "Retorne apenas JSON valido, sem markdown ou comentarios extras."
     )
-    prompt = (
-        f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
-        "Regras:\n"
-        "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
-        "- As perguntas devem ser claras, diretas e educativas.\n"
-        "- As respostas devem ser concisas (ate 2 frases).\n"
-        "- Cubra os conceitos mais importantes do assunto.\n"
-        "- Escreva em portugues brasileiro.\n"
-        "- Se o assunto for tecnico (ex: programacao, React, Python), use exemplos praticos curtos.\n"
-        "Retorne exatamente neste formato JSON:\n"
-        "{\n"
-        '  "flashcards": [\n'
-        "    {\n"
-        '      "question": "string",\n'
-        '      "answer": "string"\n'
-        "    }\n"
-        "  ]\n"
-        "}\n"
-    )
+    if suggest_subject:
+        subject_hint = f"Use esta ideia como pista se fizer sentido: '{subject}'." if subject else (
+            "Escolha uma materia util para estudo hoje."
+        )
+        prompt = (
+            f"Sugira uma materia de estudo e crie {count} flashcards iniciais para ela.\n"
+            f"{subject_hint}\n"
+            "Regras:\n"
+            "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
+            "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+            "- As perguntas devem ser claras, diretas e educativas.\n"
+            "- As respostas devem ser concisas (ate 2 frases).\n"
+            "- Escreva em portugues brasileiro.\n"
+            "Retorne exatamente neste formato JSON:\n"
+            "{\n"
+            '  "subject": "string",\n'
+            '  "flashcards": [\n'
+            "    {\n"
+            '      "question": "string",\n'
+            '      "answer": "string"\n'
+            "    }\n"
+            "  ]\n"
+            "}\n"
+        )
+    else:
+        prompt = (
+            f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
+            "Regras:\n"
+            "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+            "- As perguntas devem ser claras, diretas e educativas.\n"
+            "- As respostas devem ser concisas (ate 2 frases).\n"
+            "- Cubra os conceitos mais importantes do assunto.\n"
+            "- Escreva em portugues brasileiro.\n"
+            "- Se o assunto for tecnico (ex: programacao, React, Python), use exemplos praticos curtos.\n"
+            "Retorne exatamente neste formato JSON:\n"
+            "{\n"
+            f'  "subject": "{subject}",\n'
+            '  "flashcards": [\n'
+            "    {\n"
+            '      "question": "string",\n'
+            '      "answer": "string"\n'
+            "    }\n"
+            "  ]\n"
+            "}\n"
+        )
 
     try:
         response_text = phrase_generation_service.generate_json_text(
@@ -2703,10 +2781,14 @@ def generate_diverse_flashcards(
         if isinstance(card, dict) and card.get("question") and card.get("answer")
     ]
 
+    generated_subject = str(data.get("subject") or subject).strip()[:60]
+    if not generated_subject:
+        generated_subject = "Materia sugerida"
+
     if not flashcards:
         raise HTTPException(status_code=502, detail="IA nao gerou flashcards validos.")
 
-    return GenerateFlashcardsResponseSchema(subject=subject, flashcards=flashcards)
+    return GenerateFlashcardsResponseSchema(subject=generated_subject, flashcards=flashcards)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -156,9 +156,17 @@ class StudyDashboardSchema(BaseModel):
     last_study_date: Optional[date] = None
 
 
+class DiverseLessonBlockSchema(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=80)
+    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=10)
+    created_at: Optional[str] = Field(default=None, max_length=40)
+
+
 class DiverseSubjectSchema(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=10)
+    lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=20)
 
 
 class DiverseDaySchema(BaseModel):
@@ -491,8 +499,9 @@ class GenerateLessonResponseSchema(BaseModel):
 
 
 class GenerateFlashcardsRequestSchema(BaseModel):
-    subject: str = Field(min_length=1, max_length=80)
-    count: int = Field(default=5, ge=3, le=10)
+    subject: str = Field(default="", max_length=80)
+    count: int = Field(default=5, ge=1, le=10)
+    suggest_subject: bool = False
     api_key: Optional[str] = Field(default=None, max_length=500)
     provider: str = Field(default="gemini", max_length=40)
 
