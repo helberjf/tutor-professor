@@ -375,6 +375,7 @@ export interface GenerateFlashcardsPayload {
   subject?: string;
   count?: number;
   suggest_subject?: boolean;
+  avoid_topics?: string[];
   api_key?: string;
   provider?: string;
 }

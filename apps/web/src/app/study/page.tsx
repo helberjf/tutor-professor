@@ -98,6 +98,31 @@ function getDiverseSubjectTopics(subject: DiverseSubject) {
   return [...subject.topics, ...getDiverseSubjectLessons(subject).flatMap((lesson) => lesson.topics)];
 }
 
+function normalizeDiverseTopicText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getDiverseAvoidTopics(subject: DiverseSubject) {
+  return getDiverseSubjectTopics(subject)
+    .map((topic) => topic.topic.trim())
+    .filter(Boolean);
+}
+
+function filterFreshDiverseTopics(topics: CodingTopic[], existingTopics: string[]) {
+  const seen = new Set(existingTopics.map(normalizeDiverseTopicText).filter(Boolean));
+  return topics.filter((topic) => {
+    const key = normalizeDiverseTopicText(topic.topic);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function createLocalLessonId() {
   return `lesson-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -579,14 +604,16 @@ export default function StudyPage() {
     setAiError('');
     setDiverseSaved('');
     try {
+      const avoidTopics = getDiverseAvoidTopics(subject);
       const result = await api.generateStudyFlashcards({
         subject: subject.name,
         count: 1,
+        avoid_topics: avoidTopics,
         ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
       });
-      const newTopic = flashcardsToTopics(result.flashcards)[0];
+      const newTopic = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
       if (!newTopic) {
-        setAiError('A IA nao sugeriu um topico valido.');
+        setAiError('A IA sugeriu um topico repetido. Tente novamente para avancar para outro assunto.');
         return;
       }
       setDiverseDay((current) => {
@@ -616,14 +643,16 @@ export default function StudyPage() {
     setAiError('');
     setDiverseSaved('');
     try {
+      const avoidTopics = getDiverseAvoidTopics(subject);
       const result = await api.generateStudyFlashcards({
         subject: subject.name,
         count: AI_FLASHCARD_COUNT,
+        avoid_topics: avoidTopics,
         ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
       });
-      const topics = flashcardsToTopics(result.flashcards);
+      const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
       if (topics.length === 0) {
-        setAiError('A IA nao gerou uma licao valida.');
+        setAiError('A IA gerou apenas topicos repetidos. Tente novamente para criar uma licao nova.');
         return;
       }
       const lesson: DiverseLessonBlock = {

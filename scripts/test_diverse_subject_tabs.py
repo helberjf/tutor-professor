@@ -27,6 +27,8 @@ def main() -> None:
     require("function generateDiverseLesson" in source, "AI lessons are created inside selected subjects")
     require("lessons.map" in source, "created diverse lessons render as separate blocks")
     require("suggest_subject" in source, "AI subject suggestion is sent to the backend")
+    require("avoid_topics" in source, "AI lesson generation sends existing topics to avoid repeats")
+    require("function filterFreshDiverseTopics" in source, "repeated AI lesson topics are filtered before saving")
 
     print("Diverse subject tab checks passed.")
 

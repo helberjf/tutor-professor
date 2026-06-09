@@ -2815,6 +2815,14 @@ def generate_diverse_flashcards(
         raise HTTPException(status_code=400, detail="Informe uma materia ou peca para a IA sugerir uma.")
 
     count = payload.count
+    avoid_topics = [str(item).strip()[:120] for item in payload.avoid_topics if str(item).strip()]
+    avoid_topics_text = "\n".join(f"- {item}" for item in avoid_topics[:60])
+    avoid_instruction = (
+        "Topicos ja criados nesta materia. Nao repita nem gere variacoes muito parecidas:\n"
+        f"{avoid_topics_text}\n"
+        if avoid_topics_text
+        else ""
+    )
 
     system_text = (
         "Voce cria flashcards educativos em formato JSON. "
@@ -2828,9 +2836,11 @@ def generate_diverse_flashcards(
         prompt = (
             f"Sugira uma materia de estudo e crie {count} flashcards iniciais para ela.\n"
             f"{subject_hint}\n"
+            f"{avoid_instruction}"
             "Regras:\n"
             "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+            "- Cada flashcard deve ser novo em relacao aos topicos ja criados.\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
             "- As respostas devem ser concisas (ate 2 frases).\n"
             "- Escreva em portugues brasileiro.\n"
@@ -2848,11 +2858,13 @@ def generate_diverse_flashcards(
     else:
         prompt = (
             f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
+            f"{avoid_instruction}"
             "Regras:\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
             "- As respostas devem ser concisas (ate 2 frases).\n"
             "- Cubra os conceitos mais importantes do assunto.\n"
+            "- Nao repita topicos ja criados; avance para subtopicos novos, aplicacoes, exemplos ou erros comuns.\n"
             "- Escreva em portugues brasileiro.\n"
             "- Se o assunto for tecnico (ex: programacao, React, Python), use exemplos praticos curtos.\n"
             "Retorne exatamente neste formato JSON:\n"
@@ -2877,16 +2889,7 @@ def generate_diverse_flashcards(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    cleaned = response_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-
-    try:
-        data = json.loads(cleaned.strip())
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.") from exc
+    data = _extract_json_object(response_text)
 
     raw_cards = data.get("flashcards") or []
     flashcards = [

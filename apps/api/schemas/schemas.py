@@ -502,6 +502,7 @@ class GenerateFlashcardsRequestSchema(BaseModel):
     subject: str = Field(default="", max_length=80)
     count: int = Field(default=5, ge=1, le=10)
     suggest_subject: bool = False
+    avoid_topics: List[str] = Field(default_factory=list, max_length=80)
     api_key: Optional[str] = Field(default=None, max_length=500)
     provider: str = Field(default="gemini", max_length=40)
 
