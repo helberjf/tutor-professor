@@ -239,6 +239,19 @@ async def run() -> None:
         if progress_response.json()["themes_completed"] != 1:
             raise AssertionError(f"expected completed theme in progress, got {progress_response.text}")
 
+        coding_subject_response = await client.post(
+            "/api/coding/subjects",
+            headers=child_headers,
+            json={"name": "Python", "description": "Treino de codigo", "icon_emoji": "PY"},
+        )
+        assert_status(coding_subject_response, 201, "create coding subject")
+        coding_subject = coding_subject_response.json()
+        missing_coding_ai_topic_response = await client.post(
+            f"/api/coding/subjects/{coding_subject['id']}/topics/generate",
+            headers=child_headers,
+        )
+        assert_status(missing_coding_ai_topic_response, 422, "generate coding topic requires AI settings")
+
         today = date.today()
         yesterday = today - timedelta(days=1)
         assert_status(
