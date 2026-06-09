@@ -9,7 +9,7 @@ import {
 
 import { StatusCard } from '@/components/status-card';
 import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
-import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
+import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -37,6 +37,7 @@ interface InlineStudyState {
 }
 
 type StudyRating = 'knew' | 'partial' | 'unknown';
+type DiverseAIAction = 'create-subject' | 'suggest-subject' | 'topic' | 'lesson';
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -89,6 +90,24 @@ function getDiverseSubjectSlug(subject: DiverseSubject, index: number, subjects:
   return previousMatches === 0 ? baseSlug : `${baseSlug}-${previousMatches + 1}`;
 }
 
+function getDiverseSubjectLessons(subject: DiverseSubject) {
+  return subject.lessons ?? [];
+}
+
+function getDiverseSubjectTopics(subject: DiverseSubject) {
+  return [...subject.topics, ...getDiverseSubjectLessons(subject).flatMap((lesson) => lesson.topics)];
+}
+
+function createLocalLessonId() {
+  return `lesson-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildLessonTitle(subject: DiverseSubject, topics: CodingTopic[]) {
+  const lessonNumber = getDiverseSubjectLessons(subject).length + 1;
+  const firstTopic = topics[0]?.topic?.trim();
+  return firstTopic ? `Licao ${lessonNumber}: ${firstTopic.slice(0, 42)}` : `Licao ${lessonNumber}`;
+}
+
 export default function StudyPage() {
   const authState = useRequireAuth();
 
@@ -116,6 +135,8 @@ export default function StudyPage() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
   const [generatingAI, setGeneratingAI] = useState(false);
+  const [aiAction, setAiAction] = useState<DiverseAIAction | null>(null);
+  const [lastAIAction, setLastAIAction] = useState<DiverseAIAction | null>(null);
   const [aiError, setAiError] = useState('');
   const [selectedDiverseSubjectSlug, setSelectedDiverseSubjectSlug] = useState<string | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
@@ -386,7 +407,7 @@ export default function StudyPage() {
     const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
       ? catalogEntry.topics.map((t) => ({ topic: t.topic, done: false, answer: t.answer ?? '' }))
       : [{ topic: 'Tópico 1', done: false, answer: '' }, { topic: 'Tópico 2', done: false, answer: '' }, { topic: 'Tópico 3', done: false, answer: '' }];
-    const newSubject: DiverseSubject = { name, topics: defaultTopics };
+    const newSubject: DiverseSubject = { name, topics: defaultTopics, lessons: [] };
     const nextSubjects = [...subjects, newSubject];
     const newDay: DiverseDay = {
       id: diverseDay?.id ?? null,
@@ -438,6 +459,55 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
+  function updateDiverseLessonBlock(
+    subjectIndex: number,
+    lessonIndex: number,
+    updater: (lesson: DiverseLessonBlock) => DiverseLessonBlock
+  ) {
+    if (!diverseDay) return;
+    const subjects = diverseDay.custom_subjects.map((s, si) => {
+      if (si !== subjectIndex) return s;
+      const lessons = getDiverseSubjectLessons(s).map((lesson, li) => li === lessonIndex ? updater(lesson) : lesson);
+      return { ...s, lessons };
+    });
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+  }
+
+  function updateDiverseLessonTitle(subjectIndex: number, lessonIndex: number, value: string) {
+    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({ ...lesson, title: value }));
+  }
+
+  function removeDiverseLessonBlock(subjectIndex: number, lessonIndex: number) {
+    if (!diverseDay) return;
+    const subjects = diverseDay.custom_subjects.map((s, si) => {
+      if (si !== subjectIndex) return s;
+      const lessons = getDiverseSubjectLessons(s).filter((_, li) => li !== lessonIndex);
+      return { ...s, lessons };
+    });
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+  }
+
+  function toggleDiverseLessonTopic(subjectIndex: number, lessonIndex: number, topicIndex: number) {
+    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
+      ...lesson,
+      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, done: !t.done } : t),
+    }));
+  }
+
+  function updateDiverseLessonTopicText(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
+    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
+      ...lesson,
+      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, topic: value } : t),
+    }));
+  }
+
+  function updateDiverseLessonTopicAnswer(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
+    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
+      ...lesson,
+      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, answer: value } : t),
+    }));
+  }
+
   function updateDiverseSubjectName(subjectIndex: number, value: string) {
     if (!diverseDay) return;
     const previousSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[subjectIndex], subjectIndex, diverseDay.custom_subjects);
@@ -448,24 +518,37 @@ export default function StudyPage() {
     }
   }
 
-  async function generateAIFlashcards(inlineApiKey?: string) {
+  function flashcardsToTopics(flashcards: { topic: string; answer: string }[]): CodingTopic[] {
+    return flashcards.map((f) => ({
+      topic: f.topic,
+      done: false,
+      answer: f.answer,
+    }));
+  }
+
+  async function generateAIFlashcards(inlineApiKey?: string, suggestSubject = false) {
     const name = newSubjectName.trim();
-    if (!name) return;
-    setGeneratingAI(true); setAiError('');
+    if (!name && !suggestSubject) return;
+    setGeneratingAI(true);
+    const action: DiverseAIAction = suggestSubject ? 'suggest-subject' : 'create-subject';
+    setAiAction(action);
+    setLastAIAction(action);
+    setAiError('');
     try {
-      const payload = { subject: name, count: AI_FLASHCARD_COUNT, ...(inlineApiKey ? { api_key: inlineApiKey } : {}) };
+      const payload = {
+        subject: name,
+        count: AI_FLASHCARD_COUNT,
+        ...(suggestSubject ? { suggest_subject: true } : {}),
+        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
+      };
       const result = await api.generateStudyFlashcards(payload);
       const subjects = diverseDay?.custom_subjects ?? [];
       if (subjects.some((s) => s.name.toLowerCase() === result.subject.toLowerCase())) {
         setAiError('Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova.');
         return;
       }
-      const newTopics: CodingTopic[] = result.flashcards.map((f) => ({
-        topic: f.topic,
-        done: false,
-        answer: f.answer,
-      }));
-      const newSubject: DiverseSubject = { name: result.subject, topics: newTopics };
+      const newTopics = flashcardsToTopics(result.flashcards);
+      const newSubject: DiverseSubject = { name: result.subject, topics: newTopics, lessons: [] };
       const nextSubjects = [...subjects, newSubject];
       const newDay: DiverseDay = {
         id: diverseDay?.id ?? null,
@@ -480,7 +563,87 @@ export default function StudyPage() {
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar aula com IA.';
       setAiError(msg);
-    } finally { setGeneratingAI(false); }
+    } finally { setGeneratingAI(false); setAiAction(null); }
+  }
+
+  async function generateDiverseTopic(subjectIndex: number, inlineApiKey?: string) {
+    const subject = diverseDay?.custom_subjects[subjectIndex];
+    if (!subject?.name.trim()) return;
+    if (subject.topics.length >= 10) {
+      setAiError('Limite de 10 topicos gerais atingido. Crie uma nova licao em bloco para continuar.');
+      return;
+    }
+    setGeneratingAI(true);
+    setAiAction('topic');
+    setLastAIAction('topic');
+    setAiError('');
+    setDiverseSaved('');
+    try {
+      const result = await api.generateStudyFlashcards({
+        subject: subject.name,
+        count: 1,
+        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
+      });
+      const newTopic = flashcardsToTopics(result.flashcards)[0];
+      if (!newTopic) {
+        setAiError('A IA nao sugeriu um topico valido.');
+        return;
+      }
+      setDiverseDay((current) => {
+        if (!current) return current;
+        const subjects = current.custom_subjects.map((s, si) =>
+          si === subjectIndex ? { ...s, topics: [...s.topics, newTopic] } : s
+        );
+        return { ...current, custom_subjects: subjects };
+      });
+      setDiverseSaved('Topico sugerido pela IA. Salve a materia para guardar.');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel sugerir topico com IA.';
+      setAiError(msg);
+    } finally { setGeneratingAI(false); setAiAction(null); }
+  }
+
+  async function generateDiverseLesson(subjectIndex: number, inlineApiKey?: string) {
+    const subject = diverseDay?.custom_subjects[subjectIndex];
+    if (!subject?.name.trim()) return;
+    if (getDiverseSubjectLessons(subject).length >= 20) {
+      setAiError('Limite de 20 blocos de licao atingido para esta materia.');
+      return;
+    }
+    setGeneratingAI(true);
+    setAiAction('lesson');
+    setLastAIAction('lesson');
+    setAiError('');
+    setDiverseSaved('');
+    try {
+      const result = await api.generateStudyFlashcards({
+        subject: subject.name,
+        count: AI_FLASHCARD_COUNT,
+        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
+      });
+      const topics = flashcardsToTopics(result.flashcards);
+      if (topics.length === 0) {
+        setAiError('A IA nao gerou uma licao valida.');
+        return;
+      }
+      const lesson: DiverseLessonBlock = {
+        id: createLocalLessonId(),
+        title: buildLessonTitle(subject, topics),
+        created_at: new Date().toISOString(),
+        topics,
+      };
+      setDiverseDay((current) => {
+        if (!current) return current;
+        const subjects = current.custom_subjects.map((s, si) =>
+          si === subjectIndex ? { ...s, lessons: [...getDiverseSubjectLessons(s), lesson] } : s
+        );
+        return { ...current, custom_subjects: subjects };
+      });
+      setDiverseSaved('Nova licao criada em bloco. Salve a materia para guardar.');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar licao com IA.';
+      setAiError(msg);
+    } finally { setGeneratingAI(false); setAiAction(null); }
   }
 
   async function generateNewLesson() {
@@ -610,7 +773,10 @@ export default function StudyPage() {
             setNewSubjectName={setNewSubjectName}
             onAddSubject={addDiverseSubject}
             onGenerateAI={(key) => void generateAIFlashcards(key)}
+            onSuggestSubjectAI={(key) => void generateAIFlashcards(key, true)}
             generatingAI={generatingAI}
+            aiAction={aiAction}
+            lastAIAction={lastAIAction}
             aiError={aiError}
             selectedSubjectSlug={selectedDiverseSubjectSlug}
             onSelectSubjectTab={selectDiverseSubjectTab}
@@ -620,6 +786,13 @@ export default function StudyPage() {
             onUpdateTopicText={updateDiverseTopicText}
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
+            onGenerateTopicAI={(si, key) => void generateDiverseTopic(si, key)}
+            onGenerateLessonAI={(si, key) => void generateDiverseLesson(si, key)}
+            onRemoveLesson={removeDiverseLessonBlock}
+            onToggleLessonTopic={toggleDiverseLessonTopic}
+            onUpdateLessonTitle={updateDiverseLessonTitle}
+            onUpdateLessonTopicText={updateDiverseLessonTopicText}
+            onUpdateLessonTopicAnswer={updateDiverseLessonTopicAnswer}
             onSave={() => void saveDiverseDay()}
             pomodoroMode={pomodoroState.mode}
             pomodoroSeconds={pomodoroState.seconds}
@@ -956,10 +1129,12 @@ function CodingTab({
 function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
-  onAddSubject, onGenerateAI, generatingAI, aiError,
+  onAddSubject, onGenerateAI, onSuggestSubjectAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
-  onUpdateSubjectName, onSave,
+  onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI,
+  onRemoveLesson, onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
+  onUpdateLessonTopicAnswer, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
@@ -972,7 +1147,10 @@ function DiverseTab({
   newSubjectName: string; setNewSubjectName: (v: string) => void;
   onAddSubject: () => void;
   onGenerateAI: (apiKey?: string) => void;
+  onSuggestSubjectAI: (apiKey?: string) => void;
   generatingAI: boolean;
+  aiAction: DiverseAIAction | null;
+  lastAIAction: DiverseAIAction | null;
   aiError: string;
   selectedSubjectSlug: string | null;
   onSelectSubjectTab: (slug: string) => void;
@@ -982,6 +1160,13 @@ function DiverseTab({
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
+  onGenerateTopicAI: (si: number, apiKey?: string) => void;
+  onGenerateLessonAI: (si: number, apiKey?: string) => void;
+  onRemoveLesson: (si: number, li: number) => void;
+  onToggleLessonTopic: (si: number, li: number, ti: number) => void;
+  onUpdateLessonTitle: (si: number, li: number, v: string) => void;
+  onUpdateLessonTopicText: (si: number, li: number, ti: number, v: string) => void;
+  onUpdateLessonTopicAnswer: (si: number, li: number, ti: number, v: string) => void;
   onSave: () => void;
   pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
@@ -990,8 +1175,8 @@ function DiverseTab({
   onRequestNotifications: () => void;
 }) {
   const subjects = diverseDay?.custom_subjects ?? [];
-  const totalDone = subjects.flatMap((s) => s.topics).filter((t) => t.done).length;
-  const totalTopics = subjects.flatMap((s) => s.topics).length;
+  const totalDone = subjects.flatMap(getDiverseSubjectTopics).filter((t) => t.done).length;
+  const totalTopics = subjects.flatMap(getDiverseSubjectTopics).length;
   const subjectTabs = subjects.map((subject, index) => ({ subject, index, slug: getDiverseSubjectSlug(subject, index, subjects) }));
   const selectedSubject = subjectTabs.find((item) => item.slug === selectedSubjectSlug) ?? null;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
@@ -1045,6 +1230,16 @@ function DiverseTab({
           onUpdateTopicText={(ti, v) => onUpdateTopicText(selectedSubject.index, ti, v)}
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
+          onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
+          onGenerateLessonAI={(key) => onGenerateLessonAI(selectedSubject.index, key)}
+          onRemoveLesson={(li) => onRemoveLesson(selectedSubject.index, li)}
+          onToggleLessonTopic={(li, ti) => onToggleLessonTopic(selectedSubject.index, li, ti)}
+          onUpdateLessonTitle={(li, v) => onUpdateLessonTitle(selectedSubject.index, li, v)}
+          onUpdateLessonTopicText={(li, ti, v) => onUpdateLessonTopicText(selectedSubject.index, li, ti, v)}
+          onUpdateLessonTopicAnswer={(li, ti, v) => onUpdateLessonTopicAnswer(selectedSubject.index, li, ti, v)}
+          generatingAI={generatingAI}
+          aiAction={aiAction}
+          aiError={aiError}
           onSave={onSave}
           savingDiverse={savingDiverse}
           loadingDiverse={loadingDiverse}
@@ -1091,8 +1286,17 @@ function DiverseTab({
               disabled={generatingAI || !newSubjectName.trim()}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-base font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {generatingAI ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-              {generatingAI ? 'Criando aula com IA...' : 'Criar aula com IA'}
+              {aiAction === 'create-subject' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {aiAction === 'create-subject' ? 'Criando aula com IA...' : 'Criar aula com IA'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSuggestSubjectAI()}
+              disabled={generatingAI}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-5 text-base font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {aiAction === 'suggest-subject' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+              {aiAction === 'suggest-subject' ? 'Sugerindo materia...' : 'Sugerir materia com IA'}
             </button>
             {aiError && (
               <div className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
@@ -1109,7 +1313,11 @@ function DiverseTab({
                     />
                     <button
                       type="button"
-                      onClick={() => { if (aiKeyDraft.trim()) onGenerateAI(aiKeyDraft.trim()); }}
+                      onClick={() => {
+                        if (!aiKeyDraft.trim()) return;
+                        if (lastAIAction === 'suggest-subject') onSuggestSubjectAI(aiKeyDraft.trim());
+                        else onGenerateAI(aiKeyDraft.trim());
+                      }}
                       disabled={!aiKeyDraft.trim() || generatingAI}
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
                     >
@@ -1135,8 +1343,10 @@ function DiverseTab({
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {subjectTabs.map((item) => {
-                const done = item.subject.topics.filter((topic) => topic.done).length;
-                const total = item.subject.topics.length;
+                const subjectTopics = getDiverseSubjectTopics(item.subject);
+                const done = subjectTopics.filter((topic) => topic.done).length;
+                const total = subjectTopics.length;
+                const lessonCount = getDiverseSubjectLessons(item.subject).length;
                 return (
                   <article key={item.slug} className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -1148,10 +1358,14 @@ function DiverseTab({
                         tab={item.slug}
                       </span>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="mt-4 grid grid-cols-3 gap-2">
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <p className="text-2xl font-black text-slate-800">{total}</p>
                         <p className="text-xs font-bold text-slate-400">Topicos</p>
+                      </div>
+                      <div className="rounded-2xl bg-indigo-50 p-3">
+                        <p className="text-2xl font-black text-indigo-600">{lessonCount}</p>
+                        <p className="text-xs font-bold text-indigo-500">Blocos</p>
                       </div>
                       <div className="rounded-2xl bg-emerald-50 p-3">
                         <p className="text-2xl font-black text-emerald-600">{done}</p>
@@ -1191,6 +1405,7 @@ function DiverseTab({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar aula com IA</strong>.</p>
+              <p>Ou deixe a IA sugerir a materia e abrir a primeira licao automaticamente.</p>
               <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
               <p>Use o botão <strong>R</strong> ao lado de cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
@@ -1211,7 +1426,9 @@ function DiverseSubjectDashboard({
   onUpdateTopicAnswer, onUpdateSubjectName, onSave, savingDiverse, loadingDiverse,
   diverseSaved, diverseError, pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
-  onRequestNotifications,
+  onRequestNotifications, onGenerateTopicAI, onGenerateLessonAI, onRemoveLesson,
+  onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
+  onUpdateLessonTopicAnswer, generatingAI, aiAction, aiError,
 }: {
   selectedDate: string;
   subject: DiverseSubject;
@@ -1221,6 +1438,16 @@ function DiverseSubjectDashboard({
   onUpdateTopicText: (ti: number, value: string) => void;
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
+  onGenerateTopicAI: (apiKey?: string) => void;
+  onGenerateLessonAI: (apiKey?: string) => void;
+  onRemoveLesson: (li: number) => void;
+  onToggleLessonTopic: (li: number, ti: number) => void;
+  onUpdateLessonTitle: (li: number, value: string) => void;
+  onUpdateLessonTopicText: (li: number, ti: number, value: string) => void;
+  onUpdateLessonTopicAnswer: (li: number, ti: number, value: string) => void;
+  generatingAI: boolean;
+  aiAction: DiverseAIAction | null;
+  aiError: string;
   onSave: () => void;
   savingDiverse: boolean;
   loadingDiverse: boolean;
@@ -1236,8 +1463,10 @@ function DiverseSubjectDashboard({
   onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
-  const doneCount = subject.topics.filter((topic) => topic.done).length;
-  const totalTopics = subject.topics.length;
+  const lessons = getDiverseSubjectLessons(subject);
+  const subjectTopics = getDiverseSubjectTopics(subject);
+  const doneCount = subjectTopics.filter((topic) => topic.done).length;
+  const totalTopics = subjectTopics.length;
   const pendingCount = Math.max(totalTopics - doneCount, 0);
   const completed = totalTopics > 0 && doneCount === totalTopics;
 
@@ -1254,11 +1483,36 @@ function DiverseSubjectDashboard({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da materia</p>
         <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{subject.name}</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
           <MetricCard icon={<Layers size={22} />} label="Topicos" value={`${totalTopics}`} helper="Nesta materia" tone="sky" />
+          <MetricCard icon={<BookOpen size={22} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
         </div>
+      </section>
+
+      <section className="kid-surface border-violet-100 p-4 md:p-5">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onGenerateTopicAI()}
+            disabled={generatingAI}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {aiAction === 'topic' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+            {aiAction === 'topic' ? 'Escolhendo topico...' : 'IA escolher topico'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onGenerateLessonAI()}
+            disabled={generatingAI}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {aiAction === 'lesson' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+            {aiAction === 'lesson' ? 'Criando licao...' : 'Criar nova licao com IA'}
+          </button>
+        </div>
+        {aiError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{aiError}</p>}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -1271,6 +1525,28 @@ function DiverseSubjectDashboard({
             onUpdateTopicAnswer={onUpdateTopicAnswer}
             onUpdateSubjectName={onUpdateSubjectName}
           />
+
+          {lessons.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3 px-1">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Licoes em blocos</p>
+                <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
+                  {lessons.length}
+                </span>
+              </div>
+              {lessons.map((lesson, lessonIndex) => (
+                <SubjectStudyCard
+                  key={lesson.id}
+                  subject={{ name: lesson.title, topics: lesson.topics, lessons: [] }}
+                  onRemove={() => onRemoveLesson(lessonIndex)}
+                  onToggleTopic={(ti) => onToggleLessonTopic(lessonIndex, ti)}
+                  onUpdateTopicText={(ti, v) => onUpdateLessonTopicText(lessonIndex, ti, v)}
+                  onUpdateTopicAnswer={(ti, v) => onUpdateLessonTopicAnswer(lessonIndex, ti, v)}
+                  onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
+                />
+              ))}
+            </div>
+          )}
 
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
@@ -1293,6 +1569,7 @@ function DiverseSubjectDashboard({
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Use Lista para ajustar os topicos e respostas.</p>
               <p>Use Estudar para revisar a materia como flashcards.</p>
+              <p>Use a IA para sugerir um topico rapido ou criar uma licao separada em bloco.</p>
               <p>A URL desta aba segue o formato <strong>tab=nomedamateria</strong>.</p>
             </div>
           </div>

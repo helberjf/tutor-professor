@@ -21,6 +21,12 @@ def main() -> None:
     require("data-subject-tab" in source, "subject tabs are rendered for created subjects")
     require("Abrir dashboard" in source, "overview links each subject to its dashboard")
     require("Voltar para materias" in source, "subject dashboard can return to the overview")
+    require("Sugerir materia com IA" in source, "overview can ask AI to suggest a subject")
+    require("IA escolher topico" in source, "subject dashboard can ask AI to choose a topic")
+    require("Criar nova licao com IA" in source, "subject dashboard can create AI lesson blocks")
+    require("function generateDiverseLesson" in source, "AI lessons are created inside selected subjects")
+    require("lessons.map" in source, "created diverse lessons render as separate blocks")
+    require("suggest_subject" in source, "AI subject suggestion is sent to the backend")
 
     print("Diverse subject tab checks passed.")
 

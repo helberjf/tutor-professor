@@ -82,6 +82,13 @@ export interface CodingTopic {
   answer?: string;
 }
 
+export interface DiverseLessonBlock {
+  id: string;
+  title: string;
+  topics: CodingTopic[];
+  created_at?: string | null;
+}
+
 export interface CatalogSubject {
   name: string;
   topics: CodingTopic[];
@@ -102,6 +109,7 @@ export interface CodingDayUpdatePayload {
 export interface DiverseSubject {
   name: string;
   topics: CodingTopic[];
+  lessons?: DiverseLessonBlock[];
 }
 
 export interface DiverseDay {
@@ -364,8 +372,9 @@ export interface AdminFlashcardPayload {
 }
 
 export interface GenerateFlashcardsPayload {
-  subject: string;
+  subject?: string;
   count?: number;
+  suggest_subject?: boolean;
   api_key?: string;
   provider?: string;
 }
