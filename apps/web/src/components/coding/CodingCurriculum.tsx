@@ -45,9 +45,14 @@ export function CodingCurriculum() {
 
   async function loadTopics(subject: ProgrammingSubject) {
     setLoadingTopics(true);
+    setError('');
+    // Navega imediatamente para a matéria; os tópicos carregam na própria tela.
+    setTopics([]);
+    setView({ type: 'topics', subject });
     try {
       setTopics(await api.getCodingTopics(subject.id));
-      setView({ type: 'topics', subject });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar os tópicos desta matéria.');
     } finally {
       setLoadingTopics(false);
     }
@@ -69,9 +74,14 @@ export function CodingCurriculum() {
 
   async function handleDeleteSubject(id: number) {
     if (!confirm('Remover esta matéria e todos os seus tópicos e flashcards?')) return;
-    await api.deleteCodingSubject(id);
-    setSubjects((prev) => prev.filter((s) => s.id !== id));
-    if (view.type !== 'subjects') setView({ type: 'subjects' });
+    try {
+      await api.deleteCodingSubject(id);
+      setSubjects((prev) => prev.filter((s) => s.id !== id));
+      if (view.type !== 'subjects') setView({ type: 'subjects' });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Não foi possível remover a matéria. Tente novamente.');
+      await loadSubjects();
+    }
   }
 
   async function handleDeleteTopic(id: number, subject: ProgrammingSubject) {
@@ -129,8 +139,9 @@ export function CodingCurriculum() {
                     </div>
                     <button
                       type="button"
+                      aria-label="Remover matéria"
                       onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
-                      className="rounded-xl p-1.5 text-slate-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100"
+                      className="rounded-xl border-2 border-rose-100 bg-white p-1.5 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -244,6 +255,18 @@ export function CodingCurriculum() {
           </button>
         </div>
         {topicAIError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{topicAIError}</p>}
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => loadTopics(subject)}
+              className="shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black text-white hover:bg-rose-700"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        )}
 
         <div className="space-y-3">
           {loadingTopics ? (
