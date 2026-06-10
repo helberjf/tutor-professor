@@ -232,6 +232,14 @@ def _run_schema_migrations() -> None:
             conn.execute(text('CREATE UNIQUE INDEX IF NOT EXISTS ix_user_google_sub_unique ON "user" (google_sub)'))
         except Exception:
             pass
+        # Add pomodoro_count to studyday
+        try:
+            conn.execute(text("ALTER TABLE studyday ADD COLUMN IF NOT EXISTS pomodoro_count INTEGER NOT NULL DEFAULT 0"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE studyday ADD COLUMN pomodoro_count INTEGER NOT NULL DEFAULT 0"))
+            except Exception:
+                pass
         # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
