@@ -24,9 +24,13 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingReviewItem, DiverseDay, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
+    BookOutlineSchema,
     BookPageSchema,
     BookSchema,
     BookSummarySchema,
+    GenerateBookOutlineRequestSchema,
+    GenerateBookPageRequestSchema,
+    StartBookFromOutlineRequestSchema,
     ChatRequestSchema,
     ChatResponseSchema,
     ChildProgressSummarySchema,
@@ -3110,6 +3114,108 @@ def generate_book(
         session.refresh(page)
 
     return _build_book_schema(book, pages)
+
+
+@app.post("/api/books/outline", response_model=BookOutlineSchema)
+def generate_book_outline(
+    payload: GenerateBookOutlineRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> BookOutlineSchema:
+    session_record = require_parent_session(request, session)
+    ai_config = _get_user_ai_config(session_record, session)
+    if session_record.user_id is not None and ai_config is None:
+        raise HTTPException(status_code=403, detail="Configure uma chave de API de IA na sua conta antes de gerar livros.")
+    if not book_generation_service.is_configured(ai_config):
+        raise HTTPException(status_code=503, detail="Chave de API de IA nao esta configurada.")
+
+    child = get_requested_child(request=request, session=session)
+    level = payload.level if payload.level > 0 else compute_and_update_child_level(session=session, child=child)
+    try:
+        return book_generation_service.generate_outline(
+            level=level,
+            num_pages=payload.num_pages,
+            theme=payload.theme or None,
+            target_language=child.target_language,
+            ai_config=ai_config,
+            age_group=child.age_group,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/books/start", response_model=BookSchema, status_code=201)
+def start_book_from_outline(
+    payload: StartBookFromOutlineRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> BookSchema:
+    require_parent_session(request, session)
+    now = datetime.utcnow()
+    book = Book(
+        child_id=None,
+        title=payload.title.strip()[:200],
+        theme=payload.theme.strip()[:80],
+        level=payload.level,
+        num_pages=payload.num_pages,
+        target_language=payload.target_language,
+        created_at=now,
+    )
+    session.add(book)
+    session.commit()
+    session.refresh(book)
+    return _build_book_schema(book, [])
+
+
+@app.post("/api/books/{book_id}/pages", response_model=BookPageSchema, status_code=201)
+def generate_and_add_book_page(
+    book_id: int,
+    payload: GenerateBookPageRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> BookPageSchema:
+    session_record = require_parent_session(request, session)
+    ai_config = _get_user_ai_config(session_record, session)
+    if session_record.user_id is not None and ai_config is None:
+        raise HTTPException(status_code=403, detail="Configure uma chave de API de IA na sua conta.")
+    if not book_generation_service.is_configured(ai_config):
+        raise HTTPException(status_code=503, detail="Chave de API de IA nao esta configurada.")
+
+    book = session.get(Book, book_id)
+    if book is None:
+        raise HTTPException(status_code=404, detail="Livro nao encontrado.")
+
+    child = get_requested_child(request=request, session=session)
+
+    try:
+        page_draft = book_generation_service.generate_page(
+            level=book.level,
+            outline=payload.outline,
+            page_number=payload.page_number,
+            context_pages=payload.context_pages,
+            target_language=book.target_language,
+            ai_config=ai_config,
+            age_group=child.age_group,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    vocab_json = json.dumps(page_draft.vocabulary, ensure_ascii=False)
+    page = BookPage(
+        book_id=book.id or 0,
+        page_number=page_draft.page_number,
+        text_en=page_draft.text_en,
+        text_pt=page_draft.text_pt,
+        vocabulary_json=vocab_json,
+    )
+    session.add(page)
+    # Update num_pages to reflect actual generated count
+    existing_count = len(session.exec(select(BookPage).where(BookPage.book_id == book_id)).all())
+    book.num_pages = max(book.num_pages, existing_count + 1)
+    session.add(book)
+    session.commit()
+    session.refresh(page)
+    return _build_book_page_schema(page)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

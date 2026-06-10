@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 
-from schemas.schemas import GeneratedBookDraftSchema
+from schemas.schemas import BookOutlinePageSchema, BookOutlineSchema, GeneratedBookDraftSchema, GeneratedBookPageDraftSchema
 from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
 
 
@@ -185,6 +185,177 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
 {pages_example}
   ]
 }}"""
+
+    def generate_outline(
+        self,
+        *,
+        level: int,
+        num_pages: int,
+        theme: str | None = None,
+        target_language: str = "English",
+        ai_config: AIProviderConfig | None = None,
+        age_group: str = "7-9",
+    ) -> BookOutlineSchema:
+        if not self.is_configured(ai_config):
+            raise RuntimeError("Chave de API da IA nao esta configurada.")
+
+        active_config = ai_config or AIProviderConfig(
+            provider="gemini", api_key=self.api_key, model=self.model, base_url=self.api_base_url,
+        )
+        difficulty = _difficulty_for_level(level)
+        theme_instruction = (
+            f'Theme: "{theme.strip()}". Base the whole story on this theme.\n'
+            if theme and theme.strip()
+            else "Theme: choose a fun, child-safe adventure or daily-life topic.\n"
+        )
+
+        pages_outline_example = ",\n".join(
+            f'    {{"page_number": {i}, "scene": "<brief description of page {i} scene>", "key_vocabulary": ["word1", "word2"]}}'
+            for i in range(1, num_pages + 1)
+        )
+
+        prompt = (
+            f"Create a story outline for a children's {target_language} picture-book.\n"
+            f"Difficulty: {difficulty}\n"
+            f"{theme_instruction}"
+            f"Pages: {num_pages}\n"
+            f"Age group: {age_group} years old (Brazilian learner).\n\n"
+            "Return ONLY valid JSON in this exact format:\n"
+            "{\n"
+            f'  "title": "<book title in {target_language}>",\n'
+            '  "theme": "<short theme tag, 1-3 words>",\n'
+            '  "synopsis": "<2-3 sentence story arc summary in English>",\n'
+            '  "characters": ["character1", "character2"],\n'
+            '  "page_outlines": [\n'
+            f'{pages_outline_example}\n'
+            "  ]\n"
+            "}"
+        )
+        system_text = (
+            f"You create child-safe {target_language} story outlines for Brazilian Portuguese-speaking learners. "
+            "Return ONLY valid JSON, no markdown fences, no extra keys."
+        )
+        try:
+            raw_text = self.text_generation_service.generate_json_text(
+                system_text=system_text, prompt=prompt, temperature=0.7, ai_config=active_config,
+                timeout_seconds=self.timeout_seconds,
+            )
+            data = json.loads(self._strip_fences(raw_text))
+        except json.JSONDecodeError:
+            raise RuntimeError("IA retornou JSON invalido para o roteiro.")
+        except Exception as exc:
+            raise RuntimeError(f"Erro ao gerar roteiro: {exc}") from exc
+
+        raw_outlines = data.get("page_outlines", [])
+        page_outlines = [
+            BookOutlinePageSchema(
+                page_number=int(p.get("page_number", i + 1)),
+                scene=str(p.get("scene", "")).strip()[:400],
+                key_vocabulary=[str(v)[:40] for v in p.get("key_vocabulary", [])[:5]],
+            )
+            for i, p in enumerate(raw_outlines[:num_pages])
+        ]
+        if not page_outlines:
+            raise RuntimeError("IA nao gerou paginas no roteiro.")
+
+        return BookOutlineSchema(
+            title=str(data.get("title", "")).strip()[:200] or "My Story",
+            theme=str(data.get("theme", theme or "adventure")).strip()[:80],
+            synopsis=str(data.get("synopsis", "")).strip()[:600],
+            characters=[str(c)[:60] for c in data.get("characters", [])[:6]],
+            page_outlines=page_outlines,
+            level=level,
+            num_pages=num_pages,
+            target_language=target_language,
+        )
+
+    def generate_page(
+        self,
+        *,
+        level: int,
+        outline: BookOutlineSchema,
+        page_number: int,
+        context_pages: list[GeneratedBookPageDraftSchema],
+        target_language: str = "English",
+        ai_config: AIProviderConfig | None = None,
+        age_group: str = "7-9",
+    ) -> GeneratedBookPageDraftSchema:
+        if not self.is_configured(ai_config):
+            raise RuntimeError("Chave de API da IA nao esta configurada.")
+
+        active_config = ai_config or AIProviderConfig(
+            provider="gemini", api_key=self.api_key, model=self.model, base_url=self.api_base_url,
+        )
+        difficulty = _difficulty_for_level(level)
+        clamped = max(1, min(10, level))
+        if clamped <= 2:
+            sentences_rule = f"1-2 short {target_language} sentences"
+        elif clamped <= 4:
+            sentences_rule = f"2-3 short {target_language} sentences"
+        elif clamped <= 6:
+            sentences_rule = f"2-3 {target_language} sentences"
+        elif clamped <= 8:
+            sentences_rule = f"3-4 {target_language} sentences"
+        else:
+            sentences_rule = f"3-5 {target_language} sentences"
+
+        page_scene = next(
+            (p.scene for p in outline.page_outlines if p.page_number == page_number),
+            f"Continue the story (page {page_number} of {outline.num_pages})",
+        )
+        characters_text = ", ".join(outline.characters) if outline.characters else "the main character"
+        context_text = ""
+        if context_pages:
+            parts = []
+            for cp in context_pages[-3:]:  # last 3 pages for context
+                parts.append(f"Page {cp.page_number}: {cp.text_en}")
+            context_text = "\n\nPREVIOUS PAGES:\n" + "\n".join(parts)
+
+        prompt = (
+            f"Write page {page_number} of {outline.num_pages} for a children's {target_language} picture-book.\n\n"
+            f"BOOK: \"{outline.title}\"\n"
+            f"SYNOPSIS: {outline.synopsis}\n"
+            f"CHARACTERS: {characters_text}\n"
+            f"THIS PAGE SCENE: {page_scene}\n"
+            f"DIFFICULTY: {difficulty}\n"
+            f"AGE GROUP: {age_group} years old (Brazilian learner).{context_text}\n\n"
+            "RULES:\n"
+            f"- Write EXACTLY {sentences_rule} in {target_language}\n"
+            "- Natural Brazilian Portuguese translation (not word-for-word)\n"
+            "- 3-5 vocabulary words from this page's text only\n"
+            "- Story must flow naturally from previous pages\n"
+            "- Child-safe content only\n\n"
+            "Return ONLY this exact JSON:\n"
+            "{\n"
+            f'  "page_number": {page_number},\n'
+            f'  "text_en": "<{sentences_rule}>",\n'
+            '  "text_pt": "<natural Brazilian Portuguese translation>",\n'
+            '  "vocabulary": ["word1", "word2", "word3"]\n'
+            "}"
+        )
+        system_text = (
+            f"You write individual pages of child-safe {target_language} picture-books "
+            "for Brazilian Portuguese-speaking learners. "
+            "Return ONLY valid JSON, no markdown, no extra keys."
+        )
+        last_error: Exception | None = None
+        for attempt in range(1, 3):
+            try:
+                raw_text = self.text_generation_service.generate_json_text(
+                    system_text=system_text, prompt=prompt,
+                    temperature=0.65 + (attempt - 1) * 0.1,
+                    ai_config=active_config, timeout_seconds=self.timeout_seconds,
+                )
+                data = json.loads(self._strip_fences(raw_text))
+                return GeneratedBookPageDraftSchema(
+                    page_number=page_number,
+                    text_en=str(data.get("text_en", "")).strip() or "...",
+                    text_pt=str(data.get("text_pt", "")).strip() or "...",
+                    vocabulary=[str(v)[:40] for v in data.get("vocabulary", [])[:5]],
+                )
+            except Exception as exc:
+                last_error = exc
+        raise RuntimeError(f"Erro ao gerar pagina {page_number}: {last_error}") from last_error
 
     @staticmethod
     def _strip_fences(text: str) -> str:

@@ -285,6 +285,43 @@ export interface BookSummary {
   created_at: string;
 }
 
+export interface BookOutlinePage {
+  page_number: number;
+  scene: string;
+  key_vocabulary: string[];
+}
+
+export interface BookOutline {
+  title: string;
+  theme: string;
+  synopsis: string;
+  characters: string[];
+  page_outlines: BookOutlinePage[];
+  level: number;
+  num_pages: number;
+  target_language: string;
+}
+
+export interface GenerateBookOutlinePayload {
+  level?: number;
+  num_pages: number;
+  theme?: string;
+}
+
+export interface StartBookPayload {
+  title: string;
+  theme: string;
+  level: number;
+  num_pages: number;
+  target_language?: string;
+}
+
+export interface GeneratePagePayload {
+  outline: BookOutline;
+  page_number: number;
+  context_pages: Array<{ page_number: number; text_en: string; text_pt: string; vocabulary: string[] }>;
+}
+
 export interface GenerateBookPayload {
   level: number;      // 0 = usa nível atual da criança
   num_pages: number;  // 3-10
@@ -716,6 +753,21 @@ export const api = {
   getBook: (bookId: number) => fetchAPI<Book>(`/api/books/${bookId}`),
   generateBook: (payload: GenerateBookPayload) =>
     fetchAPI<Book>('/api/books/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  generateBookOutline: (payload: GenerateBookOutlinePayload) =>
+    fetchAPI<BookOutline>('/api/books/outline', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  startBook: (payload: StartBookPayload) =>
+    fetchAPI<Book>('/api/books/start', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  generateBookPage: (bookId: number, payload: GeneratePagePayload) =>
+    fetchAPI<BookPage>(`/api/books/${bookId}/pages`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
