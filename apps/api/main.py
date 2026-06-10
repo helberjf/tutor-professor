@@ -1059,6 +1059,7 @@ def build_study_day_schema(record: StudyDay | None, target_date: date) -> StudyD
         studied_text=studied_text,
         distractions=record.distractions or [],
         is_study_day=bool(studied_text.strip()),
+        pomodoro_count=record.pomodoro_count or 0,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -1107,7 +1108,7 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
         select(StudyDay)
         .where(StudyDay.child_id == child_id)
         .order_by(StudyDay.study_date.desc())
-        .limit(14)
+        .limit(30)
     ).all()
     streak_count, last_study_date = compute_study_streak(session=session, child_id=child_id)
 
@@ -1157,6 +1158,8 @@ def upsert_study_day(
         record.studied_text = sanitize_study_text(payload.studied_text, 3000)
     if payload.distractions is not None:
         record.distractions = sanitize_distractions(payload.distractions)
+    if payload.pomodoro_count is not None:
+        record.pomodoro_count = max(record.pomodoro_count or 0, payload.pomodoro_count)
 
     record.updated_at = now
     session.add(record)
@@ -1266,11 +1269,24 @@ def get_diverse_catalog(request: Request, session: Session = Depends(get_session
     return list(seen.values())
 
 
+_VALID_RATINGS = {"knew", "partial", "unknown"}
+
+
 def _build_diverse_topic_schema(raw_topic: dict) -> CodingTopicSchema:
+    raw_rating = str(raw_topic.get("last_rating") or "").strip().lower()
+    last_rating = raw_rating if raw_rating in _VALID_RATINGS else None
+    try:
+        review_count = max(0, int(raw_topic.get("review_count", 0) or 0))
+    except (TypeError, ValueError):
+        review_count = 0
+    last_reviewed = raw_topic.get("last_reviewed")
     return CodingTopicSchema(
         topic=str(raw_topic.get("topic", "")).strip()[:120] or "Topico",
         done=bool(raw_topic.get("done", False)),
         answer=str(raw_topic.get("answer") or "")[:300],
+        last_rating=last_rating,
+        review_count=review_count,
+        last_reviewed=(str(last_reviewed)[:40] if last_reviewed else None),
     )
 
 
@@ -1296,7 +1312,14 @@ def _build_diverse_subject_schema(raw_subject: dict) -> DiverseSubjectSchema:
 
 
 def _topic_payload(topic: CodingTopicSchema) -> dict:
-    return {"topic": topic.topic[:120], "done": topic.done, "answer": (topic.answer or "")[:300]}
+    return {
+        "topic": topic.topic[:120],
+        "done": topic.done,
+        "answer": (topic.answer or "")[:300],
+        "last_rating": topic.last_rating if topic.last_rating in _VALID_RATINGS else None,
+        "review_count": max(0, int(topic.review_count or 0)),
+        "last_reviewed": (topic.last_reviewed or None),
+    }
 
 
 def _lesson_payload(lesson: DiverseLessonBlockSchema) -> dict:

@@ -136,6 +136,7 @@ class StudyDayUpdateSchema(BaseModel):
     plan_text: Optional[str] = Field(default=None, max_length=2000)
     studied_text: Optional[str] = Field(default=None, max_length=3000)
     distractions: Optional[List[str]] = Field(default=None, max_length=20)
+    pomodoro_count: Optional[int] = Field(default=None, ge=0, le=9999)
 
 
 class StudyDaySchema(BaseModel):
@@ -145,6 +146,7 @@ class StudyDaySchema(BaseModel):
     studied_text: str = ""
     distractions: List[str] = Field(default_factory=list)
     is_study_day: bool = False
+    pomodoro_count: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -159,14 +161,14 @@ class StudyDashboardSchema(BaseModel):
 class DiverseLessonBlockSchema(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     title: str = Field(min_length=1, max_length=80)
-    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=10)
+    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=50)
     created_at: Optional[str] = Field(default=None, max_length=40)
 
 
 class DiverseSubjectSchema(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=10)
-    lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=20)
+    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=50)
+    lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=30)
 
 
 class DiverseDaySchema(BaseModel):
@@ -185,6 +187,10 @@ class CodingTopicSchema(BaseModel):
     topic: str = Field(min_length=1, max_length=120)
     done: bool = False
     answer: Optional[str] = Field(default=None, max_length=300)
+    # Spaced-repetition state (used by the "Diverso" study mode)
+    last_rating: Optional[str] = Field(default=None, max_length=10)  # 'knew' | 'partial' | 'unknown'
+    review_count: int = Field(default=0, ge=0)
+    last_reviewed: Optional[str] = Field(default=None, max_length=40)  # ISO timestamp
 
 
 class CodingDaySchema(BaseModel):

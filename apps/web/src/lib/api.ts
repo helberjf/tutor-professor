@@ -59,6 +59,7 @@ export interface StudyDay {
   studied_text: string;
   distractions: string[];
   is_study_day: boolean;
+  pomodoro_count: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -74,12 +75,19 @@ export interface StudyDayUpdatePayload {
   plan_text?: string;
   studied_text?: string;
   distractions?: string[];
+  pomodoro_count?: number;
 }
+
+export type DiverseRating = 'knew' | 'partial' | 'unknown';
 
 export interface CodingTopic {
   topic: string;
   done: boolean;
   answer?: string;
+  /** Spaced-repetition state for the "Diverso" study mode */
+  last_rating?: DiverseRating | null;
+  review_count?: number;
+  last_reviewed?: string | null;
 }
 
 export interface DiverseLessonBlock {

@@ -111,6 +111,7 @@ class StudyDay(SQLModel, table=True):
     plan_text: str = ""
     studied_text: str = ""
     distractions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    pomodoro_count: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
