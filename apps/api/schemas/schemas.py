@@ -250,6 +250,37 @@ class GenerateBookRequestSchema(BaseModel):
     theme: str = Field(default="", max_length=80)
 
 
+class GenerateBookOutlineRequestSchema(BaseModel):
+    level: int = Field(default=0, ge=0, le=10)
+    num_pages: int = Field(default=5, ge=3, le=10)
+    theme: str = Field(default="", max_length=80)
+
+
+class BookOutlinePageSchema(BaseModel):
+    page_number: int
+    scene: str = Field(max_length=400)
+    key_vocabulary: list[str] = Field(default_factory=list, max_length=5)
+
+
+class BookOutlineSchema(BaseModel):
+    title: str = Field(max_length=200)
+    theme: str = Field(max_length=80)
+    synopsis: str = Field(max_length=600)
+    characters: list[str] = Field(default_factory=list, max_length=6)
+    page_outlines: list[BookOutlinePageSchema]
+    level: int = Field(default=1, ge=1, le=10)
+    num_pages: int = Field(default=5, ge=3, le=10)
+    target_language: str = Field(default="English", max_length=40)
+
+
+class StartBookFromOutlineRequestSchema(BaseModel):
+    title: str = Field(max_length=200)
+    theme: str = Field(max_length=80)
+    level: int = Field(ge=1, le=10)
+    num_pages: int = Field(ge=3, le=10)
+    target_language: str = Field(default="English", max_length=40)
+
+
 # ── Generated book draft (internal, returned by BookGenerationService) ────────
 
 class GeneratedBookPageDraftSchema(BaseModel):
@@ -263,6 +294,12 @@ class GeneratedBookDraftSchema(BaseModel):
     title: str
     theme: str
     pages: list[GeneratedBookPageDraftSchema]
+
+
+class GenerateBookPageRequestSchema(BaseModel):
+    outline: BookOutlineSchema
+    page_number: int = Field(ge=1, le=10)
+    context_pages: list[GeneratedBookPageDraftSchema] = Field(default_factory=list, max_length=10)
 
 
 class ChildProgressSummarySchema(BaseModel):
