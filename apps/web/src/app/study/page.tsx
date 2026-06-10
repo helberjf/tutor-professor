@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  ArrowLeft, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2,
+  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2, Copy,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
 } from 'lucide-react';
 
@@ -26,13 +26,14 @@ import {
 
 const AI_FLASHCARD_COUNT = 5;
 
-type StudyTab = 'english' | 'coding' | 'diverse';
+type StudyTab = 'english' | 'coding' | 'diverse' | 'dashboard';
 
 interface InlineStudyState {
-  currentIndex: number;
+  order: number[];        // topic indices, sorted by review priority
+  position: number;       // current position within `order`
   userAnswer: string;
   revealed: boolean;
-  results: StudyRating[];
+  results: StudyRating[]; // indexed by position in `order`
   done: boolean;
 }
 
@@ -62,7 +63,7 @@ function formatDateLabel(value: string | null) {
 }
 
 function buildEmptyDay(studyDate: string): StudyDay {
-  return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, created_at: null, updated_at: null };
+  return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, pomodoro_count: 0, created_at: null, updated_at: null };
 }
 
 function getPomodoroCompletionMessage(mode: PomodoroMode) {
@@ -112,6 +113,36 @@ function getDiverseAvoidTopics(subject: DiverseSubject) {
     .map((topic) => topic.topic.trim())
     .filter(Boolean);
 }
+
+const RATING_WEIGHT: Record<StudyRating, number> = { unknown: 100, partial: 60, knew: 12 };
+
+// Higher score = should be reviewed sooner (spaced repetition priority).
+function getTopicReviewPriority(topic: CodingTopic, now = Date.now()): number {
+  const rating = topic.last_rating ?? null;
+  let score = rating ? RATING_WEIGHT[rating] : 45; // never studied sits between partial and knew
+  const reviews = topic.review_count ?? 0;
+  score -= Math.min(reviews, 6) * 4; // well-reviewed topics gradually sink
+  if (topic.last_reviewed) {
+    const ageHours = (now - Date.parse(topic.last_reviewed)) / 3_600_000;
+    if (!Number.isNaN(ageHours)) score += Math.min(Math.max(ageHours, 0), 72) * 0.25; // older → higher
+  } else {
+    score += 8; // never reviewed gets a small nudge up
+  }
+  return score;
+}
+
+function buildStudyOrder(topics: CodingTopic[]): number[] {
+  return topics
+    .map((topic, index) => ({ index, priority: getTopicReviewPriority(topic) }))
+    .sort((a, b) => b.priority - a.priority)
+    .map((entry) => entry.index);
+}
+
+const RATING_META: Record<StudyRating, { label: string; dot: string; chip: string }> = {
+  unknown: { label: 'Não sabia', dot: 'bg-rose-400', chip: 'bg-rose-100 text-rose-700' },
+  partial: { label: 'Parcial', dot: 'bg-amber-400', chip: 'bg-amber-100 text-amber-700' },
+  knew: { label: 'Sabia', dot: 'bg-emerald-400', chip: 'bg-emerald-100 text-emerald-700' },
+};
 
 function filterFreshDiverseTopics(topics: CodingTopic[], existingTopics: string[]) {
   const seen = new Set(existingTopics.map(normalizeDiverseTopicText).filter(Boolean));
@@ -166,6 +197,7 @@ export default function StudyPage() {
   const [selectedDiverseSubjectSlug, setSelectedDiverseSubjectSlug] = useState<string | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
   const [lessonGenMessage, setLessonGenMessage] = useState('');
+  const [pendingDiverseSave, setPendingDiverseSave] = useState(false);
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -180,11 +212,13 @@ export default function StudyPage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [pomodoroMessage, setPomodoroMessage] = useState('');
   const todayPomodoroCount = getTodaysPomodoroCount(pomodoroState);
+  // Baseline for detecting new pomodoro completions to sync to backend
+  const pomodoroSyncBaseRef = useRef<Record<string, number> | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'english' || tab === 'coding' || tab === 'diverse') {
+    if (tab === 'english' || tab === 'coding' || tab === 'diverse' || tab === 'dashboard') {
       setActiveTab(tab);
       setSelectedDiverseSubjectSlug(null);
     } else if (tab) {
@@ -228,7 +262,36 @@ export default function StudyPage() {
     let cancelled = false;
     setLoading(true);
     api.getStudyDashboard()
-      .then((data) => { if (!cancelled) { setDashboard(data); setSelectedDate(data.today.study_date); } })
+      .then((data) => {
+        if (cancelled) return;
+        setDashboard(data);
+        setSelectedDate(data.today.study_date);
+        // Merge backend pomodoro counts into local state (take max of local vs backend)
+        const allDays = [...data.recent_days, data.today];
+        const backendByDate: Record<string, number> = {};
+        for (const day of allDays) {
+          if ((day.pomodoro_count ?? 0) > 0) backendByDate[day.study_date] = day.pomodoro_count;
+        }
+        // Read localStorage directly (already loaded synchronously before this async .then fires)
+        const localStored = typeof window !== 'undefined'
+          ? parseStoredPomodoroState(window.localStorage.getItem(POMODORO_STORAGE_KEY))
+          : createInitialPomodoroState();
+        const localByDate = localStored.completedByDate;
+        // Merge: take max(local, backend) for each date
+        const merged = { ...localByDate };
+        for (const [d, cnt] of Object.entries(backendByDate)) {
+          merged[d] = Math.max(merged[d] ?? 0, cnt);
+        }
+        // Sync local→backend for dates where local count exceeds backend (historical data)
+        for (const [d, cnt] of Object.entries(localByDate)) {
+          if (cnt > 0 && cnt > (backendByDate[d] ?? 0)) {
+            api.saveStudyDay(d, { pomodoro_count: cnt }).catch(() => {});
+          }
+        }
+        // Update pomodoroState with merged counts and set sync baseline
+        setPomodoroState((prev) => ({ ...prev, completedByDate: merged }));
+        pomodoroSyncBaseRef.current = { ...merged };
+      })
       .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar os estudos.')); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -309,6 +372,10 @@ export default function StudyPage() {
     const stored = parseStoredPomodoroState(window.localStorage.getItem(POMODORO_STORAGE_KEY));
     const resolved = resolvePomodoroState(stored, Date.now());
     setPomodoroState(resolved);
+    // Initialize sync baseline with local counts (dashboard load will overwrite with merged counts)
+    if (pomodoroSyncBaseRef.current === null) {
+      pomodoroSyncBaseRef.current = { ...resolved.completedByDate };
+    }
     if (stored.running && stored.endsAt !== null && stored.endsAt <= Date.now()) {
       setPomodoroMessage(getPomodoroCompletionMessage(stored.mode));
     }
@@ -318,6 +385,25 @@ export default function StudyPage() {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(POMODORO_STORAGE_KEY, JSON.stringify(pomodoroState));
   }, [pomodoroState]);
+
+  // ── Pomodoro backend sync (persists daily counts across devices/sessions) ───
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    const base = pomodoroSyncBaseRef.current;
+    if (base === null) return; // not initialized yet
+    const current = pomodoroState.completedByDate;
+    const updates: Array<[string, number]> = [];
+    for (const [d, cnt] of Object.entries(current)) {
+      if (cnt > (base[d] ?? 0)) updates.push([d, cnt]);
+    }
+    if (updates.length === 0) return;
+    const newBase = { ...base };
+    for (const [d, cnt] of updates) {
+      newBase[d] = cnt;
+      api.saveStudyDay(d, { pomodoro_count: cnt }).catch(() => {});
+    }
+    pomodoroSyncBaseRef.current = newBase;
+  }, [pomodoroState.completedByDate, authState.status]);
 
   // ── Pomodoro timer ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -430,7 +516,15 @@ export default function StudyPage() {
     if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
     const catalogEntry = catalog.find((c) => c.name.toLowerCase() === name.toLowerCase());
     const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
-      ? catalogEntry.topics.map((t) => ({ topic: t.topic, done: false, answer: t.answer ?? '' }))
+      ? catalogEntry.topics.map((t) => ({
+          topic: t.topic,
+          done: t.done ?? false,
+          answer: t.answer ?? '',
+          // carry spaced-repetition history so reviews continue across days
+          last_rating: t.last_rating ?? null,
+          review_count: t.review_count ?? 0,
+          last_reviewed: t.last_reviewed ?? null,
+        }))
       : [{ topic: 'Tópico 1', done: false, answer: '' }, { topic: 'Tópico 2', done: false, answer: '' }, { topic: 'Tópico 3', done: false, answer: '' }];
     const newSubject: DiverseSubject = { name, topics: defaultTopics, lessons: [] };
     const nextSubjects = [...subjects, newSubject];
@@ -444,6 +538,57 @@ export default function StudyPage() {
     setDiverseDay(newDay);
     setNewSubjectName('');
     selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
+  }
+
+  function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
+    if (!diverseDay || newTopics.length === 0) return;
+    const subjects = diverseDay.custom_subjects.map((s, si) =>
+      si === subjectIndex ? { ...s, topics: [...s.topics, ...newTopics] } : s
+    );
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+  }
+
+  function applyTopicRating(topic: CodingTopic, rating: StudyRating): CodingTopic {
+    return {
+      ...topic,
+      last_rating: rating,
+      review_count: (topic.review_count ?? 0) + 1,
+      last_reviewed: new Date().toISOString(),
+      done: rating === 'unknown' ? topic.done : true,
+    };
+  }
+
+  function rateDiverseTopic(subjectIndex: number, topicIndex: number, rating: StudyRating) {
+    setDiverseDay((current) => {
+      if (!current) return current;
+      const subjects = current.custom_subjects.map((s, si) =>
+        si === subjectIndex
+          ? { ...s, topics: s.topics.map((t, ti) => (ti === topicIndex ? applyTopicRating(t, rating) : t)) }
+          : s
+      );
+      return { ...current, custom_subjects: subjects };
+    });
+  }
+
+  function rateDiverseLessonTopic(subjectIndex: number, lessonIndex: number, topicIndex: number, rating: StudyRating) {
+    setDiverseDay((current) => {
+      if (!current) return current;
+      const subjects = current.custom_subjects.map((s, si) => {
+        if (si !== subjectIndex) return s;
+        const lessons = getDiverseSubjectLessons(s).map((lesson, li) =>
+          li === lessonIndex
+            ? { ...lesson, topics: lesson.topics.map((t, ti) => (ti === topicIndex ? applyTopicRating(t, rating) : t)) }
+            : lesson
+        );
+        return { ...s, lessons };
+      });
+      return { ...current, custom_subjects: subjects };
+    });
+  }
+
+  // After a study session finishes, persist ratings so spaced repetition survives reloads.
+  function requestDiverseAutoSave() {
+    setPendingDiverseSave(true);
   }
 
   function updateDiverseTopicAnswer(subjectIndex: number, topicIndex: number, value: string) {
@@ -594,8 +739,8 @@ export default function StudyPage() {
   async function generateDiverseTopic(subjectIndex: number, inlineApiKey?: string) {
     const subject = diverseDay?.custom_subjects[subjectIndex];
     if (!subject?.name.trim()) return;
-    if (subject.topics.length >= 10) {
-      setAiError('Limite de 10 topicos gerais atingido. Crie uma nova licao em bloco para continuar.');
+    if (subject.topics.length >= 50) {
+      setAiError('Limite de 50 topicos gerais atingido. Crie uma nova licao em bloco para continuar.');
       return;
     }
     setGeneratingAI(true);
@@ -633,8 +778,8 @@ export default function StudyPage() {
   async function generateDiverseLesson(subjectIndex: number, inlineApiKey?: string) {
     const subject = diverseDay?.custom_subjects[subjectIndex];
     if (!subject?.name.trim()) return;
-    if (getDiverseSubjectLessons(subject).length >= 20) {
-      setAiError('Limite de 20 blocos de licao atingido para esta materia.');
+    if (getDiverseSubjectLessons(subject).length >= 30) {
+      setAiError('Limite de 30 blocos de licao atingido para esta materia.');
       return;
     }
     setGeneratingAI(true);
@@ -697,6 +842,14 @@ export default function StudyPage() {
     } finally { setSavingDiverse(false); }
   }
 
+  // Persist study ratings once after the state has settled (avoids saving stale data).
+  useEffect(() => {
+    if (!pendingDiverseSave) return;
+    setPendingDiverseSave(false);
+    void saveDiverseDay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDiverseSave]);
+
   const codingDoneCount = useMemo(() => {
     if (!codingDay) return 0;
     return Object.values(codingDay.subjects).flat().filter((t) => t.done).length;
@@ -755,6 +908,7 @@ export default function StudyPage() {
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
           <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras materias" />
+          <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           {diverseSubjectTabs.map((item) => (
             <TabButton
               key={item.slug}
@@ -834,6 +988,10 @@ export default function StudyPage() {
             onUpdateSubjectName={updateDiverseSubjectName}
             onGenerateTopicAI={(si, key) => void generateDiverseTopic(si, key)}
             onGenerateLessonAI={(si, key) => void generateDiverseLesson(si, key)}
+            onBulkAddTopics={(si, topics) => addDiverseTopicsBulk(si, topics)}
+            onRateTopic={rateDiverseTopic}
+            onRateLessonTopic={rateDiverseLessonTopic}
+            onSessionComplete={requestDiverseAutoSave}
             onRemoveLesson={removeDiverseLessonBlock}
             onToggleLessonTopic={toggleDiverseLessonTopic}
             onUpdateLessonTitle={updateDiverseLessonTitle}
@@ -850,6 +1008,8 @@ export default function StudyPage() {
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
+        ) : activeTab === 'dashboard' ? (
+          <DashboardTab dashboard={dashboard} pomodoroState={pomodoroState} />
         ) : (
           <CodingTab
             selectedDate={selectedDate}
@@ -1178,7 +1338,8 @@ function DiverseTab({
   onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
-  onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI,
+  onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
+  onRateTopic, onRateLessonTopic, onSessionComplete,
   onRemoveLesson, onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
   onUpdateLessonTopicAnswer, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
@@ -1207,6 +1368,10 @@ function DiverseTab({
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (si: number, apiKey?: string) => void;
   onGenerateLessonAI: (si: number, apiKey?: string) => void;
+  onBulkAddTopics: (si: number, topics: CodingTopic[]) => void;
+  onRateTopic: (si: number, ti: number, rating: StudyRating) => void;
+  onRateLessonTopic: (si: number, li: number, ti: number, rating: StudyRating) => void;
+  onSessionComplete: () => void;
   onRemoveLesson: (si: number, li: number) => void;
   onToggleLessonTopic: (si: number, li: number, ti: number) => void;
   onUpdateLessonTitle: (si: number, li: number, v: string) => void;
@@ -1277,6 +1442,10 @@ function DiverseTab({
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
           onGenerateLessonAI={(key) => onGenerateLessonAI(selectedSubject.index, key)}
+          onBulkAddTopics={(topics) => onBulkAddTopics(selectedSubject.index, topics)}
+          onRateTopic={(ti, rating) => onRateTopic(selectedSubject.index, ti, rating)}
+          onRateLessonTopic={(li, ti, rating) => onRateLessonTopic(selectedSubject.index, li, ti, rating)}
+          onSessionComplete={onSessionComplete}
           onRemoveLesson={(li) => onRemoveLesson(selectedSubject.index, li)}
           onToggleLessonTopic={(li, ti) => onToggleLessonTopic(selectedSubject.index, li, ti)}
           onUpdateLessonTitle={(li, v) => onUpdateLessonTitle(selectedSubject.index, li, v)}
@@ -1284,6 +1453,7 @@ function DiverseTab({
           onUpdateLessonTopicAnswer={(li, ti, v) => onUpdateLessonTopicAnswer(selectedSubject.index, li, ti, v)}
           generatingAI={generatingAI}
           aiAction={aiAction}
+          lastAIAction={lastAIAction}
           aiError={aiError}
           onSave={onSave}
           savingDiverse={savingDiverse}
@@ -1325,43 +1495,6 @@ function DiverseTab({
                 <Plus size={18} /> Criar
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onGenerateAI()}
-              disabled={generatingAI || !newSubjectName.trim()}
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-base font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {aiAction === 'create-subject' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-              {aiAction === 'create-subject' ? 'Criando aula com IA...' : 'Criar aula com IA'}
-            </button>
-            {aiError && (
-              <div className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
-                <p className="text-sm font-bold text-rose-700">{aiError}</p>
-                {needsKeyConfig && lastAIAction === 'create-subject' && (
-                  <div className="mt-1 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
-                    <input
-                      type="password"
-                      value={aiKeyDraft}
-                      onChange={(e) => setAiKeyDraft(e.target.value)}
-                      placeholder="AIza..."
-                      className="min-h-10 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!aiKeyDraft.trim()) return;
-                        if (lastAIAction === 'create-subject') onGenerateAI(aiKeyDraft.trim());
-                      }}
-                      disabled={!aiKeyDraft.trim() || generatingAI}
-                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
-                    >
-                      <Sparkles size={14} /> Tentar com esta chave
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Subject cards */}
@@ -1373,7 +1506,7 @@ function DiverseTab({
             <div className="rounded-[1.5rem] border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
               <Layers className="mx-auto text-slate-300" size={40} />
               <p className="mt-4 text-base font-bold text-slate-400">Nenhuma matéria ainda.</p>
-              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar aula com IA.</p>
+              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar.</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1439,8 +1572,7 @@ function DiverseTab({
           <div className="kid-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar aula com IA</strong>.</p>
-              <p>Ou clique em <strong>Criar</strong> para adicionar a matéria manualmente.</p>
+              <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar</strong> para adicionar manualmente.</p>
               <p>Abra cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
             </div>
@@ -1462,7 +1594,8 @@ function DiverseSubjectDashboard({
   notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
   onRequestNotifications, onGenerateTopicAI, onGenerateLessonAI, onRemoveLesson,
   onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
-  onUpdateLessonTopicAnswer, generatingAI, aiAction, aiError,
+  onUpdateLessonTopicAnswer, generatingAI, aiAction, lastAIAction, aiError, onBulkAddTopics,
+  onRateTopic, onRateLessonTopic, onSessionComplete,
 }: {
   selectedDate: string;
   subject: DiverseSubject;
@@ -1481,7 +1614,12 @@ function DiverseSubjectDashboard({
   onUpdateLessonTopicAnswer: (li: number, ti: number, value: string) => void;
   generatingAI: boolean;
   aiAction: DiverseAIAction | null;
+  lastAIAction: DiverseAIAction | null;
   aiError: string;
+  onBulkAddTopics: (topics: CodingTopic[]) => void;
+  onRateTopic: (ti: number, rating: StudyRating) => void;
+  onRateLessonTopic: (li: number, ti: number, rating: StudyRating) => void;
+  onSessionComplete: () => void;
   onSave: () => void;
   savingDiverse: boolean;
   loadingDiverse: boolean;
@@ -1503,6 +1641,8 @@ function DiverseSubjectDashboard({
   const totalTopics = subjectTopics.length;
   const pendingCount = Math.max(totalTopics - doneCount, 0);
   const completed = totalTopics > 0 && doneCount === totalTopics;
+  const [aiKeyDraft, setAiKeyDraft] = useState('');
+  const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
   return (
     <div className="space-y-6">
@@ -1529,7 +1669,7 @@ function DiverseSubjectDashboard({
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
-            onClick={() => onGenerateTopicAI()}
+            onClick={() => onGenerateTopicAI(aiKeyDraft.trim() || undefined)}
             disabled={generatingAI}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -1538,7 +1678,7 @@ function DiverseSubjectDashboard({
           </button>
           <button
             type="button"
-            onClick={() => onGenerateLessonAI()}
+            onClick={() => onGenerateLessonAI(aiKeyDraft.trim() || undefined)}
             disabled={generatingAI}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -1546,7 +1686,37 @@ function DiverseSubjectDashboard({
             {aiAction === 'lesson' ? 'Criando licao...' : 'Criar nova licao com IA'}
           </button>
         </div>
-        {aiError && <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{aiError}</p>}
+        {aiError && (
+          <div className="mt-3 flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3">
+            <p className="text-sm font-bold text-rose-700">{aiError}</p>
+            {needsKeyConfig && (lastAIAction === 'topic' || lastAIAction === 'lesson') && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={aiKeyDraft}
+                    onChange={(e) => setAiKeyDraft(e.target.value)}
+                    placeholder="AIza..."
+                    className="min-h-10 flex-1 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!aiKeyDraft.trim()) return;
+                      if (lastAIAction === 'topic') onGenerateTopicAI(aiKeyDraft.trim());
+                      else if (lastAIAction === 'lesson') onGenerateLessonAI(aiKeyDraft.trim());
+                    }}
+                    disabled={!aiKeyDraft.trim() || generatingAI}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <Sparkles size={14} /> Tentar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
@@ -1558,6 +1728,9 @@ function DiverseSubjectDashboard({
             onUpdateTopicText={onUpdateTopicText}
             onUpdateTopicAnswer={onUpdateTopicAnswer}
             onUpdateSubjectName={onUpdateSubjectName}
+            onBulkAddTopics={onBulkAddTopics}
+            onRateTopic={onRateTopic}
+            onSessionComplete={onSessionComplete}
           />
 
           {lessons.length > 0 && (
@@ -1571,12 +1744,15 @@ function DiverseSubjectDashboard({
               {lessons.map((lesson, lessonIndex) => (
                 <SubjectStudyCard
                   key={lesson.id}
+                  defaultCollapsed={true}
                   subject={{ name: lesson.title, topics: lesson.topics, lessons: [] }}
                   onRemove={() => onRemoveLesson(lessonIndex)}
                   onToggleTopic={(ti) => onToggleLessonTopic(lessonIndex, ti)}
                   onUpdateTopicText={(ti, v) => onUpdateLessonTopicText(lessonIndex, ti, v)}
                   onUpdateTopicAnswer={(ti, v) => onUpdateLessonTopicAnswer(lessonIndex, ti, v)}
                   onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
+                  onRateTopic={(ti, rating) => onRateLessonTopic(lessonIndex, ti, rating)}
+                  onSessionComplete={onSessionComplete}
                 />
               ))}
             </div>
@@ -1613,8 +1789,24 @@ function DiverseSubjectDashboard({
   );
 }
 
+function parseJsonTopics(raw: string): CodingTopic[] {
+  const parsed = JSON.parse(raw);
+  const normalize = (item: Record<string, unknown>): CodingTopic | null => {
+    const topic = (item.topic ?? item.question ?? item.front ?? item.pergunta ?? '') as string;
+    const answer = (item.answer ?? item.back ?? item.resposta ?? '') as string;
+    if (!topic.trim()) return null;
+    return { topic: topic.trim(), answer: (answer ?? '').trim(), done: false };
+  };
+  if (Array.isArray(parsed)) return parsed.map(normalize).filter(Boolean) as CodingTopic[];
+  const arr = parsed.flashcards ?? parsed.topics ?? parsed.items ?? parsed.cards;
+  if (Array.isArray(arr)) return arr.map(normalize).filter(Boolean) as CodingTopic[];
+  const single = normalize(parsed as Record<string, unknown>);
+  return single ? [single] : [];
+}
+
 function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
+  defaultCollapsed, onBulkAddTopics, onRateTopic, onSessionComplete,
 }: {
   subject: DiverseSubject;
   onRemove: () => void;
@@ -1622,21 +1814,69 @@ function SubjectStudyCard({
   onUpdateTopicText: (ti: number, value: string) => void;
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
+  defaultCollapsed?: boolean;
+  onBulkAddTopics?: (topics: CodingTopic[]) => void;
+  onRateTopic?: (ti: number, rating: StudyRating) => void;
+  onSessionComplete?: () => void;
 }) {
   const studyCardRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false);
   const [activeTab, setActiveTab] = useState<'topics' | 'study'>('topics');
   const [expandedAnswer, setExpandedAnswer] = useState<number | null>(null);
-  const [studyState, setStudyState] = useState<InlineStudyState>({
-    currentIndex: 0, userAnswer: '', revealed: false, results: [], done: false,
-  });
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importPreview, setImportPreview] = useState<CodingTopic[] | null>(null);
+  const [importError, setImportError] = useState('');
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [studyState, setStudyState] = useState<InlineStudyState>(() => ({
+    order: subject.topics.map((_, i) => i), position: 0, userAnswer: '', revealed: false, results: [], done: false,
+  }));
+
+  function handleParseImport() {
+    setImportError('');
+    setImportPreview(null);
+    try {
+      const topics = parseJsonTopics(importText.trim());
+      if (topics.length === 0) { setImportError('Nenhum tópico válido encontrado no JSON.'); return; }
+      setImportPreview(topics);
+    } catch {
+      setImportError('JSON inválido. Verifique o formato e tente novamente.');
+    }
+  }
+
+  function handleConfirmImport() {
+    if (!importPreview || !onBulkAddTopics) return;
+    const remaining = Math.max(0, 50 - subject.topics.length);
+    if (remaining === 0) {
+      setImportError('Esta matéria já tem 50 tópicos (limite). Crie uma nova lição em bloco.');
+      return;
+    }
+    onBulkAddTopics(importPreview.slice(0, remaining));
+    setImportText('');
+    setImportPreview(null);
+    setShowImport(false);
+    setImportError('');
+  }
+
+  function handleCopyJson() {
+    const json = JSON.stringify(subject.topics.map((t) => ({ topic: t.topic, answer: t.answer ?? '' })), null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+      setCopiedJson(true);
+      setTimeout(() => setCopiedJson(false), 2000);
+    });
+  }
 
   const doneCount = subject.topics.filter((t) => t.done).length;
   const totalTopics = subject.topics.length;
   const allDone = totalTopics > 0 && doneCount === totalTopics;
-  const currentTopic = subject.topics[studyState.currentIndex];
+  const currentTopicIndex = studyState.order[studyState.position];
+  const currentTopic = subject.topics[currentTopicIndex];
 
   function resetStudy() {
-    setStudyState({ currentIndex: 0, userAnswer: '', revealed: false, results: [], done: false });
+    setStudyState({
+      order: buildStudyOrder(subject.topics),
+      position: 0, userAnswer: '', revealed: false, results: [], done: false,
+    });
   }
 
   function revealCurrentTopic() {
@@ -1645,17 +1885,20 @@ function SubjectStudyCard({
   }
 
   function rateAndAdvance(rating: StudyRating) {
-    const { currentIndex, results } = studyState;
+    const { order, position, results } = studyState;
+    const topicIndex = order[position];
     const newResults = [...results, rating];
-    const topic = subject.topics[currentIndex];
+    const topic = subject.topics[topicIndex];
     if ((rating === 'knew' || rating === 'partial') && !topic.done) {
-      onToggleTopic(currentIndex);
+      onToggleTopic(topicIndex);
     }
-    const nextIndex = currentIndex + 1;
-    if (nextIndex >= totalTopics) {
+    onRateTopic?.(topicIndex, rating);
+    const nextPosition = position + 1;
+    if (nextPosition >= order.length) {
       setStudyState((prev) => ({ ...prev, results: newResults, done: true, revealed: false }));
+      onSessionComplete?.();
     } else {
-      setStudyState({ currentIndex: nextIndex, userAnswer: '', revealed: false, results: newResults, done: false });
+      setStudyState((prev) => ({ ...prev, position: nextPosition, userAnswer: '', revealed: false, results: newResults }));
     }
   }
 
@@ -1692,6 +1935,14 @@ function SubjectStudyCard({
     <div ref={studyCardRef} tabIndex={-1} className={`rounded-[1.5rem] border-2 bg-white transition focus:outline-none ${allDone ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200'}`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-5 pt-5">
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+          title={collapsed ? 'Expandir' : 'Minimizar'}
+        >
+          <ChevronRight size={15} className={`transition-transform ${collapsed ? '' : 'rotate-90'}`} />
+        </button>
         <input
           value={subject.name}
           onChange={(e) => onUpdateSubjectName(e.target.value)}
@@ -1708,19 +1959,22 @@ function SubjectStudyCard({
         </div>
       </div>
 
+      {collapsed && <div className="pb-4" />}
+
       {/* Tab switcher */}
-      <div className="mt-3 flex gap-1.5 px-5">
+      {!collapsed && <div className="mt-3 flex gap-1.5 px-5">
         <button type="button" onClick={() => setActiveTab('topics')}
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'topics' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
           Lista
         </button>
         <button type="button" onClick={() => { resetStudy(); setActiveTab('study'); }} disabled={totalTopics === 0}
+          title="Revisão espaçada: prioriza o que você errou ou não sabia"
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'study' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
-          <Zap size={12} className="inline mr-1" />Estudar
+          <Zap size={12} className="inline mr-1" />Revisar
         </button>
-      </div>
+      </div>}
 
-      {activeTab === 'topics' ? (
+      {!collapsed && (activeTab === 'topics' ? (
         <div className="p-5">
           {/* Progress bar */}
           {totalTopics > 0 && (
@@ -1746,12 +2000,16 @@ function SubjectStudyCard({
                       onClick={() => setExpandedAnswer(topicOpen ? null : ti)}
                       className="min-w-0 flex-1 text-left"
                     >
-                      <span className={`block break-words text-sm font-black ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
-                        {t.topic || `Topico ${ti + 1}`}
+                      <span className={`flex items-center gap-1.5 break-words text-sm font-black ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                        {t.last_rating && (
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${RATING_META[t.last_rating].dot}`} title={`Última revisão: ${RATING_META[t.last_rating].label}`} />
+                        )}
+                        <span className="min-w-0 break-words">{t.topic || `Topico ${ti + 1}`}</span>
                       </span>
-                      {t.answer && !topicOpen && (
-                        <span className="mt-0.5 block truncate text-xs font-semibold text-slate-400">Resposta salva</span>
-                      )}
+                      <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
+                        {t.answer && !topicOpen && <span className="truncate">Resposta salva</span>}
+                        {(t.review_count ?? 0) > 0 && <span>· {t.review_count}× revisado</span>}
+                      </span>
                     </button>
                     <button type="button" onClick={() => setExpandedAnswer(topicOpen ? null : ti)}
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition ${topicOpen ? 'border-indigo-300 bg-white text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
@@ -1782,6 +2040,74 @@ function SubjectStudyCard({
               );
             })}
           </ul>
+
+          {/* JSON export / import */}
+          <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={handleCopyJson}
+              disabled={totalTopics === 0}
+              className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <Copy size={13} /> {copiedJson ? 'Copiado!' : 'Copiar JSON'}
+            </button>
+            {onBulkAddTopics && (
+              <button
+                type="button"
+                onClick={() => { setShowImport((v) => !v); setImportPreview(null); setImportError(''); }}
+                className={`inline-flex items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-xs font-black transition ${showImport ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
+              >
+                <Plus size={13} /> Importar JSON
+              </button>
+            )}
+          </div>
+
+          {onBulkAddTopics && showImport && (
+            <div className="mt-3 space-y-2 rounded-2xl border-2 border-indigo-100 bg-indigo-50/60 p-3">
+              <p className="text-xs font-bold text-indigo-700">
+                Cole um array JSON: <code className="rounded bg-white px-1 py-0.5 text-indigo-600">[{`{"topic":"...","answer":"..."}`}]</code>
+              </p>
+              <p className="text-xs text-indigo-600">Também aceita: <code className="rounded bg-white px-1 py-0.5">question/answer</code>, <code className="rounded bg-white px-1 py-0.5">front/back</code>, ou objeto com chave <code className="rounded bg-white px-1 py-0.5">flashcards</code>.</p>
+              <textarea
+                value={importText}
+                onChange={(e) => { setImportText(e.target.value); setImportPreview(null); setImportError(''); }}
+                rows={4}
+                placeholder={'[\n  {"topic": "O que é React?", "answer": "Biblioteca JS para UIs"}\n]'}
+                className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-indigo-400"
+              />
+              {importError && <p className="text-xs font-bold text-rose-600">{importError}</p>}
+              {importPreview && (
+                <div className="rounded-xl bg-white p-3">
+                  <p className="text-xs font-bold text-slate-500">{importPreview.length} tópico(s) encontrado(s):</p>
+                  <ul className="mt-1 space-y-1">
+                    {importPreview.slice(0, 5).map((tp, i) => (
+                      <li key={i} className="truncate text-xs text-slate-700"><span className="font-bold">{i + 1}.</span> {tp.topic}</li>
+                    ))}
+                    {importPreview.length > 5 && <li className="text-xs text-slate-400">...e mais {importPreview.length - 5}</li>}
+                  </ul>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleParseImport}
+                  disabled={!importText.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  Verificar
+                </button>
+                {importPreview && importPreview.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleConfirmImport}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
+                  >
+                    <Plus size={13} /> Adicionar {importPreview.length} tópico(s)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* Study tab */
@@ -1821,19 +2147,24 @@ function SubjectStudyCard({
           ) : currentTopic ? (
             /* Active question */
             <div className="space-y-4">
-              {/* Progress bar */}
+              {/* Progress bar (follows the spaced-repetition order) */}
               <div className="flex gap-1">
-                {subject.topics.map((_, ti) => (
-                  <div key={ti} className={`h-1.5 flex-1 rounded-full transition-all ${
-                    ti < studyState.results.length
-                      ? studyState.results[ti] === 'knew' ? 'bg-emerald-400' : studyState.results[ti] === 'partial' ? 'bg-amber-400' : 'bg-rose-400'
-                      : ti === studyState.currentIndex ? 'bg-indigo-400' : 'bg-slate-100'
+                {studyState.order.map((_, pos) => (
+                  <div key={pos} className={`h-1.5 flex-1 rounded-full transition-all ${
+                    pos < studyState.results.length
+                      ? studyState.results[pos] === 'knew' ? 'bg-emerald-400' : studyState.results[pos] === 'partial' ? 'bg-amber-400' : 'bg-rose-400'
+                      : pos === studyState.position ? 'bg-indigo-400' : 'bg-slate-100'
                   }`} />
                 ))}
               </div>
-              <p className="text-center text-xs font-bold text-slate-400">
-                {studyState.currentIndex + 1} / {totalTopics}
-              </p>
+              <div className="flex items-center justify-center gap-2 text-center text-xs font-bold text-slate-400">
+                <span>{studyState.position + 1} / {totalTopics}</span>
+                {currentTopic.last_rating && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${RATING_META[currentTopic.last_rating].chip}`}>
+                    visto: {RATING_META[currentTopic.last_rating].label}
+                  </span>
+                )}
+              </div>
 
               {/* Question */}
               <div className="rounded-2xl bg-indigo-50 px-4 py-5">
@@ -1897,7 +2228,7 @@ function SubjectStudyCard({
             </div>
           ) : null}
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -1966,6 +2297,139 @@ function PomodoroWidget({
         {notificationPermission === 'granted' ? 'Notificacoes ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificacoes'}
       </button>
       {message && <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">{message}</p>}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+function DashboardTab({ dashboard, pomodoroState }: { dashboard: StudyDashboard | null; pomodoroState: { completedByDate: Record<string, number> } }) {
+  const allDays = useMemo(() => {
+    const backendMap = new Map<string, StudyDay>();
+    if (dashboard) {
+      for (const day of dashboard.recent_days) backendMap.set(day.study_date, day);
+      backendMap.set(dashboard.today.study_date, dashboard.today);
+    }
+    const result: Array<{ date: string; pomodoroCount: number; isStudyDay: boolean }> = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = getLocalDateValue(d);
+      const backend = backendMap.get(key);
+      const localCount = pomodoroState.completedByDate[key] ?? 0;
+      const backendCount = backend?.pomodoro_count ?? 0;
+      result.push({
+        date: key,
+        pomodoroCount: Math.max(localCount, backendCount),
+        isStudyDay: backend?.is_study_day ?? false,
+      });
+    }
+    return result;
+  }, [dashboard, pomodoroState.completedByDate]);
+
+  const maxPomodoros = useMemo(() => Math.max(1, ...allDays.map((d) => d.pomodoroCount)), [allDays]);
+  const totalPomodoros = useMemo(() => allDays.reduce((s, d) => s + d.pomodoroCount, 0), [allDays]);
+  const studyDays = useMemo(() => allDays.filter((d) => d.isStudyDay).length, [allDays]);
+  const pomodoroToday = allDays[allDays.length - 1]?.pomodoroCount ?? 0;
+
+  return (
+    <div className="space-y-5">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-[1.25rem] border-2 border-amber-100 bg-amber-50 p-4">
+          <Flame size={22} className="text-amber-500" />
+          <p className="mt-2 text-2xl font-black text-amber-700">{dashboard?.study_streak_count ?? 0}</p>
+          <p className="text-xs font-bold text-amber-500">Sequência (dias)</p>
+        </div>
+        <div className="rounded-[1.25rem] border-2 border-sky-100 bg-sky-50 p-4">
+          <Timer size={22} className="text-sky-500" />
+          <p className="mt-2 text-2xl font-black text-sky-700">{pomodoroToday}</p>
+          <p className="text-xs font-bold text-sky-500">Pomodoros hoje</p>
+        </div>
+        <div className="rounded-[1.25rem] border-2 border-violet-100 bg-violet-50 p-4">
+          <Timer size={22} className="text-violet-500" />
+          <p className="mt-2 text-2xl font-black text-violet-700">{totalPomodoros}</p>
+          <p className="text-xs font-bold text-violet-500">Pomodoros (30 dias)</p>
+        </div>
+        <div className="rounded-[1.25rem] border-2 border-emerald-100 bg-emerald-50 p-4">
+          <BookOpen size={22} className="text-emerald-500" />
+          <p className="mt-2 text-2xl font-black text-emerald-700">{studyDays}</p>
+          <p className="text-xs font-bold text-emerald-500">Dias de inglês (30 dias)</p>
+        </div>
+      </div>
+
+      {/* Pomodoro bar chart */}
+      <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Pomodoros — últimos 30 dias</p>
+        <div className="flex items-end gap-[3px]" style={{ height: '72px' }}>
+          {allDays.map((day) => (
+            <div
+              key={day.date}
+              className="flex flex-1 flex-col items-center"
+              title={`${day.date}: ${day.pomodoroCount} pomodoro${day.pomodoroCount !== 1 ? 's' : ''}`}
+            >
+              <div
+                className={`w-full rounded-t-sm transition-all ${day.pomodoroCount > 0 ? 'bg-sky-400' : 'bg-slate-100'}`}
+                style={{ height: `${Math.max(3, (day.pomodoroCount / maxPomodoros) * 68)}px` }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[10px] font-semibold text-slate-400">
+          <span>30 dias atrás</span>
+          <span>Hoje</span>
+        </div>
+      </div>
+
+      {/* Activity dots */}
+      <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Atividade — últimos 30 dias</p>
+        <div className="flex flex-wrap gap-1.5">
+          {allDays.map((day) => (
+            <div
+              key={day.date}
+              title={day.date}
+              className={`h-5 w-5 rounded-[4px] ${
+                day.isStudyDay ? 'bg-emerald-400' : day.pomodoroCount > 0 ? 'bg-sky-300' : 'bg-slate-100'
+              }`}
+            />
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" /> Inglês estudado</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-[3px] bg-sky-300" /> Só pomodoro</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-[3px] bg-slate-100 border border-slate-200" /> Sem atividade</span>
+        </div>
+      </div>
+
+      {/* Recent days table */}
+      <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Histórico recente</p>
+        <div className="space-y-1">
+          {allDays.slice(-14).reverse().map((day) => (
+            <div key={day.date} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
+              <span className="w-32 shrink-0 text-sm font-bold text-slate-700">{formatDateLabel(day.date)}</span>
+              <span className={`flex-1 text-xs font-semibold ${day.isStudyDay ? 'text-emerald-600' : 'text-slate-300'}`}>
+                {day.isStudyDay ? 'Inglês' : '—'}
+              </span>
+              {day.pomodoroCount > 0 ? (
+                <span className="flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-bold text-sky-700">
+                  <Timer size={11} /> {day.pomodoroCount}
+                </span>
+              ) : (
+                <span className="w-12" />
+              )}
+            </div>
+          ))}
+        </div>
+        {dashboard?.last_study_date && (
+          <p className="mt-3 text-xs text-slate-400">
+            Último estudo registrado: <span className="font-bold">{formatDateLabel(dashboard.last_study_date)}</span>
+          </p>
+        )}
+      </div>
     </div>
   );
 }
