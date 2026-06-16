@@ -1,202 +1,125 @@
 # English Kids Tutor
 
-English Kids Tutor e um monorepo com frontend em Next.js e backend em FastAPI para aulas curtas de ingles infantil, com quiz, revisao por repeticao espacada, chat guiado e suporte a audio.
+A monorepo with a **Next.js** frontend and a **FastAPI** backend for short English lessons for kids — featuring quizzes, spaced-repetition review, guided chat and audio.
 
-## Stack
+**Live demo:** https://english-tutor-kid.vercel.app
 
-- Frontend: Next.js 14, React, TypeScript, Tailwind CSS
-- Backend: FastAPI, SQLModel, SQLite, Pydantic
-- Audio: Kokoro TTS local com fallback
-- Infra: Vercel no frontend e Cloudflare Tunnel para expor o backend local
+## Tech stack
 
-## Funcionalidades atuais
+- **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend:** FastAPI, SQLModel, SQLite, Pydantic
+- **Audio:** local Kokoro TTS with fallback
+- **AI:** Google Gemini (lesson generation)
+- **Infra:** Vercel (frontend) + Cloudflare Tunnel (to expose the local backend)
 
-- Licao do dia com mini-atividade
-- Quiz com pontuacao e feedback infantil
-- Revisao com palavras dificeis salvas no banco
-- Chat simples com tutor e prompt de sistema
-- Area de pais com configuracoes basicas
-- Area de pais com geracao de novas licoes via Gemini
-- Estados amigaveis de loading, vazio e backend offline
+## Features
 
-## Estrutura do projeto
+- Lesson of the day with a mini-activity
+- Quiz with scoring and kid-friendly feedback
+- Review of hard words saved in the database (spaced repetition)
+- Simple guided chat with a tutor system prompt
+- Parents area with basic settings
+- Parents area can generate new lessons via Gemini
+- Friendly loading / empty / backend-offline states
 
-```text
+## Project structure
+
+```
 english-kids-tutor/
   apps/
-    api/                  # FastAPI
-    web/                  # Next.js
+    api/      # FastAPI backend
+    web/      # Next.js frontend
   content/
-    lessons/              # Conteudo das licoes
-    quizzes/              # Conteudo dos quizzes
-    stories/              # Historias
-  docs/                   # Documentacao adicional
-  infra/cloudflare/       # Exemplo de config do tunnel
-  scripts/init_db.py      # Seed inicial do banco
+    lessons/  # lesson content
+    quizzes/  # quiz content
+    stories/  # stories
+  docs/                 # additional documentation
+  infra/cloudflare/     # tunnel config example
+  scripts/init_db.py    # initial DB seed
 ```
 
-## Rodando tudo localmente
+## Running locally
 
 ### 1. Backend
 
-Crie o arquivo de ambiente:
-
-```powershell
-Copy-Item apps\api\.env.example apps\api\.env
-```
-
-Instale as dependencias:
-
-```powershell
-python -m pip install -r apps\api\requirements.txt
-```
-
-Inicialize o banco:
-
-```powershell
-python scripts\init_db.py
-```
-
-Suba a API:
-
-```powershell
-Set-Location apps\api
+```bash
+# create the env file
+cp apps/api/.env.example apps/api/.env
+# install dependencies
+python -m pip install -r apps/api/requirements.txt
+# initialize the database
+python scripts/init_db.py
+# run the API
+cd apps/api
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 ### 2. Frontend
 
-Crie o arquivo de ambiente:
-
-```powershell
-Copy-Item apps\web\.env.example apps\web\.env.local
-```
-
-Instale as dependencias:
-
-```powershell
-Set-Location apps\web
+```bash
+cp apps/web/.env.example apps/web/.env.local
+cd apps/web
 pnpm install
-```
-
-Suba o frontend:
-
-```powershell
 pnpm dev
 ```
 
-Frontend local: `http://localhost:3000`  
-Backend local: `http://localhost:8001`
+- Frontend: http://localhost:3000
+- Backend: http://localhost:8001
 
-### Atalho para Windows
+### Windows shortcut
 
-Se voce quiser subir o projeto com um comando so, use:
+Run the whole project with a single command:
 
-```powershell
-.\start-project.cmd
+```
+.\start-project.cmd          # starts backend + frontend
+.\start-project.cmd -WithTunnel   # also opens the backend tunnel
 ```
 
-Isso:
+The tunnel runner first tries a named Cloudflare tunnel (via env vars `CLOUDFLARE_TUNNEL_NAME`, `CLOUDFLARE_TUNNEL_ID`, optional `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE`) and falls back to a temporary quick tunnel.
 
-- cria `apps/api/.env` e `apps/web/.env.local` se ainda nao existirem
-- verifica dependencias do backend e frontend
-- sobe o Kokoro local por Docker automaticamente quando `TTS_PROVIDER=kokoro`
-- roda `scripts/init_db.py`
-- abre uma janela para a API e outra para o frontend
+## Key environment variables
 
-Se voce tambem quiser abrir o tunnel do backend:
+**Backend (`apps/api/.env`)**
 
-```powershell
-.\start-project.cmd -WithTunnel
 ```
-
-O runner do tunnel tenta usar primeiro um tunnel nomeado configurado localmente pelas variaveis de ambiente:
-
-- `CLOUDFLARE_TUNNEL_NAME`
-- `CLOUDFLARE_TUNNEL_ID`
-- `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE` opcional
-
-Se esses dados nao estiverem definidos localmente, ou se o arquivo de credenciais nao existir, ele cai automaticamente para um quick tunnel temporario.
-
-## Variaveis de ambiente importantes
-
-### Backend (`apps/api/.env`)
-
-```env
 APP_HOST=0.0.0.0
 APP_PORT=8001
 DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=tutor123
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://seu-projeto.vercel.app
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-project.vercel.app
 TTS_PROVIDER=kokoro
 KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
-KOKORO_MODEL=kokoro
-KOKORO_DEFAULT_VOICE=af_bella
-KOKORO_TIMEOUT_SECONDS=8
-AUDIO_CACHE_DIR=./audio_cache
-SESSION_SECRET=troque-isto
+GEMINI_API_KEY=your-key
+GEMINI_MODEL=gemini-2.5-flash
+SESSION_SECRET=change-me
 PARENT_COOKIE_SECURE=true
 PARENT_COOKIE_SAMESITE=none
-PARENT_COOKIE_DOMAIN=
-PARENT_COOKIE_MAX_AGE=604800
-GEMINI_API_KEY=sua-chave
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_REQUEST_TIMEOUT_SECONDS=45
 ```
 
-### Frontend (`apps/web/.env.local`)
+**Frontend (`apps/web/.env.local`)**
 
-```env
+```
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 ```
 
-## Fluxo recomendado de deploy
+## Recommended deploy flow (Vercel frontend + local backend)
 
-Se voce quer usar:
+1. Run the API locally.
+2. Expose it: `cloudflared tunnel --url http://localhost:8001`.
+3. Open `https://your-project.vercel.app/connect` on the device that will use the app.
+4. Paste the current HTTPS tunnel URL and save the connection.
+5. Set `CORS_ALLOWED_ORIGINS` on the backend to the exact frontend URL.
+6. For the parents area across domains, use HTTPS on the public backend and `PARENT_COOKIE_SECURE=true` / `PARENT_COOKIE_SAMESITE=none`.
 
-- frontend publicado na Vercel
-- backend rodando no seu computador
+> The published frontend can store the current API URL per browser at `/connect`, so you don't need to redeploy when the tunnel URL changes.
 
-use este fluxo:
+## Notes
 
-1. Rode a API localmente na sua maquina.
-2. Exponha a API com `cloudflared tunnel --url http://localhost:8001`.
-3. Abra `https://seu-projeto.vercel.app/connect` no aparelho que vai usar o site.
-4. Cole a URL HTTPS atual do tunnel e salve a conexao.
-5. Ajuste `CORS_ALLOWED_ORIGINS` no backend com a URL exata do seu frontend na Vercel.
-6. Para a area de pais funcionar entre dominios diferentes, use HTTPS no backend publico e configure:
+- The backend uses a local SQLite database at `apps/api/kids_tutor.sqlite`.
+- The frontend uses `fetch` with `credentials: include`, so CORS and cookies must be configured when frontend and backend are on different domains.
+- In the parents area, **Generate More Phrases** calls Gemini, creates the next day with 3 phrases and saves the new lesson directly to the database.
+- If Kokoro is not running, the app keeps working with an audio fallback.
 
-```env
-PARENT_COOKIE_SECURE=true
-PARENT_COOKIE_SAMESITE=none
-```
+## License
 
-Guia completo: [guia.md](./guia.md)
-
-## Documentacao adicional
-
-- [guia.md](./guia.md): passo a passo para Vercel + backend local
-- [docs/cloudflare-tunnel.md](./docs/cloudflare-tunnel.md): configuracao do tunnel
-- [docs/vercel-deploy.md](./docs/vercel-deploy.md): deploy do frontend
-- [docs/setup-local.md](./docs/setup-local.md): setup local
-- [docs/kokoro-setup.md](./docs/kokoro-setup.md): audio com Kokoro
-
-## Comandos uteis
-
-```powershell
-python scripts\init_db.py
-python -m compileall apps\api
-Set-Location apps\web
-pnpm exec tsc --noEmit
-pnpm build
-.\start-project.cmd
-.\start-project.cmd -WithTunnel
-```
-
-## Observacoes
-
-- O backend usa SQLite local em `apps/api/kids_tutor.sqlite`.
-- O frontend usa `fetch` com `credentials: include`, entao CORS e cookies precisam estar corretos quando frontend e backend estiverem em dominios diferentes.
-- O frontend publicado pode salvar a URL atual da API por navegador em `/connect`, sem precisar redeployar a Vercel quando o tunnel mudar.
-- Na area de pais, o botao `Generate More Phrases` chama o Gemini, cria o proximo dia com 3 frases e salva a nova licao diretamente no banco.
-- Se o Kokoro nao estiver ativo, a aplicacao continua funcionando com fallback de audio.
+MIT
