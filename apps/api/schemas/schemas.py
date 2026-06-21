@@ -449,7 +449,29 @@ class CodingReviewSessionSchema(BaseModel):
 
 class CodingReviewAttemptSchema(BaseModel):
     review_item_id: int
-    correct: bool
+    # rating: knew (sabia) | partial (parcial/duvida) | unknown (nao sabia).
+    # correct mantido para compatibilidade com clientes antigos.
+    rating: Optional[Literal["knew", "partial", "unknown"]] = None
+    correct: Optional[bool] = None
+
+
+class LeetCodeMethodSchema(FromAttributesModel):
+    id: int
+    name: str
+    category: Optional[str] = None
+    language: str = "Python"
+    explanation: str
+    code_example: str
+    example_output: str
+    complexity_time: Optional[str] = None
+    complexity_space: Optional[str] = None
+    order_index: int
+    created_at: datetime
+
+
+class GenerateLeetCodeMethodRequestSchema(BaseModel):
+    hint: str = Field(default="", max_length=120)
+    language: str = Field(default="Python", max_length=40)
 
 
 class CodingReviewResultSchema(BaseModel):

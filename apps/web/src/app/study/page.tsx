@@ -420,7 +420,7 @@ export default function StudyPage() {
         if (completed && resolved.mode !== previousMode) {
           const msg = getPomodoroCompletionMessage(previousMode);
           setPomodoroMessage(msg);
-          if (notificationPermission === 'granted') new Notification('English Kids Tutor', { body: msg });
+          if (notificationPermission === 'granted') new Notification('Language&Tutor', { body: msg });
         }
         return resolved;
       });

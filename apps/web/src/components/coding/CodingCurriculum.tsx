@@ -1,18 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
 import { api, type CodingReviewCard, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { TopicView } from './TopicView';
 import { ReviewSession } from './ReviewSession';
+import { LeetCodeTrainer } from './LeetCodeTrainer';
 
 type View =
   | { type: 'subjects' }
   | { type: 'topics'; subject: ProgrammingSubject }
   | { type: 'topic'; subject: ProgrammingSubject; topic: ProgrammingTopic }
-  | { type: 'review'; subject: ProgrammingSubject; cards: CodingReviewCard[] };
+  | { type: 'review'; subject: ProgrammingSubject; cards: CodingReviewCard[] }
+  | { type: 'leetcode' };
 
 export function CodingCurriculum() {
   const [view, setView] = useState<View>({ type: 'subjects' });
@@ -25,6 +27,7 @@ export function CodingCurriculum() {
   const [loadingReview, setLoadingReview] = useState(false);
   const [generatingTopicAI, setGeneratingTopicAI] = useState(false);
   const [topicAIError, setTopicAIError] = useState('');
+  const [newTopicId, setNewTopicId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -95,11 +98,13 @@ export function CodingCurriculum() {
   async function handleGenerateTopicAI(subject: ProgrammingSubject) {
     setGeneratingTopicAI(true);
     setTopicAIError('');
+    setNewTopicId(null);
     try {
       const topic = await api.generateCodingTopic(subject.id);
+      // Topico novo entra minimizado no fim da lista (nao abre sozinho)
       setTopics((prev) => [...prev, topic]);
+      setNewTopicId(topic.id);
       await loadSubjects();
-      setView({ type: 'topic', subject, topic });
     } catch (err: unknown) {
       setTopicAIError(err instanceof Error ? err.message : 'Erro ao gerar topico com IA.');
     } finally {
@@ -120,6 +125,22 @@ export function CodingCurriculum() {
             <MetricChip icon={<Flame size={20} />} label="Para revisar" value={subjects.reduce((a, s) => a + s.due_review_count, 0)} tone="orange" />
           </div>
         </section>
+
+        {/* LeetCode trainer entry */}
+        <button
+          type="button"
+          onClick={() => setView({ type: 'leetcode' })}
+          className="flex w-full items-center gap-4 rounded-3xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
+            <Trophy size={24} className="text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-black text-slate-800">LeetCode Trainer</p>
+            <p className="text-sm text-slate-500">Métodos e técnicas para entrevistas — explicação, exemplo e resultado, gerados pela IA um a um</p>
+          </div>
+          <Sparkles size={18} className="shrink-0 text-amber-400" />
+        </button>
 
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={32} /></div>
@@ -280,13 +301,18 @@ export function CodingCurriculum() {
             topics.map((topic, idx) => (
               <div
                 key={topic.id}
-                className="flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-slate-100 bg-white px-5 py-4 transition hover:border-primary/40"
+                className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 bg-white px-5 py-4 transition hover:border-primary/40 ${topic.id === newTopicId ? 'border-violet-300 bg-violet-50/60' : 'border-slate-100'}`}
                 onClick={() => setView({ type: 'topic', subject, topic })}
               >
                 <span className="w-5 shrink-0 text-center text-sm font-bold text-slate-400">{idx + 1}</span>
                 <span className="text-lg">{statusIcon(topic.status)}</span>
                 <div className="flex-1">
-                  <p className="font-black text-slate-800">{topic.title}</p>
+                  <p className="font-black text-slate-800">
+                    {topic.title}
+                    {topic.id === newTopicId && (
+                      <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">Novo</span>
+                    )}
+                  </p>
                   <p className="text-xs text-slate-400">
                     {topic.flashcard_count} flashcard{topic.flashcard_count !== 1 ? 's' : ''}
                     {!topic.ai_content && ' · sem aula gerada'}
@@ -349,6 +375,11 @@ export function CodingCurriculum() {
         }}
       />
     );
+  }
+
+  // ── LeetCode trainer view ────────────────────────────────────────────────
+  if (view.type === 'leetcode') {
+    return <LeetCodeTrainer onBack={() => setView({ type: 'subjects' })} />;
   }
 
   return null;

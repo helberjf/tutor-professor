@@ -540,6 +540,22 @@ export interface CodingReviewAttemptResult {
   correct_count: number;
 }
 
+export type ReviewRating = 'knew' | 'partial' | 'unknown';
+
+export interface LeetCodeMethod {
+  id: number;
+  name: string;
+  category: string | null;
+  language: string;
+  explanation: string;
+  code_example: string;
+  example_output: string;
+  complexity_time: string | null;
+  complexity_space: string | null;
+  order_index: number;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   readonly status?: number;
   readonly detail?: string;
@@ -835,6 +851,13 @@ export const api = {
     fetchAPI<void>(`/api/coding/flashcards/${id}`, { method: 'DELETE' }),
   getCodingReview: (subjectId?: number, limit = 20) =>
     fetchAPI<CodingReviewSession>(`/api/coding/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
-  submitCodingReviewAttempt: (payload: { review_item_id: number; correct: boolean }) =>
+  submitCodingReviewAttempt: (payload: { review_item_id: number; rating: ReviewRating }) =>
     fetchAPI<CodingReviewAttemptResult>('/api/coding/review/attempt', { method: 'POST', body: JSON.stringify(payload) }),
+  // LeetCode trainer
+  getLeetCodeMethods: () =>
+    fetchAPI<LeetCodeMethod[]>('/api/coding/leetcode'),
+  generateLeetCodeMethod: (payload: { hint?: string; language?: string }) =>
+    fetchAPI<LeetCodeMethod>('/api/coding/leetcode/generate', { method: 'POST', body: JSON.stringify(payload) }),
+  deleteLeetCodeMethod: (id: number) =>
+    fetchAPI<void>(`/api/coding/leetcode/${id}`, { method: 'DELETE' }),
 };
