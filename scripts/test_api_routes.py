@@ -367,6 +367,35 @@ async def run() -> None:
         if "test-ai-key" in stored_ai_response.text:
             raise AssertionError("raw AI key leaked in settings response")
 
+        captured_diverse_prompt: dict[str, str] = {}
+        original_generate_json_text = main.phrase_generation_service.generate_json_text
+        try:
+            def mock_generate_json_text(*, system_text, prompt, temperature, ai_config, timeout_seconds=None):
+                captured_diverse_prompt["prompt"] = prompt
+                return (
+                    '{"subject":"React","flashcards":['
+                    '{"question":"O que sao hooks?","answer":"Hooks reutilizam estado e efeitos em componentes."},'
+                    '{"question":"Quando usar props?","answer":"Props passam dados de um componente pai para um filho."}'
+                    ']}'
+                )
+
+            main.phrase_generation_service.generate_json_text = mock_generate_json_text
+            context_flashcards_response = await client.post(
+                "/api/study/diverse/generate-flashcards",
+                headers=child_headers,
+                json={
+                    "subject": "React",
+                    "count": 2,
+                    "context": "focar em hooks, props e erros comuns para dev junior",
+                    "avoid_topics": ["Componentes"],
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_generate_json_text
+        assert_status(context_flashcards_response, 200, "generate flashcards with context")
+        if "hooks, props e erros comuns" not in captured_diverse_prompt.get("prompt", ""):
+            raise AssertionError(f"expected AI context in diverse prompt, got {captured_diverse_prompt}")
+
         modules_response = await client.get("/api/admin/learn/modules")
         assert_status(modules_response, 200, "admin learn modules")
         modules = modules_response.json()

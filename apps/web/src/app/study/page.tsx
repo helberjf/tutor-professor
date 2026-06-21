@@ -39,6 +39,7 @@ interface InlineStudyState {
 
 type StudyRating = 'knew' | 'partial' | 'unknown';
 type DiverseAIAction = 'create-subject' | 'suggest-subject' | 'topic' | 'lesson';
+type PendingLessonDraft = { subjectIndex: number; lesson: DiverseLessonBlock };
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -198,6 +199,7 @@ export default function StudyPage() {
   const [generatingLesson, setGeneratingLesson] = useState(false);
   const [lessonGenMessage, setLessonGenMessage] = useState('');
   const [pendingDiverseSave, setPendingDiverseSave] = useState(false);
+  const [pendingLessonDraft, setPendingLessonDraft] = useState<PendingLessonDraft | null>(null);
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -775,7 +777,7 @@ export default function StudyPage() {
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
 
-  async function generateDiverseLesson(subjectIndex: number, inlineApiKey?: string) {
+  async function generateDiverseLesson(subjectIndex: number, inlineApiKey?: string, context?: string) {
     const subject = diverseDay?.custom_subjects[subjectIndex];
     if (!subject?.name.trim()) return;
     if (getDiverseSubjectLessons(subject).length >= 30) {
@@ -793,6 +795,7 @@ export default function StudyPage() {
         subject: subject.name,
         count: AI_FLASHCARD_COUNT,
         avoid_topics: avoidTopics,
+        ...(context?.trim() ? { context: context.trim() } : {}),
         ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
       });
       const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
@@ -806,18 +809,32 @@ export default function StudyPage() {
         created_at: new Date().toISOString(),
         topics,
       };
-      setDiverseDay((current) => {
-        if (!current) return current;
-        const subjects = current.custom_subjects.map((s, si) =>
-          si === subjectIndex ? { ...s, lessons: [...getDiverseSubjectLessons(s), lesson] } : s
-        );
-        return { ...current, custom_subjects: subjects };
-      });
-      setDiverseSaved('Nova licao criada em bloco. Salve a materia para guardar.');
+      setPendingLessonDraft({ subjectIndex, lesson });
+      setDiverseSaved('Preview da licao criado. Revise antes de salvar.');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar licao com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); setAiAction(null); }
+  }
+
+  function savePendingLessonDraft() {
+    if (!pendingLessonDraft) return;
+    const { subjectIndex, lesson } = pendingLessonDraft;
+    setDiverseDay((current) => {
+      const subject = current?.custom_subjects[subjectIndex];
+      if (!current || !subject) return current;
+      const subjects = current.custom_subjects.map((s, si) =>
+        si === subjectIndex ? { ...s, lessons: [...getDiverseSubjectLessons(s), lesson] } : s
+      );
+      return { ...current, custom_subjects: subjects };
+    });
+    setPendingLessonDraft(null);
+    setDiverseSaved('Licao adicionada em bloco. Salve a materia para guardar.');
+  }
+
+  function discardPendingLessonDraft() {
+    setPendingLessonDraft(null);
+    setDiverseSaved('');
   }
 
   async function generateNewLesson() {
@@ -987,7 +1004,10 @@ export default function StudyPage() {
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
             onGenerateTopicAI={(si, key) => void generateDiverseTopic(si, key)}
-            onGenerateLessonAI={(si, key) => void generateDiverseLesson(si, key)}
+            onGenerateLessonAI={(si, key, context) => void generateDiverseLesson(si, key, context)}
+            pendingLessonDraft={pendingLessonDraft}
+            onSaveLessonDraft={savePendingLessonDraft}
+            onDiscardLessonDraft={discardPendingLessonDraft}
             onBulkAddTopics={(si, topics) => addDiverseTopicsBulk(si, topics)}
             onRateTopic={rateDiverseTopic}
             onRateLessonTopic={rateDiverseLessonTopic}
@@ -1341,7 +1361,7 @@ function DiverseTab({
   onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
   onRateTopic, onRateLessonTopic, onSessionComplete,
   onRemoveLesson, onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
-  onUpdateLessonTopicAnswer, onSave,
+  onUpdateLessonTopicAnswer, pendingLessonDraft, onSaveLessonDraft, onDiscardLessonDraft, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
@@ -1367,7 +1387,10 @@ function DiverseTab({
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (si: number, apiKey?: string) => void;
-  onGenerateLessonAI: (si: number, apiKey?: string) => void;
+  onGenerateLessonAI: (si: number, apiKey?: string, context?: string) => void;
+  pendingLessonDraft: PendingLessonDraft | null;
+  onSaveLessonDraft: () => void;
+  onDiscardLessonDraft: () => void;
   onBulkAddTopics: (si: number, topics: CodingTopic[]) => void;
   onRateTopic: (si: number, ti: number, rating: StudyRating) => void;
   onRateLessonTopic: (si: number, li: number, ti: number, rating: StudyRating) => void;
@@ -1441,7 +1464,10 @@ function DiverseTab({
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
-          onGenerateLessonAI={(key) => onGenerateLessonAI(selectedSubject.index, key)}
+          onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.index, key, context)}
+          pendingLessonDraft={pendingLessonDraft?.subjectIndex === selectedSubject.index ? pendingLessonDraft.lesson : null}
+          onSaveLessonDraft={onSaveLessonDraft}
+          onDiscardLessonDraft={onDiscardLessonDraft}
           onBulkAddTopics={(topics) => onBulkAddTopics(selectedSubject.index, topics)}
           onRateTopic={(ti, rating) => onRateTopic(selectedSubject.index, ti, rating)}
           onRateLessonTopic={(li, ti, rating) => onRateLessonTopic(selectedSubject.index, li, ti, rating)}
@@ -1595,6 +1621,7 @@ function DiverseSubjectDashboard({
   onRequestNotifications, onGenerateTopicAI, onGenerateLessonAI, onRemoveLesson,
   onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
   onUpdateLessonTopicAnswer, generatingAI, aiAction, lastAIAction, aiError, onBulkAddTopics,
+  pendingLessonDraft, onSaveLessonDraft, onDiscardLessonDraft,
   onRateTopic, onRateLessonTopic, onSessionComplete,
 }: {
   selectedDate: string;
@@ -1606,7 +1633,10 @@ function DiverseSubjectDashboard({
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
   onGenerateTopicAI: (apiKey?: string) => void;
-  onGenerateLessonAI: (apiKey?: string) => void;
+  onGenerateLessonAI: (apiKey?: string, context?: string) => void;
+  pendingLessonDraft: DiverseLessonBlock | null;
+  onSaveLessonDraft: () => void;
+  onDiscardLessonDraft: () => void;
   onRemoveLesson: (li: number) => void;
   onToggleLessonTopic: (li: number, ti: number) => void;
   onUpdateLessonTitle: (li: number, value: string) => void;
@@ -1642,6 +1672,7 @@ function DiverseSubjectDashboard({
   const pendingCount = Math.max(totalTopics - doneCount, 0);
   const completed = totalTopics > 0 && doneCount === totalTopics;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
+  const [lessonContext, setLessonContext] = useState('');
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
   return (
@@ -1666,6 +1697,19 @@ function DiverseSubjectDashboard({
       </section>
 
       <section className="kid-surface border-violet-100 p-4 md:p-5">
+        <div className="mb-3">
+          <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+            Contexto para IA
+          </label>
+          <textarea
+            value={lessonContext}
+            onChange={(e) => setLessonContext(e.target.value)}
+            rows={3}
+            maxLength={700}
+            placeholder="Ex.: criar uma licao sobre hooks, props e erros comuns para dev junior."
+            className="w-full resize-none rounded-2xl border-2 border-violet-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-400"
+          />
+        </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <button
             type="button"
@@ -1678,12 +1722,12 @@ function DiverseSubjectDashboard({
           </button>
           <button
             type="button"
-            onClick={() => onGenerateLessonAI(aiKeyDraft.trim() || undefined)}
+            onClick={() => onGenerateLessonAI(aiKeyDraft.trim() || undefined, lessonContext.trim() || undefined)}
             disabled={generatingAI}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'lesson' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'lesson' ? 'Criando licao...' : 'Criar nova licao com IA'}
+            {aiAction === 'lesson' ? 'Criando preview...' : 'Criar preview da licao'}
           </button>
         </div>
         {aiError && (
@@ -1705,7 +1749,7 @@ function DiverseSubjectDashboard({
                     onClick={() => {
                       if (!aiKeyDraft.trim()) return;
                       if (lastAIAction === 'topic') onGenerateTopicAI(aiKeyDraft.trim());
-                      else if (lastAIAction === 'lesson') onGenerateLessonAI(aiKeyDraft.trim());
+                      else if (lastAIAction === 'lesson') onGenerateLessonAI(aiKeyDraft.trim(), lessonContext.trim() || undefined);
                     }}
                     disabled={!aiKeyDraft.trim() || generatingAI}
                     className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
@@ -1715,6 +1759,41 @@ function DiverseSubjectDashboard({
                 </div>
               </div>
             )}
+          </div>
+        )}
+        {pendingLessonDraft && (
+          <div className="mt-4 rounded-[1.25rem] border-2 border-violet-200 bg-violet-50/70 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">Preview da licao</p>
+                <h2 className="mt-1 text-lg font-black text-slate-800">{pendingLessonDraft.title}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} topicos gerados</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:min-w-56">
+                <button
+                  type="button"
+                  onClick={onSaveLessonDraft}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700"
+                >
+                  <Save size={14} /> Salvar licao
+                </button>
+                <button
+                  type="button"
+                  onClick={onDiscardLessonDraft}
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-black text-violet-700 transition hover:border-violet-300"
+                >
+                  <X size={14} /> Descartar
+                </button>
+              </div>
+            </div>
+            <ol className="mt-4 space-y-2">
+              {pendingLessonDraft.topics.map((topic, index) => (
+                <li key={`${topic.topic}-${index}`} className="rounded-2xl border-2 border-white bg-white/90 p-3">
+                  <p className="text-sm font-black text-slate-800">{index + 1}. {topic.topic}</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{topic.answer || 'Sem resposta gerada.'}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         )}
       </section>
@@ -1821,7 +1900,7 @@ function SubjectStudyCard({
 }) {
   const studyCardRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false);
-  const [activeTab, setActiveTab] = useState<'topics' | 'study'>('topics');
+  const [activeTab, setActiveTab] = useState<'topics' | 'study' | 'view'>('topics');
   const [expandedAnswer, setExpandedAnswer] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
@@ -1972,6 +2051,10 @@ function SubjectStudyCard({
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'study' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
           <Zap size={12} className="inline mr-1" />Revisar
         </button>
+        <button type="button" onClick={() => setActiveTab('view')} disabled={totalTopics === 0}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'view' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
+          <BookOpen size={12} className="inline mr-1" />Visualizar
+        </button>
       </div>}
 
       {!collapsed && (activeTab === 'topics' ? (
@@ -2109,7 +2192,7 @@ function SubjectStudyCard({
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'study' ? (
         /* Study tab */
         <div className="p-5">
           {totalTopics === 0 ? (
@@ -2227,6 +2310,46 @@ function SubjectStudyCard({
               )}
             </div>
           ) : null}
+        </div>
+      ) : (
+        <div className="p-5">
+          {totalTopics === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm font-semibold text-slate-400">Nenhum topico cadastrado.</p>
+              <button type="button" onClick={() => setActiveTab('topics')}
+                className="mt-2 text-sm font-black text-primary hover:underline">
+                Ir para Lista
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-2xl border-2 border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Modo de visualizacao</p>
+                <h3 className="mt-1 text-xl font-black text-slate-800">{subject.name}</h3>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700">{totalTopics} topicos</span>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">{doneCount} concluidos</span>
+                </div>
+              </div>
+              <ol className="space-y-3">
+                {subject.topics.map((topic, index) => (
+                  <li key={`${topic.topic}-${index}`} className="rounded-2xl border-2 border-slate-100 bg-white p-4">
+                    <div className="flex items-start gap-3">
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${topic.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-base font-black text-slate-800">{topic.topic || `Topico ${index + 1}`}</p>
+                        <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
+                          {topic.answer?.trim() || 'Sem explicacao cadastrada.'}
+                        </p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
       ))}
     </div>

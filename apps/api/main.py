@@ -2858,6 +2858,14 @@ def generate_diverse_flashcards(
         if avoid_topics_text
         else ""
     )
+    context_text = re.sub(r"\s+", " ", (payload.context or "").strip())[:1000]
+    context_instruction = (
+        "Contexto informado pelo usuario para orientar esta geracao:\n"
+        f"{context_text}\n"
+        "Use esse contexto para escolher subtopicos, exemplos e nivel de profundidade, sem fugir da materia.\n"
+        if context_text
+        else ""
+    )
 
     system_text = (
         "Voce cria flashcards educativos em formato JSON. "
@@ -2872,6 +2880,7 @@ def generate_diverse_flashcards(
             f"Sugira uma materia de estudo e crie {count} flashcards iniciais para ela.\n"
             f"{subject_hint}\n"
             f"{avoid_instruction}"
+            f"{context_instruction}"
             "Regras:\n"
             "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
@@ -2894,6 +2903,7 @@ def generate_diverse_flashcards(
         prompt = (
             f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
             f"{avoid_instruction}"
+            f"{context_instruction}"
             "Regras:\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
