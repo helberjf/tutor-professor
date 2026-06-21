@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingReviewItem, DiverseDay, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingReviewItem, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -73,6 +73,8 @@ from schemas.schemas import (
     CreateProgrammingFlashcardSchema,
     CreateProgrammingSubjectSchema,
     CreateProgrammingTopicSchema,
+    GenerateLeetCodeMethodRequestSchema,
+    LeetCodeMethodSchema,
     ProgrammingFlashcardSchema,
     ProgrammingSubjectSchema,
     ProgrammingTopicSchema,
@@ -93,7 +95,9 @@ from services.content_service import ContentService
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     build_coding_review_cards,
+    build_topic_history_context,
     count_due_coding_items,
+    generate_leetcode_method,
     generate_topic_ai_content,
     register_coding_review_attempt,
     seed_coding_review_item,
@@ -141,7 +145,7 @@ AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
-app = FastAPI(title="English Kids Tutor API", version="1.0.0")
+app = FastAPI(title="Language&Tutor API", version="1.0.0")
 
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
@@ -1722,6 +1726,25 @@ def _get_user_ai_config(session_record: UserSession | None, session: Session) ->
 
 # ── Coding Curriculum endpoints ───────────────────────────────────────────────
 
+def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> ProgrammingTopicSchema:
+    status = getattr(topic.status, "value", topic.status)
+    flashcard_count = len(
+        session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all()
+    )
+    return ProgrammingTopicSchema(
+        id=topic.id or 0,
+        subject_id=topic.subject_id,
+        title=topic.title,
+        order_index=topic.order_index,
+        status=str(status),
+        ai_content=topic.ai_content,
+        notes=topic.notes,
+        created_at=topic.created_at,
+        updated_at=topic.updated_at,
+        flashcard_count=flashcard_count,
+    )
+
+
 @app.get("/api/coding/subjects", response_model=list[ProgrammingSubjectSchema])
 def list_coding_subjects(request: Request, session: Session = Depends(get_session)) -> list[ProgrammingSubjectSchema]:
     require_parent_session(request, session)
@@ -1839,16 +1862,7 @@ def list_coding_topics(
         session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
         key=lambda t: t.order_index,
     )
-    return [
-        ProgrammingTopicSchema(
-            id=t.id or 0, subject_id=t.subject_id, title=t.title,
-            order_index=t.order_index, status=t.status,
-            ai_content=t.ai_content, notes=t.notes,
-            created_at=t.created_at, updated_at=t.updated_at,
-            flashcard_count=len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == t.id)).all()),
-        )
-        for t in topics
-    ]
+    return [_programming_topic_schema(session, t) for t in topics]
 
 
 @app.post("/api/coding/subjects/{subject_id}/topics/generate", response_model=ProgrammingTopicSchema, status_code=201)
@@ -1875,11 +1889,14 @@ def generate_coding_subject_topic(
         key=lambda t: t.order_index,
     )
     existing_titles = [topic.title for topic in existing_topics]
-    existing_titles_text = ", ".join(existing_titles) if existing_titles else "nenhum"
+    history_context = build_topic_history_context(existing_topics)
+    history_block = f"{history_context}\n" if history_context else "Nenhum topico criado ainda — sugira o primeiro topico fundamental da materia.\n"
     prompt = (
         "Sugira o proximo topico de estudo para uma materia de programacao.\n"
         f"Materia: {subject.name}\n"
-        f"Topicos existentes: {existing_titles_text}\n"
+        f"{history_block}"
+        "O topico deve CONTINUAR a progressao a partir do que ja foi estudado, "
+        "aprofundando ou avancando o proximo passo logico.\n"
         "Escolha algo pratico, especifico e progressivo para estudar agora.\n"
         "Evite repetir topicos existentes.\n"
         "Retorne apenas JSON valido neste formato:\n"
@@ -1912,6 +1929,7 @@ def generate_coding_subject_topic(
             subject_name=subject.name,
             topic_title=title,
             ai_config=ai_config,
+            previous_context=history_context,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -1943,14 +1961,7 @@ def generate_coding_subject_topic(
         seed_coding_review_item(session, child.id or 0, fc.id or 0)
     session.commit()
     session.refresh(topic)
-    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
-    return ProgrammingTopicSchema(
-        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
-        order_index=topic.order_index, status=topic.status,
-        ai_content=topic.ai_content, notes=topic.notes,
-        created_at=topic.created_at, updated_at=topic.updated_at,
-        flashcard_count=fc_count,
-    )
+    return _programming_topic_schema(session, topic)
 
 
 @app.post("/api/coding/subjects/{subject_id}/topics", response_model=ProgrammingTopicSchema, status_code=201)
@@ -1983,10 +1994,15 @@ def create_coding_topic(
         ai_config = _get_user_ai_config(user_session, session)
         if ai_config:
             try:
+                previous_topics = sorted(
+                    session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
+                    key=lambda t: t.order_index,
+                )
                 content = generate_topic_ai_content(
                     subject_name=subject.name,
                     topic_title=topic.title,
                     ai_config=ai_config,
+                    previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
                 )
                 topic.ai_content = content.model_dump()
                 for fc_draft in content.flashcards:
@@ -2009,14 +2025,7 @@ def create_coding_topic(
             except Exception:
                 session.rollback()
                 session.refresh(topic)  # re-attach topic after rollback
-    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
-    return ProgrammingTopicSchema(
-        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
-        order_index=topic.order_index, status=topic.status,
-        ai_content=topic.ai_content, notes=topic.notes,
-        created_at=topic.created_at, updated_at=topic.updated_at,
-        flashcard_count=fc_count,
-    )
+    return _programming_topic_schema(session, topic)
 
 
 @app.put("/api/coding/topics/{topic_id}", response_model=ProgrammingTopicSchema)
@@ -2050,14 +2059,7 @@ def update_coding_topic(
     session.add(topic)
     session.commit()
     session.refresh(topic)
-    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
-    return ProgrammingTopicSchema(
-        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
-        order_index=topic.order_index, status=topic.status,
-        ai_content=topic.ai_content, notes=topic.notes,
-        created_at=topic.created_at, updated_at=topic.updated_at,
-        flashcard_count=fc_count,
-    )
+    return _programming_topic_schema(session, topic)
 
 
 @app.delete("/api/coding/topics/{topic_id}", status_code=204)
@@ -2101,10 +2103,16 @@ def generate_coding_topic_content(
     if ai_config is None:
         raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
     try:
+        sibling_topics = sorted(
+            session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == topic.subject_id)).all(),
+            key=lambda t: t.order_index,
+        )
+        previous_topics = [t for t in sibling_topics if t.order_index < topic.order_index]
         content = generate_topic_ai_content(
             subject_name=subject.name,
             topic_title=topic.title,
             ai_config=ai_config,
+            previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -2129,14 +2137,7 @@ def generate_coding_topic_content(
             seed_coding_review_item(session, child.id or 0, fc.id or 0)
     session.commit()
     session.refresh(topic)
-    fc_count = len(session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all())
-    return ProgrammingTopicSchema(
-        id=topic.id or 0, subject_id=topic.subject_id, title=topic.title,
-        order_index=topic.order_index, status=topic.status,
-        ai_content=topic.ai_content, notes=topic.notes,
-        created_at=topic.created_at, updated_at=topic.updated_at,
-        flashcard_count=fc_count,
-    )
+    return _programming_topic_schema(session, topic)
 
 
 @app.get("/api/coding/topics/{topic_id}/flashcards", response_model=list[ProgrammingFlashcardSchema])
@@ -2266,12 +2267,15 @@ def submit_coding_review_attempt(
 ) -> CodingReviewResultSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
+    if payload.rating is None and payload.correct is None:
+        raise HTTPException(status_code=422, detail="Informe rating (knew/partial/unknown) ou correct.")
     try:
         item = register_coding_review_attempt(
             session=session,
             child_id=child.id or 0,
             review_item_id=payload.review_item_id,
-            correct=payload.correct,
+            correct=bool(payload.correct),
+            rating=payload.rating,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -2284,6 +2288,90 @@ def submit_coding_review_attempt(
         error_count=item.error_count,
         correct_count=item.correct_count,
     )
+
+
+# ── LeetCode trainer endpoints ────────────────────────────────────────────────
+
+def _build_leetcode_method_schema(m: LeetCodeMethod) -> LeetCodeMethodSchema:
+    return LeetCodeMethodSchema(
+        id=m.id or 0, name=m.name, category=m.category, language=m.language,
+        explanation=m.explanation, code_example=m.code_example,
+        example_output=m.example_output, complexity_time=m.complexity_time,
+        complexity_space=m.complexity_space, order_index=m.order_index,
+        created_at=m.created_at,
+    )
+
+
+@app.get("/api/coding/leetcode", response_model=list[LeetCodeMethodSchema])
+def list_leetcode_methods(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[LeetCodeMethodSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    methods = sorted(
+        session.exec(select(LeetCodeMethod).where(LeetCodeMethod.child_id == child.id)).all(),
+        key=lambda m: m.order_index,
+    )
+    return [_build_leetcode_method_schema(m) for m in methods]
+
+
+@app.post("/api/coding/leetcode/generate", response_model=LeetCodeMethodSchema, status_code=201)
+def generate_leetcode_method_endpoint(
+    payload: GenerateLeetCodeMethodRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> LeetCodeMethodSchema:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(status_code=422, detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.")
+    existing = sorted(
+        session.exec(select(LeetCodeMethod).where(LeetCodeMethod.child_id == child.id)).all(),
+        key=lambda m: m.order_index,
+    )
+    try:
+        data = generate_leetcode_method(
+            existing_names=[m.name for m in existing],
+            hint=payload.hint,
+            language=payload.language,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    method = LeetCodeMethod(
+        child_id=child.id or 0,
+        name=data["name"],
+        category=data["category"],
+        language=payload.language,
+        explanation=data["explanation"],
+        code_example=data["code_example"],
+        example_output=data["example_output"],
+        complexity_time=data["complexity_time"],
+        complexity_space=data["complexity_space"],
+        order_index=len(existing),
+        created_at=datetime.utcnow(),
+    )
+    session.add(method)
+    session.commit()
+    session.refresh(method)
+    return _build_leetcode_method_schema(method)
+
+
+@app.delete("/api/coding/leetcode/{method_id}", status_code=204)
+def delete_leetcode_method(
+    method_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    method = session.get(LeetCodeMethod, method_id)
+    if method is None or method.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Metodo nao encontrado.")
+    session.delete(method)
+    session.commit()
 
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
@@ -2858,6 +2946,14 @@ def generate_diverse_flashcards(
         if avoid_topics_text
         else ""
     )
+    context_text = re.sub(r"\s+", " ", (payload.context or "").strip())[:1000]
+    context_instruction = (
+        "Contexto informado pelo usuario para orientar esta geracao:\n"
+        f"{context_text}\n"
+        "Use esse contexto para escolher subtopicos, exemplos e nivel de profundidade, sem fugir da materia.\n"
+        if context_text
+        else ""
+    )
 
     system_text = (
         "Voce cria flashcards educativos em formato JSON. "
@@ -2872,6 +2968,7 @@ def generate_diverse_flashcards(
             f"Sugira uma materia de estudo e crie {count} flashcards iniciais para ela.\n"
             f"{subject_hint}\n"
             f"{avoid_instruction}"
+            f"{context_instruction}"
             "Regras:\n"
             "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
@@ -2894,6 +2991,7 @@ def generate_diverse_flashcards(
         prompt = (
             f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
             f"{avoid_instruction}"
+            f"{context_instruction}"
             "Regras:\n"
             "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"

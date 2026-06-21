@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, ChevronRight, Loader2, X, XCircle } from 'lucide-react';
-import { api, type CodingReviewCard } from '@/lib/api';
+import { CheckCircle2, ChevronRight, HelpCircle, Loader2, X, XCircle } from 'lucide-react';
+import { api, type CodingReviewCard, type ReviewRating } from '@/lib/api';
 
 interface Props {
   subjectName: string;
@@ -15,21 +15,22 @@ type Mode = 'flip' | 'choice';
 interface CardState {
   revealed: boolean;
   done: boolean;
-  correct: boolean | null;
+  rating: ReviewRating | null;
 }
 
 export function ReviewSession({ subjectName, cards, onClose }: Props) {
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('flip');
-  const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, correct: null })));
+  const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, rating: null })));
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
 
   const card = cards[index];
   const state = states[index];
   const total = cards.length;
-  const correct = states.filter((s) => s.correct === true).length;
-  const wrong = states.filter((s) => s.correct === false).length;
+  const knew = states.filter((s) => s.rating === 'knew').length;
+  const partial = states.filter((s) => s.rating === 'partial').length;
+  const unknown = states.filter((s) => s.rating === 'unknown').length;
 
   // Build multiple-choice options once (stable)
   const [choiceOptions] = useState(() =>
@@ -44,14 +45,14 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
     }),
   );
 
-  async function handleAnswer(isCorrect: boolean) {
+  async function handleAnswer(rating: ReviewRating) {
     setSubmitting(true);
     try {
-      await api.submitCodingReviewAttempt({ review_item_id: card.review_item_id, correct: isCorrect });
+      await api.submitCodingReviewAttempt({ review_item_id: card.review_item_id, rating });
     } finally {
       setSubmitting(false);
     }
-    setStates((prev) => prev.map((s, i) => (i === index ? { ...s, done: true, correct: isCorrect } : s)));
+    setStates((prev) => prev.map((s, i) => (i === index ? { ...s, done: true, rating } : s)));
     if (index + 1 >= total) {
       setFinished(true);
     } else {
@@ -67,10 +68,16 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
         </div>
         <h2 className="text-2xl font-black text-slate-800">Revisão concluída!</h2>
         <div className="flex gap-8">
-          <div><p className="text-3xl font-black text-emerald-600">{correct}</p><p className="text-sm font-bold text-slate-500">Acertos</p></div>
-          <div><p className="text-3xl font-black text-rose-500">{wrong}</p><p className="text-sm font-bold text-slate-500">Erros</p></div>
+          <div><p className="text-3xl font-black text-emerald-600">{knew}</p><p className="text-sm font-bold text-slate-500">Sabia</p></div>
+          <div><p className="text-3xl font-black text-amber-500">{partial}</p><p className="text-sm font-bold text-slate-500">Parcial</p></div>
+          <div><p className="text-3xl font-black text-rose-500">{unknown}</p><p className="text-sm font-bold text-slate-500">Não sabia</p></div>
           <div><p className="text-3xl font-black text-slate-700">{total}</p><p className="text-sm font-bold text-slate-500">Total</p></div>
         </div>
+        <p className="max-w-sm text-sm text-slate-500">
+          O que você marcou como <span className="font-bold text-rose-500">não sabia</span> volta em minutos,{' '}
+          <span className="font-bold text-amber-500">parcial</span> volta mais cedo e{' '}
+          <span className="font-bold text-emerald-600">sabia</span> espaça a próxima revisão.
+        </p>
         <button type="button" onClick={onClose} className="rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark">
           Fechar
         </button>
@@ -138,22 +145,30 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     </pre>
                   )}
                 </div>
-                <div className="mt-4 flex gap-3">
+                <div className="mt-4 flex gap-2">
                   <button
                     type="button"
                     disabled={submitting}
-                    onClick={() => handleAnswer(false)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-rose-200 bg-rose-50 py-3 font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                    onClick={() => handleAnswer('unknown')}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-rose-200 bg-rose-50 py-3 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={18} />} Não sabia
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />} Não sabia
                   </button>
                   <button
                     type="button"
                     disabled={submitting}
-                    onClick={() => handleAnswer(true)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-emerald-300 bg-emerald-50 py-3 font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                    onClick={() => handleAnswer('partial')}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 py-3 text-sm font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={18} />} Sabia!
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <HelpCircle size={16} />} Parcial
+                  </button>
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleAnswer('knew')}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 py-3 text-sm font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                  >
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Sabia!
                   </button>
                 </div>
               </>
@@ -168,7 +183,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                 key={opt}
                 type="button"
                 disabled={state.done || submitting}
-                onClick={() => handleAnswer(opt === card.back.slice(0, 120))}
+                onClick={() => handleAnswer(opt === card.back.slice(0, 120) ? 'knew' : 'unknown')}
                 className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:border-primary disabled:cursor-default disabled:opacity-50"
               >
                 {opt}
