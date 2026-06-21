@@ -4,7 +4,7 @@ import './globals.css';
 import { Navbar } from '@/components/navbar';
 
 export const metadata: Metadata = {
-  title: 'Language Kids Tutor',
+  title: 'Language&Tutor',
   description: 'Um tutor de idiomas seguro, leve e acolhedor.',
 };
 

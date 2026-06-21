@@ -226,3 +226,18 @@ class CodingReviewItem(SQLModel, table=True):
     streak: int = Field(default=0)
     last_reviewed: Optional[datetime] = Field(default=None)
     next_review: datetime = Field(default_factory=datetime.utcnow)
+
+
+class LeetCodeMethod(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    name: str = Field(max_length=200)
+    category: Optional[str] = Field(default=None, max_length=80)
+    language: str = Field(default="Python", max_length=40)
+    explanation: str = ""
+    code_example: str = ""
+    example_output: str = ""
+    complexity_time: Optional[str] = Field(default=None, max_length=60)
+    complexity_space: Optional[str] = Field(default=None, max_length=60)
+    order_index: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

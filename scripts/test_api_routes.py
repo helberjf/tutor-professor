@@ -251,6 +251,15 @@ async def run() -> None:
             headers=child_headers,
         )
         assert_status(missing_coding_ai_topic_response, 422, "generate coding topic requires AI settings")
+        create_coding_topic_response = await client.post(
+            f"/api/coding/subjects/{coding_subject['id']}/topics",
+            headers=child_headers,
+            json={"title": "Variaveis e tipos", "order_index": 0, "generate_ai": False},
+        )
+        assert_status(create_coding_topic_response, 201, "create coding topic")
+        coding_topic = create_coding_topic_response.json()
+        if coding_topic["status"] != "not_started":
+            raise AssertionError(f"expected new coding topic to be not_started, got {coding_topic['status']}")
 
         today = date.today()
         yesterday = today - timedelta(days=1)

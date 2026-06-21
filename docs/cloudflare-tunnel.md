@@ -22,7 +22,7 @@ Open your terminal and authenticate `cloudflared` with your Cloudflare account:
 cloudflared tunnel login
 ```
 
-This command will open a browser window, ask you to log in to Cloudflare, and select your domain. After successful authentication, `cloudflared` will save a certificate file to your system.
+This command will open a browser window, ask00 you to log in to Cloudflare, and select your domain. After successful authentication, `cloudflared` will save a certificate file to your system.
 
 ### 2. Create a Tunnel
 
