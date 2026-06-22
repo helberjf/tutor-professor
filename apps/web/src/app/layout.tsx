@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 import { Navbar } from '@/components/navbar';
+import { BottomNav } from '@/components/bottom-nav';
 
 export const metadata: Metadata = {
   title: 'Language&Tutor',
@@ -23,7 +24,8 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         <Navbar />
-        <div className="pt-16">{children}</div>
+        <div className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
+        <BottomNav />
       </body>
     </html>
   );
