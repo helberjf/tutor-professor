@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlmodel import Session, select
 
-from models.database import CodingReviewItem, ProgrammingFlashcard
+from models.database import CodingDeckConfig, CodingReviewItem, ProgrammingFlashcard, ProgrammingTopic
 from schemas.schemas import CodingReviewCardSchema, TopicAIContentSchema
+from services import fsrs_service
+from services.fsrs_service import CardState, DeckOptions, parse_steps
 from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
 
 _phrase_service = PhraseGenerationService()
@@ -133,6 +135,208 @@ def seed_coding_review_item(session: Session, child_id: int, flashcard_id: int) 
         next_review=datetime.utcnow(),
     )
     session.add(item)
+    return item
+
+
+# ── Flashcard deck (Anki-style FSRS scheduling) ────────────────────────────────
+
+RATING_TO_GRADE = {"again": 1, "hard": 2, "good": 3, "easy": 4}
+
+
+def get_or_create_deck_config(session: Session, child_id: int, subject_id: int) -> CodingDeckConfig:
+    config = session.exec(
+        select(CodingDeckConfig).where(
+            CodingDeckConfig.child_id == child_id,
+            CodingDeckConfig.subject_id == subject_id,
+        )
+    ).first()
+    if config is None:
+        config = CodingDeckConfig(child_id=child_id, subject_id=subject_id)
+        session.add(config)
+        session.flush()
+    return config
+
+
+def reset_daily_counters(config: CodingDeckConfig, today: date | None = None) -> CodingDeckConfig:
+    today = today or date.today()
+    if config.counter_date != today:
+        config.counter_date = today
+        config.new_done_today = 0
+        config.reviews_done_today = 0
+    return config
+
+
+def deck_options(config: CodingDeckConfig) -> DeckOptions:
+    return DeckOptions(
+        learning_steps=parse_steps(config.learning_steps, (1.0, 10.0)),
+        relearning_steps=parse_steps(config.relearning_steps, (10.0,)),
+        graduating_interval=config.graduating_interval,
+        easy_interval=config.easy_interval,
+        desired_retention=config.desired_retention,
+        maximum_interval=config.maximum_interval,
+    )
+
+
+def deck_weights(config: CodingDeckConfig) -> list[float] | None:
+    return fsrs_service.parse_weights(getattr(config, "fsrs_parameters", "") or "")
+
+
+def _card_state(item: CodingReviewItem) -> CardState:
+    return CardState(
+        state=item.fsrs_state or "new",
+        stability=item.stability or 0.0,
+        difficulty=item.fsrs_difficulty or 0.0,
+        reps=item.reps or 0,
+        lapses=item.lapses or 0,
+        learning_step=item.learning_step or 0,
+        scheduled_days=item.scheduled_days or 0,
+        last_reviewed=item.last_reviewed,
+    )
+
+
+def _apply_state(item: CodingReviewItem, result: fsrs_service.ScheduleResult) -> None:
+    state = result.state
+    item.fsrs_state = state.state
+    item.stability = state.stability
+    item.fsrs_difficulty = state.difficulty
+    item.reps = state.reps
+    item.lapses = state.lapses
+    item.learning_step = state.learning_step
+    item.scheduled_days = state.scheduled_days
+    item.next_review = result.due
+    item.last_reviewed = result.state.last_reviewed or datetime.utcnow()
+
+
+def _interval_label(item: CodingReviewItem, now: datetime) -> str:
+    minutes = max((item.next_review - now).total_seconds() / 60.0, 0.0)
+    return fsrs_service.format_interval(minutes)
+
+
+def _subject_review_items(session: Session, child_id: int, subject_id: int):
+    """Return (flashcard, topic, review_item) tuples for every card in a subject."""
+    flashcards = session.exec(
+        select(ProgrammingFlashcard).where(
+            ProgrammingFlashcard.child_id == child_id,
+            ProgrammingFlashcard.subject_id == subject_id,
+        )
+    ).all()
+    rows = []
+    topic_cache: dict[int, ProgrammingTopic | None] = {}
+    for fc in flashcards:
+        item = seed_coding_review_item(session, child_id, fc.id or 0)
+        if fc.topic_id not in topic_cache:
+            topic_cache[fc.topic_id] = session.get(ProgrammingTopic, fc.topic_id)
+        rows.append((fc, topic_cache[fc.topic_id], item))
+    return rows
+
+
+def compute_deck_stats(rows, config: CodingDeckConfig, now: datetime | None = None) -> dict:
+    now = now or datetime.utcnow()
+    total = len(rows)
+    new = learning = review_due = 0
+    for _fc, _topic, item in rows:
+        if getattr(item, "suspended", False):
+            continue
+        state = item.fsrs_state or "new"
+        if state == "new" or (item.reps or 0) == 0:
+            new += 1
+        elif state in ("learning", "relearning"):
+            learning += 1
+        elif item.next_review <= now:
+            review_due += 1
+    new_left = max(0, config.new_per_day - config.new_done_today)
+    reviews_left = max(0, config.max_reviews_per_day - config.reviews_done_today)
+    return {
+        "total": total,
+        "new": new,
+        "learning": learning,
+        "review_due": review_due,
+        "new_left_today": new_left,
+        "reviews_left_today": reviews_left,
+    }
+
+
+def build_deck_queue(session: Session, child_id: int, subject_id: int, config: CodingDeckConfig, limit: int = 50):
+    """Build a study queue respecting daily caps and learning steps (Anki-style)."""
+    now = datetime.utcnow()
+    rows = _subject_review_items(session, child_id, subject_id)
+    new_left = max(0, config.new_per_day - config.new_done_today)
+    reviews_left = max(0, config.max_reviews_per_day - config.reviews_done_today)
+
+    learning_due, reviews, news = [], [], []
+    for fc, topic, item in rows:
+        if getattr(item, "suspended", False):
+            continue
+        state = item.fsrs_state or "new"
+        if state == "new" or (item.reps or 0) == 0:
+            news.append((fc, topic, item))
+        elif state in ("learning", "relearning"):
+            if item.next_review <= now:
+                learning_due.append((fc, topic, item))
+        elif item.next_review <= now:
+            reviews.append((fc, topic, item))
+
+    learning_due.sort(key=lambda r: r[2].next_review)
+    reviews.sort(key=lambda r: compute_coding_review_priority(r[2], now), reverse=True)
+    if getattr(config, "insertion_order", "sequential") == "random":
+        import random
+        random.shuffle(news)
+    else:
+        news.sort(key=lambda r: r[0].id or 0)
+
+    # When new cards must respect the review limit, stop introducing them once
+    # the daily review budget is exhausted (Anki "new cards ignore review limit").
+    if not getattr(config, "new_cards_ignore_review_limit", False) and reviews_left <= 0:
+        new_left = 0
+
+    queue = learning_due + reviews[:reviews_left] + news[:new_left]
+    return queue[:limit], rows
+
+
+def preview_for_item(item: CodingReviewItem, config: CodingDeckConfig, now: datetime | None = None) -> dict:
+    return fsrs_service.preview_intervals(_card_state(item), deck_options(config), now=now, w=deck_weights(config))
+
+
+def apply_deck_attempt(
+    session: Session, child_id: int, review_item_id: int, rating: str, config: CodingDeckConfig
+) -> CodingReviewItem:
+    item = session.get(CodingReviewItem, review_item_id)
+    if item is None or item.child_id != child_id:
+        raise ValueError(f"CodingReviewItem {review_item_id} not found for child {child_id}")
+    grade = RATING_TO_GRADE.get(rating)
+    if grade is None:
+        raise ValueError(f"Invalid rating: {rating}")
+    now = datetime.utcnow()
+    pre_state = item.fsrs_state or "new"
+    was_new = pre_state == "new" or (item.reps or 0) == 0
+
+    result = fsrs_service.schedule(_card_state(item), grade, deck_options(config), now=now, w=deck_weights(config))
+    _apply_state(item, result)
+    # keep legacy fields roughly in sync for the old "Revisar" view
+    item.attempt_count += 1
+    item.last_rating = rating
+    if rating == "again":
+        item.error_count += 1
+        item.streak = 0
+    else:
+        item.correct_count += 1
+        item.streak += 1
+
+    # Leech detection: a card lapsing too often gets tagged or suspended (Anki-style).
+    threshold = getattr(config, "leech_threshold", 0) or 0
+    if threshold > 0 and item.lapses >= threshold and not item.is_leech:
+        item.is_leech = True
+        if getattr(config, "leech_action", "tag") == "suspend":
+            item.suspended = True
+
+    reset_daily_counters(config, now.date())
+    if was_new:
+        config.new_done_today += 1
+    elif pre_state == "review":
+        config.reviews_done_today += 1
+    config.updated_at = now
+    session.add(item)
+    session.add(config)
     return item
 
 

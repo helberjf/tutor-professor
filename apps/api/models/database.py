@@ -226,6 +226,50 @@ class CodingReviewItem(SQLModel, table=True):
     streak: int = Field(default=0)
     last_reviewed: Optional[datetime] = Field(default=None)
     next_review: datetime = Field(default_factory=datetime.utcnow)
+    # ── FSRS (Anki-style) scheduling state ──────────────────────────────────
+    # state: new | learning | review | relearning
+    fsrs_state: str = Field(default="new", max_length=12)
+    stability: float = Field(default=0.0)
+    fsrs_difficulty: float = Field(default=0.0)  # FSRS difficulty 1..10
+    reps: int = Field(default=0)
+    lapses: int = Field(default=0)
+    learning_step: int = Field(default=0)
+    scheduled_days: int = Field(default=0)
+    last_rating: Optional[str] = Field(default=None, max_length=8)
+    suspended: bool = Field(default=False)
+    is_leech: bool = Field(default=False)
+
+
+class CodingDeckConfig(SQLModel, table=True):
+    """Per-subject Anki-style flashcard deck options (one per child + subject)."""
+
+    __table_args__ = (UniqueConstraint("child_id", "subject_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    subject_id: int = Field(foreign_key="programmingsubject.id", index=True)
+    new_per_day: int = Field(default=20)
+    max_reviews_per_day: int = Field(default=200)
+    # learning/relearning steps in minutes, space-separated (Anki format)
+    learning_steps: str = Field(default="1 10", max_length=120)
+    relearning_steps: str = Field(default="10", max_length=120)
+    graduating_interval: int = Field(default=1)  # days
+    easy_interval: int = Field(default=4)         # days
+    desired_retention: float = Field(default=0.9)
+    maximum_interval: int = Field(default=36500)  # days
+    # new card insertion order: sequential | random
+    insertion_order: str = Field(default="sequential", max_length=12)
+    new_cards_ignore_review_limit: bool = Field(default=False)
+    leech_threshold: int = Field(default=8)
+    leech_action: str = Field(default="tag", max_length=12)  # tag | suspend
+    # FSRS weights override (empty = use defaults); 19 comma/space separated values
+    fsrs_parameters: str = Field(default="", max_length=400)
+    # Daily counters (reset when counter_date != today)
+    counter_date: Optional[date] = Field(default=None)
+    new_done_today: int = Field(default=0)
+    reviews_done_today: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class LeetCodeMethod(SQLModel, table=True):
@@ -233,7 +277,7 @@ class LeetCodeMethod(SQLModel, table=True):
     child_id: int = Field(foreign_key="childprofile.id", index=True)
     name: str = Field(max_length=200)
     category: Optional[str] = Field(default=None, max_length=80)
-    language: str = Field(default="Python", max_length=40)
+    language: str = Field(default="TypeScript", max_length=40)
     explanation: str = ""
     code_example: str = ""
     example_output: str = ""
