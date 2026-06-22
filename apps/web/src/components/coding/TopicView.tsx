@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, CheckCircle2, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
+import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
 interface Props {
   topic: ProgrammingTopic;
@@ -283,9 +284,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 <h3 className="mb-2 text-base font-black text-slate-800">{section.title}</h3>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{section.body}</p>
                 {section.code_example && (
-                  <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-900 p-4 text-xs text-slate-100">
-                    <code>{section.code_example}</code>
-                  </pre>
+                  <SyntaxCodeBlock code={section.code_example} language={subjectName} className="mt-3" />
                 )}
               </div>
             ))}
@@ -451,9 +450,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                     <p className="text-sm font-black text-slate-800">{fc.front}</p>
                     <p className="mt-1 text-sm leading-relaxed text-slate-600">{fc.back}</p>
                     {fc.code_example && (
-                      <pre className="mt-2 overflow-x-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100">
-                        <code>{fc.code_example}</code>
-                      </pre>
+                      <SyntaxCodeBlock code={fc.code_example} language={subjectName} className="mt-2 rounded-xl p-3" />
                     )}
                   </div>
                   <button type="button" onClick={() => handleDeleteFlashcard(fc.id)} className="shrink-0 rounded-xl p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500">

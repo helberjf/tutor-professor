@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CheckCircle2, ChevronRight, HelpCircle, Loader2, X, XCircle } from 'lucide-react';
 import { api, type CodingReviewCard, type ReviewRating } from '@/lib/api';
+import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
 interface Props {
   subjectName: string;
@@ -140,9 +141,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                   <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
                   <p className="leading-relaxed text-slate-700">{card.back}</p>
                   {card.code_example && (
-                    <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-900 p-3 text-xs text-slate-100">
-                      <code>{card.code_example}</code>
-                    </pre>
+                    <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />
                   )}
                 </div>
                 <div className="mt-4 flex gap-2">

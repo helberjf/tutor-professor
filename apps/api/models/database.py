@@ -233,7 +233,7 @@ class LeetCodeMethod(SQLModel, table=True):
     child_id: int = Field(foreign_key="childprofile.id", index=True)
     name: str = Field(max_length=200)
     category: Optional[str] = Field(default=None, max_length=80)
-    language: str = Field(default="Python", max_length=40)
+    language: str = Field(default="TypeScript", max_length=40)
     explanation: str = ""
     code_example: str = ""
     example_output: str = ""

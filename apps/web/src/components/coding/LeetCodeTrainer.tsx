@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, Code2, Database, Loader2, Sparkles, Terminal, Trash2, Trophy } from 'lucide-react';
 import { api, type LeetCodeMethod } from '@/lib/api';
+import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
 interface Props {
   onBack: () => void;
 }
 
-const LANGUAGES = ['Python', 'JavaScript', 'TypeScript', 'Java', 'Go'];
+const LANGUAGES = ['TypeScript', 'JavaScript', 'Python', 'Java', 'Go'];
 
 export function LeetCodeTrainer({ onBack }: Props) {
   const [methods, setMethods] = useState<LeetCodeMethod[]>([]);
@@ -16,7 +17,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
   const [hint, setHint] = useState('');
-  const [language, setLanguage] = useState('Python');
+  const [language, setLanguage] = useState('TypeScript');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -176,9 +177,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
                         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                           <Code2 size={12} /> Exemplo ({m.language})
                         </p>
-                        <pre className="overflow-x-auto rounded-2xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
-                          <code>{m.code_example}</code>
-                        </pre>
+                        <SyntaxCodeBlock code={m.code_example} language={m.language} />
                       </div>
                     )}
 
