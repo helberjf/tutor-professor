@@ -1,19 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
 import { api, type CodingReviewCard, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { TopicView } from './TopicView';
 import { ReviewSession } from './ReviewSession';
 import { LeetCodeTrainer } from './LeetCodeTrainer';
+import { FlashcardDeck } from './FlashcardDeck';
 
 type View =
   | { type: 'subjects' }
   | { type: 'topics'; subject: ProgrammingSubject }
   | { type: 'topic'; subject: ProgrammingSubject; topic: ProgrammingTopic }
   | { type: 'review'; subject: ProgrammingSubject; cards: CodingReviewCard[] }
+  | { type: 'deck'; subject: ProgrammingSubject }
   | { type: 'leetcode' };
 
 export function CodingCurriculum() {
@@ -183,22 +185,31 @@ export function CodingCurriculum() {
                       />
                     </div>
                   )}
-                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="mt-4 space-y-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={loadingTopics}
+                        onClick={() => loadTopics(subject)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                      >
+                        {loadingTopics ? <Loader2 size={12} className="animate-spin" /> : <BookOpen size={12} />} Estudar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loadingReview || subject.due_review_count === 0}
+                        onClick={() => handleStartReview(subject)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-40"
+                      >
+                        {loadingReview ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />} Revisar
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      disabled={loadingTopics}
-                      onClick={() => loadTopics(subject)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                      onClick={() => setView({ type: 'deck', subject })}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
                     >
-                      {loadingTopics ? <Loader2 size={12} className="animate-spin" /> : <BookOpen size={12} />} Estudar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loadingReview || subject.due_review_count === 0}
-                      onClick={() => handleStartReview(subject)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-40"
-                    >
-                      {loadingReview ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />} Revisar
+                      <Layers size={12} /> Flashcards
                     </button>
                   </div>
                 </div>
@@ -373,6 +384,20 @@ export function CodingCurriculum() {
           loadSubjects();
           setView({ type: 'topics', subject });
         }}
+      />
+    );
+  }
+
+  // ── Flashcard deck view ──────────────────────────────────────────────────
+  if (view.type === 'deck') {
+    const { subject } = view;
+    return (
+      <FlashcardDeck
+        subjectId={subject.id}
+        subjectName={subject.name}
+        subjectIcon={subject.icon_emoji}
+        onBack={() => { loadSubjects(); setView({ type: 'subjects' }); }}
+        onChanged={loadSubjects}
       />
     );
   }

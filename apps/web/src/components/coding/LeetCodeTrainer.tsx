@@ -3,12 +3,36 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, Code2, Database, Loader2, Sparkles, Terminal, Trash2, Trophy } from 'lucide-react';
 import { api, type LeetCodeMethod } from '@/lib/api';
+import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
 interface Props {
   onBack: () => void;
 }
 
-const LANGUAGES = ['Python', 'JavaScript', 'TypeScript', 'Java', 'Go'];
+const LANGUAGES = ['TypeScript', 'JavaScript', 'Python', 'Java', 'Go'];
+
+// Cor por linguagem (TypeScript é o padrão).
+const LANG_META: Record<string, { chip: string; dot: string; bar: string }> = {
+  TypeScript: { chip: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', bar: 'border-l-blue-400' },
+  JavaScript: { chip: 'bg-amber-100 text-amber-800', dot: 'bg-amber-400', bar: 'border-l-amber-400' },
+  Python: { chip: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', bar: 'border-l-emerald-400' },
+  Java: { chip: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500', bar: 'border-l-orange-400' },
+  Go: { chip: 'bg-cyan-100 text-cyan-700', dot: 'bg-cyan-500', bar: 'border-l-cyan-400' },
+};
+
+const LANG_HEX: Record<string, string> = {
+  TypeScript: '#3b82f6',
+  JavaScript: '#fbbf24',
+  Python: '#10b981',
+  Java: '#f97316',
+  Go: '#06b6d4',
+};
+
+const DEFAULT_LANG_META = { chip: 'bg-slate-100 text-slate-500', dot: 'bg-slate-400', bar: 'border-l-slate-300' };
+
+function langMeta(lang: string) {
+  return LANG_META[lang] ?? DEFAULT_LANG_META;
+}
 
 export function LeetCodeTrainer({ onBack }: Props) {
   const [methods, setMethods] = useState<LeetCodeMethod[]>([]);
@@ -16,7 +40,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
   const [hint, setHint] = useState('');
-  const [language, setLanguage] = useState('Python');
+  const [language, setLanguage] = useState('TypeScript');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -101,6 +125,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
+            style={{ borderLeftColor: LANG_HEX[language] ?? '#c4b5fd', borderLeftWidth: 6 }}
             className="rounded-2xl border-2 border-violet-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-violet-400"
           >
             {LANGUAGES.map((lang) => (
@@ -134,8 +159,13 @@ export function LeetCodeTrainer({ onBack }: Props) {
         <div className="space-y-3">
           {methods.map((m, idx) => {
             const expanded = expandedId === m.id;
+            const meta = langMeta(m.language);
             return (
-              <div key={m.id} className={`overflow-hidden rounded-3xl border-2 bg-white transition ${expanded ? 'border-amber-300' : 'border-slate-100'}`}>
+              <div
+                key={m.id}
+                style={{ borderLeftColor: LANG_HEX[m.language] ?? '#cbd5e1' }}
+                className={`overflow-hidden rounded-3xl border-2 border-l-[6px] bg-white transition ${expanded ? 'border-amber-300' : 'border-slate-100'}`}
+              >
                 {/* Collapsed header */}
                 <button
                   type="button"
@@ -147,7 +177,9 @@ export function LeetCodeTrainer({ onBack }: Props) {
                     <p className="font-black text-slate-800">{m.name}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
                       {m.category && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-bold text-sky-700">{m.category}</span>}
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-500">{m.language}</span>
+                      <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-bold ${meta.chip}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} /> {m.language}
+                      </span>
                       {m.complexity_time && (
                         <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">
                           <Clock size={10} /> {m.complexity_time}
@@ -176,9 +208,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
                         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                           <Code2 size={12} /> Exemplo ({m.language})
                         </p>
-                        <pre className="overflow-x-auto rounded-2xl bg-slate-900 p-4 text-xs leading-relaxed text-slate-100">
-                          <code>{m.code_example}</code>
-                        </pre>
+                        <SyntaxCodeBlock code={m.code_example} language={m.language} />
                       </div>
                     )}
 

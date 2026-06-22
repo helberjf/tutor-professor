@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingReviewItem, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -70,6 +70,16 @@ from schemas.schemas import (
     CodingReviewCardSchema,
     CodingReviewResultSchema,
     CodingReviewSessionSchema,
+    CreateDeckCardSchema,
+    DeckAttemptSchema,
+    DeckAttemptResultSchema,
+    DeckCardSchema,
+    DeckConfigSchema,
+    DeckOverviewSchema,
+    DeckStatsSchema,
+    DeckStudyCardSchema,
+    DeckStudySessionSchema,
+    UpdateDeckConfigSchema,
     CreateProgrammingFlashcardSchema,
     CreateProgrammingSubjectSchema,
     CreateProgrammingTopicSchema,
@@ -94,15 +104,23 @@ from services.book_service import BookGenerationService
 from services.content_service import ContentService
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
+    apply_deck_attempt,
     build_coding_review_cards,
+    build_deck_queue,
     build_topic_history_context,
+    compute_deck_stats,
     count_due_coding_items,
+    deck_options,
     generate_leetcode_method,
     generate_topic_ai_content,
+    get_or_create_deck_config,
+    preview_for_item,
     register_coding_review_attempt,
+    reset_daily_counters,
     seed_coding_review_item,
     VALID_TOPIC_STATUSES,
 )
+from services import fsrs_service
 from services.review_service import (
     build_review_cards,
     compute_review_priority,
@@ -248,6 +266,50 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE studyday ADD COLUMN pomodoro_count INTEGER NOT NULL DEFAULT 0"))
             except Exception:
                 pass
+        # Ensure index on lesson.level (column added via ALTER above, so create_all
+        # never gets a chance to build the declared index=True for it).
+        try:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_level ON lesson (level)"))
+        except Exception:
+            pass
+        # Add FSRS scheduling columns to codingreviewitem
+        _fsrs_columns = [
+            ("fsrs_state", "TEXT NOT NULL DEFAULT 'new'"),
+            ("stability", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("fsrs_difficulty", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("reps", "INTEGER NOT NULL DEFAULT 0"),
+            ("lapses", "INTEGER NOT NULL DEFAULT 0"),
+            ("learning_step", "INTEGER NOT NULL DEFAULT 0"),
+            ("scheduled_days", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_rating", "TEXT"),
+            ("suspended", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("is_leech", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ]
+        for col, ddl in _fsrs_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE codingreviewitem ADD COLUMN IF NOT EXISTS {col} {ddl}"))
+            except Exception:
+                try:
+                    conn.execute(text(f"ALTER TABLE codingreviewitem ADD COLUMN {col} {ddl}"))
+                except Exception:
+                    pass
+        # codingdeckconfig table: created by SQLModel.create_all on first run;
+        # add later columns for existing installs.
+        _deck_columns = [
+            ("insertion_order", "TEXT NOT NULL DEFAULT 'sequential'"),
+            ("new_cards_ignore_review_limit", "BOOLEAN NOT NULL DEFAULT FALSE"),
+            ("leech_threshold", "INTEGER NOT NULL DEFAULT 8"),
+            ("leech_action", "TEXT NOT NULL DEFAULT 'tag'"),
+            ("fsrs_parameters", "TEXT NOT NULL DEFAULT ''"),
+        ]
+        for col, ddl in _deck_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE codingdeckconfig ADD COLUMN IF NOT EXISTS {col} {ddl}"))
+            except Exception:
+                try:
+                    conn.execute(text(f"ALTER TABLE codingdeckconfig ADD COLUMN {col} {ddl}"))
+                except Exception:
+                    pass
         # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
@@ -2287,6 +2349,244 @@ def submit_coding_review_attempt(
         next_review=item.next_review,
         error_count=item.error_count,
         correct_count=item.correct_count,
+    )
+
+
+# ── Flashcard deck (Anki-style) endpoints ─────────────────────────────────────
+
+def _require_owned_subject(session: Session, child, subject_id: int) -> ProgrammingSubject:
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    return subject
+
+
+def _deck_config_schema(config: CodingDeckConfig) -> DeckConfigSchema:
+    return DeckConfigSchema(
+        new_per_day=config.new_per_day,
+        max_reviews_per_day=config.max_reviews_per_day,
+        learning_steps=config.learning_steps,
+        relearning_steps=config.relearning_steps,
+        graduating_interval=config.graduating_interval,
+        easy_interval=config.easy_interval,
+        desired_retention=config.desired_retention,
+        maximum_interval=config.maximum_interval,
+        insertion_order=config.insertion_order,
+        new_cards_ignore_review_limit=config.new_cards_ignore_review_limit,
+        leech_threshold=config.leech_threshold,
+        leech_action=config.leech_action,
+        # show actual weights in the UI; fall back to defaults when unset
+        fsrs_parameters=config.fsrs_parameters or fsrs_service.DEFAULT_W_STR,
+    )
+
+
+@app.get("/api/coding/subjects/{subject_id}/deck", response_model=DeckOverviewSchema)
+def get_deck_overview(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DeckOverviewSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = _require_owned_subject(session, child, subject_id)
+    config = get_or_create_deck_config(session, child.id or 0, subject_id)
+    reset_daily_counters(config)
+    now = datetime.utcnow()
+    rows = []
+    topic_cache: dict[int, ProgrammingTopic | None] = {}
+    flashcards = session.exec(
+        select(ProgrammingFlashcard).where(
+            ProgrammingFlashcard.child_id == child.id,
+            ProgrammingFlashcard.subject_id == subject_id,
+        )
+    ).all()
+    for fc in flashcards:
+        item = seed_coding_review_item(session, child.id or 0, fc.id or 0)
+        if fc.topic_id not in topic_cache:
+            topic_cache[fc.topic_id] = session.get(ProgrammingTopic, fc.topic_id)
+        rows.append((fc, topic_cache[fc.topic_id], item))
+    session.commit()
+
+    stats = compute_deck_stats(rows, config, now)
+    cards = [
+        DeckCardSchema(
+            review_item_id=item.id or 0,
+            flashcard_id=fc.id or 0,
+            topic_id=fc.topic_id,
+            topic_title=(topic.title if topic else "—"),
+            front=fc.front,
+            back=fc.back,
+            code_example=fc.code_example,
+            state=item.fsrs_state or "new",
+            due=item.next_review,
+            interval_label=("novo" if (item.reps or 0) == 0 else fsrs_service.format_interval(
+                max((item.next_review - now).total_seconds() / 60.0, 0.0)
+            )),
+            reps=item.reps or 0,
+            lapses=item.lapses or 0,
+            suspended=bool(getattr(item, "suspended", False)),
+            is_leech=bool(getattr(item, "is_leech", False)),
+        )
+        for fc, topic, item in rows
+    ]
+    return DeckOverviewSchema(
+        subject_id=subject_id,
+        subject_name=subject.name,
+        config=_deck_config_schema(config),
+        stats=DeckStatsSchema(**stats),
+        cards=cards,
+    )
+
+
+@app.put("/api/coding/subjects/{subject_id}/deck/config", response_model=DeckConfigSchema)
+def update_deck_config(
+    subject_id: int,
+    payload: UpdateDeckConfigSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DeckConfigSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    _require_owned_subject(session, child, subject_id)
+    config = get_or_create_deck_config(session, child.id or 0, subject_id)
+    data = payload.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(config, key, value)
+    config.updated_at = datetime.utcnow()
+    session.add(config)
+    session.commit()
+    session.refresh(config)
+    return _deck_config_schema(config)
+
+
+@app.get("/api/coding/subjects/{subject_id}/deck/study", response_model=DeckStudySessionSchema)
+def get_deck_study(
+    subject_id: int,
+    request: Request,
+    limit: int = 50,
+    session: Session = Depends(get_session),
+) -> DeckStudySessionSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    _require_owned_subject(session, child, subject_id)
+    config = get_or_create_deck_config(session, child.id or 0, subject_id)
+    reset_daily_counters(config)
+    now = datetime.utcnow()
+    queue, rows = build_deck_queue(session, child.id or 0, subject_id, config, limit=limit)
+    session.commit()
+    stats = compute_deck_stats(rows, config, now)
+    items = []
+    for fc, topic, item in queue:
+        items.append(
+            DeckStudyCardSchema(
+                review_item_id=item.id or 0,
+                flashcard_id=fc.id or 0,
+                topic_title=(topic.title if topic else "—"),
+                front=fc.front,
+                back=fc.back,
+                code_example=fc.code_example,
+                state=item.fsrs_state or "new",
+                previews=preview_for_item(item, config, now),
+            )
+        )
+    return DeckStudySessionSchema(stats=DeckStatsSchema(**stats), items=items)
+
+
+@app.post("/api/coding/deck/attempt", response_model=DeckAttemptResultSchema)
+def submit_deck_attempt(
+    payload: DeckAttemptSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DeckAttemptResultSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    item = session.get(CodingReviewItem, payload.review_item_id)
+    if item is None or item.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Card não encontrado.")
+    fc = session.get(ProgrammingFlashcard, item.flashcard_id)
+    if fc is None:
+        raise HTTPException(status_code=404, detail="Card não encontrado.")
+    config = get_or_create_deck_config(session, child.id or 0, fc.subject_id)
+    reset_daily_counters(config)
+    try:
+        item = apply_deck_attempt(session, child.id or 0, payload.review_item_id, payload.rating, config)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    session.commit()
+    session.refresh(item)
+    session.refresh(config)
+    now = datetime.utcnow()
+    rows = []
+    topic_cache: dict[int, ProgrammingTopic | None] = {}
+    flashcards = session.exec(
+        select(ProgrammingFlashcard).where(
+            ProgrammingFlashcard.child_id == child.id,
+            ProgrammingFlashcard.subject_id == fc.subject_id,
+        )
+    ).all()
+    for f in flashcards:
+        ri = seed_coding_review_item(session, child.id or 0, f.id or 0)
+        rows.append((f, None, ri))
+    stats = compute_deck_stats(rows, config, now)
+    return DeckAttemptResultSchema(
+        review_item_id=item.id or 0,
+        state=item.fsrs_state or "new",
+        next_review=item.next_review,
+        interval_label=fsrs_service.format_interval(max((item.next_review - now).total_seconds() / 60.0, 0.0)),
+        stats=DeckStatsSchema(**stats),
+    )
+
+
+@app.post("/api/coding/subjects/{subject_id}/deck/cards", response_model=ProgrammingFlashcardSchema, status_code=201)
+def create_deck_card(
+    subject_id: int,
+    payload: CreateDeckCardSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingFlashcardSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    _require_owned_subject(session, child, subject_id)
+    topic: ProgrammingTopic | None = None
+    if payload.topic_id is not None:
+        topic = session.get(ProgrammingTopic, payload.topic_id)
+        if topic is None or topic.subject_id != subject_id:
+            raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    if topic is None:
+        # Attach to (or create) a default "Cards avulsos" topic for this subject.
+        topics = session.exec(
+            select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)
+        ).all()
+        topic = next((t for t in topics if t.title == "Cards avulsos"), None)
+        if topic is None:
+            now = datetime.utcnow()
+            topic = ProgrammingTopic(
+                subject_id=subject_id,
+                title="Cards avulsos",
+                order_index=len(topics),
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(topic)
+            session.flush()
+    fc = ProgrammingFlashcard(
+        topic_id=topic.id or 0,
+        subject_id=subject_id,
+        child_id=child.id or 0,
+        front=payload.front.strip(),
+        back=payload.back.strip(),
+        code_example=(payload.code_example or "").strip() or None,
+        created_at=datetime.utcnow(),
+    )
+    session.add(fc)
+    session.flush()
+    seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    session.commit()
+    session.refresh(fc)
+    return ProgrammingFlashcardSchema(
+        id=fc.id or 0, topic_id=fc.topic_id, subject_id=fc.subject_id,
+        front=fc.front, back=fc.back, code_example=fc.code_example,
+        created_at=fc.created_at,
     )
 
 
