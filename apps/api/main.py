@@ -248,6 +248,12 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE studyday ADD COLUMN pomodoro_count INTEGER NOT NULL DEFAULT 0"))
             except Exception:
                 pass
+        # Ensure index on lesson.level (column added via ALTER above, so create_all
+        # never gets a chance to build the declared index=True for it).
+        try:
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_level ON lesson (level)"))
+        except Exception:
+            pass
         # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
