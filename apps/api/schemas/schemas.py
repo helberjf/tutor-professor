@@ -459,7 +459,7 @@ class LeetCodeMethodSchema(FromAttributesModel):
     id: int
     name: str
     category: Optional[str] = None
-    language: str = "Python"
+    language: str = "TypeScript"
     explanation: str
     code_example: str
     example_output: str
@@ -471,7 +471,7 @@ class LeetCodeMethodSchema(FromAttributesModel):
 
 class GenerateLeetCodeMethodRequestSchema(BaseModel):
     hint: str = Field(default="", max_length=120)
-    language: str = Field(default="Python", max_length=40)
+    language: str = Field(default="TypeScript", max_length=40)
 
 
 class CodingReviewResultSchema(BaseModel):
