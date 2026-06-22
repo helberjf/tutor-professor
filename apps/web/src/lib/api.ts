@@ -542,6 +542,84 @@ export interface CodingReviewAttemptResult {
 
 export type ReviewRating = 'knew' | 'partial' | 'unknown';
 
+// ── Flashcard deck (Anki-style) ────────────────────────────────────────────
+export type DeckRating = 'again' | 'hard' | 'good' | 'easy';
+export type DeckCardStateName = 'new' | 'learning' | 'review' | 'relearning';
+
+export interface DeckConfig {
+  new_per_day: number;
+  max_reviews_per_day: number;
+  learning_steps: string;
+  relearning_steps: string;
+  graduating_interval: number;
+  easy_interval: number;
+  desired_retention: number;
+  maximum_interval: number;
+  insertion_order: 'sequential' | 'random';
+  new_cards_ignore_review_limit: boolean;
+  leech_threshold: number;
+  leech_action: 'tag' | 'suspend';
+  fsrs_parameters: string;
+}
+
+export interface DeckStats {
+  total: number;
+  new: number;
+  learning: number;
+  review_due: number;
+  new_left_today: number;
+  reviews_left_today: number;
+}
+
+export interface DeckCard {
+  review_item_id: number;
+  flashcard_id: number;
+  topic_id: number;
+  topic_title: string;
+  front: string;
+  back: string;
+  code_example: string | null;
+  state: DeckCardStateName;
+  due: string;
+  interval_label: string;
+  reps: number;
+  lapses: number;
+  suspended: boolean;
+  is_leech: boolean;
+}
+
+export interface DeckOverview {
+  subject_id: number;
+  subject_name: string;
+  config: DeckConfig;
+  stats: DeckStats;
+  cards: DeckCard[];
+}
+
+export interface DeckStudyCard {
+  review_item_id: number;
+  flashcard_id: number;
+  topic_title: string;
+  front: string;
+  back: string;
+  code_example: string | null;
+  state: DeckCardStateName;
+  previews: Record<DeckRating, string>;
+}
+
+export interface DeckStudySession {
+  stats: DeckStats;
+  items: DeckStudyCard[];
+}
+
+export interface DeckAttemptResult {
+  review_item_id: number;
+  state: DeckCardStateName;
+  next_review: string;
+  interval_label: string;
+  stats: DeckStats;
+}
+
 export interface LeetCodeMethod {
   id: number;
   name: string;
@@ -853,6 +931,17 @@ export const api = {
     fetchAPI<CodingReviewSession>(`/api/coding/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
   submitCodingReviewAttempt: (payload: { review_item_id: number; rating: ReviewRating }) =>
     fetchAPI<CodingReviewAttemptResult>('/api/coding/review/attempt', { method: 'POST', body: JSON.stringify(payload) }),
+  // Flashcard deck (Anki-style FSRS)
+  getDeckOverview: (subjectId: number) =>
+    fetchAPI<DeckOverview>(`/api/coding/subjects/${subjectId}/deck`),
+  updateDeckConfig: (subjectId: number, payload: Partial<DeckConfig>) =>
+    fetchAPI<DeckConfig>(`/api/coding/subjects/${subjectId}/deck/config`, { method: 'PUT', body: JSON.stringify(payload) }),
+  getDeckStudy: (subjectId: number, limit = 50) =>
+    fetchAPI<DeckStudySession>(`/api/coding/subjects/${subjectId}/deck/study?limit=${limit}`),
+  submitDeckAttempt: (payload: { review_item_id: number; rating: DeckRating }) =>
+    fetchAPI<DeckAttemptResult>('/api/coding/deck/attempt', { method: 'POST', body: JSON.stringify(payload) }),
+  createDeckCard: (subjectId: number, payload: { front: string; back: string; code_example?: string; topic_id?: number }) =>
+    fetchAPI<ProgrammingFlashcard>(`/api/coding/subjects/${subjectId}/deck/cards`, { method: 'POST', body: JSON.stringify(payload) }),
   // LeetCode trainer
   getLeetCodeMethods: () =>
     fetchAPI<LeetCodeMethod[]>('/api/coding/leetcode'),

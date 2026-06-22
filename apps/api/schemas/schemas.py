@@ -481,6 +481,110 @@ class CodingReviewResultSchema(BaseModel):
     error_count: int
     correct_count: int
 
+
+# ── Flashcard deck (Anki-style) ────────────────────────────────────────────────
+
+class DeckConfigSchema(FromAttributesModel):
+    new_per_day: int = 20
+    max_reviews_per_day: int = 200
+    learning_steps: str = "1 10"
+    relearning_steps: str = "10"
+    graduating_interval: int = 1
+    easy_interval: int = 4
+    desired_retention: float = 0.9
+    maximum_interval: int = 36500
+    insertion_order: str = "sequential"
+    new_cards_ignore_review_limit: bool = False
+    leech_threshold: int = 8
+    leech_action: str = "tag"
+    fsrs_parameters: str = ""
+
+
+class UpdateDeckConfigSchema(BaseModel):
+    new_per_day: Optional[int] = Field(default=None, ge=0, le=9999)
+    max_reviews_per_day: Optional[int] = Field(default=None, ge=0, le=99999)
+    learning_steps: Optional[str] = Field(default=None, max_length=120)
+    relearning_steps: Optional[str] = Field(default=None, max_length=120)
+    graduating_interval: Optional[int] = Field(default=None, ge=1, le=36500)
+    easy_interval: Optional[int] = Field(default=None, ge=1, le=36500)
+    desired_retention: Optional[float] = Field(default=None, ge=0.7, le=0.99)
+    maximum_interval: Optional[int] = Field(default=None, ge=1, le=36500)
+    insertion_order: Optional[Literal["sequential", "random"]] = None
+    new_cards_ignore_review_limit: Optional[bool] = None
+    leech_threshold: Optional[int] = Field(default=None, ge=0, le=99)
+    leech_action: Optional[Literal["tag", "suspend"]] = None
+    fsrs_parameters: Optional[str] = Field(default=None, max_length=400)
+
+
+class DeckStatsSchema(BaseModel):
+    total: int = 0
+    new: int = 0
+    learning: int = 0
+    review_due: int = 0
+    new_left_today: int = 0
+    reviews_left_today: int = 0
+
+
+class DeckCardSchema(BaseModel):
+    review_item_id: int
+    flashcard_id: int
+    topic_id: int
+    topic_title: str
+    front: str
+    back: str
+    code_example: Optional[str] = None
+    state: str
+    due: datetime
+    interval_label: str
+    reps: int
+    lapses: int
+    suspended: bool = False
+    is_leech: bool = False
+
+
+class DeckOverviewSchema(BaseModel):
+    subject_id: int
+    subject_name: str
+    config: DeckConfigSchema
+    stats: DeckStatsSchema
+    cards: List[DeckCardSchema]
+
+
+class DeckStudyCardSchema(BaseModel):
+    review_item_id: int
+    flashcard_id: int
+    topic_title: str
+    front: str
+    back: str
+    code_example: Optional[str] = None
+    state: str
+    previews: Dict[str, str]
+
+
+class DeckStudySessionSchema(BaseModel):
+    stats: DeckStatsSchema
+    items: List[DeckStudyCardSchema]
+
+
+class DeckAttemptSchema(BaseModel):
+    review_item_id: int
+    rating: Literal["again", "hard", "good", "easy"]
+
+
+class DeckAttemptResultSchema(BaseModel):
+    review_item_id: int
+    state: str
+    next_review: datetime
+    interval_label: str
+    stats: DeckStatsSchema
+
+
+class CreateDeckCardSchema(BaseModel):
+    front: str = Field(min_length=1, max_length=500)
+    back: str = Field(min_length=1, max_length=2000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
+    topic_id: Optional[int] = None
+
 class ParentLoginSchema(BaseModel):
     password: str
 
