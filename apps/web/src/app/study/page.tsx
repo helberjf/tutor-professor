@@ -1226,7 +1226,7 @@ function EnglishTab({
         </div>
 
         {/* Sidebar */}
-        <aside className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
             todayCount={todayPomodoroCount}
@@ -1335,7 +1335,7 @@ function CodingTab({
       <div>
         <CodingCurriculum />
       </div>
-      <aside className="space-y-6">
+      <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
         <PomodoroWidget
           mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
           todayCount={todayPomodoroCount} notificationPermission={notificationPermission}
@@ -1588,7 +1588,7 @@ function DiverseTab({
           </button>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
             todayCount={todayPomodoroCount}
@@ -1846,7 +1846,7 @@ function DiverseSubjectDashboard({
           </button>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
           <PomodoroWidget
             mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
             todayCount={todayPomodoroCount}
