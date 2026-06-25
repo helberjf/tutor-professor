@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/navbar';
 import { BottomNav } from '@/components/bottom-nav';
+import { ThemeProvider } from '@/components/theme-provider';
+import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
   title: 'Language&Tutor',
@@ -21,11 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <body>
-        <Navbar />
-        <div className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
-        <BottomNav />
+        <ThemeScript />
+        <ThemeProvider>
+          <Navbar />
+          <div className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
+          <BottomNav />
+        </ThemeProvider>
       </body>
     </html>
   );

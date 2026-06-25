@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const primaryLinks = [
   { href: '/', label: 'Inicio', icon: Home },
@@ -31,7 +32,7 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="fixed left-0 top-0 z-40 w-full border-b border-white/70 bg-white/78 backdrop-blur-xl">
+      <nav className="app-navbar fixed left-0 top-0 z-40 w-full border-b border-white/70 bg-white/78 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 md:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-sky-400 via-indigo-500 to-emerald-400 shadow-[0_16px_32px_rgba(14,165,233,0.25)]">
@@ -43,13 +44,16 @@ export function Navbar() {
             </div>
           </Link>
 
-          <button
-            className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-primary transition hover:border-primary focus:outline-none"
-            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle compact className="hidden sm:inline-grid" />
+            <button
+              className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-primary transition hover:border-primary focus:outline-none"
+              aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -57,12 +61,12 @@ export function Navbar() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-slate-900/18 backdrop-blur-sm"
+            className="app-menu-overlay fixed inset-0 z-40 bg-slate-900/18 backdrop-blur-sm"
             aria-label="Fechar menu"
             onClick={() => setOpen(false)}
           />
 
-          <aside className="fixed right-0 top-0 z-50 flex h-full w-[min(22rem,88vw)] flex-col border-l border-white/70 bg-white/95 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+          <aside className="app-menu-panel fixed right-0 top-0 z-50 flex h-full w-[min(22rem,88vw)] flex-col border-l border-white/70 bg-white/95 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
             <div className="flex shrink-0 items-start justify-between gap-4 p-5 pb-0">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Menu</p>
@@ -79,6 +83,11 @@ export function Navbar() {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5">
+              <div className="mt-8">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aparencia</p>
+                <ThemeToggle className="mt-4 w-full" />
+              </div>
+
               <div className="mt-8">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aprender</p>
               <ul className="mt-4 space-y-2">
