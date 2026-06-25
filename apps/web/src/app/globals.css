@@ -11,6 +11,45 @@
   --pink: #f472b6;
   --paper: #fffdf7;
   --ink: #1e293b;
+  --app-bg-start: #fefce8;
+  --app-bg-mid: #ecfeff;
+  --app-bg-end: #f8fafc;
+  --app-glow-warm: rgba(250, 204, 21, 0.32);
+  --app-glow-cool: rgba(96, 165, 250, 0.24);
+  --app-glow-green: rgba(34, 197, 94, 0.18);
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: rgba(255, 255, 255, 0.96);
+  --surface-muted: #f8fafc;
+  --surface-tint: #f0f9ff;
+  --line-soft: rgba(226, 232, 240, 0.95);
+  --line-strong: rgba(203, 213, 225, 0.95);
+  --text-strong: #1e293b;
+  --text: #334155;
+  --text-muted: #64748b;
+  --text-soft: #94a3b8;
+  --shadow-soft: 0 24px 70px rgba(14, 165, 233, 0.15);
+}
+
+html[data-theme='dark'] {
+  --paper: #0f172a;
+  --ink: #e2e8f0;
+  --app-bg-start: #0f172a;
+  --app-bg-mid: #111827;
+  --app-bg-end: #020617;
+  --app-glow-warm: rgba(251, 146, 60, 0.11);
+  --app-glow-cool: rgba(14, 165, 233, 0.18);
+  --app-glow-green: rgba(34, 197, 94, 0.1);
+  --surface: rgba(15, 23, 42, 0.86);
+  --surface-strong: rgba(15, 23, 42, 0.96);
+  --surface-muted: rgba(30, 41, 59, 0.82);
+  --surface-tint: rgba(14, 165, 233, 0.14);
+  --line-soft: rgba(100, 116, 139, 0.32);
+  --line-strong: rgba(148, 163, 184, 0.4);
+  --text-strong: #f8fafc;
+  --text: #dbeafe;
+  --text-muted: #b6c2d5;
+  --text-soft: #8ea0b8;
+  --shadow-soft: 0 24px 70px rgba(2, 6, 23, 0.38);
 }
 
 * {
@@ -28,10 +67,11 @@ body {
   color: var(--ink);
   font-family: 'Trebuchet MS', cursive, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba(250, 204, 21, 0.32), transparent 30%),
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.24), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(34, 197, 94, 0.18), transparent 26%),
-    linear-gradient(180deg, #fefce8 0%, #ecfeff 48%, #f8fafc 100%);
+    radial-gradient(circle at top left, var(--app-glow-warm), transparent 30%),
+    radial-gradient(circle at top right, var(--app-glow-cool), transparent 28%),
+    radial-gradient(circle at bottom left, var(--app-glow-green), transparent 26%),
+    linear-gradient(180deg, var(--app-bg-start) 0%, var(--app-bg-mid) 48%, var(--app-bg-end) 100%);
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 a {
@@ -51,11 +91,99 @@ textarea {
 }
 
 .kid-surface {
-  @apply rounded-[1.5rem] border-4 border-white/70 bg-white/90 shadow-[0_24px_70px_rgba(14,165,233,0.15)] backdrop-blur-sm md:rounded-[2rem];
+  border-color: rgba(255, 255, 255, 0.7);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  @apply rounded-[1.5rem] border-4 backdrop-blur-sm md:rounded-[2rem];
 }
 
 .kid-tag {
-  @apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-slate-500 md:px-4 md:py-2 md:text-sm md:tracking-[0.18em];
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  @apply inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] md:px-4 md:py-2 md:text-sm md:tracking-[0.18em];
+}
+
+.app-navbar,
+.app-bottom-nav,
+.app-menu-panel {
+  border-color: var(--line-soft);
+  background: color-mix(in srgb, var(--surface-strong) 90%, transparent);
+}
+
+.app-menu-overlay {
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.theme-toggle {
+  border-color: var(--line-soft);
+  background: color-mix(in srgb, var(--surface-strong) 86%, transparent);
+}
+
+html[data-theme='dark'] .theme-toggle-option[aria-checked='true'] {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: #ffffff !important;
+}
+
+html[data-theme='dark'] :is(input, select, textarea) {
+  border-color: var(--line-strong) !important;
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  color: var(--text-strong) !important;
+}
+
+html[data-theme='dark'] :is(input, select, textarea)::placeholder {
+  color: var(--text-soft);
+}
+
+html[data-theme='dark'] :is(.bg-white, [class~='bg-white/78'], [class~='bg-white/85'], [class~='bg-white/90'], [class~='bg-white/95']) {
+  background-color: var(--surface-strong) !important;
+}
+
+html[data-theme='dark'] :is(.bg-slate-50, .bg-slate-100) {
+  background-color: var(--surface-muted) !important;
+}
+
+html[data-theme='dark'] :is(.bg-sky-50, .bg-primary-light, .bg-cyan-50) {
+  background-color: rgba(14, 165, 233, 0.14) !important;
+}
+
+html[data-theme='dark'] :is(.bg-indigo-50, .bg-violet-50, .bg-violet-100) {
+  background-color: rgba(129, 140, 248, 0.14) !important;
+}
+
+html[data-theme='dark'] :is(.bg-amber-50, .bg-amber-100, .bg-yellow-50, .bg-secondary-light) {
+  background-color: rgba(251, 191, 36, 0.14) !important;
+}
+
+html[data-theme='dark'] :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-accent-light) {
+  background-color: rgba(34, 197, 94, 0.14) !important;
+}
+
+html[data-theme='dark'] :is(.bg-rose-50, .bg-red-50, .bg-pink-50) {
+  background-color: rgba(244, 63, 94, 0.14) !important;
+}
+
+html[data-theme='dark'] :is(.border-white, [class~='border-white/70'], .border-slate-100, .border-slate-200, .border-sky-100) {
+  border-color: var(--line-soft) !important;
+}
+
+html[data-theme='dark'] :is(.text-slate-900, .text-slate-800) {
+  color: var(--text-strong) !important;
+}
+
+html[data-theme='dark'] :is(.text-slate-700, .text-slate-600) {
+  color: var(--text) !important;
+}
+
+html[data-theme='dark'] :is(.text-slate-500, .text-slate-400, .text-slate-300) {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme='dark'] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line-soft) !important;
+}
+
+html[data-theme='dark'] :is(.hover\:bg-slate-100:hover, .hover\:bg-slate-50:hover, .hover\:bg-primary-light:hover) {
+  background-color: rgba(51, 65, 85, 0.82) !important;
 }
 
 .story-dots {
