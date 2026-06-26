@@ -163,7 +163,7 @@ function createLocalLessonId() {
 function buildLessonTitle(subject: DiverseSubject, topics: CodingTopic[]) {
   const lessonNumber = getDiverseSubjectLessons(subject).length + 1;
   const firstTopic = topics[0]?.topic?.trim();
-  return firstTopic ? `Licao ${lessonNumber}: ${firstTopic.slice(0, 42)}` : `Licao ${lessonNumber}`;
+  return firstTopic ? `Lição ${lessonNumber}: ${firstTopic.slice(0, 42)}` : `Lição ${lessonNumber}`;
 }
 
 export default function StudyPage() {
@@ -296,7 +296,7 @@ export default function StudyPage() {
         setPomodoroState((prev) => ({ ...prev, completedByDate: merged }));
         pomodoroSyncBaseRef.current = { ...merged };
       })
-      .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar os estudos.')); })
+      .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar os estudos.')); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [authState.status]);
@@ -481,7 +481,7 @@ export default function StudyPage() {
       setDashboard(refreshed);
       setSavedMessage(studiedText.trim() ? 'Estudo registrado.' : 'Planejamento salvo.');
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar.'));
+      setError(err instanceof ApiError ? err : new ApiError('Não foi possível salvar.'));
     } finally { setSaving(false); }
   }
 
@@ -509,7 +509,7 @@ export default function StudyPage() {
       setCodingDay(saved);
       setCodingSaved('Progresso de programacao salvo.');
     } catch {
-      setCodingError('Nao foi possivel salvar o progresso.');
+      setCodingError('Não foi possível salvar o progresso.');
     } finally { setSavingCoding(false); }
   }
 
@@ -735,7 +735,7 @@ export default function StudyPage() {
       setNewSubjectName('');
       selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar aula com IA.';
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível criar aula com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
@@ -744,7 +744,7 @@ export default function StudyPage() {
     const subject = diverseDay?.custom_subjects[subjectIndex];
     if (!subject?.name.trim()) return;
     if (subject.topics.length >= 50) {
-      setAiError('Limite de 50 topicos gerais atingido. Crie uma nova licao em bloco para continuar.');
+      setAiError('Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar.');
       return;
     }
     setGeneratingAI(true);
@@ -772,9 +772,9 @@ export default function StudyPage() {
         );
         return { ...current, custom_subjects: subjects };
       });
-      setDiverseSaved('Topico sugerido pela IA. Salve a materia para guardar.');
+      setDiverseSaved('Tópico sugerido pela IA. Salve a matéria para guardar.');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel sugerir topico com IA.';
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível sugerir tópico com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
@@ -783,7 +783,7 @@ export default function StudyPage() {
     const subject = diverseDay?.custom_subjects[subjectIndex];
     if (!subject?.name.trim()) return;
     if (getDiverseSubjectLessons(subject).length >= 30) {
-      setAiError('Limite de 30 blocos de licao atingido para esta materia.');
+      setAiError('Limite de 30 blocos de lição atingido para esta matéria.');
       return;
     }
     setGeneratingAI(true);
@@ -802,7 +802,7 @@ export default function StudyPage() {
       });
       const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
       if (topics.length === 0) {
-        setAiError('A IA gerou apenas topicos repetidos. Tente novamente para criar uma licao nova.');
+        setAiError('A IA gerou apenas tópicos repetidos. Tente novamente para criar uma lição nova.');
         return;
       }
       const lesson: DiverseLessonBlock = {
@@ -812,9 +812,9 @@ export default function StudyPage() {
         topics,
       };
       setPendingLessonDraft({ subjectIndex, lesson });
-      setDiverseSaved('Preview da licao criado. Revise antes de salvar.');
+      setDiverseSaved('Preview da lição criado. Revise antes de salvar.');
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Nao foi possivel criar licao com IA.';
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível criar lição com IA.';
       setAiError(msg);
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
@@ -831,7 +831,7 @@ export default function StudyPage() {
       return { ...current, custom_subjects: subjects };
     });
     setPendingLessonDraft(null);
-    setDiverseSaved('Licao adicionada em bloco. Salve a materia para guardar.');
+    setDiverseSaved('Lição adicionada em bloco. Salve a matéria para guardar.');
   }
 
   function discardPendingLessonDraft() {
@@ -857,7 +857,7 @@ export default function StudyPage() {
       setDiverseDay(saved);
       setDiverseSaved('Aprendizado diverso salvo.');
     } catch {
-      setDiverseError('Nao foi possivel salvar.');
+      setDiverseError('Não foi possível salvar.');
     } finally { setSavingDiverse(false); }
   }
 
@@ -923,10 +923,10 @@ export default function StudyPage() {
         </div>
 
         {/* Tab switcher */}
-        <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
+        <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
-          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras materias" />
+          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" />
           <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           {diverseSubjectTabs.map((item) => (
             <TabButton
@@ -947,21 +947,21 @@ export default function StudyPage() {
             <BookOpen size={26} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-xl font-black text-slate-800">Comecar licao de ingles</span>
-            <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir a pagina de licoes</span>
+            <span className="block text-xl font-black text-slate-800">Começar lição de inglês</span>
+            <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir página de lições</span>
           </span>
           <ChevronRight size={24} className="shrink-0 text-primary" />
         </Link>
 
         {/* Date picker (shared) */}
         <div className="mb-6 flex justify-end">
-          <label className="flex flex-col gap-1.5 rounded-[1.2rem] border-2 border-slate-100 bg-white/80 px-4 py-3">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Data</span>
+          <label className="flex flex-col gap-1.5 rounded-[1.2rem] border-2 border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Data</span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="min-h-10 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary"
+              className="min-h-10 rounded-xl border-2 border-slate-300 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-primary"
             />
           </label>
         </div>
@@ -1089,7 +1089,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
       type="button"
       onClick={onClick}
       className={`flex min-w-fit shrink-0 items-center justify-center gap-2 rounded-[1.15rem] px-4 py-2.5 text-sm font-black transition ${
-        active ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+        active ? 'bg-primary text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
       {icon} {label}
@@ -1195,7 +1195,7 @@ function EnglishTab({
             <label className="block">
               <span className="text-sm font-black text-slate-700">O que estudou</span>
               <textarea value={studiedText} onChange={(e) => setStudiedText(e.target.value)} rows={5} maxLength={3000}
-                placeholder="Ex.: Fiz a licao de greetings, ouvi os audios e revisei flashcards."
+                placeholder="Ex.: Fiz a lição de greetings, ouvi os áudios e revisei flashcards."
                 className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
             </label>
 
@@ -1368,7 +1368,7 @@ function CodingTab({
             </span>
             <span>
               <span className="block text-lg font-black">Modo leitura</span>
-              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e topicos</span>
+              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e tópicos</span>
             </span>
           </button>
           <button
@@ -1385,7 +1385,7 @@ function CodingTab({
             </span>
             <span>
               <span className="block text-lg font-black">Modo flashcards</span>
-              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por materia</span>
+              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por matéria</span>
             </span>
           </button>
         </section>
@@ -1475,12 +1475,12 @@ function DiverseTab({
     <div className="space-y-6">
       {/* Header */}
       <section className="kid-surface border-primary/30 p-6 md:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras materias</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
         <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <MetricCard icon={<Layers size={22} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
-          <MetricCard icon={<CheckCircle2 size={22} />} label="Topicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
+          <MetricCard icon={<CheckCircle2 size={22} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Em progresso'}
             helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
         </div>
@@ -1611,7 +1611,7 @@ function DiverseTab({
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <p className="text-2xl font-black text-slate-800">{total}</p>
-                        <p className="text-xs font-bold text-slate-400">Topicos</p>
+                        <p className="text-xs font-bold text-slate-400">Tópicos</p>
                       </div>
                       <div className="rounded-2xl bg-indigo-50 p-3">
                         <p className="text-2xl font-black text-indigo-600">{lessonCount}</p>
@@ -1654,7 +1654,7 @@ function DiverseTab({
           <div className="kid-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Digite o nome da materia (ex: React, Python, Frances) e clique em <strong>Criar</strong> para adicionar manualmente.</p>
+              <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Criar</strong> para adicionar manualmente.</p>
               <p>Abra cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
               <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
             </div>
@@ -1739,13 +1739,13 @@ function DiverseSubjectDashboard({
           onClick={onBack}
           className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-200"
         >
-          <ArrowLeft size={16} /> Voltar para materias
+          <ArrowLeft size={16} /> Voltar para matérias
         </button>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da materia</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da matéria</p>
         <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{subject.name}</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-4">
-          <MetricCard icon={<Layers size={22} />} label="Topicos" value={`${totalTopics}`} helper="Nesta materia" tone="sky" />
+          <MetricCard icon={<Layers size={22} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
           <MetricCard icon={<BookOpen size={22} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
@@ -1762,7 +1762,7 @@ function DiverseSubjectDashboard({
             onChange={(e) => setLessonContext(e.target.value)}
             rows={3}
             maxLength={700}
-            placeholder="Ex.: criar uma licao sobre hooks, props e erros comuns para dev junior."
+            placeholder="Ex.: criar uma lição sobre hooks, props e erros comuns para dev junior."
             className="w-full resize-none rounded-2xl border-2 border-violet-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-400"
           />
         </div>
@@ -1783,7 +1783,7 @@ function DiverseSubjectDashboard({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'lesson' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'lesson' ? 'Criando preview...' : 'Criar preview da licao'}
+            {aiAction === 'lesson' ? 'Criando preview...' : 'Criar preview da lição'}
           </button>
         </div>
         {aiError && (
@@ -1821,9 +1821,9 @@ function DiverseSubjectDashboard({
           <div className="mt-4 rounded-[1.25rem] border-2 border-violet-200 bg-violet-50/70 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">Preview da licao</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">Preview da lição</p>
                 <h2 className="mt-1 text-lg font-black text-slate-800">{pendingLessonDraft.title}</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} topicos gerados</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} tópicos gerados</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:min-w-56">
                 <button
@@ -1831,7 +1831,7 @@ function DiverseSubjectDashboard({
                   onClick={onSaveLessonDraft}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700"
                 >
-                  <Save size={14} /> Salvar licao
+                  <Save size={14} /> Salvar lição
                 </button>
                 <button
                   type="button"
@@ -1898,7 +1898,7 @@ function DiverseSubjectDashboard({
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse}
             className="kid-button w-full bg-primary hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-            Salvar materia
+            Salvar matéria
           </button>
         </div>
 
@@ -1910,11 +1910,11 @@ function DiverseSubjectDashboard({
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
           <div className="kid-surface border-slate-100 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Foco da materia</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Foco da matéria</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Use Lista para ajustar os topicos e respostas.</p>
-              <p>Use Estudar para revisar a materia como flashcards.</p>
-              <p>Use a IA para sugerir um topico rapido ou criar uma licao separada em bloco.</p>
+              <p>Use Lista para ajustar os tópicos e respostas.</p>
+              <p>Use Estudar para revisar a matéria como flashcards.</p>
+              <p>Use a IA para sugerir um tópico rápido ou criar uma lição separada em bloco.</p>
               <p>A URL desta aba segue o formato <strong>tab=nomedamateria</strong>.</p>
             </div>
           </div>
@@ -2143,7 +2143,7 @@ function SubjectStudyCard({
                         {t.last_rating && (
                           <span className={`h-2 w-2 shrink-0 rounded-full ${RATING_META[t.last_rating].dot}`} title={`Última revisão: ${RATING_META[t.last_rating].label}`} />
                         )}
-                        <span className="min-w-0 break-words">{t.topic || `Topico ${ti + 1}`}</span>
+                        <span className="min-w-0 break-words">{t.topic || `Tópico ${ti + 1}`}</span>
                       </span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
                         {t.answer && !topicOpen && <span className="truncate">Resposta salva</span>}
@@ -2383,7 +2383,7 @@ function SubjectStudyCard({
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Modo de visualizacao</p>
                 <h3 className="mt-1 text-xl font-black text-slate-800">{subject.name}</h3>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
-                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700">{totalTopics} topicos</span>
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700">{totalTopics} tópicos</span>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">{doneCount} concluidos</span>
                 </div>
               </div>
@@ -2395,7 +2395,7 @@ function SubjectStudyCard({
                         {index + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="break-words text-base font-black text-slate-800">{topic.topic || `Topico ${index + 1}`}</p>
+                        <p className="break-words text-base font-black text-slate-800">{topic.topic || `Tópico ${index + 1}`}</p>
                         <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
                           {topic.answer?.trim() || 'Sem explicacao cadastrada.'}
                         </p>

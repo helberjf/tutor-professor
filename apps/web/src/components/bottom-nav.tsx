@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { BookOpen, Bot, Brain, ClipboardList, Trophy } from 'lucide-react';
 
 const tabs = [
-  { href: '/lesson', label: 'Licao', icon: BookOpen },
+  { href: '/lesson', label: 'Lição', icon: BookOpen },
   { href: '/study', label: 'Estudos', icon: ClipboardList },
   { href: '/quiz', label: 'Quiz', icon: Trophy },
-  { href: '/review', label: 'Revisao', icon: Brain },
+  { href: '/review', label: 'Revisão', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
 ];
 
@@ -19,7 +19,7 @@ export function BottomNav() {
     <nav
       className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/90 backdrop-blur-xl md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      aria-label="Navegacao rapida"
+      aria-label="Navegação rápida"
     >
       <ul className="mx-auto flex max-w-md items-stretch justify-between px-2">
         {tabs.map((tab) => {
