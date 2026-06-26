@@ -18,7 +18,13 @@ type View =
   | { type: 'deck'; subject: ProgrammingSubject }
   | { type: 'leetcode' };
 
-export function CodingCurriculum() {
+type CodingFocusMode = 'reading' | 'flashcards';
+
+interface CodingCurriculumProps {
+  focusMode?: CodingFocusMode;
+}
+
+export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProps) {
   const [view, setView] = useState<View>({ type: 'subjects' });
   const [subjects, setSubjects] = useState<ProgrammingSubject[]>([]);
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
@@ -35,6 +41,12 @@ export function CodingCurriculum() {
   useEffect(() => {
     loadSubjects();
   }, []);
+
+  useEffect(() => {
+    setTopics([]);
+    setError('');
+    setView({ type: 'subjects' });
+  }, [focusMode]);
 
   async function loadSubjects() {
     setLoading(true);
@@ -115,12 +127,24 @@ export function CodingCurriculum() {
   }
 
   // ── Subjects view ────────────────────────────────────────────────────────
+  function openSubject(subject: ProgrammingSubject) {
+    if (focusMode === 'flashcards') {
+      setView({ type: 'deck', subject });
+      return;
+    }
+
+    void loadTopics(subject);
+  }
+
   if (view.type === 'subjects') {
     return (
       <div className="space-y-6">
         <section className="kid-surface border-primary/30 p-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
           <h1 className="mt-2 text-3xl font-black text-slate-800">Minhas Matérias</h1>
+          <p className="mt-2 text-sm font-bold text-slate-500">
+            {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma materia para treinar.' : 'Modo leitura: escolha uma materia para estudar.'}
+          </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <MetricChip icon={<BookOpen size={20} />} label="Matérias" value={subjects.length} tone="sky" />
             <MetricChip icon={<CheckCircle2 size={20} />} label="Tópicos estudados" value={subjects.reduce((a, s) => a + s.studied_count, 0)} tone="green" />
@@ -154,7 +178,7 @@ export function CodingCurriculum() {
                 <div
                   key={subject.id}
                   className="group cursor-pointer rounded-3xl border-2 border-slate-100 bg-white p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
-                  onClick={() => loadTopics(subject)}
+                  onClick={() => openSubject(subject)}
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-light text-2xl">
@@ -190,10 +214,17 @@ export function CodingCurriculum() {
                       <button
                         type="button"
                         disabled={loadingTopics}
-                        onClick={() => loadTopics(subject)}
+                        onClick={() => openSubject(subject)}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                       >
-                        {loadingTopics ? <Loader2 size={12} className="animate-spin" /> : <BookOpen size={12} />} Estudar
+                        {loadingTopics ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : focusMode === 'flashcards' ? (
+                          <Layers size={12} />
+                        ) : (
+                          <BookOpen size={12} />
+                        )}
+                        {focusMode === 'flashcards' ? 'Flashcards' : 'Estudar'}
                       </button>
                       <button
                         type="button"

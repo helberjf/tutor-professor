@@ -152,10 +152,10 @@ export default function HomePage() {
                 <div className="relative inline-flex">
                   <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
                   <Link
-                    href="/lesson"
+                    href="/study"
                     className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-2xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:px-12 md:py-6 md:text-3xl"
                   >
-                    <Sparkles size={28} />
+                    <ClipboardList size={28} />
                     Iniciar estudos
                   </Link>
                 </div>
