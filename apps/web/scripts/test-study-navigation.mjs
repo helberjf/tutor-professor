@@ -17,10 +17,13 @@ assert.match(
   /href="\/study"[\s\S]*?Iniciar estudos|Iniciar estudos[\s\S]*?href="\/study"/,
   'home page primary study CTA should link to /study',
 );
+assert.match(homePage, /Vamos aprender inglês do seu jeito/, 'home hero should use updated Portuguese copy');
+assert.doesNotMatch(homePage, /story-dots/, 'home hero should not use the white dotted background pattern');
+assert.match(homePage, /rounded-\[2rem\][\s\S]*bg-gradient-to-br/, 'home hero should use the modern gradient surface');
 
 assert.match(
   studyPage,
-  /href="\/lesson"[\s\S]*?(Comecar licao|Ir para licao|Continuar licao)|(?:Comecar licao|Ir para licao|Continuar licao)[\s\S]*?href="\/lesson"/,
+  /href="\/lesson"[\s\S]*?(Começar lição|Ir para lição|Continuar lição)|(?:Começar lição|Ir para lição|Continuar lição)[\s\S]*?href="\/lesson"/,
   'study page should include a large lesson CTA linking to /lesson',
 );
 

@@ -67,7 +67,7 @@ export default function HomePage() {
             className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-100"
           >
             <WifiOff size={16} className="shrink-0" />
-            <span>Servidor ainda nao ativado — toque aqui para conectar</span>
+            <span>Servidor ainda não ativado — toque aqui para conectar</span>
           </Link>
         )}
 
@@ -76,7 +76,7 @@ export default function HomePage() {
           <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-6 py-5 text-center sm:flex-row sm:text-left">
             <LogIn size={20} className="shrink-0 text-sky-600" />
             <span className="flex-1 text-sm font-semibold text-sky-700">
-              Faca cadastro ou entre para acessar as licoes, quiz e livros.
+              Faça cadastro ou entre para acessar as lições, quiz e livros.
             </span>
             <div className="flex gap-2">
               <Link href="/login" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700">
@@ -90,32 +90,30 @@ export default function HomePage() {
         )}
 
         {/* Hero */}
-        <section className="kid-surface story-dots relative overflow-hidden border-primary/30 p-8 text-center md:p-12">
-          <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-yellow-200/50 blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-sky-200/40 blur-3xl" />
+        <section className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-slate-950 via-sky-900 to-emerald-800 p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.24)] md:p-12">
           <div className="relative">
-            <span className="text-5xl md:text-6xl">🌟</span>
-            <h1 className="mt-4 text-4xl font-black leading-tight text-slate-800 md:text-5xl">
-              Vamos aprender ingles!
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-white/12 text-4xl shadow-inner ring-1 ring-white/20 md:h-20 md:w-20 md:text-5xl">🌟</span>
+            <h1 className="mx-auto mt-5 max-w-2xl text-4xl font-black leading-tight text-white md:text-5xl">
+              Vamos aprender inglês do seu jeito
             </h1>
-            <p className="mt-3 text-lg font-semibold text-slate-500 md:text-xl">
+            <p className="mx-auto mt-4 max-w-xl text-lg font-semibold leading-8 text-sky-100 md:text-xl">
               {isUnauthenticated
-                ? 'Crie uma conta gratuita e comece sua jornada no idioma.'
-                : 'Escolha uma atividade e comece a aventura de hoje.'}
+                ? 'Crie sua conta gratuita e comece com lições, revisão e livros no mesmo lugar.'
+                : 'Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.'}
             </p>
 
             {/* Progress pills — authenticated only */}
             {isAuthenticated && progress && (
               <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <span className="rounded-full bg-sky-100 px-4 py-2 text-sm font-bold text-sky-700">
+                <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-sky-700 shadow-sm">
                   🔥 {progress.streak_count} dias seguidos
                 </span>
-                <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-700">
+                <span className="rounded-full bg-amber-200 px-4 py-2 text-sm font-bold text-amber-900 shadow-sm">
                   💬 {progress.vocabulary_learned} frases aprendidas
                 </span>
                 {progress.themes_completed > 0 && (
-                  <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">
-                    🏆 {progress.themes_completed} temas concluidos
+                  <span className="rounded-full bg-emerald-200 px-4 py-2 text-sm font-bold text-emerald-900 shadow-sm">
+                    🏆 {progress.themes_completed} temas concluídos
                   </span>
                 )}
               </div>
@@ -125,7 +123,7 @@ export default function HomePage() {
             {serverMissing ? (
               <Link
                 href="/connect"
-                className="mt-8 inline-flex items-center gap-3 rounded-full bg-amber-400 px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(251,191,36,0.45)] transition hover:scale-105 hover:bg-amber-500 md:px-10 md:py-5 md:text-2xl"
+                className="mt-8 inline-flex items-center gap-3 rounded-full bg-amber-300 px-8 py-4 text-xl font-black text-slate-950 shadow-[0_18px_38px_rgba(251,191,36,0.32)] transition hover:scale-105 hover:bg-amber-200 md:px-10 md:py-5 md:text-2xl"
               >
                 <WifiOff size={24} />
                 Conectar o tutor
@@ -134,14 +132,14 @@ export default function HomePage() {
               <div className="mt-8 flex flex-wrap justify-center gap-4">
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-4 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark"
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-xl font-black text-slate-950 shadow-[0_18px_38px_rgba(15,23,42,0.25)] transition hover:scale-105 hover:bg-sky-50"
                 >
                   <UserPlus size={22} />
-                  Cadastrar gratis
+                  Cadastrar grátis
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-primary px-8 py-4 text-xl font-black text-primary transition hover:bg-primary-light"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-8 py-4 text-xl font-black text-white transition hover:bg-white/10"
                 >
                   <LogIn size={22} />
                   Entrar
@@ -153,14 +151,14 @@ export default function HomePage() {
                   <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
                   <Link
                     href="/study"
-                    className="relative inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-2xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.45)] transition hover:scale-105 hover:bg-primary-dark md:px-12 md:py-6 md:text-3xl"
+                    className="relative inline-flex items-center gap-3 rounded-full bg-white px-10 py-5 text-2xl font-black text-slate-950 shadow-[0_18px_42px_rgba(15,23,42,0.28)] transition hover:scale-105 hover:bg-sky-50 md:px-12 md:py-6 md:text-3xl"
                   >
                     <ClipboardList size={28} />
                     Iniciar estudos
                   </Link>
                 </div>
                 {progress && progress.themes_completed > 0 && (
-                  <p className="text-sm font-semibold text-slate-400">Continue de onde parou ▸</p>
+                  <p className="text-sm font-semibold text-sky-100">Continue de onde parou</p>
                 )}
               </div>
             ) : null}
@@ -218,7 +216,7 @@ export default function HomePage() {
             href="/lesson"
             emoji="📖"
             icon={<BookOpen size={28} />}
-            title="Licao"
+            title="Lição"
             description="Aprenda as frases de hoje"
             bg="bg-sky-50"
             border="border-sky-200"
@@ -229,7 +227,7 @@ export default function HomePage() {
             href="/review"
             emoji="🧠"
             icon={<Brain size={28} />}
-            title="Revisao"
+            title="Revisão"
             description="Pratique o que aprendeu"
             bg="bg-emerald-50"
             border="border-emerald-200"
@@ -251,7 +249,7 @@ export default function HomePage() {
             href="/diverse"
             emoji="AI"
             icon={<Layers size={28} />}
-            title="Outras materias"
+            title="Outras matérias"
             description="Crie aulas com IA"
             bg="bg-indigo-50"
             border="border-indigo-200"
@@ -274,7 +272,7 @@ export default function HomePage() {
             href="/quick-review"
             emoji="⚡"
             icon={<Zap size={28} />}
-            title="Revisao Rapida"
+            title="Revisão rápida"
             description="Relembre palavras em segundos"
             bg="bg-amber-50"
             border="border-amber-300"
@@ -287,7 +285,7 @@ export default function HomePage() {
             emoji="📚"
             icon={<Library size={28} />}
             title="Livros"
-            description="Leia historinhas em ingles"
+            description="Leia historinhas em inglês"
             bg="bg-violet-50"
             border="border-violet-200"
             iconColor="text-violet-600"
@@ -316,7 +314,7 @@ export default function HomePage() {
         {/* Parents area link */}
         <div className="mt-6 text-center">
           <Link href="/parents" className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition">
-            Area dos pais
+            Área dos pais
           </Link>
         </div>
 

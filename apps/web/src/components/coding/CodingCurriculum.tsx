@@ -143,7 +143,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
           <h1 className="mt-2 text-3xl font-black text-slate-800">Minhas Matérias</h1>
           <p className="mt-2 text-sm font-bold text-slate-500">
-            {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma materia para treinar.' : 'Modo leitura: escolha uma materia para estudar.'}
+            {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma matéria para treinar.' : 'Modo leitura: escolha uma matéria para estudar.'}
           </p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <MetricChip icon={<BookOpen size={20} />} label="Matérias" value={subjects.length} tone="sky" />
@@ -305,7 +305,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             onClick={() => setShowCreateTopic(true)}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 font-black text-slate-500 hover:border-primary hover:text-primary-dark"
           >
-            <Plus size={18} /> Novo Topico
+            <Plus size={18} /> Novo tópico
           </button>
           <button
             type="button"

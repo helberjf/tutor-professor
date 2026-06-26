@@ -7,14 +7,14 @@ import { BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link
 import { ThemeToggle } from '@/components/theme-toggle';
 
 const primaryLinks = [
-  { href: '/', label: 'Inicio', icon: Home },
-  { href: '/lesson', label: 'Licao', icon: BookOpen },
+  { href: '/', label: 'Início', icon: Home },
+  { href: '/lesson', label: 'Lição', icon: BookOpen },
   { href: '/study', label: 'Estudos', icon: ClipboardList },
   { href: '/quiz', label: 'Quiz', icon: Trophy },
-  { href: '/review', label: 'Revisao', icon: Brain },
+  { href: '/review', label: 'Revisão', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
   { href: '/books', label: 'Livros', icon: Library },
-  { href: '/parents', label: 'Area de pais', icon: Settings },
+  { href: '/parents', label: 'Área de pais', icon: Settings },
 ];
 
 const authLinks = [
@@ -70,7 +70,7 @@ export function Navbar() {
             <div className="flex shrink-0 items-start justify-between gap-4 p-5 pb-0">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Menu</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-800">Navegacao</h2>
+                <h2 className="mt-2 text-2xl font-black text-slate-800">Navegação</h2>
               </div>
               <button
                 type="button"

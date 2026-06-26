@@ -191,7 +191,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     try {
       drafts = parseFlashcardImport(importFcText);
     } catch (err) {
-      setImportFcError(err instanceof Error ? err.message : 'Nao foi possivel ler os flashcards.');
+      setImportFcError(err instanceof Error ? err.message : 'Não foi possível ler os flashcards.');
       return;
     }
     if (drafts.length === 0) {
@@ -210,7 +210,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       setShowImportFc(false);
       setCopyMessage(`${created.length} flashcard${created.length === 1 ? '' : 's'} importado${created.length === 1 ? '' : 's'}.`);
     } catch (err) {
-      setImportFcError(err instanceof Error ? err.message : 'Nao foi possivel importar os flashcards.');
+      setImportFcError(err instanceof Error ? err.message : 'Não foi possível importar os flashcards.');
     } finally {
       setImportingFc(false);
     }
