@@ -27,6 +27,7 @@ import {
 const AI_FLASHCARD_COUNT = 5;
 
 type StudyTab = 'english' | 'coding' | 'diverse' | 'dashboard';
+type CodingMode = 'reading' | 'flashcards';
 
 interface InlineStudyState {
   order: number[];        // topic indices, sorted by review priority
@@ -169,6 +170,7 @@ export default function StudyPage() {
   const authState = useRequireAuth();
 
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
+  const [codingMode, setCodingMode] = useState<CodingMode>('reading');
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
 
   // ── English tab state ───────────────────────────────────────────────────────
@@ -937,6 +939,20 @@ export default function StudyPage() {
           ))}
         </div>
 
+        <Link
+          href="/lesson"
+          className="mb-6 flex w-full items-center gap-4 rounded-[1.5rem] border-2 border-primary/20 bg-white/90 p-5 text-left shadow-[0_10px_28px_rgba(14,165,233,0.12)] transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-[0_14px_34px_rgba(14,165,233,0.18)]"
+        >
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+            <BookOpen size={26} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xl font-black text-slate-800">Comecar licao de ingles</span>
+            <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir a pagina de licoes</span>
+          </span>
+          <ChevronRight size={24} className="shrink-0 text-primary" />
+        </Link>
+
         {/* Date picker (shared) */}
         <div className="mb-6 flex justify-end">
           <label className="flex flex-col gap-1.5 rounded-[1.2rem] border-2 border-slate-100 bg-white/80 px-4 py-3">
@@ -1042,6 +1058,8 @@ export default function StudyPage() {
             codingTotalCount={codingTotalCount}
             editingSubject={editingSubject}
             setEditingSubject={setEditingSubject}
+            codingMode={codingMode}
+            setCodingMode={setCodingMode}
             onToggleTopic={toggleTopic}
             onUpdateTopicText={updateTopicText}
             onSave={() => void saveCodingDay()}
@@ -1308,7 +1326,7 @@ function EnglishTab({
 function CodingTab({
   selectedDate, codingDay, loadingCoding, savingCoding,
   codingSaved, codingError, codingDoneCount, codingTotalCount,
-  editingSubject, setEditingSubject,
+  editingSubject, setEditingSubject, codingMode, setCodingMode,
   onToggleTopic, onUpdateTopicText, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
@@ -1321,6 +1339,8 @@ function CodingTab({
   codingDoneCount: number; codingTotalCount: number;
   editingSubject: string | null;
   setEditingSubject: (s: string | null) => void;
+  codingMode: CodingMode;
+  setCodingMode: (mode: CodingMode) => void;
   onToggleTopic: (subject: string, index: number) => void;
   onUpdateTopicText: (subject: string, index: number, value: string) => void;
   onSave: () => void;
@@ -1333,7 +1353,43 @@ function CodingTab({
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.45fr]">
       <div>
-        <CodingCurriculum />
+        <section className="mb-5 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setCodingMode('reading')}
+            className={`flex min-h-24 items-center gap-4 rounded-[1.35rem] border-2 p-4 text-left transition ${
+              codingMode === 'reading'
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-slate-100 bg-white/85 text-slate-600 hover:border-primary/40 hover:bg-white'
+            }`}
+          >
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${codingMode === 'reading' ? 'bg-white/20 text-white' : 'bg-sky-50 text-primary'}`}>
+              <BookOpen size={24} />
+            </span>
+            <span>
+              <span className="block text-lg font-black">Modo leitura</span>
+              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e topicos</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCodingMode('flashcards')}
+            className={`flex min-h-24 items-center gap-4 rounded-[1.35rem] border-2 p-4 text-left transition ${
+              codingMode === 'flashcards'
+                ? 'border-violet-500 bg-violet-600 text-white shadow-sm'
+                : 'border-slate-100 bg-white/85 text-slate-600 hover:border-violet-300 hover:bg-white'
+            }`}
+          >
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${codingMode === 'flashcards' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>
+              <Layers size={24} />
+            </span>
+            <span>
+              <span className="block text-lg font-black">Modo flashcards</span>
+              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por materia</span>
+            </span>
+          </button>
+        </section>
+        <CodingCurriculum focusMode={codingMode} />
       </div>
       <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
         <PomodoroWidget
