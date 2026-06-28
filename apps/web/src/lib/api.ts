@@ -1,6 +1,36 @@
 import { getApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-config';
 import { getStoredActiveChildId } from '@/lib/active-child';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Autenticação por token (resolve o login em celular/iPhone)
+//
+// O front (Vercel) e o backend (tunnel) ficam em domínios diferentes. O iOS
+// bloqueia o cookie de sessão nesse cenário cross-site, então o login "voltava"
+// para a tela de login. Com o token enviado no header Authorization, isso deixa
+// de depender de cookie e passa a funcionar em qualquer celular.
+//
+// REVERTER PARA O COMPORTAMENTO ANTIGO (só cookie): troque a linha abaixo para
+//   const USE_TOKEN_AUTH = false;
+// O backend continua setando o cookie normalmente, então nada mais precisa mudar.
+const USE_TOKEN_AUTH = true;
+
+const SESSION_TOKEN_STORAGE_KEY = 'english-kids-tutor.session-token';
+
+function getSessionToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY);
+}
+
+function setSessionToken(token: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+}
+
+function clearSessionToken() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+}
+
 export interface LessonItem {
   word_en: string;
   word_pt: string;
@@ -701,12 +731,15 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
   let response: Response;
   try {
     const activeChildId = getStoredActiveChildId();
+    const sessionToken = USE_TOKEN_AUTH ? getSessionToken() : null;
     response = await fetch(url, {
       ...options,
+      // Mantém o cookie para o fluxo same-site (desktop); o token cobre o celular.
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(activeChildId ? { 'X-Child-ID': String(activeChildId) } : {}),
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         ...options.headers,
       },
       cache: 'no-store',
@@ -806,16 +839,29 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  userLogin: (email: string, password: string) =>
-    fetchAPI<{ status: string; name: string }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
+  userLogin: async (email: string, password: string) => {
+    const result = await fetchAPI<{ status: string; name: string; token?: string }>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      },
+    );
+    if (USE_TOKEN_AUTH && result.token) {
+      setSessionToken(result.token);
+    }
+    return result;
+  },
   getUserMe: () => fetchAPI<UserProfile>('/api/auth/me'),
-  userLogout: () =>
-    fetchAPI<{ status: string }>('/api/auth/logout', {
-      method: 'POST',
-    }),
+  userLogout: async () => {
+    try {
+      return await fetchAPI<{ status: string }>('/api/auth/logout', {
+        method: 'POST',
+      });
+    } finally {
+      clearSessionToken();
+    }
+  },
   getGoogleLoginUrl: async (next = '/parents') => {
     const apiBaseUrl = await resolveApiBaseUrl();
     if (!apiBaseUrl) {

@@ -364,7 +364,16 @@ def get_request_user_session(request: Request | None, session: Session) -> UserS
     if request is None:
         return None
 
-    token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
+    # Aceita o token por duas vias:
+    # 1) header "Authorization: Bearer <token>" — usado por celulares (iOS bloqueia
+    #    cookies cross-site entre o front na Vercel e o backend no tunnel);
+    # 2) cookie "parent_session" — mantido para o fluxo same-site (desktop/local).
+    token = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
     if not token:
         return None
 
@@ -2745,8 +2754,10 @@ def user_login(
         session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))
         session.commit()
 
-    create_parent_session(response=response, session=session, user_id=user.id)
-    return {"status": "success", "name": user.first_name}
+    token = create_parent_session(response=response, session=session, user_id=user.id)
+    # Devolve o token no corpo para clientes que usam Authorization (celular).
+    # O cookie continua sendo setado por create_parent_session (desktop/local).
+    return {"status": "success", "name": user.first_name, "token": token}
 
 
 @app.get("/api/auth/me")
