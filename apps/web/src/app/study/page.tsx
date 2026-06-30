@@ -924,9 +924,9 @@ export default function StudyPage() {
 
         {/* Tab switcher */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
-          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" />
-          <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" />
-          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" />
+          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" mobileLabel="Inglês" />
+          <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" mobileLabel="Prog." />
+          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" mobileLabel="Outras" />
           <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           {diverseSubjectTabs.map((item) => (
             <TabButton
@@ -1083,7 +1083,7 @@ export default function StudyPage() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB BUTTON
 // ═══════════════════════════════════════════════════════════════════════════════
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
+function TabButton({ active, onClick, icon, label, mobileLabel }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; mobileLabel?: string }) {
   return (
     <button
       type="button"
@@ -1092,7 +1092,9 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
         active ? 'bg-primary text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
-      {icon} {label}
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden">{mobileLabel ?? label}</span>
     </button>
   );
 }
@@ -1153,7 +1155,7 @@ function EnglishTab({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricCard icon={<Flame size={22} />} label="Dias seguidos" value={`${dashboard?.study_streak_count ?? 0}`}
             helper={dashboard?.last_study_date ? `Ultimo: ${formatDateLabel(dashboard.last_study_date)}` : 'Comece hoje'} tone="orange" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Hoje"
@@ -1352,46 +1354,46 @@ function CodingTab({
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.45fr]">
-      <div>
-        <section className="mb-5 grid gap-3 sm:grid-cols-2">
+      <div className="order-2 lg:order-1">
+        <section className="mb-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setCodingMode('reading')}
-            className={`flex min-h-24 items-center gap-4 rounded-[1.35rem] border-2 p-4 text-left transition ${
+            className={`flex min-h-16 items-center gap-3 rounded-[1.35rem] border-2 p-3 text-left transition sm:min-h-24 sm:gap-4 sm:p-4 ${
               codingMode === 'reading'
                 ? 'border-primary bg-primary text-white shadow-sm'
                 : 'border-slate-100 bg-white/85 text-slate-600 hover:border-primary/40 hover:bg-white'
             }`}
           >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${codingMode === 'reading' ? 'bg-white/20 text-white' : 'bg-sky-50 text-primary'}`}>
-              <BookOpen size={24} />
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 ${codingMode === 'reading' ? 'bg-white/20 text-white' : 'bg-sky-50 text-primary'}`}>
+              <BookOpen size={22} />
             </span>
             <span>
-              <span className="block text-lg font-black">Modo leitura</span>
-              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e tópicos</span>
+              <span className="block text-sm font-black sm:text-lg">Leitura</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e tópicos</span>
             </span>
           </button>
           <button
             type="button"
             onClick={() => setCodingMode('flashcards')}
-            className={`flex min-h-24 items-center gap-4 rounded-[1.35rem] border-2 p-4 text-left transition ${
+            className={`flex min-h-16 items-center gap-3 rounded-[1.35rem] border-2 p-3 text-left transition sm:min-h-24 sm:gap-4 sm:p-4 ${
               codingMode === 'flashcards'
                 ? 'border-violet-500 bg-violet-600 text-white shadow-sm'
                 : 'border-slate-100 bg-white/85 text-slate-600 hover:border-violet-300 hover:bg-white'
             }`}
           >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${codingMode === 'flashcards' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>
-              <Layers size={24} />
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 ${codingMode === 'flashcards' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>
+              <Layers size={22} />
             </span>
             <span>
-              <span className="block text-lg font-black">Modo flashcards</span>
-              <span className={`mt-1 block text-sm font-semibold ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por matéria</span>
+              <span className="block text-sm font-black sm:text-lg">Flashcards</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por matéria</span>
             </span>
           </button>
         </section>
         <CodingCurriculum focusMode={codingMode} />
       </div>
-      <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+      <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-24 lg:self-start">
         <PomodoroWidget
           mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
           todayCount={todayPomodoroCount} notificationPermission={notificationPermission}
@@ -1478,7 +1480,7 @@ function DiverseTab({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
         <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <MetricCard icon={<Layers size={22} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Em progresso'}
@@ -1744,7 +1746,7 @@ function DiverseSubjectDashboard({
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da matéria</p>
         <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{subject.name}</h1>
         <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MetricCard icon={<Layers size={22} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
           <MetricCard icon={<BookOpen size={22} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
@@ -2589,7 +2591,7 @@ function DashboardTab({ dashboard, pomodoroState }: { dashboard: StudyDashboard 
         <div className="space-y-1">
           {allDays.slice(-14).reverse().map((day) => (
             <div key={day.date} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-slate-50">
-              <span className="w-32 shrink-0 text-sm font-bold text-slate-700">{formatDateLabel(day.date)}</span>
+              <span className="w-24 shrink-0 text-xs font-bold text-slate-700 sm:w-32 sm:text-sm">{formatDateLabel(day.date)}</span>
               <span className={`flex-1 text-xs font-semibold ${day.isStudyDay ? 'text-emerald-600' : 'text-slate-300'}`}>
                 {day.isStudyDay ? 'Inglês' : '—'}
               </span>
@@ -2622,11 +2624,11 @@ function MetricCard({ icon, label, value, helper, tone }: {
 }) {
   const toneStyles = { orange: 'bg-orange-100 text-orange-700', green: 'bg-emerald-100 text-emerald-700', rose: 'bg-rose-100 text-rose-700', sky: 'bg-sky-100 text-sky-700' }[tone];
   return (
-    <div className="min-h-32 rounded-[1.25rem] border-2 border-white/80 bg-white/85 p-4 shadow-[0_12px_32px_rgba(14,165,233,0.08)]">
-      <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${toneStyles}`}>{icon}</div>
-      <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <p className="mt-1 break-words text-2xl font-black text-slate-800">{value}</p>
-      <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{helper}</p>
+    <div className="rounded-[1.25rem] border-2 border-white/80 bg-white/85 p-3 shadow-[0_12px_32px_rgba(14,165,233,0.08)] sm:p-4">
+      <div className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${toneStyles}`}>{icon}</div>
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:mt-3 sm:text-xs">{label}</p>
+      <p className="mt-1 break-words text-xl font-black text-slate-800 sm:text-2xl">{value}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">{helper}</p>
     </div>
   );
 }
