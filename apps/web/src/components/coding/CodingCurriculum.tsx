@@ -145,7 +145,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
           <p className="mt-2 text-sm font-bold text-slate-500">
             {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma matéria para treinar.' : 'Modo leitura: escolha uma matéria para estudar.'}
           </p>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <MetricChip icon={<BookOpen size={20} />} label="Matérias" value={subjects.length} tone="sky" />
             <MetricChip icon={<CheckCircle2 size={20} />} label="Tópicos estudados" value={subjects.reduce((a, s) => a + s.studied_count, 0)} tone="green" />
             <MetricChip icon={<Flame size={20} />} label="Para revisar" value={subjects.reduce((a, s) => a + s.due_review_count, 0)} tone="orange" />
