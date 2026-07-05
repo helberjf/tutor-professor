@@ -2194,22 +2194,25 @@ def generate_coding_topic_content(
     topic.ai_content = content.model_dump()
     topic.updated_at = datetime.utcnow()
     session.add(topic)
-    # Only seed flashcards if topic has none yet
     existing_fcs = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
-    if not existing_fcs:
-        for fc_draft in content.flashcards:
-            fc = ProgrammingFlashcard(
-                topic_id=topic_id,
-                subject_id=subject.id or 0,
-                child_id=child.id or 0,
-                front=fc_draft.front[:500],
-                back=fc_draft.back[:2000],
-                code_example=(fc_draft.code_example or "")[:3000] or None,
-                created_at=datetime.utcnow(),
-            )
-            session.add(fc)
-            session.flush()
-            seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    for fc in existing_fcs:
+        for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():
+            session.delete(ri)
+        session.delete(fc)
+    session.flush()
+    for fc_draft in content.flashcards:
+        fc = ProgrammingFlashcard(
+            topic_id=topic_id,
+            subject_id=subject.id or 0,
+            child_id=child.id or 0,
+            front=fc_draft.front[:500],
+            back=fc_draft.back[:2000],
+            code_example=(fc_draft.code_example or "")[:3000] or None,
+            created_at=datetime.utcnow(),
+        )
+        session.add(fc)
+        session.flush()
+        seed_coding_review_item(session, child.id or 0, fc.id or 0)
     session.commit()
     session.refresh(topic)
     return _programming_topic_schema(session, topic)

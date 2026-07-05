@@ -376,6 +376,73 @@ async def run() -> None:
         if "test-ai-key" in stored_ai_response.text:
             raise AssertionError("raw AI key leaked in settings response")
 
+        old_topic_flashcard_response = await client.post(
+            f"/api/coding/topics/{coding_topic['id']}/flashcards",
+            headers=child_headers,
+            json={
+                "front": "Flashcard antigo de variaveis",
+                "back": "Resposta antiga que deve sair ao regenerar.",
+            },
+        )
+        assert_status(old_topic_flashcard_response, 201, "create old coding topic flashcard")
+
+        captured_topic_generation: dict[str, str] = {}
+        original_generate_topic_ai_content = main.generate_topic_ai_content
+        try:
+            def mock_generate_topic_ai_content(**kwargs):
+                captured_topic_generation["user_context"] = kwargs.get("user_context", "")
+                return main.TopicAIContentSchema.model_validate(
+                    {
+                        "sections": [{"title": "Variaveis novas", "body": "Conteudo regenerado."}],
+                        "quiz": [],
+                        "flashcards": [
+                            {
+                                "front": "Novo card sobre tipos primitivos",
+                                "back": "Tipos primitivos guardam valores simples.",
+                            },
+                            {
+                                "front": "Novo card sobre inferencia",
+                                "back": "Inferencia permite deduzir o tipo pelo valor inicial.",
+                            },
+                        ],
+                    }
+                )
+
+            main.generate_topic_ai_content = mock_generate_topic_ai_content
+            regenerated_topic_response = await client.post(
+                f"/api/coding/topics/{coding_topic['id']}/generate",
+                headers=child_headers,
+                json={"context": "refazer flashcards para iniciantes"},
+            )
+        finally:
+            main.generate_topic_ai_content = original_generate_topic_ai_content
+        assert_status(regenerated_topic_response, 200, "regenerate coding topic content")
+        regenerated_topic = regenerated_topic_response.json()
+        if regenerated_topic["flashcard_count"] != 2:
+            raise AssertionError(f"expected regenerated topic to report two new flashcards, got {regenerated_topic}")
+        if captured_topic_generation.get("user_context") != "refazer flashcards para iniciantes":
+            raise AssertionError(f"expected regeneration context to reach AI service, got {captured_topic_generation}")
+
+        regenerated_flashcards_response = await client.get(
+            f"/api/coding/topics/{coding_topic['id']}/flashcards",
+            headers=child_headers,
+        )
+        assert_status(regenerated_flashcards_response, 200, "list regenerated coding topic flashcards")
+        regenerated_flashcards = regenerated_flashcards_response.json()
+        regenerated_fronts = [card["front"] for card in regenerated_flashcards]
+        if regenerated_fronts != ["Novo card sobre tipos primitivos", "Novo card sobre inferencia"]:
+            raise AssertionError(f"expected regenerated flashcards to replace old cards, got {regenerated_flashcards}")
+
+        regenerated_deck_response = await client.get(
+            f"/api/coding/subjects/{coding_subject['id']}/deck",
+            headers=child_headers,
+        )
+        assert_status(regenerated_deck_response, 200, "deck reflects regenerated topic flashcards")
+        regenerated_deck_cards = regenerated_deck_response.json()["cards"]
+        deck_fronts = [card["front"] for card in regenerated_deck_cards]
+        if deck_fronts != regenerated_fronts:
+            raise AssertionError(f"expected deck cards to mirror regenerated flashcards, got {regenerated_deck_cards}")
+
         captured_diverse_prompt: dict[str, str] = {}
         original_generate_json_text = main.phrase_generation_service.generate_json_text
         try:
