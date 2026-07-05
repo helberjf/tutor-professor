@@ -105,6 +105,7 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [counts, setCounts] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
+  const [completedCounts, setCompletedCounts] = useState<typeof counts | null>(null);
   const studyModalOpen = queue !== null && queue.length > 0;
 
   useEffect(() => {
@@ -124,6 +125,7 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
       setIndex(0);
       setRevealed(false);
       setCounts({ again: 0, hard: 0, good: 0, easy: 0 });
+      setCompletedCounts(null);
     } finally {
       setLoading(false);
     }
@@ -138,8 +140,10 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
     } finally {
       setSubmitting(false);
     }
-    setCounts((c) => ({ ...c, [rating]: c[rating] + 1 }));
+    const nextCounts = { ...counts, [rating]: counts[rating] + 1 };
+    setCounts(nextCounts);
     if (index + 1 >= queue.length) {
+      setCompletedCounts(nextCounts);
       onFinished();
       setQueue([]); // mark finished
     } else {
@@ -154,6 +158,7 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
     setRevealed(false);
     setSubmitting(false);
     setCounts({ again: 0, hard: 0, good: 0, easy: 0 });
+    setCompletedCounts(null);
     onFinished();
   }
 
@@ -184,15 +189,17 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
 
   // Finished
   if (queue.length === 0) {
+    const finalCounts = completedCounts ?? counts;
+
     return (
       <div className="flex flex-col items-center gap-6 py-12 text-center">
         <div className="rounded-full bg-emerald-100 p-6"><CheckCircle2 size={48} className="text-emerald-500" /></div>
         <h2 className="text-2xl font-black text-slate-800">Sessão concluída!</h2>
         <div className="flex flex-wrap justify-center gap-6">
-          <Tally label="Errei" value={counts.again} cls="text-rose-500" />
-          <Tally label="Difícil" value={counts.hard} cls="text-amber-500" />
-          <Tally label="Bom" value={counts.good} cls="text-sky-600" />
-          <Tally label="Fácil" value={counts.easy} cls="text-emerald-600" />
+          <Tally label="Errei" value={finalCounts.again} cls="text-rose-500" />
+          <Tally label="Difícil" value={finalCounts.hard} cls="text-amber-500" />
+          <Tally label="Bom" value={finalCounts.good} cls="text-sky-600" />
+          <Tally label="Fácil" value={finalCounts.easy} cls="text-emerald-600" />
         </div>
         <button type="button" onClick={start} disabled={loading} className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50">
           {loading ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />} Buscar mais
