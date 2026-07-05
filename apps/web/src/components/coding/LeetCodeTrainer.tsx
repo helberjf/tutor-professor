@@ -217,7 +217,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
                         <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
                           <Terminal size={12} /> Resultado do exemplo
                         </p>
-                        <pre className="overflow-x-auto whitespace-pre-wrap rounded-2xl border-2 border-emerald-100 bg-emerald-50 p-4 text-xs leading-relaxed text-emerald-900">
+                        <pre className="leetcode-result-output">
                           {m.example_output}
                         </pre>
                       </div>

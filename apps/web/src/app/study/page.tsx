@@ -98,7 +98,13 @@ function getDiverseSubjectLessons(subject: DiverseSubject) {
 }
 
 function getDiverseSubjectTopics(subject: DiverseSubject) {
-  return [...subject.topics, ...getDiverseSubjectLessons(subject).flatMap((lesson) => lesson.topics)];
+  const seen = new Set<string>();
+  return [...subject.topics, ...getDiverseSubjectLessons(subject).flatMap((lesson) => lesson.topics)].filter((topic) => {
+    const key = normalizeDiverseTopicText(topic.topic);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeDiverseTopicText(value: string) {
@@ -825,13 +831,14 @@ export default function StudyPage() {
     setDiverseDay((current) => {
       const subject = current?.custom_subjects[subjectIndex];
       if (!current || !subject) return current;
+      const nextTopics = filterFreshDiverseTopics(lesson.topics, getDiverseAvoidTopics(subject));
       const subjects = current.custom_subjects.map((s, si) =>
-        si === subjectIndex ? { ...s, lessons: [...getDiverseSubjectLessons(s), lesson] } : s
+        si === subjectIndex ? { ...s, topics: [...s.topics, ...nextTopics], lessons: [...getDiverseSubjectLessons(s), lesson] } : s
       );
       return { ...current, custom_subjects: subjects };
     });
     setPendingLessonDraft(null);
-    setDiverseSaved('Lição adicionada em bloco. Salve a matéria para guardar.');
+    setDiverseSaved('Lição adicionada em bloco e tópicos incluídos na matéria. Salve para guardar.');
   }
 
   function discardPendingLessonDraft() {

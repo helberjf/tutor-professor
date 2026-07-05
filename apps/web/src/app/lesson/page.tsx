@@ -470,17 +470,17 @@ function LessonPageContent() {
 
           {/* Level banner — shown as soon as level is known (from cache or API) */}
           {levelInfo && (
-            <div className="mb-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-50 to-sky-50 border border-emerald-100 px-4 py-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-                <Sparkles size={20} className="text-emerald-600" />
+            <div className="lesson-level-banner mb-4 flex items-center gap-3 px-4 py-3">
+              <div className="lesson-level-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+                <Sparkles size={20} className="lesson-level-icon-symbol" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Seu nivel</p>
-                <p className="text-base font-black text-slate-800">Nivel {levelInfo.level} — {levelInfo.label}</p>
+                <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">Seu nivel</p>
+                <p className="lesson-level-title text-base font-black">Nivel {levelInfo.level} — {levelInfo.label}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-slate-400">{levelInfo.vocabulary_learned} palavras</p>
-                <p className="text-xs text-slate-400">{Math.round(levelInfo.quiz_accuracy * 100)}% quiz</p>
+                <p className="lesson-level-stat text-xs">{levelInfo.vocabulary_learned} palavras</p>
+                <p className="lesson-level-stat text-xs">{Math.round(levelInfo.quiz_accuracy * 100)}% quiz</p>
               </div>
             </div>
           )}
