@@ -70,6 +70,21 @@ assert.match(flashcardDeck, /role="dialog"/, 'active flashcard study card should
 assert.match(flashcardDeck, /aria-modal="true"/, 'flashcard study modal should announce modal behavior');
 assert.match(flashcardDeck, /h-\[100dvh\][\s\S]*sm:max-w-3xl/, 'flashcard study modal should fill mobile and center with max width on desktop');
 assert.match(flashcardDeck, /Fechar tela cheia dos flashcards/, 'flashcard study modal should include a small X close button');
+assert.match(
+  flashcardDeck,
+  /const nextCounts = \{ \.\.\.counts, \[rating\]: counts\[rating\] \+ 1 \}/,
+  'flashcard study should compute the next rating tally before completing the session',
+);
+assert.match(
+  flashcardDeck,
+  /setCompletedCounts\(nextCounts\)/,
+  'flashcard study should freeze final rating counts before showing the completion summary',
+);
+assert.match(
+  flashcardDeck,
+  /const finalCounts = completedCounts \?\? counts/,
+  'flashcard completion summary should render the frozen final rating counts',
+);
 assert.match(globals, /\.study-mode-tabs/, 'theme CSS should define the flashcard deck tab shell');
 assert.match(globals, /\.leetcode-trainer-card/, 'theme CSS should define the LeetCode trainer card surface');
 
