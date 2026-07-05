@@ -103,6 +103,57 @@ textarea {
   @apply inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] md:px-4 md:py-2 md:text-sm md:tracking-[0.18em];
 }
 
+.study-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  border: 2px solid var(--line-soft);
+  border-radius: 1.4rem;
+  background: color-mix(in srgb, var(--surface-strong) 88%, transparent);
+  padding: 0.375rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.study-mode-tab {
+  display: flex;
+  min-height: 2.75rem;
+  flex: 1 1 0%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1.1;
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.study-mode-tab-active {
+  background: #0ea5e9;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(14, 165, 233, 0.22);
+}
+
+.study-mode-tab-idle {
+  color: var(--text-muted);
+}
+
+.study-mode-tab-idle:hover {
+  background: var(--surface-muted);
+  color: var(--text-strong);
+}
+
+.leetcode-trainer-card {
+  border-color: rgba(251, 191, 36, 0.46);
+  background: linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%);
+}
+
+html[data-theme='dark'] .leetcode-trainer-card {
+  border-color: rgba(251, 191, 36, 0.34);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.16) 0%, rgba(249, 115, 22, 0.1) 100%);
+}
+
 .app-navbar,
 .app-bottom-nav,
 .app-menu-panel {
@@ -134,7 +185,7 @@ html[data-theme='dark'] :is(input, select, textarea)::placeholder {
   color: var(--text-soft);
 }
 
-html[data-theme='dark'] :is(.bg-white, [class~='bg-white/78'], [class~='bg-white/85'], [class~='bg-white/90'], [class~='bg-white/95']) {
+html[data-theme='dark'] :is(.bg-white, [class~='bg-white/78'], [class~='bg-white/80'], [class~='bg-white/85'], [class~='bg-white/90'], [class~='bg-white/95']) {
   background-color: var(--surface-strong) !important;
 }
 

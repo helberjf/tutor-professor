@@ -75,7 +75,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
         )}
       </section>
 
-      <div className="flex gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
+      <div className="study-mode-tabs">
         <DeckTab active={tab === 'study'} onClick={() => setTab('study')} icon={<Zap size={16} />} label="Estudar" />
         <DeckTab active={tab === 'cards'} onClick={() => setTab('cards')} icon={<Layers size={16} />} label="Cards" />
         <DeckTab active={tab === 'options'} onClick={() => setTab('options')} icon={<Settings2 size={16} />} label="Opções" />
@@ -555,7 +555,7 @@ function DeckTab({ active, onClick, icon, label }: { active: boolean; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black transition ${active ? 'bg-primary text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+      className={`study-mode-tab ${active ? 'study-mode-tab-active' : 'study-mode-tab-idle'}`}
     >
       {icon} {label}
     </button>

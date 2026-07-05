@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
-  title: 'Language&Tutor',
-  description: 'Um tutor de idiomas seguro, leve e acolhedor.',
+  title: 'Tutor Pessoal',
+  description: 'Um tutor pessoal seguro, leve e acolhedor.',
 };
 
 export const viewport: Viewport = {

@@ -83,6 +83,7 @@ from schemas.schemas import (
     CreateProgrammingFlashcardSchema,
     CreateProgrammingSubjectSchema,
     CreateProgrammingTopicSchema,
+    GenerateProgrammingTopicContentSchema,
     GenerateLeetCodeMethodRequestSchema,
     LeetCodeMethodSchema,
     ProgrammingFlashcardSchema,
@@ -2160,6 +2161,7 @@ def delete_coding_topic(
 def generate_coding_topic_content(
     topic_id: int,
     request: Request,
+    payload: GenerateProgrammingTopicContentSchema | None = None,
     session: Session = Depends(get_session),
 ) -> ProgrammingTopicSchema:
     user_session = require_parent_session(request, session)
@@ -2174,6 +2176,7 @@ def generate_coding_topic_content(
     if ai_config is None:
         raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
     try:
+        context_text = re.sub(r"\s+", " ", ((payload.context if payload else "") or "").strip())[:1000]
         sibling_topics = sorted(
             session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == topic.subject_id)).all(),
             key=lambda t: t.order_index,
@@ -2184,6 +2187,7 @@ def generate_coding_topic_content(
             topic_title=topic.title,
             ai_config=ai_config,
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
+            user_context=context_text,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
