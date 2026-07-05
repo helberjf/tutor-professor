@@ -154,6 +154,69 @@ html[data-theme='dark'] .leetcode-trainer-card {
   background: linear-gradient(135deg, rgba(251, 191, 36, 0.16) 0%, rgba(249, 115, 22, 0.1) 100%);
 }
 
+.lesson-level-banner {
+  border: 1px solid rgba(16, 185, 129, 0.26);
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #ecfdf5 0%, #f0f9ff 100%);
+}
+
+.lesson-level-icon {
+  background: #d1fae5;
+}
+
+.lesson-level-icon-symbol,
+.lesson-level-label {
+  color: #059669;
+}
+
+.lesson-level-title {
+  color: #1e293b;
+}
+
+.lesson-level-stat {
+  color: #64748b;
+}
+
+.leetcode-result-output {
+  overflow-x: auto;
+  white-space: pre-wrap;
+  border: 2px solid rgba(16, 185, 129, 0.22);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
+  padding: 1rem;
+  color: #064e3b;
+  font-size: 0.75rem;
+  line-height: 1.625;
+}
+
+html[data-theme='dark'] .lesson-level-banner {
+  border-color: rgba(125, 211, 252, 0.38);
+  background: linear-gradient(90deg, rgba(20, 184, 166, 0.22) 0%, rgba(14, 165, 233, 0.18) 100%);
+}
+
+html[data-theme='dark'] .lesson-level-icon {
+  background: rgba(20, 184, 166, 0.28);
+}
+
+html[data-theme='dark'] .lesson-level-icon-symbol,
+html[data-theme='dark'] .lesson-level-label {
+  color: #5eead4;
+}
+
+html[data-theme='dark'] .lesson-level-title {
+  color: var(--text-strong);
+}
+
+html[data-theme='dark'] .lesson-level-stat {
+  color: var(--text-muted);
+}
+
+html[data-theme='dark'] .leetcode-result-output {
+  border-color: rgba(167, 243, 208, 0.74);
+  background: rgba(6, 78, 59, 0.58);
+  color: #d1fae5;
+}
+
 .app-navbar,
 .app-bottom-nav,
 .app-menu-panel {
