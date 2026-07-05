@@ -963,8 +963,13 @@ export const api = {
     fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCodingTopic: (id: number) =>
     fetchAPI<void>(`/api/coding/topics/${id}`, { method: 'DELETE' }),
-  generateCodingTopicContent: (id: number) =>
-    fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}/generate`, { method: 'POST' }),
+  generateCodingTopicContent: (id: number, payload?: { context?: string }) => {
+    const contextText = payload?.context?.trim();
+    return fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}/generate`, {
+      method: 'POST',
+      ...(contextText ? { body: JSON.stringify({ context: contextText }) } : {}),
+    });
+  },
   getTopicFlashcards: (topicId: number) =>
     fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards`),
   createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>

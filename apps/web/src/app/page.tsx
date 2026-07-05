@@ -57,8 +57,8 @@ export default function HomePage() {
   const cardsDisabled = serverMissing || isUnauthenticated || status === 'loading';
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
-      <div className="mx-auto max-w-3xl">
+    <main className="min-h-screen px-3 py-4 sm:px-5 sm:py-6 md:px-8 md:py-10">
+      <div className="mx-auto max-w-6xl">
 
         {/* Server notice */}
         {serverMissing && (
@@ -90,29 +90,33 @@ export default function HomePage() {
         )}
 
         {/* Hero */}
-        <section className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-gradient-to-br from-slate-950 via-sky-900 to-emerald-800 p-8 text-center shadow-[0_24px_70px_rgba(15,23,42,0.24)] md:p-12">
-          <div className="relative">
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-3xl bg-white/12 text-4xl shadow-inner ring-1 ring-white/20 md:h-20 md:w-20 md:text-5xl">🌟</span>
-            <h1 className="mx-auto mt-5 max-w-2xl text-4xl font-black leading-tight text-white md:text-5xl">
+        <section className="relative overflow-hidden rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 text-left shadow-[0_18px_50px_rgba(15,23,42,0.10)] sm:p-7 md:p-10">
+          <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100">
+                <Sparkles size={15} /> Tutor leve
+              </span>
+            <h1 className="mt-4 max-w-3xl text-3xl font-black leading-[1.08] text-slate-950 sm:text-4xl md:text-5xl">
               Vamos aprender inglês do seu jeito
             </h1>
-            <p className="mx-auto mt-4 max-w-xl text-lg font-semibold leading-8 text-sky-100 md:text-xl">
+            <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg sm:leading-8">
               {isUnauthenticated
                 ? 'Crie sua conta gratuita e comece com lições, revisão e livros no mesmo lugar.'
                 : 'Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.'}
             </p>
+            </div>
 
             {/* Progress pills — authenticated only */}
             {isAuthenticated && progress && (
-              <div className="mt-6 flex flex-wrap justify-center gap-3">
-                <span className="rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-sky-700 shadow-sm">
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                <span className="rounded-full bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700 ring-1 ring-sky-100">
                   🔥 {progress.streak_count} dias seguidos
                 </span>
-                <span className="rounded-full bg-amber-200 px-4 py-2 text-sm font-bold text-amber-900 shadow-sm">
+                <span className="rounded-full bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 ring-1 ring-amber-100">
                   💬 {progress.vocabulary_learned} frases aprendidas
                 </span>
                 {progress.themes_completed > 0 && (
-                  <span className="rounded-full bg-emerald-200 px-4 py-2 text-sm font-bold text-emerald-900 shadow-sm">
+                  <span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 ring-1 ring-emerald-100">
                     🏆 {progress.themes_completed} temas concluídos
                   </span>
                 )}
@@ -123,42 +127,42 @@ export default function HomePage() {
             {serverMissing ? (
               <Link
                 href="/connect"
-                className="mt-8 inline-flex items-center gap-3 rounded-full bg-amber-300 px-8 py-4 text-xl font-black text-slate-950 shadow-[0_18px_38px_rgba(251,191,36,0.32)] transition hover:scale-105 hover:bg-amber-200 md:px-10 md:py-5 md:text-2xl"
+                className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-amber-300 px-6 text-lg font-black text-slate-950 shadow-[0_14px_30px_rgba(251,191,36,0.24)] transition hover:scale-[1.02] hover:bg-amber-200 sm:w-auto sm:px-8"
               >
                 <WifiOff size={24} />
                 Conectar o tutor
               </Link>
             ) : isUnauthenticated ? (
-              <div className="mt-8 flex flex-wrap justify-center gap-4">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-xl font-black text-slate-950 shadow-[0_18px_38px_rgba(15,23,42,0.25)] transition hover:scale-105 hover:bg-sky-50"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-lg font-black text-white shadow-[0_14px_30px_rgba(14,165,233,0.22)] transition hover:scale-[1.02] sm:w-auto"
                 >
                   <UserPlus size={22} />
                   Cadastrar grátis
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-full border-2 border-white/40 px-8 py-4 text-xl font-black text-white transition hover:bg-white/10"
+                  className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-6 text-lg font-black text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 sm:w-auto"
                 >
                   <LogIn size={22} />
                   Entrar
                 </Link>
               </div>
             ) : isAuthenticated ? (
-              <div className="mt-8 flex flex-col items-center gap-3">
-                <div className="relative inline-flex">
+              <div className="mt-6 flex flex-col items-start gap-3">
+                <div className="relative inline-flex w-full sm:w-auto">
                   <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
                   <Link
                     href="/study"
-                    className="relative inline-flex items-center gap-3 rounded-full bg-white px-10 py-5 text-2xl font-black text-slate-950 shadow-[0_18px_42px_rgba(15,23,42,0.28)] transition hover:scale-105 hover:bg-sky-50 md:px-12 md:py-6 md:text-3xl"
+                    className="relative inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-xl font-black text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)] transition hover:scale-[1.02] sm:w-auto sm:px-8"
                   >
                     <ClipboardList size={28} />
                     Iniciar estudos
                   </Link>
                 </div>
                 {progress && progress.themes_completed > 0 && (
-                  <p className="text-sm font-semibold text-sky-100">Continue de onde parou</p>
+                  <p className="text-sm font-semibold text-slate-500">Continue de onde parou</p>
                 )}
               </div>
             ) : null}
@@ -211,7 +215,7 @@ export default function HomePage() {
         )}
 
         {/* Activity cards */}
-        <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-2">
+        <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ActivityCard
             href="/lesson"
             emoji="📖"
@@ -348,14 +352,16 @@ function ActivityCard({
 }) {
   const inner = (
     <div
-      className={`kid-surface h-full p-5 transition duration-200 md:p-7 ${border} ${disabled ? 'opacity-50' : 'hover:-translate-y-1 hover:shadow-lg cursor-pointer'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
+      className={`kid-surface flex h-full min-h-[7.5rem] items-center gap-4 p-4 transition duration-200 sm:block sm:p-5 md:p-6 ${border} ${disabled ? 'opacity-90' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
     >
-      <div className={`inline-flex rounded-2xl p-3 ${bg}`}>
+      <div className={`inline-flex shrink-0 rounded-2xl p-3 ${bg}`}>
         <span className={iconColor}>{icon}</span>
       </div>
-      <p className="mt-4 text-xl font-black text-slate-800 md:text-2xl">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500 md:text-base md:leading-7">{description}</p>
-      <p className="mt-4 text-2xl">{emoji}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-black leading-tight text-slate-900 sm:mt-4 sm:text-xl md:text-2xl">{title}</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-600 md:text-base md:leading-7">{description}</p>
+      </div>
+      <p className="shrink-0 text-2xl sm:mt-4">{emoji}</p>
     </div>
   );
 

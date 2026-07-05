@@ -939,19 +939,21 @@ export default function StudyPage() {
           ))}
         </div>
 
-        <Link
-          href="/lesson"
-          className="mb-6 flex w-full items-center gap-4 rounded-[1.5rem] border-2 border-primary/20 bg-white/90 p-5 text-left shadow-[0_10px_28px_rgba(14,165,233,0.12)] transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-[0_14px_34px_rgba(14,165,233,0.18)]"
-        >
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
-            <BookOpen size={26} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xl font-black text-slate-800">Começar lição de inglês</span>
-            <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir página de lições</span>
-          </span>
-          <ChevronRight size={24} className="shrink-0 text-primary" />
-        </Link>
+        {activeTab === 'english' && (
+          <Link
+            href="/lesson"
+            className="mb-6 flex w-full items-center gap-4 rounded-[1.5rem] border-2 border-primary/20 bg-white/90 p-5 text-left shadow-[0_10px_28px_rgba(14,165,233,0.12)] transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-[0_14px_34px_rgba(14,165,233,0.18)]"
+          >
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+              <BookOpen size={26} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xl font-black text-slate-800">Começar lição de inglês</span>
+              <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir página de lições</span>
+            </span>
+            <ChevronRight size={24} className="shrink-0 text-primary" />
+          </Link>
+        )}
 
         {/* Date picker (shared) */}
         <div className="mb-6 flex justify-end">
@@ -1369,7 +1371,7 @@ function CodingTab({
               <BookOpen size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Leitura</span>
+              <span className="block text-sm font-black sm:text-lg">Modo leitura</span>
               <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e tópicos</span>
             </span>
           </button>
@@ -1386,7 +1388,7 @@ function CodingTab({
               <Layers size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Flashcards</span>
+              <span className="block text-sm font-black sm:text-lg">Modo flashcards</span>
               <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por matéria</span>
             </span>
           </button>

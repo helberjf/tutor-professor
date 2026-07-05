@@ -388,6 +388,7 @@ def generate_topic_ai_content(
     topic_title: str,
     ai_config: AIProviderConfig,
     previous_context: str = "",
+    user_context: str = "",
 ) -> TopicAIContentSchema:
     context_block = ""
     if previous_context.strip():
@@ -396,6 +397,13 @@ def generate_topic_ai_content(
             f"{previous_context.strip()}\n"
             "- Build on what was already studied; briefly connect new concepts to previous topics\n"
             "- Do NOT re-teach content already covered; assume the student knows it\n"
+        )
+    if user_context.strip():
+        context_block += (
+            "\nRegeneration instructions from user (IMPORTANT):\n"
+            f"{user_context.strip()}\n"
+            "- Use these instructions to choose examples, depth, emphasis, and explanation style\n"
+            "- Keep the lesson focused on the topic title and subject\n"
         )
     prompt = _TOPIC_PROMPT_TEMPLATE.format(
         subject_name=subject_name,

@@ -83,6 +83,8 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [loadingFc, setLoadingFc] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
+  const [showRegenerateContext, setShowRegenerateContext] = useState(false);
+  const [regenerateContext, setRegenerateContext] = useState('');
   const [notes, setNotes] = useState(topic.notes ?? '');
   const [savingNotes, setSavingNotes] = useState(false);
   const [quizState, setQuizState] = useState<QuizState>([]);
@@ -110,13 +112,18 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     }
   }, [topic.ai_content]);
 
-  async function handleGenerate() {
+  async function handleGenerate(context?: string) {
     setGenerating(true);
     setGenError('');
     try {
-      const updated = await api.generateCodingTopicContent(topic.id);
+      const contextText = context?.trim();
+      const updated = contextText
+        ? await api.generateCodingTopicContent(topic.id, { context: contextText })
+        : await api.generateCodingTopicContent(topic.id);
       setTopic(updated);
       onTopicUpdated(updated);
+      setShowRegenerateContext(false);
+      setRegenerateContext('');
       const fcs = await api.getTopicFlashcards(topic.id);
       setFlashcards(fcs);
     } catch (err: unknown) {
@@ -267,7 +274,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           {genError && <p className="mt-3 text-sm font-bold text-rose-600">{genError}</p>}
           <button
             type="button"
-            onClick={handleGenerate}
+            onClick={() => void handleGenerate()}
             disabled={generating}
             className="mx-auto mt-4 flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 font-black text-white hover:bg-violet-700 disabled:opacity-50"
           >
@@ -333,15 +340,58 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
           {/* Regenerate */}
           <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-            >
-              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Regenerar com IA
-            </button>
+            {showRegenerateContext ? (
+              <div className="w-full max-w-xl rounded-3xl border-2 border-violet-200 bg-violet-50 p-4">
+                <label className="block text-left">
+                  <span className="text-sm font-black text-violet-800">Como quer regenerar com IA?</span>
+                  <textarea
+                    value={regenerateContext}
+                    onChange={(event) => setRegenerateContext(event.target.value)}
+                    placeholder="Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns..."
+                    maxLength={1000}
+                    rows={3}
+                    className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500"
+                  />
+                </label>
+                {genError && <p className="mt-2 text-sm font-bold text-rose-600">{genError}</p>}
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRegenerateContext(false);
+                      setRegenerateContext('');
+                      setGenError('');
+                    }}
+                    disabled={generating}
+                    className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleGenerate(regenerateContext)}
+                    disabled={generating}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    Regenerar agora
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setGenError('');
+                  setShowRegenerateContext(true);
+                }}
+                disabled={generating}
+                className="flex items-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                Regenerar com IA
+              </button>
+            )}
           </div>
         </>
       )}

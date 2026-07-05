@@ -156,7 +156,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
         <button
           type="button"
           onClick={() => setView({ type: 'leetcode' })}
-          className="flex w-full items-center gap-4 rounded-3xl border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-5 text-left transition hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md"
+          className="leetcode-trainer-card flex w-full items-center gap-4 rounded-3xl border-2 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
             <Trophy size={24} className="text-amber-600" />
