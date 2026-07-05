@@ -66,6 +66,10 @@ assert.match(
 assert.match(codingCurriculum, /leetcode-trainer-card/, 'LeetCode trainer card should use a theme-aware surface class');
 assert.match(flashcardDeck, /study-mode-tabs/, 'flashcard deck tabs should use a theme-aware tab shell');
 assert.match(flashcardDeck, /study-mode-tab-idle/, 'inactive flashcard deck tabs should use theme-aware text and hover states');
+assert.match(flashcardDeck, /role="dialog"/, 'active flashcard study card should render as a modal dialog');
+assert.match(flashcardDeck, /aria-modal="true"/, 'flashcard study modal should announce modal behavior');
+assert.match(flashcardDeck, /h-\[100dvh\][\s\S]*sm:max-w-3xl/, 'flashcard study modal should fill mobile and center with max width on desktop');
+assert.match(flashcardDeck, /Fechar tela cheia dos flashcards/, 'flashcard study modal should include a small X close button');
 assert.match(globals, /\.study-mode-tabs/, 'theme CSS should define the flashcard deck tab shell');
 assert.match(globals, /\.leetcode-trainer-card/, 'theme CSS should define the LeetCode trainer card surface');
 

@@ -105,6 +105,16 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [counts, setCounts] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
+  const studyModalOpen = queue !== null && queue.length > 0;
+
+  useEffect(() => {
+    if (!studyModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [studyModalOpen]);
 
   async function start() {
     setLoading(true);
@@ -136,6 +146,15 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
       setIndex((i) => i + 1);
       setRevealed(false);
     }
+  }
+
+  function closeStudyModal() {
+    setQueue(null);
+    setIndex(0);
+    setRevealed(false);
+    setSubmitting(false);
+    setCounts({ again: 0, hard: 0, good: 0, easy: 0 });
+    onFinished();
   }
 
   // Not started yet
@@ -186,46 +205,64 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
   const badge = STATE_BADGE[card.state] ?? STATE_BADGE.new;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{card.topic_title}</p>
-          <p className="text-sm font-bold text-slate-600">{index + 1} / {queue.length}</p>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Estudo de flashcards"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
+    >
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-y-auto bg-white px-5 py-6 sm:h-auto sm:max-h-[92vh] sm:max-w-3xl sm:rounded-[1.5rem] sm:border-2 sm:border-slate-200 sm:p-7 sm:shadow-[0_28px_90px_rgba(15,23,42,0.35)]">
+        <button
+          type="button"
+          onClick={closeStudyModal}
+          aria-label="Fechar tela cheia dos flashcards"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 sm:right-4 sm:top-4"
+        >
+          <X size={15} />
+        </button>
+
+        <div className="space-y-5 pr-2 sm:pr-0">
+          <div className="flex items-center justify-between gap-10">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{card.topic_title}</p>
+              <p className="text-sm font-bold text-slate-600">{index + 1} / {queue.length}</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${badge.cls}`}>{badge.label}</span>
+          </div>
+
+          <div className="h-1.5 w-full rounded-full bg-slate-100">
+            <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${(index / queue.length) * 100}%` }} />
+          </div>
+
+          <div className="min-h-48 rounded-3xl border-2 border-slate-100 bg-white p-5 sm:p-6">
+            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Frente</p>
+            <p className="text-lg font-black text-slate-800">{card.front}</p>
+
+            {!revealed ? (
+              <button
+                type="button"
+                onClick={() => setRevealed(true)}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-primary py-3 font-black text-primary hover:bg-primary-light"
+              >
+                <ChevronRight size={18} /> Mostrar resposta
+              </button>
+            ) : (
+              <>
+                <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                  <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
+                  <p className="leading-relaxed text-slate-700">{card.back}</p>
+                  {card.code_example && <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <GradeButton label="Errei" preview={card.previews.again} onClick={() => answer('again')} disabled={submitting} cls="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" />
+                  <GradeButton label="Difícil" preview={card.previews.hard} onClick={() => answer('hard')} disabled={submitting} cls="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" />
+                  <GradeButton label="Bom" preview={card.previews.good} onClick={() => answer('good')} disabled={submitting} cls="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
+                  <GradeButton label="Fácil" preview={card.previews.easy} onClick={() => answer('easy')} disabled={submitting} cls="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" />
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-black ${badge.cls}`}>{badge.label}</span>
-      </div>
-
-      <div className="h-1.5 w-full rounded-full bg-slate-100">
-        <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${(index / queue.length) * 100}%` }} />
-      </div>
-
-      <div className="min-h-48 rounded-3xl border-2 border-slate-100 bg-white p-6">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Frente</p>
-        <p className="text-lg font-black text-slate-800">{card.front}</p>
-
-        {!revealed ? (
-          <button
-            type="button"
-            onClick={() => setRevealed(true)}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-primary py-3 font-black text-primary hover:bg-primary-light"
-          >
-            <ChevronRight size={18} /> Mostrar resposta
-          </button>
-        ) : (
-          <>
-            <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
-              <p className="leading-relaxed text-slate-700">{card.back}</p>
-              {card.code_example && <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />}
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <GradeButton label="Errei" preview={card.previews.again} onClick={() => answer('again')} disabled={submitting} cls="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" />
-              <GradeButton label="Difícil" preview={card.previews.hard} onClick={() => answer('hard')} disabled={submitting} cls="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" />
-              <GradeButton label="Bom" preview={card.previews.good} onClick={() => answer('good')} disabled={submitting} cls="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
-              <GradeButton label="Fácil" preview={card.previews.easy} onClick={() => answer('easy')} disabled={submitting} cls="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" />
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
