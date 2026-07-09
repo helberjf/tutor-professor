@@ -127,7 +127,7 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
   // Filtrar atividades
   const filteredActivities = selectedFilters.size === 0
     ? activities.activities
-    : activities.activities.filter((activity) => selectedFilters.has(activity.activity_type as ActivityType));
+    : activities.activities.filter((activity) => selectedFilters.has(activity.activity_type));
 
   return (
     <div className="w-full max-w-2xl rounded-2xl border-2 border-primary bg-white p-6">

@@ -1,23 +1,45 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api, type StudyDashboard, ApiError } from '@/lib/api';
 import { ActivityLogSection } from '@/components/activity-log-section';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StatusCard } from '@/components/status-card';
 
+type GateState = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
+
 export default function DashboardPage() {
-  const authState = useRequireAuth();
+  const [gateState, setGateState] = useState<GateState>('loading');
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pomodoroState] = useState({ completedByDate: {} as Record<string, number> });
 
   useEffect(() => {
-    if (authState.status !== 'authenticated') return;
+    let cancelled = false;
+
+    api.getUserMe()
+      .then((data) => {
+        if (!cancelled) setGateState('authenticated');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.code === 'unconfigured') {
+          setGateState('server_missing');
+        } else {
+          setGateState('unauthenticated');
+        }
+      })
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gateState !== 'authenticated') return;
     let cancelled = false;
 
     setLoading(true);
@@ -35,13 +57,13 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [authState.status]);
+  }, [gateState]);
 
-  if (authState.status === 'loading' || authState.status === 'unauthenticated') {
-    return null;
+  if (gateState === 'loading') {
+    return <StatusCard tone="loading" title="Carregando" message="Verificando acesso ao dashboard..." />;
   }
 
-  if (authState.status === 'server_missing') {
+  if (gateState === 'server_missing') {
     return (
       <StatusCard
         tone="offline"
@@ -50,6 +72,19 @@ export default function DashboardPage() {
         primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
+      />
+    );
+  }
+
+  if (gateState === 'unauthenticated') {
+    return (
+      <StatusCard
+        tone="empty"
+        title="Área restrita"
+        message="Entre com sua conta para ver o dashboard."
+        primaryAction={<Link href="/login?next=%2Fdashboard" className="kid-button bg-primary hover:bg-primary-dark">Entrar</Link>}
+        secondaryHref="/study"
+        secondaryLabel="Ir para estudos"
       />
     );
   }
