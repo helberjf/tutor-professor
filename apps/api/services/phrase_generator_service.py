@@ -24,7 +24,7 @@ class AIProviderConfig:
 
 
 AI_PROVIDER_DEFAULT_MODELS = {
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.1-flash-lite",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-latest",
     "openrouter": "openrouter/auto",
