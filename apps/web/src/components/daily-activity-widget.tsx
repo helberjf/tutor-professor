@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CheckCircle2, Code2, Loader2, Quiz } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle2, Code2, Loader2, HelpCircle } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 
 const ACTIVITY_ICONS = {
   lesson: <BookOpen className="text-blue-500" size={16} />,
   review: <CheckCircle2 className="text-green-500" size={16} />,
-  quiz: <Quiz className="text-purple-500" size={16} />,
+  quiz: <HelpCircle className="text-purple-500" size={16} />,
   coding: <Code2 className="text-orange-500" size={16} />,
 };
 
@@ -26,7 +26,7 @@ export function DailyActivityWidget() {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
-        const data = await api.get<DailyActivitySummarySchema>('/activity/today');
+        const data = await api.getTodayActivities();
         setActivities(data);
       } catch (err) {
         console.error('Failed to load daily activities:', err);
