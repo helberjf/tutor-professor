@@ -42,6 +42,8 @@ export function LeetCodeTrainer({ onBack }: Props) {
   const [hint, setHint] = useState('');
   const [language, setLanguage] = useState('TypeScript');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [registeringActivity, setRegisteringActivity] = useState(false);
+  const [activityMessage, setActivityMessage] = useState('');
 
   useEffect(() => {
     loadMethods();
@@ -85,6 +87,26 @@ export function LeetCodeTrainer({ onBack }: Props) {
     }
   }
 
+  async function handleRegisterActivity() {
+    setRegisteringActivity(true);
+    setActivityMessage('');
+    try {
+      await api.logActivity({
+        activity_type: 'leetcode',
+        activity_title: 'LeetCode Trainer',
+        result_details: {
+          total_methods: methods.length,
+          languages: Array.from(new Set(methods.map((method) => method.language))),
+        },
+      });
+      setActivityMessage('Atividade registrada no activity-log.');
+    } catch {
+      setActivityMessage('Não foi possível registrar agora.');
+    } finally {
+      setRegisteringActivity(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -103,6 +125,16 @@ export function LeetCodeTrainer({ onBack }: Props) {
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void handleRegisterActivity()}
+          disabled={registeringActivity}
+          className="mt-4 inline-flex items-center gap-2 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
+        >
+          {registeringActivity ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
+          Registrar atividade de LeetCode
+        </button>
+        {activityMessage && <p className="mt-3 text-sm font-bold text-slate-500">{activityMessage}</p>}
       </section>
 
       {/* Generate next method */}

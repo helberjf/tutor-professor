@@ -16,6 +16,9 @@ const COLORS_BY_TYPE: Record<string, string> = {
   quiz: 'bg-purple-500',
   coding: 'bg-orange-500',
   diverse: 'bg-indigo-500',
+  leetcode: 'bg-amber-500',
+  flashcard: 'bg-violet-500',
+  coding_review: 'bg-cyan-500',
 };
 
 function getTypeLabel(type: string) {
@@ -25,6 +28,9 @@ function getTypeLabel(type: string) {
     quiz: 'Quiz',
     coding: 'Programação',
     diverse: 'Outras matérias',
+    leetcode: 'LeetCode',
+    flashcard: 'Flashcards',
+    coding_review: 'Revisão de programação',
   };
 
   return labels[type] || type.replace(/_/g, ' ');

@@ -96,8 +96,8 @@ export default function HomePage() {
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100">
                 <Sparkles size={15} /> Tutor leve
               </span>
-            <h1 className="mt-4 max-w-3xl text-3xl font-black leading-[1.08] text-slate-950 sm:text-4xl md:text-5xl">
-              Vamos aprender inglês do seu jeito
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-7 text-slate-600 sm:text-4xl md:text-5xl">
+              Vamos aprender tudo do seu jeito
             </h1>
             <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg sm:leading-8">
               {isUnauthenticated
@@ -221,7 +221,7 @@ export default function HomePage() {
             emoji="📊"
             icon={<BarChart3 size={28} />}
             title="Dashboard"
-            description="Veja os logs e métricas"
+            description="Veja as métricas e acompanhe sua evolução"
             bg="bg-slate-50"
             border="border-slate-200"
             iconColor="text-slate-700"

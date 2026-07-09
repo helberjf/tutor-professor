@@ -30,6 +30,9 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   quiz: <HelpCircle className="text-purple-500" size={20} />,
   coding: <Code2 className="text-orange-500" size={20} />,
   diverse: <BookOpen className="text-indigo-500" size={20} />,
+  leetcode: <span aria-hidden="true">🏆</span>,
+  flashcard: <span aria-hidden="true">🃏</span>,
+  coding_review: <Code2 className="text-cyan-500" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -38,6 +41,9 @@ const ACTIVITY_LABELS: Record<string, string> = {
   quiz: 'Quiz',
   coding: 'Programação',
   diverse: 'Outras matérias',
+  leetcode: 'LeetCode',
+  flashcard: 'Flashcards',
+  coding_review: 'Revisão de programação',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -45,6 +51,10 @@ const ACTIVITY_COLORS: Record<string, string> = {
   review: 'bg-green-50 border-green-200',
   quiz: 'bg-purple-50 border-purple-200',
   coding: 'bg-orange-50 border-orange-200',
+  diverse: 'bg-indigo-50 border-indigo-200',
+  leetcode: 'bg-amber-50 border-amber-200',
+  flashcard: 'bg-violet-50 border-violet-200',
+  coding_review: 'bg-cyan-50 border-cyan-200',
 };
 
 interface DailyActivityLogProps {
