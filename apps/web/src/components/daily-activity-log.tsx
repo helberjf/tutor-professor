@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
@@ -71,7 +71,11 @@ function getActivityIcon(type: string) {
   return ACTIVITY_ICONS[type] || <AlertCircle size={20} />;
 }
 
-export function DailyActivityLog({ date = new Date(), showFilters = true }: DailyActivityLogProps) {
+export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyActivityLogProps) {
+  // dateProp defaults to undefined when the caller omits it; deriving `new Date()`
+  // via useMemo (instead of a default parameter) keeps a stable reference across
+  // re-renders so the fetch effect below doesn't re-run on every render.
+  const date = useMemo(() => dateProp ?? new Date(), [dateProp]);
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
