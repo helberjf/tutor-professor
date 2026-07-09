@@ -108,6 +108,35 @@ export interface StudyDayUpdatePayload {
   pomodoro_count?: number;
 }
 
+export interface DailyActivity {
+  id: number;
+  child_id: number;
+  activity_date: string;
+  activity_type: 'lesson' | 'review' | 'quiz' | 'coding';
+  activity_title: string;
+  activity_id: number | null;
+  result_score: number | null;
+  result_details: Record<string, unknown> | null;
+  duration_seconds: number | null;
+  created_at: string;
+}
+
+export interface DailyActivityCreatePayload {
+  activity_type: 'lesson' | 'review' | 'quiz' | 'coding';
+  activity_title: string;
+  activity_id?: number | null;
+  result_score?: number | null;
+  result_details?: Record<string, unknown> | null;
+  duration_seconds?: number | null;
+}
+
+export interface DailyActivitySummarySchema {
+  activity_date: string;
+  total_activities: number;
+  activities_by_type: Record<string, number>;
+  activities: DailyActivity[];
+}
+
 export type DiverseRating = 'knew' | 'partial' | 'unknown';
 
 export interface CodingTopic {
@@ -1000,4 +1029,13 @@ export const api = {
     fetchAPI<LeetCodeMethod>('/api/coding/leetcode/generate', { method: 'POST', body: JSON.stringify(payload) }),
   deleteLeetCodeMethod: (id: number) =>
     fetchAPI<void>(`/api/coding/leetcode/${id}`, { method: 'DELETE' }),
+  // Daily Activity Tracking
+  logActivity: (payload: DailyActivityCreatePayload) =>
+    fetchAPI<DailyActivity>('/api/activity/log', { method: 'POST', body: JSON.stringify(payload) }),
+  getTodayActivities: () =>
+    fetchAPI<DailyActivitySummarySchema>('/api/activity/today'),
+  getDayActivities: (date: string) =>
+    fetchAPI<DailyActivitySummarySchema>(`/api/activity/day/${date}`),
+  getWeekActivities: () =>
+    fetchAPI<DailyActivitySummarySchema[]>('/api/activity/week'),
 };

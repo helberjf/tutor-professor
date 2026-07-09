@@ -272,6 +272,22 @@ class CodingDeckConfig(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class DailyActivity(SQLModel, table=True):
+    """Registra cada atividade estudada no dia (aulas, reviews, quizzes, codificação)."""
+    __table_args__ = ({"indexes": [("child_id", "activity_date")]},)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    activity_date: date = Field(index=True)  # data da atividade
+    activity_type: str = Field(max_length=40, index=True)  # lesson | review | quiz | coding
+    activity_title: str = Field(max_length=200)  # ex: "Lesson 1: Colors", "Quiz: Day 5"
+    activity_id: Optional[int] = Field(default=None)  # ID da lição/quiz/item relacionado
+    result_score: Optional[float] = Field(default=None)  # pontuação (0-100) ou tempo gasto
+    result_details: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))  # dados adicionais
+    duration_seconds: Optional[int] = Field(default=None)  # tempo gasto em segundos
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class LeetCodeMethod(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="childprofile.id", index=True)
