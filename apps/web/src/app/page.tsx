@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -216,6 +216,17 @@ export default function HomePage() {
 
         {/* Activity cards */}
         <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ActivityCard
+            href="/dashboard"
+            emoji="📊"
+            icon={<BarChart3 size={28} />}
+            title="Dashboard"
+            description="Veja os logs e métricas"
+            bg="bg-slate-50"
+            border="border-slate-200"
+            iconColor="text-slate-700"
+            disabled={cardsDisabled}
+          />
           <ActivityCard
             href="/lesson"
             emoji="📖"

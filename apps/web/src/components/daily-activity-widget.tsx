@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BookOpen, CheckCircle2, Code2, Loader2, HelpCircle } from 'lucide-react';
-import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
+import { api, type DailyActivitySummarySchema } from '@/lib/api';
 
 const ACTIVITY_ICONS = {
   lesson: <BookOpen className="text-blue-500" size={16} />,
   review: <CheckCircle2 className="text-green-500" size={16} />,
   quiz: <HelpCircle className="text-purple-500" size={16} />,
   coding: <Code2 className="text-orange-500" size={16} />,
+  diverse: <BookOpen className="text-indigo-500" size={16} />,
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -17,7 +18,20 @@ const ACTIVITY_COLORS: Record<string, string> = {
   review: 'bg-green-50',
   quiz: 'bg-purple-50',
   coding: 'bg-orange-50',
+  diverse: 'bg-indigo-50',
 };
+
+function getActivityLabel(type: string) {
+  const labels: Record<string, string> = {
+    lesson: 'Lição',
+    review: 'Revisão',
+    quiz: 'Quiz',
+    coding: 'Programação',
+    diverse: 'Outras matérias',
+  };
+
+  return labels[type] || type.replace(/_/g, ' ');
+}
 
 export function DailyActivityWidget() {
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
@@ -78,7 +92,7 @@ export function DailyActivityWidget() {
       <div className="mb-3 flex gap-2">
         {Object.entries(activities.activities_by_type).map(([type, count]) => (
           <div key={type} className={`rounded-lg px-2 py-1 text-xs font-medium ${ACTIVITY_COLORS[type] || 'bg-gray-50'}`}>
-            {count} {type}
+            {count} {getActivityLabel(type)}
           </div>
         ))}
       </div>

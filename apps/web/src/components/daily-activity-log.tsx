@@ -29,6 +29,7 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   review: <CheckCircle2 className="text-green-500" size={20} />,
   quiz: <HelpCircle className="text-purple-500" size={20} />,
   coding: <Code2 className="text-orange-500" size={20} />,
+  diverse: <BookOpen className="text-indigo-500" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -36,6 +37,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   review: 'Revisão',
   quiz: 'Quiz',
   coding: 'Programação',
+  diverse: 'Outras matérias',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -45,19 +47,25 @@ const ACTIVITY_COLORS: Record<string, string> = {
   coding: 'bg-orange-50 border-orange-200',
 };
 
-type ActivityType = 'lesson' | 'review' | 'quiz' | 'coding';
-
 interface DailyActivityLogProps {
   childId?: number;
   date?: Date;
   showFilters?: boolean;
 }
 
+function getActivityLabel(type: string) {
+  return ACTIVITY_LABELS[type] || type.replace(/_/g, ' ');
+}
+
+function getActivityIcon(type: string) {
+  return ACTIVITY_ICONS[type] || <AlertCircle size={20} />;
+}
+
 export function DailyActivityLog({ date = new Date(), showFilters = true }: DailyActivityLogProps) {
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFilters, setSelectedFilters] = useState<Set<ActivityType>>(new Set());
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -141,7 +149,7 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
         {Object.entries(activities.activities_by_type).map(([type, count]) => (
           <div key={type} className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
             <div className="text-2xl font-bold text-slate-800">{count}</div>
-            <div className="text-xs font-medium text-slate-600">{ACTIVITY_LABELS[type] || type}</div>
+            <div className="text-xs font-medium text-slate-600">{getActivityLabel(type)}</div>
           </div>
         ))}
       </div>
@@ -149,8 +157,9 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
       {/* Filters */}
       {showFilters && (
         <div className="mb-6 flex flex-wrap gap-2">
-          {Object.entries(ACTIVITY_LABELS).map(([type, label]) => {
-            const isSelected = selectedFilters.size === 0 || selectedFilters.has(type as ActivityType);
+          {Object.keys(activities.activities_by_type).map((type) => {
+            const label = getActivityLabel(type);
+            const isSelected = selectedFilters.size === 0 || selectedFilters.has(type);
             const count = activities.activities_by_type[type] || 0;
 
             return (
@@ -159,11 +168,9 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
                 onClick={() => {
                   const newFilters = new Set(selectedFilters);
                   if (isSelected) {
-                    // Se estava selecionado, desseleciona
-                    newFilters.delete(type as ActivityType);
+                    newFilters.delete(type);
                   } else {
-                    // Se estava deselecionado, seleciona
-                    newFilters.add(type as ActivityType);
+                    newFilters.add(type);
                   }
                   setSelectedFilters(newFilters);
                 }}
@@ -200,7 +207,7 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
           >
             {/* Icon */}
             <div className="mt-1 flex-shrink-0">
-              {ACTIVITY_ICONS[activity.activity_type] || <AlertCircle size={20} />}
+              {getActivityIcon(activity.activity_type)}
             </div>
 
             {/* Content */}
@@ -208,7 +215,7 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
               <h3 className="font-semibold text-slate-800">{activity.activity_title}</h3>
               <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-600">
                 <span className="rounded bg-white/60 px-2 py-1">
-                  {ACTIVITY_LABELS[activity.activity_type]}
+                  {getActivityLabel(activity.activity_type)}
                 </span>
                 {activity.result_score !== null && (
                   <span className="rounded bg-white/60 px-2 py-1">

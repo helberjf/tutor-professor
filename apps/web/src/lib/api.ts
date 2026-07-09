@@ -112,7 +112,7 @@ export interface DailyActivity {
   id: number;
   child_id: number;
   activity_date: string;
-  activity_type: 'lesson' | 'review' | 'quiz' | 'coding';
+  activity_type: string;
   activity_title: string;
   activity_id: number | null;
   result_score: number | null;
@@ -122,7 +122,7 @@ export interface DailyActivity {
 }
 
 export interface DailyActivityCreatePayload {
-  activity_type: 'lesson' | 'review' | 'quiz' | 'coding';
+  activity_type: string;
   activity_title: string;
   activity_id?: number | null;
   result_score?: number | null;
