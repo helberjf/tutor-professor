@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -100,6 +100,9 @@ from schemas.schemas import (
     StudyDashboardSchema,
     StudyDaySchema,
     StudyDayUpdateSchema,
+    DailyActivitySchema,
+    DailyActivityCreateSchema,
+    DailyActivitySummarySchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -950,8 +953,19 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
     lesson_progress.completed_at = now
     update_streak(child=child, now=now)
 
+    # Registra atividade no histórico diário
+    daily_activity = DailyActivity(
+        child_id=child.id or 0,
+        activity_date=date.today(),
+        activity_type="lesson",
+        activity_title=lesson.title,
+        activity_id=lesson.id,
+        result_score=100.0,  # Lição completada = 100%
+    )
+
     session.add(child)
     session.add(lesson_progress)
+    session.add(daily_activity)
     session.commit()
     return {"status": "success"}
 
@@ -1004,8 +1018,31 @@ def submit_quiz(
     )
     update_streak(child=child, now=datetime.utcnow())
 
+    # Calcula a pontuação percentual
+    score_percentage = (payload.score / payload.total_questions * 100) if payload.total_questions > 0 else 0
+    
+    # Obtém o título da lição se disponível
+    lesson = session.get(Lesson, payload.lesson_id) if payload.lesson_id else None
+    quiz_title = f"Quiz: {lesson.title}" if lesson else "Quiz"
+
+    # Registra atividade no histórico diário
+    daily_activity = DailyActivity(
+        child_id=child.id or 0,
+        activity_date=date.today(),
+        activity_type="quiz",
+        activity_title=quiz_title,
+        activity_id=payload.lesson_id,
+        result_score=score_percentage,
+        result_details={
+            "score": payload.score,
+            "total": payload.total_questions,
+            "percentage": score_percentage,
+        },
+    )
+
     session.add(child)
     session.add(attempt)
+    session.add(daily_activity)
     session.commit()
 
     return QuizSubmitResponseSchema(
@@ -1049,8 +1086,24 @@ def submit_review_attempt(
     )
     child.last_activity = datetime.utcnow()
 
+    # Registra atividade de review no histórico diário
+    daily_activity = DailyActivity(
+        child_id=child.id or 0,
+        activity_date=date.today(),
+        activity_type="review",
+        activity_title=f"Review: {payload.word_en}",
+        activity_id=None,
+        result_score=100.0 if payload.correct else 0.0,
+        result_details={
+            "word_en": payload.word_en,
+            "word_pt": payload.word_pt,
+            "correct": payload.correct,
+        },
+    )
+
     session.add(child)
     session.add(review_item)
+    session.add(daily_activity)
     session.commit()
     session.refresh(review_item)
 
@@ -3343,6 +3396,119 @@ def generate_diverse_flashcards(
     data = _extract_json_object(response_text)
 
     raw_cards = data.get("flashcards") or []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DAILY ACTIVITY TRACKING
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.post("/api/activity/log", response_model=DailyActivitySchema)
+def log_daily_activity(
+    activity: DailyActivityCreateSchema,
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+):
+    """Registra uma atividade estudada no dia."""
+    from datetime import date as date_class
+    
+    today = date_class.today()
+    
+    new_activity = DailyActivity(
+        child_id=child_id,
+        activity_date=today,
+        activity_type=activity.activity_type,
+        activity_title=activity.activity_title,
+        activity_id=activity.activity_id,
+        result_score=activity.result_score,
+        result_details=activity.result_details,
+        duration_seconds=activity.duration_seconds,
+    )
+    
+    session.add(new_activity)
+    session.commit()
+    session.refresh(new_activity)
+    
+    return new_activity
+
+
+@app.get("/api/activity/day/{activity_date}", response_model=DailyActivitySummarySchema)
+def get_daily_activities(
+    activity_date: date,
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+):
+    """Retorna o resumo de atividades estudadas no dia especificado."""
+    activities = session.exec(
+        select(DailyActivity)
+        .where(
+            (DailyActivity.child_id == child_id)
+            & (DailyActivity.activity_date == activity_date)
+        )
+        .order_by(DailyActivity.created_at.asc())
+    ).all()
+    
+    # Contar por tipo de atividade
+    activities_by_type = {}
+    for act in activities:
+        activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
+    
+    return DailyActivitySummarySchema(
+        activity_date=activity_date,
+        total_activities=len(activities),
+        activities_by_type=activities_by_type,
+        activities=[DailyActivitySchema.model_validate(act) for act in activities],
+    )
+
+
+@app.get("/api/activity/today", response_model=DailyActivitySummarySchema)
+def get_today_activities(
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+):
+    """Retorna as atividades de hoje."""
+    from datetime import date as date_class
+    
+    today = date_class.today()
+    return get_daily_activities(today, child_id, session)
+
+
+@app.get("/api/activity/week", response_model=list[DailyActivitySummarySchema])
+def get_week_activities(
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+):
+    """Retorna as atividades dos últimos 7 dias."""
+    from datetime import date as date_class, timedelta
+    
+    today = date_class.today()
+    start_date = today - timedelta(days=6)
+    
+    summaries = []
+    for i in range(7):
+        current_date = start_date + timedelta(days=i)
+        activities = session.exec(
+            select(DailyActivity)
+            .where(
+                (DailyActivity.child_id == child_id)
+                & (DailyActivity.activity_date == current_date)
+            )
+            .order_by(DailyActivity.created_at.asc())
+        ).all()
+        
+        activities_by_type = {}
+        for act in activities:
+            activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
+        
+        summaries.append(
+            DailyActivitySummarySchema(
+                activity_date=current_date,
+                total_activities=len(activities),
+                activities_by_type=activities_by_type,
+                activities=[DailyActivitySchema.model_validate(act) for act in activities],
+            )
+        )
+    
+    return summaries
     flashcards = [
         GeneratedFlashcardSchema(
             topic=str(card.get("question", "")).strip()[:120],

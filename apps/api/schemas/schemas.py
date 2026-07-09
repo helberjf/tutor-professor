@@ -517,6 +517,39 @@ class UpdateDeckConfigSchema(BaseModel):
     new_cards_ignore_review_limit: Optional[bool] = None
     leech_threshold: Optional[int] = Field(default=None, ge=0, le=99)
     leech_action: Optional[Literal["tag", "suspend"]] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Daily Activity Tracking
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DailyActivitySchema(FromAttributesModel):
+    id: int
+    child_id: int
+    activity_date: date
+    activity_type: str  # lesson | review | quiz | coding
+    activity_title: str
+    activity_id: Optional[int] = None
+    result_score: Optional[float] = None
+    result_details: Optional[Dict[str, Any]] = None
+    duration_seconds: Optional[int] = None
+    created_at: datetime
+
+
+class DailyActivityCreateSchema(BaseModel):
+    activity_type: str  # lesson | review | quiz | coding
+    activity_title: str
+    activity_id: Optional[int] = None
+    result_score: Optional[float] = None
+    result_details: Optional[Dict[str, Any]] = None
+    duration_seconds: Optional[int] = None
+
+
+class DailyActivitySummarySchema(BaseModel):
+    activity_date: date
+    total_activities: int
+    activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "review": 3, "quiz": 1}
+    activities: List[DailyActivitySchema] = Field(default_factory=list)
     fsrs_parameters: Optional[str] = Field(default=None, max_length=400)
 
 
