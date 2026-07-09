@@ -11,6 +11,9 @@ const ACTIVITY_ICONS = {
   quiz: <HelpCircle className="text-purple-500" size={16} />,
   coding: <Code2 className="text-orange-500" size={16} />,
   diverse: <BookOpen className="text-indigo-500" size={16} />,
+  leetcode: <span aria-hidden="true">🏆</span>,
+  flashcard: <span aria-hidden="true">🃏</span>,
+  coding_review: <Code2 className="text-cyan-500" size={16} />,
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -19,6 +22,9 @@ const ACTIVITY_COLORS: Record<string, string> = {
   quiz: 'bg-purple-50',
   coding: 'bg-orange-50',
   diverse: 'bg-indigo-50',
+  leetcode: 'bg-amber-50',
+  flashcard: 'bg-violet-50',
+  coding_review: 'bg-cyan-50',
 };
 
 function getActivityLabel(type: string) {
@@ -28,6 +34,9 @@ function getActivityLabel(type: string) {
     quiz: 'Quiz',
     coding: 'Programação',
     diverse: 'Outras matérias',
+    leetcode: 'LeetCode',
+    flashcard: 'Flashcards',
+    coding_review: 'Revisão de programação',
   };
 
   return labels[type] || type.replace(/_/g, ' ');

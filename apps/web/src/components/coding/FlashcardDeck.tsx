@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, CheckCircle2, ChevronRight, Layers, Loader2, Pencil, Plus, RotateCcw,
   Save, Search, Settings2, Sparkles, Trash2, X, Zap,
@@ -32,6 +32,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
   const [overview, setOverview] = useState<DeckOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loggedCompletionRef = useRef(false);
 
   async function loadOverview() {
     setLoading(true);
@@ -86,7 +87,13 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={32} /></div>
       ) : tab === 'study' ? (
-        <StudyTab subjectId={subjectId} stats={stats} onFinished={loadOverview} />
+        <StudyTab
+          subjectId={subjectId}
+          subjectName={subjectName}
+          stats={stats}
+          onFinished={loadOverview}
+          onLogged={() => { loggedCompletionRef.current = true; }}
+        />
       ) : tab === 'cards' ? (
         <CardsTab overview={overview} onReload={() => { loadOverview(); onChanged?.(); }} />
       ) : (
@@ -98,7 +105,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
 
 // ── Study tab ────────────────────────────────────────────────────────────────
 
-function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?: DeckStats; onFinished: () => void }) {
+function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { subjectId: number; subjectName: string; stats?: DeckStats; onFinished: () => void; onLogged: () => void }) {
   const [queue, setQueue] = useState<DeckStudyCard[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -144,6 +151,17 @@ function StudyTab({ subjectId, stats, onFinished }: { subjectId: number; stats?:
     setCounts(nextCounts);
     if (index + 1 >= queue.length) {
       setCompletedCounts(nextCounts);
+      onLogged();
+      void api.logActivity({
+        activity_type: 'flashcard',
+        activity_title: `Flashcards: ${subjectName}`,
+        result_details: {
+          subject_id: subjectId,
+          subject_name: subjectName,
+          reviewed_cards: queue.length,
+          answer_counts: nextCounts,
+        },
+      }).catch(() => {});
       onFinished();
       setQueue([]); // mark finished
     } else {
