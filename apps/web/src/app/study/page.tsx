@@ -9,6 +9,7 @@ import {
 
 import { StatusCard } from '@/components/status-card';
 import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
+import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
@@ -960,6 +961,13 @@ export default function StudyPage() {
             </span>
             <ChevronRight size={24} className="shrink-0 text-primary" />
           </Link>
+        )}
+
+        {/* Statistics Panel */}
+        {activeTab === 'english' && (
+          <div className="mb-6">
+            <StudyStatisticsPanel />
+          </div>
         )}
 
         {/* Date picker (shared) */}
