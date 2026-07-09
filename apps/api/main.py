@@ -431,6 +431,13 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
     return get_default_child(session=session, user_id=logged_user_id)
 
 
+def get_child_id_from_session(request: Request, session: Session = Depends(get_session)) -> int:
+    child = get_requested_child(request=request, session=session)
+    if child.id is None:
+        raise HTTPException(status_code=500, detail="Child profile is missing an id")
+    return child.id
+
+
 def is_generated_lesson(lesson: Lesson) -> bool:
     content = lesson.content or {}
     return content.get("generated_by") == "gemini"

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import SQLModel, Field, JSON, Column
 
 
@@ -274,7 +274,7 @@ class CodingDeckConfig(SQLModel, table=True):
 
 class DailyActivity(SQLModel, table=True):
     """Registra cada atividade estudada no dia (aulas, reviews, quizzes, codificação)."""
-    __table_args__ = ({"indexes": [("child_id", "activity_date")]},)
+    __table_args__ = (Index("ix_daily_activity_child_id_activity_date", "child_id", "activity_date"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="childprofile.id", index=True)
