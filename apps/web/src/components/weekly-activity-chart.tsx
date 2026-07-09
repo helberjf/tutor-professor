@@ -15,7 +15,20 @@ const COLORS_BY_TYPE: Record<string, string> = {
   review: 'bg-green-500',
   quiz: 'bg-purple-500',
   coding: 'bg-orange-500',
+  diverse: 'bg-indigo-500',
 };
+
+function getTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    lesson: 'Lição',
+    review: 'Revisão',
+    quiz: 'Quiz',
+    coding: 'Programação',
+    diverse: 'Outras matérias',
+  };
+
+  return labels[type] || type.replace(/_/g, ' ');
+}
 
 interface ActivityBar {
   date: string;
@@ -85,8 +98,6 @@ export function WeeklyActivityChart() {
   }
 
   // Encontra o máximo de atividades em um dia para escala
-  const maxActivities = Math.max(...weekData.map((d) => d.total), 1);
-
   return (
     <div className="rounded-xl border-2 border-slate-200 bg-white p-6">
       {/* Header */}
@@ -106,7 +117,6 @@ export function WeeklyActivityChart() {
                   {/* Stacked bar por tipo */}
                   {day.activities.map((activity) => {
                     const heightPercent = (activity.count / day.total) * 100;
-                    const barHeight = Math.max(4, (day.total / maxActivities) * 100);
                     return (
                       <div
                         key={activity.type}
@@ -136,7 +146,7 @@ export function WeeklyActivityChart() {
         {Object.entries(COLORS_BY_TYPE).map(([type, color]) => (
           <div key={type} className="flex items-center gap-2">
             <div className={`h-3 w-3 rounded ${color}`} />
-            <span className="text-xs font-medium text-slate-600 capitalize">{type}</span>
+            <span className="text-xs font-medium text-slate-600">{getTypeLabel(type)}</span>
           </div>
         ))}
       </div>

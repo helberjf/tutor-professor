@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 const primaryLinks = [
   { href: '/', label: 'Início', icon: Home },
+  { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/lesson', label: 'Lição', icon: BookOpen },
   { href: '/study', label: 'Estudos', icon: ClipboardList },
   { href: '/quiz', label: 'Quiz', icon: Trophy },
