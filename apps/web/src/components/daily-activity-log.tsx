@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, Quiz } from 'lucide-react';
+import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, Quiz, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
@@ -28,15 +28,19 @@ const ACTIVITY_COLORS: Record<string, string> = {
   coding: 'bg-orange-50 border-orange-200',
 };
 
+type ActivityType = 'lesson' | 'review' | 'quiz' | 'coding';
+
 interface DailyActivityLogProps {
   childId?: number;
   date?: Date;
+  showFilters?: boolean;
 }
 
-export function DailyActivityLog({ date = new Date() }: DailyActivityLogProps) {
+export function DailyActivityLog({ date = new Date(), showFilters = true }: DailyActivityLogProps) {
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFilters, setSelectedFilters] = useState<Set<ActivityType>>(new Set());
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -95,6 +99,11 @@ export function DailyActivityLog({ date = new Date() }: DailyActivityLogProps) {
 
   const dateLabel = format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
 
+  // Filtrar atividades
+  const filteredActivities = selectedFilters.size === 0
+    ? activities.activities
+    : activities.activities.filter((activity) => selectedFilters.has(activity.activity_type as ActivityType));
+
   return (
     <div className="w-full max-w-2xl rounded-2xl border-2 border-primary bg-white p-6">
       {/* Header */}
@@ -120,9 +129,54 @@ export function DailyActivityLog({ date = new Date() }: DailyActivityLogProps) {
         ))}
       </div>
 
+      {/* Filters */}
+      {showFilters && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          {Object.entries(ACTIVITY_LABELS).map(([type, label]) => {
+            const isSelected = selectedFilters.size === 0 || selectedFilters.has(type as ActivityType);
+            const count = activities.activities_by_type[type] || 0;
+
+            return (
+              <button
+                key={type}
+                onClick={() => {
+                  const newFilters = new Set(selectedFilters);
+                  if (isSelected) {
+                    // Se estava selecionado, desseleciona
+                    newFilters.delete(type as ActivityType);
+                  } else {
+                    // Se estava deselecionado, seleciona
+                    newFilters.add(type as ActivityType);
+                  }
+                  setSelectedFilters(newFilters);
+                }}
+                className={`flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition ${
+                  isSelected
+                    ? 'border-primary bg-blue-50 text-slate-800'
+                    : 'border-slate-200 bg-white text-slate-600 opacity-50'
+                }`}
+              >
+                {label}
+                <span className="rounded bg-white px-1.5 py-0.5 text-xs font-bold">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {selectedFilters.size > 0 && (
+            <button
+              onClick={() => setSelectedFilters(new Set())}
+              className="inline-flex items-center gap-1 rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+            >
+              Limpar <X size={16} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Activities List */}
       <div className="space-y-3">
-        {activities.activities.map((activity) => (
+        {filteredActivities.map((activity) => (
           <div
             key={activity.id}
             className={`flex items-start gap-4 rounded-lg border-2 p-4 ${ACTIVITY_COLORS[activity.activity_type] || 'bg-gray-50 border-gray-200'}`}
