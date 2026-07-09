@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Loader2 } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
+
+// Utility function to get Portuguese day abbreviation
+const getDayLabel = (date: Date): string => {
+  const formatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
+  return formatter.format(date).substring(0, 3);
+};
 
 const COLORS_BY_TYPE: Record<string, string> = {
   lesson: 'bg-blue-500',
@@ -29,12 +33,12 @@ export function WeeklyActivityChart() {
     const fetchWeekData = async () => {
       try {
         setLoading(true);
-        const data = await api.get<DailyActivitySummarySchema[]>('/activity/week');
+        const data = await api.getWeekActivities();
 
         const bars: ActivityBar[] = data.map((day) => {
           const [year, month, dayNum] = day.activity_date.split('-').map(Number);
           const date = new Date(year, month - 1, dayNum);
-          const dayLabel = format(date, 'EEE', { locale: ptBR }).substring(0, 3);
+          const dayLabel = getDayLabel(date);
 
           const activities = Object.entries(day.activities_by_type).map(([type, count]) => ({
             type,

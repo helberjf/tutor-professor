@@ -1,16 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, Quiz, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
+
+// Utility functions to replace date-fns
+const formatDate = (date: Date, format: string): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  if (format === 'yyyy-MM-dd') return `${year}-${month}-${day}`;
+  if (format === 'HH:mm') return `${hours}:${minutes}`;
+  return date.toLocaleDateString('pt-BR');
+};
+
+const getPortugueseDateLabel = (date: Date): string => {
+  const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const formatter = new Intl.DateTimeFormat('pt-BR', options);
+  return formatter.format(date);
+};
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   lesson: <BookOpen className="text-blue-500" size={20} />,
   review: <CheckCircle2 className="text-green-500" size={20} />,
-  quiz: <Quiz className="text-purple-500" size={20} />,
+  quiz: <HelpCircle className="text-purple-500" size={20} />,
   coding: <Code2 className="text-orange-500" size={20} />,
 };
 
@@ -49,10 +66,10 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
         setError(null);
 
         // Use endpoint para hoje ou para uma data específica
-        const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+        const isToday = formatDate(date, 'yyyy-MM-dd') === formatDate(new Date(), 'yyyy-MM-dd');
         const data = isToday
-          ? await api.get<DailyActivitySummarySchema>('/activity/today')
-          : await api.get<DailyActivitySummarySchema>(`/activity/day/${format(date, 'yyyy-MM-dd')}`);
+          ? await api.getTodayActivities()
+          : await api.getDayActivities(formatDate(date, 'yyyy-MM-dd'));
 
         setActivities(data);
       } catch (err) {
@@ -91,13 +108,13 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
     return (
       <StatusCard
         title="Nenhuma atividade"
-        message={`Nenhuma atividade registrada para ${format(date, "d 'de' MMMM 'de' yyyy", { locale: ptBR })}`}
+        message={`Nenhuma atividade registrada para ${getPortugueseDateLabel(date)}`}
         tone="empty"
       />
     );
   }
 
-  const dateLabel = format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
+  const dateLabel = getPortugueseDateLabel(date);
 
   // Filtrar atividades
   const filteredActivities = selectedFilters.size === 0
@@ -209,7 +226,7 @@ export function DailyActivityLog({ date = new Date(), showFilters = true }: Dail
             {/* Time */}
             <div className="flex-shrink-0 text-right">
               <div className="text-sm font-medium text-slate-700">
-                {format(new Date(activity.created_at), 'HH:mm')}
+                {formatDate(new Date(activity.created_at), 'HH:mm')}
               </div>
             </div>
           </div>
