@@ -136,6 +136,90 @@ CREATE INDEX idx_activity_child_date
 - `activity_date`: para filtrar por data
 - `activity_type`: para filtrar por tipo
 
+## Frontend Components
+
+### 1. DailyActivityWidget (`apps/web/src/components/daily-activity-widget.tsx`)
+Widget compacto mostrando:
+- Últimas 3 atividades do dia
+- Contadores por tipo de atividade
+- Ícones coloridos e scores
+- Link para histórico completo
+
+**Props:** Nenhuma (usa hooks para carregar dados)
+
+**Uso:**
+```tsx
+<DailyActivityWidget />
+```
+
+### 2. WeeklyActivityChart (`apps/web/src/components/weekly-activity-chart.tsx`)
+Gráfico de barras empilhadas mostrando:
+- Atividades por dia dos últimos 7 dias
+- Cores diferentes por tipo de atividade
+- Altura das barras proporcional à quantidade
+- Labels com números e abreviações
+
+**Props:** Nenhuma (usa hooks para carregar dados)
+
+**Uso:**
+```tsx
+<WeeklyActivityChart />
+```
+
+### 3. DailyActivityLog (Atualizado)
+Adicionados filtros por tipo de atividade:
+- Botões para ativar/desativar cada tipo
+- Botão "Limpar" para remover filtros
+- Counts de cada tipo
+- Padrão: mostrar tudo se nenhum filtro ativo
+
+**Props:**
+```tsx
+interface DailyActivityLogProps {
+  childId?: number;
+  date?: Date;
+  showFilters?: boolean;  // Novo: controla visibilidade dos filtros
+}
+```
+
+### 4. StudyStatisticsPanel (`apps/web/src/components/study-statistics-panel.tsx`)
+Painel que combina widget + gráfico:
+- Apresentação colapsível
+- Widget de hoje + gráfico semanal
+- Botão para expandir/contraír
+
+**Props:** Nenhuma
+
+**Uso:**
+```tsx
+<StudyStatisticsPanel />
+```
+
+### 5. Study Page Integration
+Painel de estatísticas integrado à aba English da página de estudo:
+- Exibido logo após o link "Começar lição de inglês"
+- Disponível na aba English
+- Ocupa a largura total
+
+**Localização:** `/study` → Aba "Inglês"
+
+## Fluxo de Dados
+
+```
+Criança estuda e completa atividade
+         ↓
+Aplicação frontend registra via POST /api/activity/log
+         ↓
+Backend armazena em DailyActivity
+         ↓
+Componente DailyActivityWidget busca dados via GET /api/activity/today
+         ↓
+Widget exibe últimas 3 atividades
+         ↓
+WeeklyActivityChart busca GET /api/activity/week
+         ↓
+Gráfico exibe evolução dos últimos 7 dias com filtros
+
 ## Fluxo de Dados
 
 ```
@@ -154,12 +238,14 @@ Frontend exibe histórico com timestamp, tipo e pontuação
 
 ## Próximas Melhorias
 
-- [ ] Widget de histórico na página principal de estudo
-- [ ] Filtro por tipo de atividade
-- [ ] Gráficos de evolução semanal/mensal
+- [x] Widget de histórico na página principal de estudo
+- [x] Gráficos de evolução semanal  
+- [x] Filtros por tipo de atividade
 - [ ] Notificações quando meta diária é atingida
 - [ ] Exportar histórico em PDF
 - [ ] Comparação com semana anterior
+- [ ] Análise de tendências mensais
+- [ ] Badges/Achievements por consistência
 
 ## Migração
 
