@@ -933,10 +933,10 @@ export default function StudyPage() {
 
         {/* Tab switcher */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
+          <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" mobileLabel="Inglês" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" mobileLabel="Prog." />
           <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" mobileLabel="Outras" />
-          <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           {diverseSubjectTabs.map((item) => (
             <TabButton
               key={item.slug}
@@ -962,13 +962,6 @@ export default function StudyPage() {
             </span>
             <ChevronRight size={24} className="shrink-0 text-primary" />
           </Link>
-        )}
-
-        {/* Statistics Panel */}
-        {activeTab === 'english' && (
-          <div className="mb-6">
-            <StudyStatisticsPanel />
-          </div>
         )}
 
         {/* Date picker (shared) */}
@@ -2504,7 +2497,12 @@ function PomodoroWidget({
 // DASHBOARD TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function DashboardTab({ dashboard, pomodoroState }: { dashboard: StudyDashboard | null; pomodoroState: { completedByDate: Record<string, number> } }) {
-  return <DashboardOverview dashboard={dashboard} pomodoroState={pomodoroState} />;
+  return (
+    <div className="space-y-6">
+      <DashboardOverview dashboard={dashboard} pomodoroState={pomodoroState} />
+      <StudyStatisticsPanel />
+    </div>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
