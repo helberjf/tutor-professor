@@ -47,12 +47,14 @@ def validate_card_batch(
     validated: list[ValidatedCard] = []
 
     for raw_card in cards:
-        front = _limited_text(raw_card.get("front", raw_card.get("question")), 500)
-        back = _limited_text(raw_card.get("back", raw_card.get("answer")), 2000)
+        front = _limited_text(raw_card.get("front") or raw_card.get("question"), 500)
+        back = _limited_text(raw_card.get("back") or raw_card.get("answer"), 2000)
         if not front or not back:
             raise ValueError("Card front and back must not be empty")
 
         normalized_front = normalize_front(front)
+        if not normalized_front:
+            raise ValueError("Card front must contain letters or numbers")
         if normalized_front in batch_fronts or normalized_front in known_fronts:
             raise ValueError("Card fronts must be unique")
 
