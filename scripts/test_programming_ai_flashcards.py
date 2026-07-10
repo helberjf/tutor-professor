@@ -197,12 +197,19 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
                 "save lesson content",
             )
             existing_front = "How does a closure retain lexical state?"
+            existing_back = "Through lexical scope."
+            existing_code = "const savedValue = 42;"
             existing_response = await client.post(
                 f"/api/coding/topics/{topic_id}/flashcards",
-                json={"front": existing_front, "back": "Through lexical scope."},
+                json={
+                    "front": existing_front,
+                    "back": existing_back,
+                    "code_example": existing_code,
+                },
             )
             assert_status(existing_response, 201, "seed existing card")
-            existing_id = existing_response.json()["id"]
+            existing_before = existing_response.json()
+            existing_id = existing_before["id"]
             before_cards, before_reviews = database_counts()
 
             captured: dict[str, object] = {"calls": 0}
@@ -223,9 +230,20 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
             generated = generated_response.json()
             self.assertEqual(len(generated), 5)
             self.assertEqual(captured["calls"], 1)
+            self.assertEqual(captured["subject_name"], "JavaScript")
+            self.assertEqual(captured["topic_title"], "Closures")
             self.assertEqual(captured["ai_content"], ai_content)
             self.assertEqual(captured["existing_fronts"], [existing_front])
             self.assertEqual(captured["user_context"], "Focus on debugging callbacks")
+            self.assertEqual(
+                captured["ai_config"],
+                main.AIProviderConfig(
+                    provider="gemini",
+                    api_key="fake-test-key",
+                    model="gemini-2.5-flash",
+                    base_url=None,
+                ),
+            )
 
             listed_response = await client.get(
                 f"/api/coding/topics/{topic_id}/flashcards"
@@ -233,7 +251,12 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
             assert_status(listed_response, 200, "list appended cards")
             listed = listed_response.json()
             self.assertEqual(len(listed), 6)
-            self.assertIn(existing_id, [card["id"] for card in listed])
+            existing_after = next(card for card in listed if card["id"] == existing_id)
+            self.assertEqual(existing_after["front"], existing_before["front"])
+            self.assertEqual(existing_after["back"], existing_before["back"])
+            self.assertEqual(
+                existing_after["code_example"], existing_before["code_example"]
+            )
 
             generated_ids = {card["id"] for card in generated}
             with Session(main.engine) as session:
