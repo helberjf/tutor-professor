@@ -377,9 +377,44 @@ Rules:
 - sections: 3 to 5 items (introduction, key concepts, code examples, when to use, common pitfalls)
 - quiz: exactly 5 questions with 4 options each
 - flashcards: 5 to 8 items covering key concepts
+- Every flashcard front must be phrased as a technical interview question
+- Flashcards must test concepts taught in sections from this same JSON response
+- Reuse relevant code from the lesson in code_example when code helps answer the question
+- Prefer reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
 - All explanatory text in Portuguese (Brazil); code and technical identifiers stay in English
 - code_example uses the programming language of the subject
 {previous_context}"""
+
+_ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE = """\
+Create exactly five additional flashcards for the saved programming lesson below.
+
+Subject: {subject_name}
+Topic: {topic_title}
+
+Saved lesson content (including relevant code):
+{ai_content}
+
+Existing flashcard fronts (do not repeat or paraphrase these):
+{existing_fronts}
+
+User instructions:
+{user_context}
+
+Return a JSON object with exactly this schema:
+{{
+  "flashcards": [
+    {{ "front": "string", "back": "string", "code_example": "string or null" }}
+  ]
+}}
+
+Rules:
+- Return exactly 5 flashcards
+- Every front must be phrased as a technical interview question
+- Test concepts taught in the saved lesson, not unrelated material
+- Reuse or adapt relevant lesson code in code_example when it helps answer the question
+- Prioritize reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
+- All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
+"""
 
 
 def generate_topic_ai_content(
@@ -421,6 +456,38 @@ def generate_topic_ai_content(
     except json.JSONDecodeError as exc:
         raise RuntimeError("IA retornou JSON inválido para o conteúdo do tópico.") from exc
     return TopicAIContentSchema.model_validate(data)
+
+
+def generate_additional_topic_flashcards(
+    *,
+    subject_name: str,
+    topic_title: str,
+    ai_content: dict,
+    existing_fronts: list[str],
+    user_context: str,
+    ai_config: AIProviderConfig,
+) -> list[dict]:
+    prompt = _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE.format(
+        subject_name=subject_name,
+        topic_title=topic_title,
+        ai_content=json.dumps(ai_content, ensure_ascii=False, indent=2),
+        existing_fronts=json.dumps(existing_fronts, ensure_ascii=False, indent=2),
+        user_context=user_context or "No additional instructions.",
+    )
+    raw = _phrase_service.generate_json_text(
+        system_text=_SYSTEM_TEXT,
+        prompt=prompt,
+        temperature=0.6,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON inválido para os flashcards adicionais.") from exc
+    flashcards = data.get("flashcards") if isinstance(data, dict) else None
+    if not isinstance(flashcards, list):
+        raise RuntimeError("IA não retornou uma lista de flashcards adicionais.")
+    return flashcards
 
 
 def build_topic_history_context(topics: list, exclude_topic_id: int | None = None) -> str:
