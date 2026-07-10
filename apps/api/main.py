@@ -83,6 +83,7 @@ from schemas.schemas import (
     CreateProgrammingFlashcardSchema,
     CreateProgrammingSubjectSchema,
     CreateProgrammingTopicSchema,
+    GenerateAdditionalFlashcardsSchema,
     GenerateProgrammingTopicContentSchema,
     GenerateLeetCodeMethodRequestSchema,
     LeetCodeMethodSchema,
@@ -116,6 +117,7 @@ from services.coding_service import (
     count_due_coding_items,
     deck_options,
     generate_leetcode_method,
+    generate_additional_topic_flashcards,
     generate_topic_ai_content,
     get_or_create_deck_config,
     preview_for_item,
@@ -124,6 +126,7 @@ from services.coding_service import (
     seed_coding_review_item,
     VALID_TOPIC_STATUSES,
 )
+from services.ai_flashcard_service import sanitize_context, validate_card_batch
 from services import fsrs_service
 from services.review_service import (
     build_review_cards,
@@ -2494,6 +2497,79 @@ def list_topic_flashcards(
         )
         for fc in flashcards
     ]
+
+
+@app.post("/api/coding/topics/{topic_id}/flashcards/generate", response_model=list[ProgrammingFlashcardSchema])
+def generate_additional_coding_flashcards(
+    topic_id: int,
+    payload: GenerateAdditionalFlashcardsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingFlashcardSchema]:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    if not isinstance(topic.ai_content, dict) or not topic.ai_content.get("sections"):
+        raise HTTPException(
+            status_code=422,
+            detail="O tópico precisa ter conteúdo de aula antes de gerar mais flashcards.",
+        )
+
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+
+    existing_fcs = session.exec(
+        select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)
+    ).all()
+    existing_fronts = [flashcard.front for flashcard in existing_fcs]
+    user_context = sanitize_context(payload.context)
+    try:
+        raw_flashcards = generate_additional_topic_flashcards(
+            subject_name=subject.name,
+            topic_title=topic.title,
+            ai_content=topic.ai_content,
+            existing_fronts=existing_fronts,
+            user_context=user_context,
+            ai_config=ai_config,
+        )
+        validated_flashcards = validate_card_batch(raw_flashcards, existing_fronts)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    now = datetime.utcnow()
+    created: list[ProgrammingFlashcard] = []
+    try:
+        for card in validated_flashcards:
+            flashcard = ProgrammingFlashcard(
+                topic_id=topic_id,
+                subject_id=subject.id or 0,
+                child_id=child.id or 0,
+                front=card.front,
+                back=card.back,
+                code_example=card.code_example,
+                created_at=now,
+            )
+            session.add(flashcard)
+            session.flush()
+            seed_coding_review_item(session, child.id or 0, flashcard.id or 0)
+            created.append(flashcard)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    for flashcard in created:
+        session.refresh(flashcard)
+    return [ProgrammingFlashcardSchema.model_validate(flashcard) for flashcard in created]
 
 
 @app.post("/api/coding/topics/{topic_id}/flashcards", response_model=ProgrammingFlashcardSchema, status_code=201)

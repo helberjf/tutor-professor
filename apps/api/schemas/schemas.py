@@ -413,6 +413,10 @@ class GenerateProgrammingTopicContentSchema(BaseModel):
     context: Optional[str] = Field(default=None, max_length=1000)
 
 
+class GenerateAdditionalFlashcardsSchema(BaseModel):
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
 class ProgrammingFlashcardSchema(FromAttributesModel):
     id: int
     topic_id: int
