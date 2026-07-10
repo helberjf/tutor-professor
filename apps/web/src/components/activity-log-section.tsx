@@ -10,9 +10,9 @@ export function ActivityLogSection() {
     <section className="space-y-4 rounded-[1.6rem] border-2 border-slate-100 bg-white/95 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Atividade</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-800">Activity logs</h2>
-          <p className="mt-1 text-sm font-medium text-slate-500">Resumo separado das métricas de estudo.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Hoje</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-800">Controle do que foi estudado</h2>
+          <p className="mt-1 text-sm font-medium text-slate-500">Tudo que foi salvo ou concluído aparece aqui automaticamente.</p>
         </div>
         <Link
           href="/activity-log"
@@ -29,7 +29,7 @@ export function ActivityLogSection() {
 
       <div className="flex items-center gap-2 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-medium text-sky-700">
         <ClipboardList size={16} />
-        O dashboard mostra os logs sem misturar com o painel de pomodoros.
+        O dashboard registra lições, quizzes, revisões, programação, flashcards e outras matérias.
       </div>
     </section>
   );

@@ -7,6 +7,7 @@ import { api, type DailyActivitySummarySchema } from '@/lib/api';
 
 const ACTIVITY_ICONS = {
   lesson: <BookOpen className="text-blue-500" size={16} />,
+  study: <BookOpen className="text-emerald-500" size={16} />,
   review: <CheckCircle2 className="text-green-500" size={16} />,
   quiz: <HelpCircle className="text-purple-500" size={16} />,
   coding: <Code2 className="text-orange-500" size={16} />,
@@ -18,6 +19,7 @@ const ACTIVITY_ICONS = {
 
 const ACTIVITY_COLORS: Record<string, string> = {
   lesson: 'bg-blue-50',
+  study: 'bg-emerald-50',
   review: 'bg-green-50',
   quiz: 'bg-purple-50',
   coding: 'bg-orange-50',
@@ -30,6 +32,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
 function getActivityLabel(type: string) {
   const labels: Record<string, string> = {
     lesson: 'Lição',
+    study: 'Estudo',
     review: 'Revisão',
     quiz: 'Quiz',
     coding: 'Programação',

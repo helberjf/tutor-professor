@@ -26,6 +26,7 @@ const getPortugueseDateLabel = (date: Date): string => {
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   lesson: <BookOpen className="text-blue-500" size={20} />,
+  study: <BookOpen className="text-emerald-500" size={20} />,
   review: <CheckCircle2 className="text-green-500" size={20} />,
   quiz: <HelpCircle className="text-purple-500" size={20} />,
   coding: <Code2 className="text-orange-500" size={20} />,
@@ -37,6 +38,7 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
 
 const ACTIVITY_LABELS: Record<string, string> = {
   lesson: 'Lição',
+  study: 'Estudo',
   review: 'Revisão',
   quiz: 'Quiz',
   coding: 'Programação',
@@ -48,6 +50,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 const ACTIVITY_COLORS: Record<string, string> = {
   lesson: 'bg-blue-50 border-blue-200',
+  study: 'bg-emerald-50 border-emerald-200',
   review: 'bg-green-50 border-green-200',
   quiz: 'bg-purple-50 border-purple-200',
   coding: 'bg-orange-50 border-orange-200',
