@@ -515,15 +515,6 @@ export default function StudyPage() {
     try {
       const saved = await api.saveCodingDay(selectedDate, { subjects: codingDay.subjects });
       setCodingDay(saved);
-      const subjectNames = Object.keys(codingDay.subjects).filter((name) => name.trim().length > 0);
-      await api.logActivity({
-        activity_type: 'coding',
-        activity_title: subjectNames.length > 0 ? `Programação: ${subjectNames.join(', ')}` : 'Programação',
-        result_details: {
-          subject_names: subjectNames,
-          subject_count: subjectNames.length,
-        },
-      }).catch(() => {});
       setCodingSaved('Progresso de programacao salvo.');
     } catch {
       setCodingError('Não foi possível salvar o progresso.');
@@ -873,15 +864,6 @@ export default function StudyPage() {
     try {
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: diverseDay.custom_subjects });
       setDiverseDay(saved);
-      const subjectNames = diverseDay.custom_subjects.map((subject) => subject.name.trim()).filter(Boolean);
-      await api.logActivity({
-        activity_type: 'diverse',
-        activity_title: subjectNames.length > 0 ? `Outras matérias: ${subjectNames.join(', ')}` : 'Outras matérias',
-        result_details: {
-          subject_names: subjectNames,
-          subject_count: subjectNames.length,
-        },
-      }).catch(() => {});
       setDiverseSaved('Aprendizado diverso salvo.');
     } catch {
       setDiverseError('Não foi possível salvar.');

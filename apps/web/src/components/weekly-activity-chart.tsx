@@ -12,6 +12,7 @@ const getDayLabel = (date: Date): string => {
 
 const COLORS_BY_TYPE: Record<string, string> = {
   lesson: 'bg-blue-500',
+  study: 'bg-emerald-500',
   review: 'bg-green-500',
   quiz: 'bg-purple-500',
   coding: 'bg-orange-500',
@@ -24,6 +25,7 @@ const COLORS_BY_TYPE: Record<string, string> = {
 function getTypeLabel(type: string) {
   const labels: Record<string, string> = {
     lesson: 'Lição',
+    study: 'Estudo',
     review: 'Revisão',
     quiz: 'Quiz',
     coding: 'Programação',

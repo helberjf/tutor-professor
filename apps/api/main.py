@@ -790,6 +790,155 @@ def update_streak(child: ChildProfile, now: datetime) -> None:
     child.last_activity = now
 
 
+def add_daily_activity(
+    session: Session,
+    *,
+    child_id: int,
+    activity_type: str,
+    activity_title: str,
+    activity_date: date | None = None,
+    activity_id: int | None = None,
+    result_score: float | None = None,
+    result_details: dict | None = None,
+    duration_seconds: int | None = None,
+) -> DailyActivity:
+    activity = DailyActivity(
+        child_id=child_id,
+        activity_date=activity_date or date.today(),
+        activity_type=activity_type[:40],
+        activity_title=activity_title[:200],
+        activity_id=activity_id,
+        result_score=result_score,
+        result_details=result_details,
+        duration_seconds=duration_seconds,
+    )
+    session.add(activity)
+    return activity
+
+
+def to_nonnegative_int(value: object) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def summarize_study_activity(record: StudyDay | None) -> dict:
+    return {
+        "studied_text": ((record.studied_text if record else "") or "").strip(),
+        "pomodoro_count": to_nonnegative_int(record.pomodoro_count if record else 0),
+    }
+
+
+def summarize_coding_activity(subjects: dict | None) -> dict:
+    subject_names: list[str] = []
+    topic_count = 0
+    completed_topic_count = 0
+    for raw_name, raw_topics in (subjects or {}).items():
+        name = str(raw_name).strip()
+        topics = raw_topics if isinstance(raw_topics, list) else []
+        subject_has_content = False
+        for raw_topic in topics:
+            if not isinstance(raw_topic, dict):
+                continue
+            topic_text = str(raw_topic.get("topic") or "").strip()
+            is_done = bool(raw_topic.get("done"))
+            if not topic_text and not is_done:
+                continue
+            subject_has_content = True
+            topic_count += 1
+            if is_done:
+                completed_topic_count += 1
+        if name and subject_has_content:
+            subject_names.append(name)
+
+    return {
+        "subject_names": subject_names,
+        "subject_count": len(subject_names),
+        "topic_count": topic_count,
+        "completed_topic_count": completed_topic_count,
+    }
+
+
+def summarize_diverse_activity(subjects: list | None) -> dict:
+    subject_names: list[str] = []
+    topic_count = 0
+    completed_topic_count = 0
+    answered_topic_count = 0
+    reviewed_topic_count = 0
+    lesson_count = 0
+
+    def count_topic(raw_topic: dict) -> bool:
+        nonlocal topic_count, completed_topic_count, answered_topic_count, reviewed_topic_count
+        topic_text = str(raw_topic.get("topic") or "").strip()
+        answer_text = str(raw_topic.get("answer") or "").strip()
+        is_done = bool(raw_topic.get("done"))
+        review_count = to_nonnegative_int(raw_topic.get("review_count"))
+        if not topic_text and not answer_text and not is_done and review_count <= 0:
+            return False
+        topic_count += 1
+        if is_done:
+            completed_topic_count += 1
+        if answer_text:
+            answered_topic_count += 1
+        if review_count > 0 or raw_topic.get("last_rating"):
+            reviewed_topic_count += 1
+        return True
+
+    for raw_subject in subjects or []:
+        if not isinstance(raw_subject, dict):
+            continue
+        name = str(raw_subject.get("name") or "").strip()
+        subject_has_content = False
+        for raw_topic in raw_subject.get("topics") or []:
+            if isinstance(raw_topic, dict) and count_topic(raw_topic):
+                subject_has_content = True
+        for raw_lesson in raw_subject.get("lessons") or []:
+            if not isinstance(raw_lesson, dict):
+                continue
+            lesson_topics = raw_lesson.get("topics") or []
+            has_lesson_content = bool(str(raw_lesson.get("title") or "").strip())
+            for raw_topic in lesson_topics:
+                if isinstance(raw_topic, dict) and count_topic(raw_topic):
+                    has_lesson_content = True
+            if has_lesson_content:
+                lesson_count += 1
+                subject_has_content = True
+        if name and subject_has_content:
+            subject_names.append(name)
+
+    return {
+        "subject_names": subject_names,
+        "subject_count": len(subject_names),
+        "topic_count": topic_count,
+        "completed_topic_count": completed_topic_count,
+        "answered_topic_count": answered_topic_count,
+        "reviewed_topic_count": reviewed_topic_count,
+        "lesson_count": lesson_count,
+    }
+
+
+def review_rating_score(rating: str | None = None, correct: bool | None = None) -> float:
+    if rating == "knew":
+        return 100.0
+    if rating == "partial":
+        return 50.0
+    if rating == "unknown":
+        return 0.0
+    if correct is not None:
+        return 100.0 if correct else 0.0
+    return 0.0
+
+
+def deck_rating_score(rating: str) -> float:
+    return {
+        "again": 0.0,
+        "hard": 50.0,
+        "good": 80.0,
+        "easy": 100.0,
+    }.get(rating, 0.0)
+
+
 def build_quiz_encouragement(score: int, total_questions: int) -> str:
     if total_questions <= 0:
         return "Boa tentativa! Vamos continuar aprendendo juntos."
@@ -961,9 +1110,9 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
     update_streak(child=child, now=now)
 
     # Registra atividade no histórico diário
-    daily_activity = DailyActivity(
+    add_daily_activity(
+        session,
         child_id=child.id or 0,
-        activity_date=date.today(),
         activity_type="lesson",
         activity_title=lesson.title,
         activity_id=lesson.id,
@@ -972,7 +1121,6 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
 
     session.add(child)
     session.add(lesson_progress)
-    session.add(daily_activity)
     session.commit()
     return {"status": "success"}
 
@@ -1033,9 +1181,9 @@ def submit_quiz(
     quiz_title = f"Quiz: {lesson.title}" if lesson else "Quiz"
 
     # Registra atividade no histórico diário
-    daily_activity = DailyActivity(
+    add_daily_activity(
+        session,
         child_id=child.id or 0,
-        activity_date=date.today(),
         activity_type="quiz",
         activity_title=quiz_title,
         activity_id=payload.lesson_id,
@@ -1049,7 +1197,6 @@ def submit_quiz(
 
     session.add(child)
     session.add(attempt)
-    session.add(daily_activity)
     session.commit()
 
     return QuizSubmitResponseSchema(
@@ -1094,9 +1241,9 @@ def submit_review_attempt(
     child.last_activity = datetime.utcnow()
 
     # Registra atividade de review no histórico diário
-    daily_activity = DailyActivity(
+    add_daily_activity(
+        session,
         child_id=child.id or 0,
-        activity_date=date.today(),
         activity_type="review",
         activity_title=f"Review: {payload.word_en}",
         activity_id=None,
@@ -1110,7 +1257,6 @@ def submit_review_attempt(
 
     session.add(child)
     session.add(review_item)
-    session.add(daily_activity)
     session.commit()
     session.refresh(review_item)
 
@@ -1292,6 +1438,7 @@ def upsert_study_day(
     child_id = child.id or 0
     now = datetime.utcnow()
     record = get_study_day_record(session=session, child_id=child_id, target_date=study_date)
+    old_summary = summarize_study_activity(record)
     if record is None:
         record = StudyDay(
             child_id=child_id,
@@ -1308,6 +1455,20 @@ def upsert_study_day(
         record.distractions = sanitize_distractions(payload.distractions)
     if payload.pomodoro_count is not None:
         record.pomodoro_count = max(record.pomodoro_count or 0, payload.pomodoro_count)
+
+    new_summary = summarize_study_activity(record)
+    if (
+        (new_summary["studied_text"] or new_summary["pomodoro_count"] > 0)
+        and new_summary != old_summary
+    ):
+        add_daily_activity(
+            session,
+            child_id=child_id,
+            activity_date=study_date,
+            activity_type="study",
+            activity_title="Estudo registrado",
+            result_details=new_summary,
+        )
 
     record.updated_at = now
     session.add(record)
@@ -1383,15 +1544,31 @@ def upsert_coding_day(
     record = session.exec(
         select(CodingDay).where(CodingDay.child_id == child_id, CodingDay.study_date == study_date)
     ).first()
+    old_summary = summarize_coding_activity(record.subjects if record is not None else None)
     subjects_data = {
         k: [{"topic": t.topic[:120], "done": t.done} for t in v]
         for k, v in payload.subjects.items()
     }
+    new_summary = summarize_coding_activity(subjects_data)
     if record is None:
         record = CodingDay(child_id=child_id, study_date=study_date, subjects=subjects_data, created_at=now, updated_at=now)
     else:
         record.subjects = subjects_data
         record.updated_at = now
+    if new_summary["topic_count"] > 0 and new_summary != old_summary:
+        subject_names = new_summary["subject_names"]
+        add_daily_activity(
+            session,
+            child_id=child_id,
+            activity_date=study_date,
+            activity_type="coding",
+            activity_title=(
+                f"Programacao: {', '.join(subject_names)}"
+                if subject_names
+                else "Programacao"
+            ),
+            result_details=new_summary,
+        )
     session.add(record)
     session.commit()
     session.refresh(record)
@@ -1534,6 +1711,7 @@ def upsert_diverse_day(
     record = session.exec(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
+    old_summary = summarize_diverse_activity(record.custom_subjects if record is not None else None)
     subjects_data = [
         {
             "name": s.name[:60],
@@ -1542,11 +1720,26 @@ def upsert_diverse_day(
         }
         for s in payload.custom_subjects
     ]
+    new_summary = summarize_diverse_activity(subjects_data)
     if record is None:
         record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)
     else:
         record.custom_subjects = subjects_data
         record.updated_at = now
+    if (new_summary["topic_count"] > 0 or new_summary["lesson_count"] > 0) and new_summary != old_summary:
+        subject_names = new_summary["subject_names"]
+        add_daily_activity(
+            session,
+            child_id=child_id,
+            activity_date=study_date,
+            activity_type="diverse",
+            activity_title=(
+                f"Outras materias: {', '.join(subject_names)}"
+                if subject_names
+                else "Outras materias"
+            ),
+            result_details=new_summary,
+        )
     session.add(record)
     session.commit()
     session.refresh(record)
@@ -2417,6 +2610,28 @@ def submit_coding_review_attempt(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    flashcard = session.get(ProgrammingFlashcard, item.flashcard_id)
+    topic = session.get(ProgrammingTopic, flashcard.topic_id) if flashcard is not None else None
+    subject = session.get(ProgrammingSubject, flashcard.subject_id) if flashcard is not None else None
+    resolved_rating = payload.rating or ("knew" if payload.correct else "unknown")
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="coding_review",
+        activity_title=f"Revisao de programacao: {flashcard.front if flashcard else 'card'}",
+        activity_id=item.id,
+        result_score=review_rating_score(resolved_rating, payload.correct),
+        result_details={
+            "review_item_id": item.id,
+            "flashcard_id": flashcard.id if flashcard else None,
+            "subject_id": flashcard.subject_id if flashcard else None,
+            "subject_name": subject.name if subject else None,
+            "topic_id": flashcard.topic_id if flashcard else None,
+            "topic_title": topic.title if topic else None,
+            "rating": resolved_rating,
+            "correct": payload.correct,
+        },
+    )
     session.commit()
     session.refresh(item)
     return CodingReviewResultSchema(
@@ -2588,6 +2803,26 @@ def submit_deck_attempt(
         item = apply_deck_attempt(session, child.id or 0, payload.review_item_id, payload.rating, config)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    topic = session.get(ProgrammingTopic, fc.topic_id)
+    subject = session.get(ProgrammingSubject, fc.subject_id)
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="flashcard",
+        activity_title=f"Flashcard: {fc.front}",
+        activity_id=fc.id,
+        result_score=deck_rating_score(payload.rating),
+        result_details={
+            "review_item_id": item.id,
+            "flashcard_id": fc.id,
+            "subject_id": fc.subject_id,
+            "subject_name": subject.name if subject else None,
+            "topic_id": fc.topic_id,
+            "topic_title": topic.title if topic else None,
+            "rating": payload.rating,
+            "state": item.fsrs_state,
+        },
+    )
     session.commit()
     session.refresh(item)
     session.refresh(config)
@@ -3403,6 +3638,23 @@ def generate_diverse_flashcards(
     data = _extract_json_object(response_text)
 
     raw_cards = data.get("flashcards") or []
+    flashcards = [
+        GeneratedFlashcardSchema(
+            topic=str(card.get("question", "")).strip()[:120],
+            answer=str(card.get("answer", "")).strip()[:300],
+        )
+        for card in raw_cards
+        if isinstance(card, dict) and card.get("question") and card.get("answer")
+    ]
+
+    generated_subject = str(data.get("subject") or subject).strip()[:60]
+    if not generated_subject:
+        generated_subject = "Materia sugerida"
+
+    if not flashcards:
+        raise HTTPException(status_code=502, detail="IA nao gerou flashcards validos.")
+
+    return GenerateFlashcardsResponseSchema(subject=generated_subject, flashcards=flashcards)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3516,23 +3768,6 @@ def get_week_activities(
         )
     
     return summaries
-    flashcards = [
-        GeneratedFlashcardSchema(
-            topic=str(card.get("question", "")).strip()[:120],
-            answer=str(card.get("answer", "")).strip()[:300],
-        )
-        for card in raw_cards
-        if isinstance(card, dict) and card.get("question") and card.get("answer")
-    ]
-
-    generated_subject = str(data.get("subject") or subject).strip()[:60]
-    if not generated_subject:
-        generated_subject = "Materia sugerida"
-
-    if not flashcards:
-        raise HTTPException(status_code=502, detail="IA nao gerou flashcards validos.")
-
-    return GenerateFlashcardsResponseSchema(subject=generated_subject, flashcards=flashcards)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, ChevronRight, HelpCircle, Loader2, X, XCircle } from 'lucide-react';
 import { api, type CodingReviewCard, type ReviewRating } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
@@ -25,30 +25,10 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
   const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, rating: null })));
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
-  const loggedRef = useRef(false);
 
   const card = cards[index];
   const state = states[index];
   const total = cards.length;
-  const knew = states.filter((s) => s.rating === 'knew').length;
-  const partial = states.filter((s) => s.rating === 'partial').length;
-  const unknown = states.filter((s) => s.rating === 'unknown').length;
-
-  useEffect(() => {
-    if (!finished || loggedRef.current) return;
-    loggedRef.current = true;
-    void api.logActivity({
-      activity_type: 'coding_review',
-      activity_title: `Revisão de programação: ${subjectName}`,
-      result_details: {
-        subject_name: subjectName,
-        total_cards: total,
-        knew,
-        partial,
-        unknown,
-      },
-    }).catch(() => {});
-  }, [finished, subjectName, total, knew, partial, unknown]);
 
   // Build multiple-choice options once (stable)
   const [choiceOptions] = useState(() =>

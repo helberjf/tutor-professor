@@ -263,6 +263,18 @@ async def run() -> None:
 
         today = date.today()
         yesterday = today - timedelta(days=1)
+        coding_day_response = await client.put(
+            f"/api/study/coding/{today.isoformat()}",
+            headers=child_headers,
+            json={
+                "subjects": {
+                    "Python": [
+                        {"topic": "Variaveis e tipos", "done": True},
+                    ]
+                }
+            },
+        )
+        assert_status(coding_day_response, 200, "save coding day progress")
         assert_status(
             await client.put(
                 f"/api/study/day/{yesterday.isoformat()}",
@@ -442,6 +454,38 @@ async def run() -> None:
         deck_fronts = [card["front"] for card in regenerated_deck_cards]
         if deck_fronts != regenerated_fronts:
             raise AssertionError(f"expected deck cards to mirror regenerated flashcards, got {regenerated_deck_cards}")
+        if len(regenerated_deck_cards) < 2:
+            raise AssertionError(f"expected at least two regenerated deck cards for activity tests, got {regenerated_deck_cards}")
+
+        deck_attempt_response = await client.post(
+            "/api/coding/deck/attempt",
+            headers=child_headers,
+            json={"review_item_id": regenerated_deck_cards[0]["review_item_id"], "rating": "good"},
+        )
+        assert_status(deck_attempt_response, 200, "deck attempt logs flashcard study")
+
+        coding_review_response = await client.get(
+            f"/api/coding/review?subject_id={coding_subject['id']}&limit=5",
+            headers=child_headers,
+        )
+        assert_status(coding_review_response, 200, "coding review after regenerated cards")
+        coding_review_items = coding_review_response.json()["items"]
+        coding_review_item = next(
+            (
+                item
+                for item in coding_review_items
+                if item["review_item_id"] != regenerated_deck_cards[0]["review_item_id"]
+            ),
+            coding_review_items[0] if coding_review_items else None,
+        )
+        if coding_review_item is None:
+            raise AssertionError(f"expected coding review card, got {coding_review_response.text}")
+        coding_review_attempt_response = await client.post(
+            "/api/coding/review/attempt",
+            headers=child_headers,
+            json={"review_item_id": coding_review_item["review_item_id"], "rating": "knew"},
+        )
+        assert_status(coding_review_attempt_response, 200, "coding review attempt logs activity")
 
         captured_diverse_prompt: dict[str, str] = {}
         original_generate_json_text = main.phrase_generation_service.generate_json_text
@@ -471,6 +515,23 @@ async def run() -> None:
         assert_status(context_flashcards_response, 200, "generate flashcards with context")
         if "hooks, props e erros comuns" not in captured_diverse_prompt.get("prompt", ""):
             raise AssertionError(f"expected AI context in diverse prompt, got {captured_diverse_prompt}")
+
+        activity_response = await client.get("/api/activity/today", headers=child_headers)
+        assert_status(activity_response, 200, "today activity log")
+        activity_payload = activity_response.json()
+        activity_types = activity_payload["activities_by_type"]
+        for expected_type in [
+            "lesson",
+            "quiz",
+            "review",
+            "study",
+            "coding",
+            "diverse",
+            "coding_review",
+            "flashcard",
+        ]:
+            if activity_types.get(expected_type, 0) < 1:
+                raise AssertionError(f"expected {expected_type} in activity log, got {activity_payload}")
 
         modules_response = await client.get("/api/admin/learn/modules")
         assert_status(modules_response, 200, "admin learn modules")

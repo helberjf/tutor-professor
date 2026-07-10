@@ -152,16 +152,6 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
     if (index + 1 >= queue.length) {
       setCompletedCounts(nextCounts);
       onLogged();
-      void api.logActivity({
-        activity_type: 'flashcard',
-        activity_title: `Flashcards: ${subjectName}`,
-        result_details: {
-          subject_id: subjectId,
-          subject_name: subjectName,
-          reviewed_cards: queue.length,
-          answer_counts: nextCounts,
-        },
-      }).catch(() => {});
       onFinished();
       setQueue([]); // mark finished
     } else {
