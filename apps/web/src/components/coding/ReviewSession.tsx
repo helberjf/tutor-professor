@@ -29,6 +29,9 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
   const card = cards[index];
   const state = states[index];
   const total = cards.length;
+  const knew = states.filter((state) => state.rating === 'knew').length;
+  const partial = states.filter((state) => state.rating === 'partial').length;
+  const unknown = states.filter((state) => state.rating === 'unknown').length;
 
   // Build multiple-choice options once (stable)
   const [choiceOptions] = useState(() =>
