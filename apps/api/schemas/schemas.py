@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class FromAttributesModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -161,7 +161,7 @@ class StudyDashboardSchema(BaseModel):
 class DiverseLessonBlockSchema(BaseModel):
     id: str = Field(min_length=1, max_length=80)
     title: str = Field(min_length=1, max_length=80)
-    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=50)
+    topic_ids: List[str] = Field(default_factory=list, max_length=50)
     created_at: Optional[str] = Field(default=None, max_length=40)
 
 
@@ -169,6 +169,19 @@ class DiverseSubjectSchema(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=50)
     lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=30)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_lesson_questions(cls, value: Any) -> Any:
+        """Convert embedded legacy copies before lesson schemas discard extra fields."""
+        if not isinstance(value, dict):
+            return value
+        lessons = value.get("lessons") or []
+        if not any(isinstance(lesson, dict) and lesson.get("topics") for lesson in lessons):
+            return value
+        from services.diverse_question_service import normalize_subject
+
+        return normalize_subject(value)
 
 
 class DiverseDaySchema(BaseModel):
@@ -184,9 +197,11 @@ class DiverseDayUpdateSchema(BaseModel):
 
 
 class CodingTopicSchema(BaseModel):
+    id: str = Field(default="", max_length=80)
     topic: str = Field(min_length=1, max_length=120)
     done: bool = False
-    answer: Optional[str] = Field(default=None, max_length=300)
+    answer: Optional[str] = Field(default=None, max_length=2000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
     # Spaced-repetition state (used by the "Diverso" study mode)
     last_rating: Optional[str] = Field(default=None, max_length=10)  # 'knew' | 'partial' | 'unknown'
     review_count: int = Field(default=0, ge=0)

@@ -13,9 +13,81 @@ from services.diverse_question_service import (  # noqa: E402
     normalize_text,
     stable_question_id,
 )
+from schemas.schemas import DiverseDayUpdateSchema  # noqa: E402
 
 
 class DiverseQuestionNormalizationTests(unittest.TestCase):
+    def test_schema_accepts_legacy_embedded_questions_without_serializing_copies(self) -> None:
+        payload = DiverseDayUpdateSchema.model_validate(
+            {
+                "custom_subjects": [
+                    {
+                        "name": "Biologia",
+                        "topics": [{"topic": "O que e mitose?"}],
+                        "lessons": [
+                            {
+                                "id": "lesson-1",
+                                "title": "Mitose",
+                                "topics": [{"topic": "O que e mitose?"}],
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        raw_subject = payload.custom_subjects[0].model_dump(mode="json")
+        normalized = normalize_subject(raw_subject)
+
+        self.assertEqual(
+            normalized["lessons"][0]["topic_ids"],
+            [normalized["topics"][0]["id"]],
+        )
+        self.assertNotIn("topics", payload.custom_subjects[0].lessons[0].model_dump(mode="json"))
+
+    def test_canonical_schema_round_trip_preserves_ids_code_and_references(self) -> None:
+        payload = DiverseDayUpdateSchema.model_validate(
+            {
+                "custom_subjects": [
+                    {
+                        "name": "Programacao",
+                        "topics": [
+                            {
+                                "id": "question-loop",
+                                "topic": "Como percorrer uma lista?",
+                                "answer": "Use um loop",
+                                "code_example": "for item in items:\n    print(item)",
+                            }
+                        ],
+                        "lessons": [
+                            {
+                                "id": "lesson-loop",
+                                "title": "Loops",
+                                "topic_ids": ["question-loop"],
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        subject = payload.custom_subjects[0].model_dump(mode="json")
+
+        self.assertEqual(subject["topics"][0]["id"], "question-loop")
+        self.assertEqual(subject["topics"][0]["code_example"], "for item in items:\n    print(item)")
+        self.assertEqual(subject["lessons"][0]["topic_ids"], ["question-loop"])
+        self.assertNotIn("topics", subject["lessons"][0])
+
+    def test_diverse_routes_normalize_reads_and_writes_to_canonical_storage(self) -> None:
+        main = (API / "main.py").read_text(encoding="utf-8")
+        get_body = main.split("def get_diverse_day(", 1)[1].split("@app.put", 1)[0]
+        upsert_body = main.split("def upsert_diverse_day(", 1)[1].split("_LEVEL_LABELS", 1)[0]
+        lesson_payload_body = main.split("def _lesson_payload", 1)[1].split("def ", 1)[0]
+
+        self.assertIn("normalize_subject", get_body)
+        self.assertIn("normalize_subject", upsert_body)
+        self.assertNotIn('"topics"', lesson_payload_body)
+
     def test_normalizes_legacy_copies_into_one_canonical_question(self) -> None:
         legacy = {
             "name": "Biologia",

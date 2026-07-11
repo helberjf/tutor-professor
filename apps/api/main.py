@@ -108,6 +108,7 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
+from services.diverse_question_service import normalize_subject
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     apply_deck_attempt,
@@ -1613,9 +1614,11 @@ def _build_diverse_topic_schema(raw_topic: dict) -> CodingTopicSchema:
         review_count = 0
     last_reviewed = raw_topic.get("last_reviewed")
     return CodingTopicSchema(
+        id=str(raw_topic.get("id") or "")[:80],
         topic=str(raw_topic.get("topic", "")).strip()[:120] or "Topico",
         done=bool(raw_topic.get("done", False)),
-        answer=str(raw_topic.get("answer") or "")[:300],
+        answer=str(raw_topic.get("answer") or "")[:2000],
+        code_example=(str(raw_topic.get("code_example"))[:3000] if raw_topic.get("code_example") else None),
         last_rating=last_rating,
         review_count=review_count,
         last_reviewed=(str(last_reviewed)[:40] if last_reviewed else None),
@@ -1626,7 +1629,7 @@ def _build_diverse_lesson_schema(raw_lesson: dict) -> DiverseLessonBlockSchema:
     return DiverseLessonBlockSchema(
         id=str(raw_lesson.get("id") or secrets.token_urlsafe(8))[:80],
         title=str(raw_lesson.get("title") or "Licao")[:80],
-        topics=[_build_diverse_topic_schema(t) for t in raw_lesson.get("topics", []) if isinstance(t, dict)],
+        topic_ids=[str(topic_id)[:80] for topic_id in raw_lesson.get("topic_ids", []) if str(topic_id).strip()],
         created_at=(str(raw_lesson.get("created_at"))[:40] if raw_lesson.get("created_at") else None),
     )
 
@@ -1645,9 +1648,11 @@ def _build_diverse_subject_schema(raw_subject: dict) -> DiverseSubjectSchema:
 
 def _topic_payload(topic: CodingTopicSchema) -> dict:
     return {
+        "id": topic.id[:80],
         "topic": topic.topic[:120],
         "done": topic.done,
-        "answer": (topic.answer or "")[:300],
+        "answer": (topic.answer or "")[:2000],
+        "code_example": (topic.code_example or "")[:3000] or None,
         "last_rating": topic.last_rating if topic.last_rating in _VALID_RATINGS else None,
         "review_count": max(0, int(topic.review_count or 0)),
         "last_reviewed": (topic.last_reviewed or None),
@@ -1659,8 +1664,21 @@ def _lesson_payload(lesson: DiverseLessonBlockSchema) -> dict:
         "id": lesson.id[:80],
         "title": lesson.title[:80],
         "created_at": (lesson.created_at or "")[:40] or None,
-        "topics": [_topic_payload(topic) for topic in lesson.topics],
+        "topic_ids": list(dict.fromkeys(topic_id[:80] for topic_id in lesson.topic_ids if topic_id.strip())),
     }
+
+
+def _normalize_diverse_subject_input(subject: DiverseSubjectSchema) -> dict:
+    """Return validated subject data in the canonical persistence shape."""
+    raw = {
+        "name": subject.name,
+        "topics": [_topic_payload(topic) for topic in subject.topics],
+        "lessons": [
+            _lesson_payload(lesson)
+            for lesson in subject.lessons
+        ],
+    }
+    return normalize_subject(raw)
 
 
 def _extract_json_object(raw_text: str) -> dict:
@@ -1695,7 +1713,7 @@ def get_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            _build_diverse_subject_schema(s)
+            _build_diverse_subject_schema(normalize_subject(s))
             for s in (record.custom_subjects or [])
             if isinstance(s, dict)
         ],
@@ -1719,14 +1737,7 @@ def upsert_diverse_day(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
     old_summary = summarize_diverse_activity(record.custom_subjects if record is not None else None)
-    subjects_data = [
-        {
-            "name": s.name[:60],
-            "topics": [_topic_payload(t) for t in s.topics],
-            "lessons": [_lesson_payload(lesson) for lesson in s.lessons],
-        }
-        for s in payload.custom_subjects
-    ]
+    subjects_data = [normalize_subject(_normalize_diverse_subject_input(s)) for s in payload.custom_subjects]
     new_summary = summarize_diverse_activity(subjects_data)
     if record is None:
         record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)
@@ -1754,7 +1765,7 @@ def upsert_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            _build_diverse_subject_schema(s)
+            _build_diverse_subject_schema(normalize_subject(s))
             for s in (record.custom_subjects or [])
             if isinstance(s, dict)
         ],
