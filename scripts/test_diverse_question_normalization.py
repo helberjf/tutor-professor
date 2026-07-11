@@ -48,8 +48,10 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         legacy_payload = DiverseDayUpdateSchema.model_validate(
             {"custom_subjects": missing_subject_id}
         )
-        self.assertFalse(legacy_payload.identities_supplied)
-        self.assertNotIn("identities_supplied", legacy_payload.model_dump(mode="json"))
+        legacy_metadata = legacy_payload.original_identity_metadata
+        self.assertIsNone(legacy_metadata["subjects"][0]["id"])
+        self.assertNotIn("_original_identity_metadata", legacy_payload.model_dump(mode="json"))
+        self.assertNotIn("original_identity_metadata", legacy_payload.model_dump(mode="json"))
         self.assertTrue(
             has_canonical_subject_identities(legacy_payload.model_dump(mode="json")["custom_subjects"])
         )
@@ -57,7 +59,24 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         canonical_payload = DiverseDayUpdateSchema.model_validate(
             {"custom_subjects": canonical}
         )
-        self.assertTrue(canonical_payload.identities_supplied)
+        self.assertEqual(canonical_payload.original_identity_metadata["subjects"][0]["id"], "subject-a")
+
+        schema_text = str(DiverseDayUpdateSchema.model_json_schema())
+        self.assertNotIn("identity_metadata", schema_text)
+        self.assertNotIn("identities_supplied", schema_text)
+
+        spoofed = DiverseDayUpdateSchema.model_validate(
+            {
+                "custom_subjects": missing_subject_id,
+                "_original_identity_metadata": {
+                    "subjects": [{"id": "subject-spoofed", "duplicate": False, "lessons": []}]
+                },
+                "original_identity_metadata": {
+                    "subjects": [{"id": "subject-spoofed", "duplicate": False, "lessons": []}]
+                },
+            }
+        )
+        self.assertIsNone(spoofed.original_identity_metadata["subjects"][0]["id"])
 
     def test_assigns_unique_stable_subject_and_lesson_ids_to_legacy_lists(self) -> None:
         legacy = [

@@ -1728,6 +1728,115 @@ def _normalize_diverse_subject_input(subject: DiverseSubjectSchema) -> dict:
     return normalize_subject(raw)
 
 
+def _raise_diverse_identity_conflict() -> None:
+    raise HTTPException(
+        status_code=409,
+        detail="As identidades das materias mudaram. Recarregue antes de salvar.",
+    )
+
+
+def _validate_diverse_identity_update(
+    stored_subjects: list[dict],
+    incoming_subjects: list[dict],
+    metadata: dict,
+) -> None:
+    """Reject identity resets while allowing genuinely new subjects and lessons.
+
+    Once a day is canonical, a retained subject must carry its persisted ID. New
+    subjects may omit an ID when at least one existing subject anchors the payload;
+    the server assigns their permanent IDs below. The same rule is applied to new
+    lessons inside a retained subject.
+    """
+    if not has_canonical_subject_identities(stored_subjects):
+        return
+
+    stored_by_id = {str(subject.get("id")): subject for subject in stored_subjects}
+    metadata_subjects = metadata.get("subjects") if isinstance(metadata, dict) else None
+    if not isinstance(metadata_subjects, list) or len(metadata_subjects) != len(incoming_subjects):
+        _raise_diverse_identity_conflict()
+
+    retained_subject_anchor = False
+    has_missing_subject_id = False
+    supplied_subject_ids: set[str] = set()
+
+    for incoming, identity in zip(incoming_subjects, metadata_subjects):
+        if not isinstance(identity, dict) or identity.get("duplicate"):
+            _raise_diverse_identity_conflict()
+        supplied_id = str(identity.get("id") or "").strip()
+        if supplied_id:
+            if supplied_id in supplied_subject_ids:
+                _raise_diverse_identity_conflict()
+            supplied_subject_ids.add(supplied_id)
+        else:
+            has_missing_subject_id = True
+
+        stored_subject = stored_by_id.get(supplied_id)
+        if stored_subject is None:
+            # A unique explicit ID is a valid new subject. A missing ID is also
+            # valid when another retained subject anchors the request.
+            continue
+        retained_subject_anchor = True
+
+        stored_lesson_ids = {
+            str(lesson.get("id"))
+            for lesson in (stored_subject.get("lessons") or [])
+            if isinstance(lesson, dict) and lesson.get("id")
+        }
+        lesson_metadata = identity.get("lessons")
+        incoming_lessons = incoming.get("lessons") or []
+        if not isinstance(lesson_metadata, list) or len(lesson_metadata) != len(incoming_lessons):
+            _raise_diverse_identity_conflict()
+
+        supplied_lesson_ids: set[str] = set()
+        retained_lesson_anchor = False
+        has_missing_lesson_id = False
+        for lesson_identity in lesson_metadata:
+            if not isinstance(lesson_identity, dict) or lesson_identity.get("duplicate"):
+                _raise_diverse_identity_conflict()
+            lesson_id = str(lesson_identity.get("id") or "").strip()
+            if not lesson_id:
+                has_missing_lesson_id = True
+                continue
+            if lesson_id in supplied_lesson_ids:
+                _raise_diverse_identity_conflict()
+            supplied_lesson_ids.add(lesson_id)
+            if lesson_id in stored_lesson_ids:
+                retained_lesson_anchor = True
+
+        if has_missing_lesson_id and stored_lesson_ids and not retained_lesson_anchor:
+            _raise_diverse_identity_conflict()
+
+    if has_missing_subject_id and stored_by_id and not retained_subject_anchor:
+        _raise_diverse_identity_conflict()
+
+
+def _assign_new_diverse_identities(subjects: list[dict], metadata: dict) -> None:
+    """Give missing IDs to new entities without exposing validation metadata."""
+    metadata_subjects = metadata.get("subjects") if isinstance(metadata, dict) else []
+    used_subject_ids = {str(subject.get("id")) for subject in subjects if subject.get("id")}
+    for subject, identity in zip(subjects, metadata_subjects):
+        if not identity.get("id"):
+            while True:
+                candidate = f"subject-{secrets.token_urlsafe(12)}"[:80]
+                if candidate not in used_subject_ids:
+                    subject["id"] = candidate
+                    used_subject_ids.add(candidate)
+                    break
+
+        lessons = subject.get("lessons") or []
+        lesson_metadata = identity.get("lessons") or []
+        used_lesson_ids = {str(lesson.get("id")) for lesson in lessons if lesson.get("id")}
+        for lesson, lesson_identity in zip(lessons, lesson_metadata):
+            if lesson_identity.get("id"):
+                continue
+            while True:
+                candidate = f"lesson-{secrets.token_urlsafe(12)}"[:80]
+                if candidate not in used_lesson_ids:
+                    lesson["id"] = candidate
+                    used_lesson_ids.add(candidate)
+                    break
+
+
 def _extract_json_object(raw_text: str) -> dict:
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
@@ -1785,18 +1894,22 @@ def upsert_diverse_day(
     stored_identities_are_canonical = record is not None and has_canonical_subject_identities(
         record.custom_subjects
     )
-    if stored_identities_are_canonical and not payload.identities_supplied:
-        raise HTTPException(
-            status_code=409,
-            detail="As identidades das materias mudaram. Recarregue antes de salvar.",
-        )
     normalized_old_subjects = normalize_subjects(
         record.custom_subjects if record is not None else []
     )
     old_summary = summarize_diverse_activity(normalized_old_subjects)
-    subjects_data = normalize_subjects(
-        [_normalize_diverse_subject_input(subject) for subject in payload.custom_subjects]
-    )
+    subjects_data = [
+        _normalize_diverse_subject_input(subject) for subject in payload.custom_subjects
+    ]
+    identity_metadata = payload.original_identity_metadata
+    if stored_identities_are_canonical:
+        _validate_diverse_identity_update(
+            normalized_old_subjects,
+            subjects_data,
+            identity_metadata,
+        )
+    _assign_new_diverse_identities(subjects_data, identity_metadata)
+    subjects_data = normalize_subjects(subjects_data)
     new_summary = summarize_diverse_activity(subjects_data)
     if record is None:
         record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)

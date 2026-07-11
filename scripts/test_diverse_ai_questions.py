@@ -55,7 +55,7 @@ assert "has_canonical_subject_identities" in endpoint
 assert endpoint.index("_cas_update_diverse_day") < endpoint.index(
     "phrase_generation_service.generate_json_text"
 )
-assert "payload.identities_supplied" in put_endpoint
+assert "payload.original_identity_metadata" in put_endpoint
 assert "stored_identities_are_canonical" in put_endpoint
 assert 'len(subject.get("topics") or []) > 1545' in main
 assert 'len(lesson.get("topic_ids") or []) > 45' in main

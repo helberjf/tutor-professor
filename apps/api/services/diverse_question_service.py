@@ -60,6 +60,47 @@ def has_canonical_subject_identities(raw_subjects: Any) -> bool:
     return True
 
 
+def capture_original_identity_metadata(raw_subjects: Any) -> dict:
+    """Describe IDs exactly as supplied before canonical normalization."""
+    subjects = raw_subjects if isinstance(raw_subjects, list) else []
+    supplied_subject_ids = [
+        _limited_text(subject.get("id"), 80) if isinstance(subject, dict) else ""
+        for subject in subjects
+    ]
+    subject_counts = {
+        subject_id: supplied_subject_ids.count(subject_id)
+        for subject_id in supplied_subject_ids
+        if subject_id
+    }
+    metadata_subjects: list[dict] = []
+    for subject, subject_id in zip(subjects, supplied_subject_ids):
+        raw_lessons = subject.get("lessons") or [] if isinstance(subject, dict) else []
+        lessons = raw_lessons if isinstance(raw_lessons, list) else []
+        supplied_lesson_ids = [
+            _limited_text(lesson.get("id"), 80) if isinstance(lesson, dict) else ""
+            for lesson in lessons
+        ]
+        lesson_counts = {
+            lesson_id: supplied_lesson_ids.count(lesson_id)
+            for lesson_id in supplied_lesson_ids
+            if lesson_id
+        }
+        metadata_subjects.append(
+            {
+                "id": subject_id or None,
+                "duplicate": bool(subject_id and subject_counts[subject_id] > 1),
+                "lessons": [
+                    {
+                        "id": lesson_id or None,
+                        "duplicate": bool(lesson_id and lesson_counts[lesson_id] > 1),
+                    }
+                    for lesson_id in supplied_lesson_ids
+                ],
+            }
+        )
+    return {"subjects": metadata_subjects}
+
+
 def normalize_subjects(raw_subjects: Any) -> list[dict]:
     """Normalize a Diverse subject list while assigning persistent unique identities."""
     source_subjects = [item for item in (raw_subjects or []) if isinstance(item, dict)]

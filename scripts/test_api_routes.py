@@ -392,6 +392,41 @@ async def run() -> None:
                 f"subject identity was not persisted canonically: stored={stored_subject_id}, response={saved_subject}"
             )
 
+        canonical_with_new_subject = diverse_payload["custom_subjects"] + [
+            {
+                "name": "Materia nova sem ID",
+                "topics": [{"topic": "Pergunta nova?", "answer": "Resposta nova."}],
+                "lessons": [],
+            }
+        ]
+        add_subject_response = await client.put(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers=child_headers,
+            json={"custom_subjects": canonical_with_new_subject},
+        )
+        assert_status(add_subject_response, 200, "append new diverse subject without client ID")
+        after_new_subject = add_subject_response.json()["custom_subjects"]
+        if after_new_subject[0]["id"] != saved_subject["id"]:
+            raise AssertionError(f"existing subject identity changed while adding subject: {after_new_subject}")
+        new_subject = next(subject for subject in after_new_subject if subject["name"] == "Materia nova sem ID")
+        if not new_subject.get("id", "").startswith("subject-"):
+            raise AssertionError(f"server did not assign new subject identity: {new_subject}")
+
+        canonical_with_new_lesson = add_subject_response.json()["custom_subjects"]
+        canonical_with_new_lesson[0]["lessons"].append(
+            {"title": "Licao nova sem ID", "topic_ids": []}
+        )
+        add_lesson_response = await client.put(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers=child_headers,
+            json={"custom_subjects": canonical_with_new_lesson},
+        )
+        assert_status(add_lesson_response, 200, "append new diverse lesson without client ID")
+        saved_lessons = add_lesson_response.json()["custom_subjects"][0]["lessons"]
+        new_lesson = next(lesson for lesson in saved_lessons if lesson["title"] == "Licao nova sem ID")
+        if not new_lesson.get("id", "").startswith("lesson-"):
+            raise AssertionError(f"server did not assign new lesson identity: {new_lesson}")
+
         legacy_duplicate_subject = {
             "name": "Biologia",
             "topics": [{"topic": "O que e mitose?", "answer": "Divisao celular"}],
