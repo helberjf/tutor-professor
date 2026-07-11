@@ -13,6 +13,10 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
+WEB_API = ROOT / "apps" / "web" / "src" / "lib" / "api.ts"
+TOPIC_VIEW = (
+    ROOT / "apps" / "web" / "src" / "components" / "coding" / "TopicView.tsx"
+)
 TMP_DIR = Path(tempfile.mkdtemp(prefix="programming-flashcards-api-"))
 DB_PATH = TMP_DIR / "test.sqlite"
 
@@ -68,6 +72,60 @@ def make_cards(prefix: str) -> list[dict[str, str]]:
         }
         for index in range(1, 6)
     ]
+
+
+class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.api_source = WEB_API.read_text(encoding="utf-8")
+        cls.topic_view = TOPIC_VIEW.read_text(encoding="utf-8")
+
+    def test_api_client_exposes_additional_flashcard_generation(self):
+        self.assertIn("generateAdditionalCodingFlashcards", self.api_source)
+        self.assertIn(
+            "`/api/coding/topics/${topicId}/flashcards/generate`",
+            self.api_source,
+        )
+        self.assertIn("body: JSON.stringify({ context: context?.trim() || null })", self.api_source)
+
+    def test_reading_view_exposes_inline_additional_generation_form(self):
+        for expected in (
+            "Criar mais questões com IA",
+            "additionalFlashcardContext",
+            "showAdditionalFlashcardForm",
+            "generatingAdditionalFlashcards",
+            "additionalFlashcardError",
+            "additionalFlashcardSuccess",
+            "maxLength={1000}",
+            "Serão criadas 5 questões",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.topic_view)
+
+    def test_success_appends_cards_and_updates_topic_count_by_five(self):
+        self.assertIn(
+            "api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext)",
+            self.topic_view,
+        )
+        self.assertIn(
+            "setFlashcards((current) => [...current, ...created])",
+            self.topic_view,
+        )
+        self.assertNotIn("setFlashcards(created)", self.topic_view)
+        self.assertIn("flashcard_count: topic.flashcard_count + 5", self.topic_view)
+        self.assertIn("onTopicUpdated(updatedTopic)", self.topic_view)
+
+    def test_form_handles_cancel_loading_success_and_api_errors(self):
+        for expected in (
+            "setShowAdditionalFlashcardForm(false)",
+            "setAdditionalFlashcardContext('')",
+            "setAdditionalFlashcardError('')",
+            "setAdditionalFlashcardSuccess(",
+            "err instanceof Error ? err.message",
+            "disabled={generatingAdditionalFlashcards}",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.topic_view)
 
 
 def topic_counts(topic_id: int) -> tuple[int, int]:

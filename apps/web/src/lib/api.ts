@@ -1001,6 +1001,11 @@ export const api = {
   },
   getTopicFlashcards: (topicId: number) =>
     fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards`),
+  generateAdditionalCodingFlashcards: (topicId: number, context?: string) =>
+    fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ context: context?.trim() || null }),
+    }),
   createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
     fetchAPI<ProgrammingFlashcard>(`/api/coding/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),
   updateCodingFlashcard: (id: number, payload: { front?: string; back?: string; code_example?: string }) =>

@@ -98,6 +98,11 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [importFcError, setImportFcError] = useState('');
   const [importingFc, setImportingFc] = useState(false);
   const [copyMessage, setCopyMessage] = useState('');
+  const [showAdditionalFlashcardForm, setShowAdditionalFlashcardForm] = useState(false);
+  const [additionalFlashcardContext, setAdditionalFlashcardContext] = useState('');
+  const [generatingAdditionalFlashcards, setGeneratingAdditionalFlashcards] = useState(false);
+  const [additionalFlashcardError, setAdditionalFlashcardError] = useState('');
+  const [additionalFlashcardSuccess, setAdditionalFlashcardSuccess] = useState('');
 
   useEffect(() => {
     setLoadingFc(true);
@@ -167,6 +172,27 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       setShowAddFc(false);
     } finally {
       setAddingFc(false);
+    }
+  }
+
+  async function handleGenerateAdditionalFlashcards(e: React.FormEvent) {
+    e.preventDefault();
+    setGeneratingAdditionalFlashcards(true);
+    setAdditionalFlashcardError('');
+    setAdditionalFlashcardSuccess('');
+    try {
+      const created = await api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext);
+      setFlashcards((current) => [...current, ...created]);
+      const updatedTopic = { ...topic, flashcard_count: topic.flashcard_count + 5 };
+      setTopic(updatedTopic);
+      onTopicUpdated(updatedTopic);
+      setAdditionalFlashcardSuccess('5 novas questões foram criadas com IA.');
+      setShowAdditionalFlashcardForm(false);
+      setAdditionalFlashcardContext('');
+    } catch (err) {
+      setAdditionalFlashcardError(err instanceof Error ? err.message : 'Não foi possível criar mais questões.');
+    } finally {
+      setGeneratingAdditionalFlashcards(false);
     }
   }
 
@@ -422,6 +448,22 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-black text-slate-800">Flashcards ({loadingFc ? '...' : flashcards.length})</h2>
           <div className="flex flex-wrap gap-2">
+            {!showAdditionalFlashcardForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdditionalFlashcardForm(true);
+                  setShowAddFc(false);
+                  setShowImportFc(false);
+                  setAdditionalFlashcardError('');
+                  setAdditionalFlashcardSuccess('');
+                }}
+                className="flex items-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 hover:bg-violet-100"
+              >
+                <Sparkles size={14} />
+                Criar mais questões com IA
+              </button>
+            )}
             <button
               type="button"
               onClick={handleCopyFlashcards}
@@ -456,6 +498,51 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             </button>
           </div>
         </div>
+        {additionalFlashcardSuccess && (
+          <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">{additionalFlashcardSuccess}</p>
+        )}
+        {showAdditionalFlashcardForm && (
+          <form onSubmit={handleGenerateAdditionalFlashcards} className="mb-4 space-y-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
+            <label className="block">
+              <span className="text-sm font-black text-violet-800">Contexto para as novas questões (opcional)</span>
+              <textarea
+                value={additionalFlashcardContext}
+                onChange={(event) => setAdditionalFlashcardContext(event.target.value)}
+                placeholder="Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns..."
+                maxLength={1000}
+                rows={3}
+                disabled={generatingAdditionalFlashcards}
+                className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 disabled:opacity-60"
+              />
+            </label>
+            <p className="text-sm font-bold text-violet-700">Serão criadas 5 questões</p>
+            {additionalFlashcardError && (
+              <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{additionalFlashcardError}</p>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdditionalFlashcardForm(false);
+                  setAdditionalFlashcardContext('');
+                  setAdditionalFlashcardError('');
+                }}
+                disabled={generatingAdditionalFlashcards}
+                className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={generatingAdditionalFlashcards}
+                className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {generatingAdditionalFlashcards ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {generatingAdditionalFlashcards ? 'Criando questões...' : 'Criar 5 questões'}
+              </button>
+            </div>
+          </form>
+        )}
         {copyMessage && (
           <p className="mb-3 rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">{copyMessage}</p>
         )}
