@@ -46,6 +46,11 @@ assert "_cas_update_diverse_day" in endpoint
 assert "expected_subject_identity" in endpoint
 assert "expected_lesson_identity" in endpoint
 assert endpoint.count("_ensure_diverse_question_capacity") == 2
+assert "selected_subject_id" in endpoint
+assert 'subject.get("id") == selected_subject_id' in endpoint
+assert 'lesson.get("id") == selected_lesson_id' in endpoint
+post_ai = endpoint.split("with _diverse_question_lock", 1)[1]
+assert "current_subjects[payload.subject_index]" not in post_ai
 assert 'len(subject.get("topics") or []) > 1545' in main
 assert 'len(lesson.get("topic_ids") or []) > 45' in main
 requested_child = main.split("def get_requested_child", 1)[1].split("\n\ndef ", 1)[0]

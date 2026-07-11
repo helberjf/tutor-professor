@@ -10,6 +10,7 @@ sys.path.insert(0, str(API))
 
 from services.diverse_question_service import (  # noqa: E402
     normalize_subject,
+    normalize_subjects,
     normalize_text,
     stable_question_id,
 )
@@ -17,6 +18,67 @@ from schemas.schemas import DiverseDayUpdateSchema  # noqa: E402
 
 
 class DiverseQuestionNormalizationTests(unittest.TestCase):
+    def test_assigns_unique_stable_subject_and_lesson_ids_to_legacy_lists(self) -> None:
+        legacy = [
+            {
+                "name": "Historia",
+                "topics": [],
+                "lessons": [
+                    {"id": "duplicate-lesson", "title": "Introducao", "topics": []},
+                    {"id": "duplicate-lesson", "title": "Introducao", "topics": []},
+                    {"id": "", "title": "Introducao", "topics": []},
+                ],
+            },
+            {
+                "name": "Historia",
+                "topics": [],
+                "lessons": [
+                    {"id": "duplicate-lesson", "title": "Introducao", "topics": []},
+                ],
+            },
+        ]
+
+        normalized = normalize_subjects(legacy)
+
+        subject_ids = [subject["id"] for subject in normalized]
+        self.assertEqual(len(set(subject_ids)), 2)
+        self.assertTrue(all(subject_id.startswith("subject-") for subject_id in subject_ids))
+        first_lesson_ids = [lesson["id"] for lesson in normalized[0]["lessons"]]
+        self.assertEqual(len(set(first_lesson_ids)), 3)
+        self.assertEqual(first_lesson_ids[0], "duplicate-lesson")
+        self.assertTrue(all(first_lesson_ids[index].startswith("lesson-") for index in (1, 2)))
+        self.assertEqual(normalize_subjects(normalized), normalized)
+
+        reordered = normalize_subjects(list(reversed(normalized)))
+        self.assertEqual(
+            [subject["id"] for subject in reordered],
+            list(reversed(subject_ids)),
+        )
+        self.assertEqual(reordered[1]["lessons"], normalized[0]["lessons"])
+
+    def test_schema_round_trip_persists_subject_identity(self) -> None:
+        payload = DiverseDayUpdateSchema.model_validate(
+            {
+                "custom_subjects": [
+                    {
+                        "id": "subject-history",
+                        "name": "Historia",
+                        "topics": [],
+                        "lessons": [
+                            {"id": "lesson-history", "title": "Historia", "topic_ids": []}
+                        ],
+                    }
+                ]
+            }
+        )
+
+        serialized = payload.model_dump(mode="json")
+        self.assertEqual(serialized["custom_subjects"][0]["id"], "subject-history")
+        self.assertEqual(
+            DiverseDayUpdateSchema.model_validate(serialized).model_dump(mode="json"),
+            serialized,
+        )
+
     def test_schema_preserves_full_legacy_aggregate_capacity(self) -> None:
         subject_topics = [
             {"topic": f"Pergunta da materia {index}", "answer": f"Resposta {index}"}
@@ -141,8 +203,9 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         upsert_body = main.split("def upsert_diverse_day(", 1)[1].split("_LEVEL_LABELS", 1)[0]
         lesson_payload_body = main.split("def _lesson_payload", 1)[1].split("def ", 1)[0]
 
-        self.assertIn("normalize_subject", get_body)
-        self.assertIn("normalize_subject", upsert_body)
+        self.assertIn("normalize_subjects", get_body)
+        self.assertIn("normalize_subjects", upsert_body)
+        self.assertIn('"id": subject.id', main)
         self.assertNotIn('"topics"', lesson_payload_body)
 
     def test_normalizes_legacy_copies_into_one_canonical_question(self) -> None:

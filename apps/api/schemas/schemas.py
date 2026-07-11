@@ -166,6 +166,7 @@ class DiverseLessonBlockSchema(BaseModel):
 
 
 class DiverseSubjectSchema(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=60)
     topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=1550)
     lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=30)
@@ -176,12 +177,20 @@ class DiverseSubjectSchema(BaseModel):
         """Convert embedded legacy copies before lesson schemas discard extra fields."""
         if not isinstance(value, dict):
             return value
-        lessons = value.get("lessons") or []
-        if not any(isinstance(lesson, dict) and lesson.get("topics") for lesson in lessons):
-            return value
         from services.diverse_question_service import normalize_subject
 
-        return normalize_subject(value)
+        prepared = {
+            **value,
+            "topics": [
+                topic.model_dump(mode="python") if isinstance(topic, BaseModel) else topic
+                for topic in (value.get("topics") or [])
+            ],
+            "lessons": [
+                lesson.model_dump(mode="python") if isinstance(lesson, BaseModel) else lesson
+                for lesson in (value.get("lessons") or [])
+            ],
+        }
+        return normalize_subject(prepared)
 
 
 class DiverseDaySchema(BaseModel):
@@ -191,9 +200,35 @@ class DiverseDaySchema(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_subject_identities(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        from services.diverse_question_service import normalize_subjects
+
+        raw_subjects = [
+            subject.model_dump(mode="python") if isinstance(subject, BaseModel) else subject
+            for subject in (value.get("custom_subjects") or [])
+        ]
+        return {**value, "custom_subjects": normalize_subjects(raw_subjects)}
+
 
 class DiverseDayUpdateSchema(BaseModel):
     custom_subjects: List[DiverseSubjectSchema]
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_subject_identities(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        from services.diverse_question_service import normalize_subjects
+
+        raw_subjects = [
+            subject.model_dump(mode="python") if isinstance(subject, BaseModel) else subject
+            for subject in (value.get("custom_subjects") or [])
+        ]
+        return {**value, "custom_subjects": normalize_subjects(raw_subjects)}
 
 
 class GenerateDiverseQuestionsSchema(BaseModel):
