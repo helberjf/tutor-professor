@@ -124,10 +124,12 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             "await api.generateAdditionalCodingFlashcards(selectedTopicId, context)"
         )
         success_path = handler[endpoint:handler.index("catch", endpoint)]
-        self.assertIn("if (reloadResult.overview) onChanged?.()", success_path)
-        reload_call = success_path.index("const reloadResult = await onReload()")
-        changed_call = success_path.index("if (reloadResult.overview) onChanged?.()")
+        self.assertIn("if (overviewReloaded) onChanged?.()", success_path)
+        topics_call = success_path.index("void retryTopics()")
+        reload_call = success_path.index("const overviewReloaded = await onReload()")
+        changed_call = success_path.index("if (overviewReloaded) onChanged?.()")
         mounted_guard = success_path.index("if (!mountedRef.current) return")
+        self.assertLess(topics_call, reload_call)
         self.assertLess(reload_call, mounted_guard)
         self.assertLess(changed_call, mounted_guard)
 
@@ -142,8 +144,8 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def test_deck_generation_handles_empty_topics_reload_failure_and_concurrency(self):
         for expected in (
             "Nenhum tópico disponível para gerar questões.",
-            "const reloadResult = await onReload()",
-            "if (!reloadResult.overview)",
+            "const overviewReloaded = await onReload()",
+            "if (!overviewReloaded)",
             "locked={generatingWithAi}",
             "disabled={busy || locked}",
         ):
@@ -152,16 +154,23 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
 
     def test_overview_and_topics_load_independently_with_scoped_retry(self):
         for expected in (
-            "Promise.allSettled",
-            "overviewResult.status === 'fulfilled'",
-            "topicsResult.status === 'fulfilled'",
+            "async function loadOverview(",
+            "void loadOverview(true)",
+            "void retryTopics()",
             "topicsError",
             "retryTopics",
             "Tentar recarregar tópicos",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.flashcard_deck)
-        self.assertNotIn("Promise.all([\n        api.getDeckOverview", self.flashcard_deck)
+        self.assertIn("async function loadOverview(", self.flashcard_deck)
+        overview_start = self.flashcard_deck.index("async function loadOverview(")
+        overview_end = self.flashcard_deck.index("async function retryTopics(", overview_start)
+        overview_loader = self.flashcard_deck[overview_start:overview_end]
+        self.assertIn("await api.getDeckOverview(subjectId)", overview_loader)
+        self.assertNotIn("getCodingTopics", overview_loader)
+        self.assertNotIn("Promise.all", overview_loader)
+        self.assertNotIn("Promise.allSettled", overview_loader)
 
     def test_generation_uses_synchronous_ref_lock_released_unconditionally(self):
         handler_start = self.flashcard_deck.index("async function generateWithAi()")
@@ -185,6 +194,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             'aria-label="Buscar cards"',
             'aria-label="Editar card"',
             'aria-label="Excluir card"',
+            'aria-label="Fechar formulário do card"',
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.flashcard_deck)
