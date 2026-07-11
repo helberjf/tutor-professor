@@ -361,10 +361,9 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
     setAiSuccess('');
     try {
       await api.generateAdditionalCodingFlashcards(selectedTopicId, context);
-      if (!mountedRef.current) return;
       const reloaded = await onReload();
+      if (reloaded) onChanged?.();
       if (!mountedRef.current) return;
-      onChanged?.();
       if (!reloaded) {
         setAiError('As questões foram criadas, mas não foi possível recarregar o deck.');
         return;
