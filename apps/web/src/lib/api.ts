@@ -829,6 +829,15 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  generateDiverseQuestions: (payload: {
+    study_date: string;
+    subject_index: number;
+    lesson_id: string;
+    context?: string;
+  }) => fetchAPI<CodingTopic[]>('/api/study/diverse/questions/generate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
   getTodayQuiz: (lessonId?: number) =>
     fetchAPI<Quiz>(lessonId ? `/api/quiz/today?lesson_id=${lessonId}` : '/api/quiz/today'),
   submitQuiz: (payload: { lesson_id: number; score: number; total_questions: number }) =>

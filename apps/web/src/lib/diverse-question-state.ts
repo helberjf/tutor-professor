@@ -9,6 +9,21 @@ export function findItemIndexById<T extends { id: string }>(items: readonly T[],
   return items.findIndex((item) => item.id === itemId);
 }
 
+export function resolveDiverseGenerationTarget<
+  TLesson extends { id: string },
+  TSubject extends { id: string; lessons?: readonly TLesson[] },
+>(
+  day: { custom_subjects: readonly TSubject[] },
+  subjectId: string,
+  lessonId: string,
+): { subjectIndex: number; subject: TSubject; lesson: TLesson } | null {
+  const subjectIndex = findItemIndexById(day.custom_subjects, subjectId);
+  if (subjectIndex < 0) return null;
+  const subject = day.custom_subjects[subjectIndex];
+  const lesson = subject.lessons?.find((candidate) => candidate.id === lessonId);
+  return lesson ? { subjectIndex, subject, lesson } : null;
+}
+
 export function updateItemById<T extends { id: string }>(
   items: T[],
   itemId: string,

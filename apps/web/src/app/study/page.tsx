@@ -13,7 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -206,6 +206,7 @@ export default function StudyPage() {
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
   const [codingMode, setCodingMode] = useState<CodingMode>('reading');
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
+  const selectedDateRef = useRef(selectedDate);
 
   // ── English tab state ───────────────────────────────────────────────────────
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
@@ -237,6 +238,9 @@ export default function StudyPage() {
   const [lessonGenMessage, setLessonGenMessage] = useState('');
   const [pendingDiverseSave, setPendingDiverseSave] = useState(false);
   const [pendingLessonDraft, setPendingLessonDraft] = useState<PendingLessonDraft | null>(null);
+  const [generatingDiverseQuestions, setGeneratingDiverseQuestions] = useState(false);
+  const diverseMutationLockRef = useRef(false);
+  const diverseQuestionGenerationLockRef = useRef(false);
 
   // ── Coding tab state ────────────────────────────────────────────────────────
   const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
@@ -269,6 +273,10 @@ export default function StudyPage() {
   useEffect(() => {
     diverseDayRef.current = diverseDay;
   }, [diverseDay]);
+
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
 
   function setStudyUrlTab(slug: string | null) {
     if (typeof window === 'undefined') return;
@@ -553,6 +561,7 @@ export default function StudyPage() {
   }
 
   function addDiverseSubject() {
+    if (diverseMutationLockRef.current) return;
     const name = newSubjectName.trim();
     if (!name) return;
     const subjects = diverseDay?.custom_subjects ?? [];
@@ -590,6 +599,7 @@ export default function StudyPage() {
   }
 
   function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay || newTopics.length === 0) return;
     const canonicalTopics = newTopics.map((topic) => ({
       ...topic,
@@ -612,6 +622,7 @@ export default function StudyPage() {
   }
 
   function rateDiverseTopic(subjectIndex: number, topicIndex: number, rating: StudyRating) {
+    if (diverseMutationLockRef.current) return;
     setDiverseDay((current) => {
       if (!current) return current;
       const subjects = current.custom_subjects.map((s, si) =>
@@ -624,6 +635,7 @@ export default function StudyPage() {
   }
 
   function rateDiverseLessonTopic(subjectIndex: number, topicId: string, rating: StudyRating) {
+    if (diverseMutationLockRef.current) return;
     setDiverseDay((current) => {
       if (!current) return current;
       const subjects = current.custom_subjects.map((s, si) => {
@@ -636,10 +648,12 @@ export default function StudyPage() {
 
   // After a study session finishes, persist ratings so spaced repetition survives reloads.
   function requestDiverseAutoSave() {
+    if (diverseMutationLockRef.current) return;
     setPendingDiverseSave(true);
   }
 
   function updateDiverseTopicAnswer(subjectIndex: number, topicIndex: number, value: string) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((s, si) =>
       si === subjectIndex
@@ -650,6 +664,7 @@ export default function StudyPage() {
   }
 
   function removeDiverseSubject(index: number) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const removedSubject = diverseDay.custom_subjects[index];
     if (!removedSubject) return;
@@ -663,6 +678,7 @@ export default function StudyPage() {
   }
 
   function toggleDiverseTopic(subjectIndex: number, topicIndex: number) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((s, si) =>
       si === subjectIndex
@@ -673,6 +689,7 @@ export default function StudyPage() {
   }
 
   function updateDiverseTopicText(subjectIndex: number, topicIndex: number, value: string) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((s, si) =>
       si === subjectIndex
@@ -687,6 +704,7 @@ export default function StudyPage() {
     lessonIndex: number,
     updater: (lesson: DiverseLessonBlock) => DiverseLessonBlock
   ) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((s, si) => {
       if (si !== subjectIndex) return s;
@@ -701,6 +719,7 @@ export default function StudyPage() {
     topicId: string,
     updater: (topic: CodingTopic) => CodingTopic,
   ) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((subject, index) => {
       if (index !== subjectIndex) return subject;
@@ -714,6 +733,7 @@ export default function StudyPage() {
   }
 
   function removeDiverseLessonBlock(subjectIndex: number, lessonIndex: number) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((s, si) => {
       if (si !== subjectIndex) return s;
@@ -736,6 +756,7 @@ export default function StudyPage() {
   }
 
   function updateDiverseSubjectName(subjectIndex: number, value: string) {
+    if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const previousSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[subjectIndex], subjectIndex, diverseDay.custom_subjects);
     const subjects = diverseDay.custom_subjects.map((s, si) => si === subjectIndex ? { ...s, name: value } : s);
@@ -757,6 +778,8 @@ export default function StudyPage() {
   async function generateAIFlashcards(inlineApiKey?: string, suggestSubject = false) {
     const name = newSubjectName.trim();
     if (!name && !suggestSubject) return;
+    if (diverseMutationLockRef.current) return;
+    diverseMutationLockRef.current = true;
     setGeneratingAI(true);
     const action: DiverseAIAction = suggestSubject ? 'suggest-subject' : 'create-subject';
     setAiAction(action);
@@ -791,7 +814,11 @@ export default function StudyPage() {
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível criar aula com IA.';
       setAiError(msg);
-    } finally { setGeneratingAI(false); setAiAction(null); }
+    } finally {
+      diverseMutationLockRef.current = false;
+      setGeneratingAI(false);
+      setAiAction(null);
+    }
   }
 
   async function generateDiverseTopic(subjectId: string, inlineApiKey?: string) {
@@ -801,6 +828,8 @@ export default function StudyPage() {
       setAiError('Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar.');
       return;
     }
+    if (diverseMutationLockRef.current) return;
+    diverseMutationLockRef.current = true;
     setGeneratingAI(true);
     setAiAction('topic');
     setLastAIAction('topic');
@@ -833,7 +862,11 @@ export default function StudyPage() {
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível sugerir tópico com IA.';
       setAiError(msg);
-    } finally { setGeneratingAI(false); setAiAction(null); }
+    } finally {
+      diverseMutationLockRef.current = false;
+      setGeneratingAI(false);
+      setAiAction(null);
+    }
   }
 
   async function generateDiverseLesson(subjectId: string, inlineApiKey?: string, context?: string) {
@@ -843,6 +876,8 @@ export default function StudyPage() {
       setAiError('Limite de 30 blocos de lição atingido para esta matéria.');
       return;
     }
+    if (diverseMutationLockRef.current) return;
+    diverseMutationLockRef.current = true;
     setGeneratingAI(true);
     setAiAction('lesson');
     setLastAIAction('lesson');
@@ -880,10 +915,15 @@ export default function StudyPage() {
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível criar lição com IA.';
       setAiError(msg);
-    } finally { setGeneratingAI(false); setAiAction(null); }
+    } finally {
+      diverseMutationLockRef.current = false;
+      setGeneratingAI(false);
+      setAiAction(null);
+    }
   }
 
   function savePendingLessonDraft() {
+    if (diverseMutationLockRef.current) return;
     if (!pendingLessonDraft) return;
     const { subjectId, lesson, topics } = pendingLessonDraft;
     const latestSubjects = diverseDayRef.current?.custom_subjects ?? [];
@@ -930,8 +970,73 @@ export default function StudyPage() {
     } finally { setGeneratingLesson(false); }
   }
 
+  async function generateMoreDiverseQuestions(subjectId: string, lessonId: string, context?: string) {
+    if (diverseQuestionGenerationLockRef.current || diverseMutationLockRef.current) {
+      throw new Error('Outra alteração desta matéria ainda está em andamento. Aguarde e tente novamente.');
+    }
+
+    const currentDay = diverseDayRef.current;
+    if (!currentDay || !resolveDiverseGenerationTarget(currentDay, subjectId, lessonId)) {
+      throw new Error('A matéria ou lição selecionada não existe mais. Atualize a seleção e tente novamente.');
+    }
+
+    const generationDate = selectedDate;
+    diverseQuestionGenerationLockRef.current = true;
+    diverseMutationLockRef.current = true;
+    setGeneratingDiverseQuestions(true);
+    setDiverseSaved('');
+    setDiverseError('');
+
+    try {
+      // Persist every local edit before asking the server to append canonical questions.
+      const saved = await api.saveDiverseDay(generationDate, {
+        custom_subjects: currentDay.custom_subjects,
+      });
+      if (selectedDateRef.current === generationDate) {
+        diverseDayRef.current = saved;
+        setDiverseDay(saved);
+      }
+
+      // Resolve the backend index only from the saved response, never from a captured array index.
+      const target = resolveDiverseGenerationTarget(saved, subjectId, lessonId);
+      if (!target) {
+        throw new Error('A matéria ou lição foi removida durante a atualização. Nenhuma questão foi criada.');
+      }
+
+      await api.generateDiverseQuestions({
+        study_date: generationDate,
+        subject_index: target.subjectIndex,
+        lesson_id: lessonId,
+        ...(context?.trim() ? { context: context.trim() } : {}),
+      });
+
+      const fresh = await api.getDiverseDay(generationDate);
+      if (selectedDateRef.current === generationDate) {
+        diverseDayRef.current = fresh;
+        setDiverseDay(fresh);
+        setDiverseSaved('5 novas questões foram adicionadas à lição.');
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const fresh = await api.getDiverseDay(generationDate);
+        if (selectedDateRef.current === generationDate) {
+          diverseDayRef.current = fresh;
+          setDiverseDay(fresh);
+        }
+        throw new Error('A matéria mudou em outra operação. Os dados foram atualizados; revise e tente novamente.');
+      }
+      throw err;
+    } finally {
+      diverseQuestionGenerationLockRef.current = false;
+      diverseMutationLockRef.current = false;
+      setGeneratingDiverseQuestions(false);
+    }
+  }
+
   async function saveDiverseDay() {
     if (!diverseDay) return;
+    if (diverseMutationLockRef.current) return;
+    diverseMutationLockRef.current = true;
     setSavingDiverse(true); setDiverseSaved(''); setDiverseError('');
     try {
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: diverseDay.custom_subjects });
@@ -939,7 +1044,10 @@ export default function StudyPage() {
       setDiverseSaved('Aprendizado diverso salvo.');
     } catch {
       setDiverseError('Não foi possível salvar.');
-    } finally { setSavingDiverse(false); }
+    } finally {
+      diverseMutationLockRef.current = false;
+      setSavingDiverse(false);
+    }
   }
 
   // Persist study ratings once after the state has settled (avoids saving stale data).
@@ -1104,6 +1212,8 @@ export default function StudyPage() {
             onUpdateSubjectName={updateDiverseSubjectName}
             onGenerateTopicAI={(subjectId, key) => void generateDiverseTopic(subjectId, key)}
             onGenerateLessonAI={(subjectId, key, context) => void generateDiverseLesson(subjectId, key, context)}
+            onGenerateMoreQuestions={generateMoreDiverseQuestions}
+            generatingDiverseQuestions={generatingDiverseQuestions}
             pendingLessonDraft={pendingLessonDraft}
             onSaveLessonDraft={savePendingLessonDraft}
             onDiscardLessonDraft={discardPendingLessonDraft}
@@ -1500,6 +1610,7 @@ function DiverseTab({
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
+  onGenerateMoreQuestions, generatingDiverseQuestions,
   onRateTopic, onRateLessonTopic, onSessionComplete,
   onRemoveLesson, onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
   onUpdateLessonTopicAnswer, pendingLessonDraft, onSaveLessonDraft, onDiscardLessonDraft, onSave,
@@ -1529,6 +1640,8 @@ function DiverseTab({
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (subjectId: string, apiKey?: string) => void;
   onGenerateLessonAI: (subjectId: string, apiKey?: string, context?: string) => void;
+  onGenerateMoreQuestions: (subjectId: string, lessonId: string, context?: string) => Promise<void>;
+  generatingDiverseQuestions: boolean;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
   onDiscardLessonDraft: () => void;
@@ -1606,6 +1719,8 @@ function DiverseTab({
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.subject.id, key)}
           onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.subject.id, key, context)}
+          onGenerateMoreQuestions={(lessonId, context) => onGenerateMoreQuestions(selectedSubject.subject.id, lessonId, context)}
+          questionGenerationBusy={generatingDiverseQuestions || generatingAI || savingDiverse}
           pendingLessonDraft={pendingLessonDraft?.subjectId === selectedSubject.subject.id ? pendingLessonDraft : null}
           onSaveLessonDraft={onSaveLessonDraft}
           onDiscardLessonDraft={onDiscardLessonDraft}
@@ -1722,7 +1837,7 @@ function DiverseTab({
 
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
-          <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse}
+          <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || generatingDiverseQuestions}
             className="kid-button w-full bg-primary hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matérias
@@ -1760,6 +1875,7 @@ function DiverseSubjectDashboard({
   diverseSaved, diverseError, pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
   onRequestNotifications, onGenerateTopicAI, onGenerateLessonAI, onRemoveLesson,
+  onGenerateMoreQuestions, questionGenerationBusy,
   onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
   onUpdateLessonTopicAnswer, generatingAI, aiAction, lastAIAction, aiError, onBulkAddTopics,
   pendingLessonDraft, onSaveLessonDraft, onDiscardLessonDraft,
@@ -1775,6 +1891,8 @@ function DiverseSubjectDashboard({
   onUpdateSubjectName: (value: string) => void;
   onGenerateTopicAI: (apiKey?: string) => void;
   onGenerateLessonAI: (apiKey?: string, context?: string) => void;
+  onGenerateMoreQuestions: (lessonId: string, context?: string) => Promise<void>;
+  questionGenerationBusy: boolean;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
   onDiscardLessonDraft: () => void;
@@ -1855,7 +1973,7 @@ function DiverseSubjectDashboard({
           <button
             type="button"
             onClick={() => onGenerateTopicAI(aiKeyDraft.trim() || undefined)}
-            disabled={generatingAI}
+            disabled={generatingAI || questionGenerationBusy}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'topic' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
@@ -1864,7 +1982,7 @@ function DiverseSubjectDashboard({
           <button
             type="button"
             onClick={() => onGenerateLessonAI(aiKeyDraft.trim() || undefined, lessonContext.trim() || undefined)}
-            disabled={generatingAI}
+            disabled={generatingAI || questionGenerationBusy}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'lesson' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
@@ -1892,7 +2010,7 @@ function DiverseSubjectDashboard({
                       if (lastAIAction === 'topic') onGenerateTopicAI(aiKeyDraft.trim());
                       else if (lastAIAction === 'lesson') onGenerateLessonAI(aiKeyDraft.trim(), lessonContext.trim() || undefined);
                     }}
-                    disabled={!aiKeyDraft.trim() || generatingAI}
+                    disabled={!aiKeyDraft.trim() || generatingAI || questionGenerationBusy}
                     className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
                   >
                     <Sparkles size={14} /> Tentar
@@ -1954,6 +2072,10 @@ function DiverseSubjectDashboard({
             onBulkAddTopics={onBulkAddTopics}
             onRateTopic={onRateTopic}
             onSessionComplete={onSessionComplete}
+            questionGenerationLessons={lessons}
+            questionGenerationButtonLabel="Criar mais questões"
+            onGenerateMoreQuestions={onGenerateMoreQuestions}
+            questionGenerationBusy={questionGenerationBusy}
           />
 
           {lessons.length > 0 && (
@@ -1991,6 +2113,10 @@ function DiverseSubjectDashboard({
                       if (topicId) onRateLessonTopic(topicId, rating);
                     }}
                     onSessionComplete={onSessionComplete}
+                    fixedQuestionGenerationLesson={lesson}
+                    questionGenerationButtonLabel="Criar mais questões"
+                    onGenerateMoreQuestions={onGenerateMoreQuestions}
+                    questionGenerationBusy={questionGenerationBusy}
                   />
                 );
               })}
@@ -1999,7 +2125,7 @@ function DiverseSubjectDashboard({
 
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
-          <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse}
+          <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || questionGenerationBusy}
             className="kid-button w-full bg-primary hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matéria
@@ -2050,9 +2176,134 @@ function parseJsonTopics(raw: string): CodingTopic[] {
   return single ? [single] : [];
 }
 
+function DiverseQuestionGenerationForm({
+  lessons,
+  fixedLesson,
+  buttonLabel,
+  busy,
+  onGenerate,
+}: {
+  lessons: DiverseLessonBlock[];
+  fixedLesson?: DiverseLessonBlock;
+  buttonLabel: string;
+  busy: boolean;
+  onGenerate: (lessonId: string, context?: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selectedLessonId, setSelectedLessonId] = useState(fixedLesson?.id ?? '');
+  const [diverseQuestionContext, setDiverseQuestionContext] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const submitLockRef = useRef(false);
+  const lessonId = fixedLesson?.id ?? selectedLessonId;
+
+  useEffect(() => {
+    if (fixedLesson) {
+      setSelectedLessonId(fixedLesson.id);
+      return;
+    }
+    if (selectedLessonId && lessons.some((lesson) => lesson.id === selectedLessonId)) return;
+    setSelectedLessonId('');
+  }, [fixedLesson, lessons, selectedLessonId]);
+
+  async function handleGenerate() {
+    if (!lessonId || busy || submitLockRef.current) return;
+    submitLockRef.current = true;
+    setSubmitting(true);
+    setMessage('');
+    setError('');
+    try {
+      await onGenerate(lessonId, diverseQuestionContext.trim() || undefined);
+      setMessage('5 novas questões foram adicionadas e sincronizadas.');
+      setDiverseQuestionContext('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível criar as questões. Tente novamente.');
+    } finally {
+      submitLockRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={busy || lessons.length === 0}
+        className="mx-5 mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Sparkles size={16} /> {buttonLabel}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mx-5 mt-4 space-y-3 rounded-2xl border-2 border-violet-200 bg-violet-50/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-violet-800">{buttonLabel}</p>
+          <p className="mt-0.5 text-xs font-bold text-violet-600">Serão criadas 5 questões relacionadas a esta lição.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          disabled={submitting}
+          aria-label="Fechar criação de questões"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500 transition hover:bg-violet-100 disabled:opacity-50"
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {!fixedLesson && (
+        <label className="block text-xs font-black text-slate-600">
+          Lição
+          <select
+            value={selectedLessonId}
+            onChange={(event) => { setSelectedLessonId(event.target.value); setError(''); setMessage(''); }}
+            disabled={submitting || busy}
+            className="mt-1.5 min-h-11 w-full rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
+          >
+            <option value="">Selecione uma lição</option>
+            {lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}
+          </select>
+        </label>
+      )}
+
+      <label className="block text-xs font-black text-slate-600">
+        Contexto opcional
+        <textarea
+          value={diverseQuestionContext}
+          onChange={(event) => { setDiverseQuestionContext(event.target.value); setError(''); setMessage(''); }}
+          maxLength={1000}
+          rows={3}
+          disabled={submitting || busy}
+          placeholder="Ex.: foque nos conceitos que costumam cair na prova."
+          className="mt-1.5 w-full resize-none rounded-xl border-2 border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
+        />
+      </label>
+
+      <button
+        type="button"
+        onClick={() => void handleGenerate()}
+        disabled={!lessonId || submitting || busy}
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {submitting ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+        {submitting ? 'Criando 5 questões...' : 'Adicionar 5 questões'}
+      </button>
+      {error && <p role="alert" className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700">{error}</p>}
+      {message && <p role="status" className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700">{message}</p>}
+    </div>
+  );
+}
+
 function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
   defaultCollapsed, syntaxLanguage, onBulkAddTopics, onRateTopic, onSessionComplete,
+  questionGenerationLessons, fixedQuestionGenerationLesson, questionGenerationButtonLabel,
+  onGenerateMoreQuestions, questionGenerationBusy = false,
 }: {
   subject: DiverseSubject;
   onRemove: () => void;
@@ -2065,6 +2316,11 @@ function SubjectStudyCard({
   onBulkAddTopics?: (topics: CodingTopic[]) => void;
   onRateTopic?: (ti: number, rating: StudyRating) => void;
   onSessionComplete?: () => void;
+  questionGenerationLessons?: DiverseLessonBlock[];
+  fixedQuestionGenerationLesson?: DiverseLessonBlock;
+  questionGenerationButtonLabel?: string;
+  onGenerateMoreQuestions?: (lessonId: string, context?: string) => Promise<void>;
+  questionGenerationBusy?: boolean;
 }) {
   const codeLanguage = syntaxLanguage ?? subject.name;
   const studyCardRef = useRef<HTMLDivElement>(null);
@@ -2225,6 +2481,25 @@ function SubjectStudyCard({
           <BookOpen size={12} className="inline mr-1" />Visualizar
         </button>
       </div>}
+
+      {!collapsed && activeTab !== 'view' && onGenerateMoreQuestions && questionGenerationButtonLabel && questionGenerationLessons && questionGenerationLessons.length > 0 && (
+        <DiverseQuestionGenerationForm
+          lessons={questionGenerationLessons}
+          buttonLabel={questionGenerationButtonLabel}
+          busy={questionGenerationBusy}
+          onGenerate={onGenerateMoreQuestions}
+        />
+      )}
+
+      {!collapsed && activeTab === 'view' && onGenerateMoreQuestions && questionGenerationButtonLabel && fixedQuestionGenerationLesson && (
+        <DiverseQuestionGenerationForm
+          lessons={[fixedQuestionGenerationLesson]}
+          fixedLesson={fixedQuestionGenerationLesson}
+          buttonLabel={questionGenerationButtonLabel}
+          busy={questionGenerationBusy}
+          onGenerate={onGenerateMoreQuestions}
+        />
+      )}
 
       {!collapsed && (activeTab === 'topics' ? (
         <div className="p-5">
