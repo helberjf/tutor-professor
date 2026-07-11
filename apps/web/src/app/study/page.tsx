@@ -1365,7 +1365,7 @@ function CodingTab({
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.45fr]">
-      <div className="order-2 lg:order-1">
+      <div className="order-2 min-w-0 lg:order-1">
         <section className="mb-5 grid grid-cols-2 gap-3">
           <button
             type="button"
