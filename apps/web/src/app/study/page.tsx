@@ -13,6 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
+import { clearDraftForRemovedSubject, findItemIndexById, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -43,7 +44,7 @@ interface InlineStudyState {
 
 type StudyRating = 'knew' | 'partial' | 'unknown';
 type DiverseAIAction = 'create-subject' | 'suggest-subject' | 'topic' | 'lesson';
-type PendingLessonDraft = { subjectIndex: number; lesson: DiverseLessonBlock; topics: CodingTopic[] };
+type PendingLessonDraft = { subjectId: string; lesson: DiverseLessonBlock; topics: CodingTopic[] };
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -101,10 +102,7 @@ function getDiverseSubjectLessons(subject: DiverseSubject) {
 }
 
 function resolveDiverseLessonTopics(subject: DiverseSubject, lesson: DiverseLessonBlock) {
-  const topicsById = new Map(subject.topics.map((topic) => [topic.id, topic]));
-  return lesson.topic_ids
-    .map((topicId) => topicsById.get(topicId))
-    .filter((topic): topic is CodingTopic => topic !== undefined);
+  return resolveItemsByIds(subject.topics, lesson.topic_ids);
 }
 
 function getDiverseSubjectTopics(subject: DiverseSubject) {
@@ -192,7 +190,7 @@ function updateDiverseQuestionById(
   return {
     ...subject,
     id: subject.id,
-    topics: subject.topics.map((topic) => topic.id === questionId ? updater(topic) : topic),
+    topics: updateItemById(subject.topics, questionId, updater),
   };
 }
 
@@ -223,6 +221,7 @@ export default function StudyPage() {
 
   // ── Diverse tab state ───────────────────────────────────────────────────────
   const [diverseDay, setDiverseDay] = useState<DiverseDay | null>(null);
+  const diverseDayRef = useRef<DiverseDay | null>(null);
   const [loadingDiverse, setLoadingDiverse] = useState(false);
   const [savingDiverse, setSavingDiverse] = useState(false);
   const [diverseSaved, setDiverseSaved] = useState('');
@@ -266,6 +265,10 @@ export default function StudyPage() {
       setSelectedDiverseSubjectSlug(tab);
     }
   }, []);
+
+  useEffect(() => {
+    diverseDayRef.current = diverseDay;
+  }, [diverseDay]);
 
   function setStudyUrlTab(slug: string | null) {
     if (typeof window === 'undefined') return;
@@ -620,16 +623,12 @@ export default function StudyPage() {
     });
   }
 
-  function rateDiverseLessonTopic(subjectIndex: number, lessonIndex: number, topicIndex: number, rating: StudyRating) {
+  function rateDiverseLessonTopic(subjectIndex: number, topicId: string, rating: StudyRating) {
     setDiverseDay((current) => {
       if (!current) return current;
       const subjects = current.custom_subjects.map((s, si) => {
         if (si !== subjectIndex) return s;
-        const lesson = getDiverseSubjectLessons(s)[lessonIndex];
-        const questionId = lesson?.topic_ids[topicIndex];
-        return questionId
-          ? updateDiverseQuestionById(s, questionId, (topic) => applyTopicRating(topic, rating))
-          : s;
+        return updateDiverseQuestionById(s, topicId, (topic) => applyTopicRating(topic, rating));
       });
       return { ...current, custom_subjects: subjects };
     });
@@ -652,9 +651,14 @@ export default function StudyPage() {
 
   function removeDiverseSubject(index: number) {
     if (!diverseDay) return;
-    const removedSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[index], index, diverseDay.custom_subjects);
+    const removedSubject = diverseDay.custom_subjects[index];
+    if (!removedSubject) return;
+    const removedSlug = getDiverseSubjectSlug(removedSubject, index, diverseDay.custom_subjects);
     const subjects = diverseDay.custom_subjects.filter((_, i) => i !== index);
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+    const nextDay = { ...diverseDay, custom_subjects: subjects };
+    diverseDayRef.current = nextDay;
+    setDiverseDay(nextDay);
+    setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, removedSubject.id));
     if (selectedDiverseSubjectSlug === removedSlug) selectDiverseOverview();
   }
 
@@ -694,16 +698,13 @@ export default function StudyPage() {
 
   function updateDiverseLessonQuestion(
     subjectIndex: number,
-    lessonIndex: number,
-    topicIndex: number,
+    topicId: string,
     updater: (topic: CodingTopic) => CodingTopic,
   ) {
     if (!diverseDay) return;
     const subjects = diverseDay.custom_subjects.map((subject, index) => {
       if (index !== subjectIndex) return subject;
-      const lesson = getDiverseSubjectLessons(subject)[lessonIndex];
-      const questionId = lesson?.topic_ids[topicIndex];
-      return questionId ? updateDiverseQuestionById(subject, questionId, updater) : subject;
+      return updateDiverseQuestionById(subject, topicId, updater);
     });
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
@@ -722,16 +723,16 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
-  function toggleDiverseLessonTopic(subjectIndex: number, lessonIndex: number, topicIndex: number) {
-    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, done: !topic.done }));
+  function toggleDiverseLessonTopic(subjectIndex: number, topicId: string) {
+    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, done: !topic.done }));
   }
 
-  function updateDiverseLessonTopicText(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
-    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, topic: value }));
+  function updateDiverseLessonTopicText(subjectIndex: number, topicId: string, value: string) {
+    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, topic: value }));
   }
 
-  function updateDiverseLessonTopicAnswer(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
-    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, answer: value }));
+  function updateDiverseLessonTopicAnswer(subjectIndex: number, topicId: string, value: string) {
+    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, answer: value }));
   }
 
   function updateDiverseSubjectName(subjectIndex: number, value: string) {
@@ -832,8 +833,8 @@ export default function StudyPage() {
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
 
-  async function generateDiverseLesson(subjectIndex: number, inlineApiKey?: string, context?: string) {
-    const subject = diverseDay?.custom_subjects[subjectIndex];
+  async function generateDiverseLesson(subjectId: string, inlineApiKey?: string, context?: string) {
+    const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
     if (!subject?.name.trim()) return;
     if (getDiverseSubjectLessons(subject).length >= 30) {
       setAiError('Limite de 30 blocos de lição atingido para esta matéria.');
@@ -864,7 +865,14 @@ export default function StudyPage() {
         created_at: new Date().toISOString(),
         topic_ids: topics.map((topic) => topic.id),
       };
-      setPendingLessonDraft({ subjectIndex, lesson, topics });
+      const currentSubjects = diverseDayRef.current?.custom_subjects ?? [];
+      const currentSubjectIndex = findItemIndexById(currentSubjects, subject.id);
+      if (currentSubjectIndex < 0) {
+        setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, subject.id));
+        setAiError('A matéria foi removida antes de concluir o preview. Gere novamente em outra matéria.');
+        return;
+      }
+      setPendingLessonDraft({ subjectId: subject.id, lesson, topics });
       setDiverseSaved('Preview da lição criado. Revise antes de salvar.');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível criar lição com IA.';
@@ -874,16 +882,29 @@ export default function StudyPage() {
 
   function savePendingLessonDraft() {
     if (!pendingLessonDraft) return;
-    const { subjectIndex, lesson, topics } = pendingLessonDraft;
+    const { subjectId, lesson, topics } = pendingLessonDraft;
+    const latestSubjects = diverseDayRef.current?.custom_subjects ?? [];
+    if (findItemIndexById(latestSubjects, subjectId) < 0) {
+      setPendingLessonDraft(null);
+      setDiverseSaved('');
+      setAiError('A matéria deste preview não existe mais. O preview foi descartado.');
+      return;
+    }
     setDiverseDay((current) => {
-      const subject = current?.custom_subjects[subjectIndex];
-      if (!current || !subject) return current;
+      if (!current) return current;
+      const currentSubjectIndex = findItemIndexById(current.custom_subjects, subjectId);
+      if (currentSubjectIndex < 0) return current;
+      const subject = current.custom_subjects[currentSubjectIndex];
       const nextTopics = filterFreshDiverseTopics(topics, getDiverseAvoidTopics(subject));
       const canonicalLesson = { ...lesson, topic_ids: nextTopics.map((topic) => topic.id) };
-      const subjects = current.custom_subjects.map((s, si) =>
-        si === subjectIndex
-          ? { ...s, topics: [...s.topics, ...nextTopics], lessons: [...getDiverseSubjectLessons(s), canonicalLesson] }
-          : s
+      const subjects = updateSubjectById(
+        current.custom_subjects,
+        subjectId,
+        (currentSubject) => ({
+          ...currentSubject,
+          topics: [...currentSubject.topics, ...nextTopics],
+          lessons: [...getDiverseSubjectLessons(currentSubject), canonicalLesson],
+        }),
       );
       return { ...current, custom_subjects: subjects };
     });
@@ -1079,7 +1100,7 @@ export default function StudyPage() {
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
             onGenerateTopicAI={(si, key) => void generateDiverseTopic(si, key)}
-            onGenerateLessonAI={(si, key, context) => void generateDiverseLesson(si, key, context)}
+            onGenerateLessonAI={(subjectId, key, context) => void generateDiverseLesson(subjectId, key, context)}
             pendingLessonDraft={pendingLessonDraft}
             onSaveLessonDraft={savePendingLessonDraft}
             onDiscardLessonDraft={discardPendingLessonDraft}
@@ -1504,19 +1525,19 @@ function DiverseTab({
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (si: number, apiKey?: string) => void;
-  onGenerateLessonAI: (si: number, apiKey?: string, context?: string) => void;
+  onGenerateLessonAI: (subjectId: string, apiKey?: string, context?: string) => void;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
   onDiscardLessonDraft: () => void;
   onBulkAddTopics: (si: number, topics: CodingTopic[]) => void;
   onRateTopic: (si: number, ti: number, rating: StudyRating) => void;
-  onRateLessonTopic: (si: number, li: number, ti: number, rating: StudyRating) => void;
+  onRateLessonTopic: (si: number, topicId: string, rating: StudyRating) => void;
   onSessionComplete: () => void;
   onRemoveLesson: (si: number, li: number) => void;
-  onToggleLessonTopic: (si: number, li: number, ti: number) => void;
+  onToggleLessonTopic: (si: number, topicId: string) => void;
   onUpdateLessonTitle: (si: number, li: number, v: string) => void;
-  onUpdateLessonTopicText: (si: number, li: number, ti: number, v: string) => void;
-  onUpdateLessonTopicAnswer: (si: number, li: number, ti: number, v: string) => void;
+  onUpdateLessonTopicText: (si: number, topicId: string, v: string) => void;
+  onUpdateLessonTopicAnswer: (si: number, topicId: string, v: string) => void;
   onSave: () => void;
   pomodoroMode: PomodoroMode; pomodoroSeconds: number; pomodoroRunning: boolean; todayPomodoroCount: number;
   notificationPermission: NotificationPermission | 'unsupported'; pomodoroMessage: string;
@@ -1581,19 +1602,19 @@ function DiverseTab({
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
-          onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.index, key, context)}
-          pendingLessonDraft={pendingLessonDraft?.subjectIndex === selectedSubject.index ? pendingLessonDraft : null}
+          onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.subject.id, key, context)}
+          pendingLessonDraft={pendingLessonDraft?.subjectId === selectedSubject.subject.id ? pendingLessonDraft : null}
           onSaveLessonDraft={onSaveLessonDraft}
           onDiscardLessonDraft={onDiscardLessonDraft}
           onBulkAddTopics={(topics) => onBulkAddTopics(selectedSubject.index, topics)}
           onRateTopic={(ti, rating) => onRateTopic(selectedSubject.index, ti, rating)}
-          onRateLessonTopic={(li, ti, rating) => onRateLessonTopic(selectedSubject.index, li, ti, rating)}
+          onRateLessonTopic={(topicId, rating) => onRateLessonTopic(selectedSubject.index, topicId, rating)}
           onSessionComplete={onSessionComplete}
           onRemoveLesson={(li) => onRemoveLesson(selectedSubject.index, li)}
-          onToggleLessonTopic={(li, ti) => onToggleLessonTopic(selectedSubject.index, li, ti)}
+          onToggleLessonTopic={(topicId) => onToggleLessonTopic(selectedSubject.index, topicId)}
           onUpdateLessonTitle={(li, v) => onUpdateLessonTitle(selectedSubject.index, li, v)}
-          onUpdateLessonTopicText={(li, ti, v) => onUpdateLessonTopicText(selectedSubject.index, li, ti, v)}
-          onUpdateLessonTopicAnswer={(li, ti, v) => onUpdateLessonTopicAnswer(selectedSubject.index, li, ti, v)}
+          onUpdateLessonTopicText={(topicId, v) => onUpdateLessonTopicText(selectedSubject.index, topicId, v)}
+          onUpdateLessonTopicAnswer={(topicId, v) => onUpdateLessonTopicAnswer(selectedSubject.index, topicId, v)}
           generatingAI={generatingAI}
           aiAction={aiAction}
           lastAIAction={lastAIAction}
@@ -1755,17 +1776,17 @@ function DiverseSubjectDashboard({
   onSaveLessonDraft: () => void;
   onDiscardLessonDraft: () => void;
   onRemoveLesson: (li: number) => void;
-  onToggleLessonTopic: (li: number, ti: number) => void;
+  onToggleLessonTopic: (topicId: string) => void;
   onUpdateLessonTitle: (li: number, value: string) => void;
-  onUpdateLessonTopicText: (li: number, ti: number, value: string) => void;
-  onUpdateLessonTopicAnswer: (li: number, ti: number, value: string) => void;
+  onUpdateLessonTopicText: (topicId: string, value: string) => void;
+  onUpdateLessonTopicAnswer: (topicId: string, value: string) => void;
   generatingAI: boolean;
   aiAction: DiverseAIAction | null;
   lastAIAction: DiverseAIAction | null;
   aiError: string;
   onBulkAddTopics: (topics: CodingTopic[]) => void;
   onRateTopic: (ti: number, rating: StudyRating) => void;
-  onRateLessonTopic: (li: number, ti: number, rating: StudyRating) => void;
+  onRateLessonTopic: (topicId: string, rating: StudyRating) => void;
   onSessionComplete: () => void;
   onSave: () => void;
   savingDiverse: boolean;
@@ -1940,21 +1961,36 @@ function DiverseSubjectDashboard({
                   {lessons.length}
                 </span>
               </div>
-              {lessons.map((lesson, lessonIndex) => (
-                <SubjectStudyCard
-                  key={lesson.id}
-                  defaultCollapsed={true}
-                  subject={{ id: subject.id, name: lesson.title, topics: resolveDiverseLessonTopics(subject, lesson), lessons: [] }}
-                  syntaxLanguage={subject.name}
-                  onRemove={() => onRemoveLesson(lessonIndex)}
-                  onToggleTopic={(ti) => onToggleLessonTopic(lessonIndex, ti)}
-                  onUpdateTopicText={(ti, v) => onUpdateLessonTopicText(lessonIndex, ti, v)}
-                  onUpdateTopicAnswer={(ti, v) => onUpdateLessonTopicAnswer(lessonIndex, ti, v)}
-                  onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
-                  onRateTopic={(ti, rating) => onRateLessonTopic(lessonIndex, ti, rating)}
-                  onSessionComplete={onSessionComplete}
-                />
-              ))}
+              {lessons.map((lesson, lessonIndex) => {
+                const resolvedTopics = resolveDiverseLessonTopics(subject, lesson);
+                return (
+                  <SubjectStudyCard
+                    key={lesson.id}
+                    defaultCollapsed={true}
+                    subject={{ id: subject.id, name: lesson.title, topics: resolvedTopics, lessons: [] }}
+                    syntaxLanguage={subject.name}
+                    onRemove={() => onRemoveLesson(lessonIndex)}
+                    onToggleTopic={(ti) => {
+                      const topicId = resolvedTopics[ti]?.id;
+                      if (topicId) onToggleLessonTopic(topicId);
+                    }}
+                    onUpdateTopicText={(ti, value) => {
+                      const topicId = resolvedTopics[ti]?.id;
+                      if (topicId) onUpdateLessonTopicText(topicId, value);
+                    }}
+                    onUpdateTopicAnswer={(ti, value) => {
+                      const topicId = resolvedTopics[ti]?.id;
+                      if (topicId) onUpdateLessonTopicAnswer(topicId, value);
+                    }}
+                    onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
+                    onRateTopic={(ti, rating) => {
+                      const topicId = resolvedTopics[ti]?.id;
+                      if (topicId) onRateLessonTopic(topicId, rating);
+                    }}
+                    onSessionComplete={onSessionComplete}
+                  />
+                );
+              })}
             </div>
           )}
 

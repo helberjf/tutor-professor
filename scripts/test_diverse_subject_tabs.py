@@ -42,6 +42,11 @@ def main() -> None:
     require("<SyntaxCodeBlock" in source, "technical examples use the shared syntax renderer")
     require("topic.code_example &&" in source, "empty technical examples do not render a code area")
     require("syntaxLanguage={subject.name}" in source, "lesson code uses the parent subject language")
+    require("type PendingLessonDraft = { subjectId: string" in source, "lesson previews track their subject by canonical ID")
+    require("pendingLessonDraft?.subjectId === selectedSubject.subject.id" in source, "preview matching never depends on a mutable subject index")
+    require("async function generateDiverseLesson(subjectId: string" in source, "async lesson previews start from canonical subject identity")
+    require("resolvedTopics[ti]?.id" in source, "lesson actions translate visible rows to canonical question IDs")
+    require("lesson?.topic_ids[topicIndex]" not in source, "lesson actions never index the raw reference list")
     require("const topicOpen = expandedAnswer === ti" in source, "topic list rows are collapsed until opened")
     require("setExpandedAnswer(topicOpen ? null : ti)" in source, "topics can be expanded and minimized")
 
