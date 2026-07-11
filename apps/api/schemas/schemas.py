@@ -216,19 +216,27 @@ class DiverseDaySchema(BaseModel):
 
 class DiverseDayUpdateSchema(BaseModel):
     custom_subjects: List[DiverseSubjectSchema]
+    identities_supplied: bool = Field(default=True, exclude=True)
 
     @model_validator(mode="before")
     @classmethod
     def normalize_subject_identities(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
-        from services.diverse_question_service import normalize_subjects
+        from services.diverse_question_service import (
+            has_canonical_subject_identities,
+            normalize_subjects,
+        )
 
         raw_subjects = [
             subject.model_dump(mode="python") if isinstance(subject, BaseModel) else subject
             for subject in (value.get("custom_subjects") or [])
         ]
-        return {**value, "custom_subjects": normalize_subjects(raw_subjects)}
+        return {
+            **value,
+            "custom_subjects": normalize_subjects(raw_subjects),
+            "identities_supplied": has_canonical_subject_identities(raw_subjects),
+        }
 
 
 class GenerateDiverseQuestionsSchema(BaseModel):

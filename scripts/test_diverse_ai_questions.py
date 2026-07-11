@@ -20,7 +20,7 @@ assert "exam-style" in endpoint.lower()
 assert "validate_card_batch" in endpoint
 assert "topic_ids" in endpoint
 assert "phrase_generation_service.generate_json_text" in endpoint
-assert endpoint.count("session.commit()") == 1
+assert endpoint.count("session.commit()") == 2  # optional legacy migration + append
 assert "session.delete(" not in endpoint
 assert endpoint.count("phrase_generation_service.generate_json_text") == 1
 assert "_TECHNICAL_SUBJECT_TERMS" not in main
@@ -51,6 +51,12 @@ assert 'subject.get("id") == selected_subject_id' in endpoint
 assert 'lesson.get("id") == selected_lesson_id' in endpoint
 post_ai = endpoint.split("with _diverse_question_lock", 1)[1]
 assert "current_subjects[payload.subject_index]" not in post_ai
+assert "has_canonical_subject_identities" in endpoint
+assert endpoint.index("_cas_update_diverse_day") < endpoint.index(
+    "phrase_generation_service.generate_json_text"
+)
+assert "payload.identities_supplied" in put_endpoint
+assert "stored_identities_are_canonical" in put_endpoint
 assert 'len(subject.get("topics") or []) > 1545' in main
 assert 'len(lesson.get("topic_ids") or []) > 45' in main
 requested_child = main.split("def get_requested_child", 1)[1].split("\n\ndef ", 1)[0]
