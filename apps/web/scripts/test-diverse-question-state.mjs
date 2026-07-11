@@ -27,6 +27,7 @@ const {
   clearDraftForRemovedSubject,
   findItemIndexById,
   resolveItemsByIds,
+  resolveDiverseGenerationTarget,
   updateItemById,
   updateSubjectById,
 } = module.exports;
@@ -73,6 +74,34 @@ assert.strictEqual(
   appendTopicToSubjectById(removed, 'subject-target', suggestedTopic),
   removed,
   'a removed suggestion target must leave its replacement untouched',
+);
+
+const generationDay = Object.freeze({
+  custom_subjects: Object.freeze([
+    replacement,
+    Object.freeze({
+      id: 'subject-target',
+      topics: [],
+      lessons: Object.freeze([
+        Object.freeze({ id: 'lesson-other', title: 'Other', topic_ids: [] }),
+        Object.freeze({ id: 'lesson-target', title: 'Target', topic_ids: [] }),
+      ]),
+    }),
+  ]),
+});
+const generationTarget = resolveDiverseGenerationTarget(generationDay, 'subject-target', 'lesson-target');
+assert.equal(generationTarget?.subjectIndex, 1, 'the backend index must be resolved after subjects reorder');
+assert.equal(generationTarget?.subject.id, 'subject-target');
+assert.equal(generationTarget?.lesson.id, 'lesson-target');
+assert.equal(
+  resolveDiverseGenerationTarget(generationDay, 'subject-target', 'lesson-missing'),
+  null,
+  'a removed lesson must not redirect generation to another lesson',
+);
+assert.equal(
+  resolveDiverseGenerationTarget(generationDay, 'subject-missing', 'lesson-target'),
+  null,
+  'a removed subject must not redirect generation to its old index',
 );
 
 console.log('Diverse question state checks passed.');

@@ -6,6 +6,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "apps/api/main.py").read_text(encoding="utf-8")
 schemas = (ROOT / "apps/api/schemas/schemas.py").read_text(encoding="utf-8")
+page = (ROOT / "apps/web/src/app/study/page.tsx").read_text(encoding="utf-8")
+api = (ROOT / "apps/web/src/lib/api.ts").read_text(encoding="utf-8")
 
 assert "class GenerateDiverseQuestionsSchema" in schemas
 assert "study_date: date" in schemas.split("class GenerateDiverseQuestionsSchema", 1)[1]
@@ -63,3 +65,62 @@ requested_child = main.split("def get_requested_child", 1)[1].split("\n\ndef ", 
 assert 'request.headers.get("x-child-id")' in requested_child
 assert "selected_child.id != requested_child_id" in requested_child
 assert 'status_code=400, detail="X-Child-ID invalido."' in requested_child
+
+# Web client and both non-flashcard entry points use the canonical endpoint.
+assert "generateDiverseQuestions" in api
+client = api.split("generateDiverseQuestions:", 1)[1].split("getTodayQuiz:", 1)[0]
+assert "'/api/study/diverse/questions/generate'" in client
+assert "method: 'POST'" in client
+assert "study_date: string" in client
+assert "subject_index: number" in client
+assert "lesson_id: string" in client
+assert "context?: string" in client
+
+assert "async function generateMoreDiverseQuestions(subjectId: string, lessonId: string, context?: string)" in page
+generation = page.split("async function generateMoreDiverseQuestions", 1)[1].split("\n  function ", 1)[0]
+assert generation.index("api.saveDiverseDay") < generation.index("api.generateDiverseQuestions")
+assert generation.index("resolveDiverseGenerationTarget(saved, subjectId, lessonId)") < generation.index(
+    "api.generateDiverseQuestions"
+)
+assert "study_date: generationDate" in generation
+assert "subject_index: target.subjectIndex" in generation
+assert "lesson_id: lessonId" in generation
+assert "api.getDiverseDay(generationDate)" in generation
+assert "diverseDayRef.current = fresh" in generation
+assert "setDiverseDay(fresh)" in generation
+assert "err instanceof ApiError && err.status === 409" in generation
+assert generation.index("} catch (err) {") > generation.index(
+    "const fresh = await api.getDiverseDay(generationDate)"
+), "save and generation conflicts must share the same refetch recovery"
+assert "diverseQuestionGenerationLockRef" in page
+assert "diverseMutationLockRef" in page
+for mutation_name in (
+    "addDiverseSubject",
+    "addDiverseTopicsBulk",
+    "rateDiverseTopic",
+    "rateDiverseLessonTopic",
+    "updateDiverseTopicAnswer",
+    "removeDiverseSubject",
+    "toggleDiverseTopic",
+    "updateDiverseTopicText",
+    "updateDiverseLessonBlock",
+    "updateDiverseLessonQuestion",
+    "removeDiverseLessonBlock",
+    "updateDiverseSubjectName",
+):
+    mutation = page.split(f"function {mutation_name}", 1)[1].split("\n  function ", 1)[0]
+    assert "diverseMutationLockRef.current" in mutation, f"{mutation_name} must be blocked during generation"
+
+# One selector-based form serves Lista/Revisar and one implicit form serves a lesson's Visualizar view.
+assert page.count("Criar mais questões") >= 2
+assert "fixedQuestionGenerationLesson" in page
+assert "questionGenerationLessons" in page
+assert "activeTab !== 'view'" in page
+assert "activeTab === 'view'" in page
+assert 'value={lesson.id}' in page
+assert "diverseQuestionContext" in page
+assert "maxLength={1000}" in page
+assert "Serão criadas 5 questões" in page
+assert 'role="alert"' in page
+assert "savingDiverse || loadingDiverse || generatingDiverseQuestions" in page
+assert "savingDiverse || loadingDiverse || questionGenerationBusy" in page
