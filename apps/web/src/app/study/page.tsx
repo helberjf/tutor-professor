@@ -13,7 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { clearDraftForRemovedSubject, findItemIndexById, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -794,8 +794,8 @@ export default function StudyPage() {
     } finally { setGeneratingAI(false); setAiAction(null); }
   }
 
-  async function generateDiverseTopic(subjectIndex: number, inlineApiKey?: string) {
-    const subject = diverseDay?.custom_subjects[subjectIndex];
+  async function generateDiverseTopic(subjectId: string, inlineApiKey?: string) {
+    const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
     if (!subject?.name.trim()) return;
     if (subject.topics.length >= 50) {
       setAiError('Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar.');
@@ -819,13 +819,16 @@ export default function StudyPage() {
         setAiError('A IA sugeriu um topico repetido. Tente novamente para avancar para outro assunto.');
         return;
       }
-      setDiverseDay((current) => {
-        if (!current) return current;
-        const subjects = current.custom_subjects.map((s, si) =>
-          si === subjectIndex ? { ...s, topics: [...s.topics, newTopic] } : s
-        );
-        return { ...current, custom_subjects: subjects };
-      });
+      const currentDay = diverseDayRef.current;
+      const currentSubjects = currentDay?.custom_subjects ?? [];
+      if (!currentDay || findItemIndexById(currentSubjects, subject.id) < 0) {
+        setAiError('A matéria foi removida antes de concluir a sugestão. Nenhum tópico foi adicionado.');
+        return;
+      }
+      const subjects = appendTopicToSubjectById(currentSubjects, subject.id, newTopic);
+      const nextDay = { ...currentDay, custom_subjects: subjects };
+      diverseDayRef.current = nextDay;
+      setDiverseDay(nextDay);
       setDiverseSaved('Tópico sugerido pela IA. Salve a matéria para guardar.');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível sugerir tópico com IA.';
@@ -1099,7 +1102,7 @@ export default function StudyPage() {
             onUpdateTopicText={updateDiverseTopicText}
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
-            onGenerateTopicAI={(si, key) => void generateDiverseTopic(si, key)}
+            onGenerateTopicAI={(subjectId, key) => void generateDiverseTopic(subjectId, key)}
             onGenerateLessonAI={(subjectId, key, context) => void generateDiverseLesson(subjectId, key, context)}
             pendingLessonDraft={pendingLessonDraft}
             onSaveLessonDraft={savePendingLessonDraft}
@@ -1524,7 +1527,7 @@ function DiverseTab({
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
-  onGenerateTopicAI: (si: number, apiKey?: string) => void;
+  onGenerateTopicAI: (subjectId: string, apiKey?: string) => void;
   onGenerateLessonAI: (subjectId: string, apiKey?: string, context?: string) => void;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
@@ -1601,7 +1604,7 @@ function DiverseTab({
           onUpdateTopicText={(ti, v) => onUpdateTopicText(selectedSubject.index, ti, v)}
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
-          onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
+          onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.subject.id, key)}
           onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.subject.id, key, context)}
           pendingLessonDraft={pendingLessonDraft?.subjectId === selectedSubject.subject.id ? pendingLessonDraft : null}
           onSaveLessonDraft={onSaveLessonDraft}
