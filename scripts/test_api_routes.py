@@ -421,6 +421,34 @@ async def run() -> None:
                 f"before={diverse_count_before_noop}, after={diverse_count_after_noop}"
             )
 
+        with Session(main.engine) as session:
+            foreign_child = main.ChildProfile(
+                name="Foreign child",
+                age_group="7-9",
+                user_id=999999,
+            )
+            session.add(foreign_child)
+            session.flush()
+            session.add(
+                main.DiverseDay(
+                    child_id=foreign_child.id or 0,
+                    study_date=today,
+                    custom_subjects=[canonical_duplicate_subject],
+                )
+            )
+            session.commit()
+            foreign_child_id = foreign_child.id
+        foreign_child_response = await client.get(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers={"X-Child-ID": str(foreign_child_id)},
+        )
+        assert_status(foreign_child_response, 404, "reject inaccessible requested child")
+        malformed_child_response = await client.get(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers={"X-Child-ID": "not-a-child"},
+        )
+        assert_status(malformed_child_response, 400, "reject malformed requested child id")
+
         missing_diverse_questions_response = await client.post(
             "/api/study/diverse/questions/generate",
             headers=child_headers,
@@ -452,6 +480,285 @@ async def run() -> None:
         assert_status(stored_ai_response, 200, "stored ai settings")
         if "test-ai-key" in stored_ai_response.text:
             raise AssertionError("raw AI key leaked in settings response")
+
+        def capacity_subject(topic_count: int, linked_count: int, label: str) -> dict:
+            topics = [
+                {
+                    "id": f"question-{label}-{index}",
+                    "topic": f"Questao existente {label} {index}?",
+                    "answer": f"Resposta existente {index}.",
+                }
+                for index in range(topic_count)
+            ]
+            return {
+                "name": f"Materia {label}",
+                "topics": topics,
+                "lessons": [
+                    {
+                        "id": f"lesson-{label}",
+                        "title": f"Licao {label}",
+                        "topic_ids": [topic["id"] for topic in topics[:linked_count]],
+                    }
+                ],
+            }
+
+        capacity_date = today + timedelta(days=10)
+        lesson_overflow_date = today + timedelta(days=11)
+        subject_overflow_date = today + timedelta(days=12)
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=capacity_date,
+                    custom_subjects=[capacity_subject(1545, 45, "capacity")],
+                )
+            )
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=lesson_overflow_date,
+                    custom_subjects=[capacity_subject(46, 46, "lesson-overflow")],
+                )
+            )
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=subject_overflow_date,
+                    custom_subjects=[capacity_subject(1546, 0, "subject-overflow")],
+                )
+            )
+            session.commit()
+
+        capacity_ai_calls = 0
+        original_capacity_generate_json = main.phrase_generation_service.generate_json_text
+
+        def mock_capacity_questions_json(**kwargs):
+            nonlocal capacity_ai_calls
+            capacity_ai_calls += 1
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"question": f"Nova questao de capacidade {index}?", "answer": "Resposta."}
+                        for index in range(1, 6)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_capacity_questions_json
+            exact_capacity_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": capacity_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-capacity",
+                },
+            )
+            assert_status(exact_capacity_response, 200, "append at exact diverse capacity boundary")
+            lesson_overflow_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": lesson_overflow_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-lesson-overflow",
+                },
+            )
+            assert_status(lesson_overflow_response, 409, "reject lesson above diverse capacity")
+            subject_overflow_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": subject_overflow_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-subject-overflow",
+                },
+            )
+            assert_status(subject_overflow_response, 409, "reject subject above diverse capacity")
+        finally:
+            main.phrase_generation_service.generate_json_text = original_capacity_generate_json
+        if capacity_ai_calls != 1:
+            raise AssertionError(f"capacity rejection must happen before AI call, got {capacity_ai_calls}")
+        with Session(main.engine) as session:
+            exact_capacity_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == capacity_date,
+                )
+            ).first()
+            lesson_overflow_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == lesson_overflow_date,
+                )
+            ).first()
+            subject_overflow_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == subject_overflow_date,
+                )
+            ).first()
+            exact_subject = main.normalize_subject(exact_capacity_record.custom_subjects[0])
+            lesson_overflow_subject = main.normalize_subject(lesson_overflow_record.custom_subjects[0])
+            subject_overflow_subject = main.normalize_subject(subject_overflow_record.custom_subjects[0])
+        if len(exact_subject["topics"]) != 1550 or len(exact_subject["lessons"][0]["topic_ids"]) != 50:
+            raise AssertionError("exact 1545/45 boundary must append to schema limits")
+        if len(lesson_overflow_subject["lessons"][0]["topic_ids"]) != 46:
+            raise AssertionError("lesson capacity rejection mutated existing references")
+        if len(subject_overflow_subject["topics"]) != 1546:
+            raise AssertionError("subject capacity rejection mutated existing questions")
+
+        capacity_changed_date = today + timedelta(days=15)
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=capacity_changed_date,
+                    custom_subjects=[capacity_subject(1545, 45, "capacity-changed")],
+                )
+            )
+            session.commit()
+
+        capacity_changed_ai_calls = 0
+
+        def mock_capacity_change_during_ai(**kwargs):
+            nonlocal capacity_changed_ai_calls
+            capacity_changed_ai_calls += 1
+            with Session(main.engine) as session:
+                changed_record = session.exec(
+                    main.select(main.DiverseDay).where(
+                        main.DiverseDay.child_id == child_id,
+                        main.DiverseDay.study_date == capacity_changed_date,
+                    )
+                ).first()
+                changed_subject = main.normalize_subject(changed_record.custom_subjects[0])
+                changed_subject["topics"].append(
+                    {
+                        "id": "question-capacity-external",
+                        "topic": "Questao externa durante IA?",
+                        "answer": "Mudanca concorrente.",
+                    }
+                )
+                changed_subject["lessons"][0]["topic_ids"].append("question-capacity-external")
+                changed_record.custom_subjects = [changed_subject]
+                changed_record.updated_at = main.datetime.utcnow()
+                session.add(changed_record)
+                session.commit()
+            return mock_capacity_questions_json()
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_capacity_change_during_ai
+            capacity_changed_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": capacity_changed_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-capacity-changed",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_capacity_generate_json
+        assert_status(capacity_changed_response, 409, "recheck capacity after AI call")
+        if capacity_changed_ai_calls != 1:
+            raise AssertionError(f"expected one AI call before capacity changed, got {capacity_changed_ai_calls}")
+        with Session(main.engine) as session:
+            changed_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == capacity_changed_date,
+                )
+            ).first()
+            changed_subject = main.normalize_subject(changed_record.custom_subjects[0])
+        if len(changed_subject["topics"]) != 1546:
+            raise AssertionError("post-AI capacity conflict must preserve only the external change")
+        if len(changed_subject["lessons"][0]["topic_ids"]) != 46:
+            raise AssertionError("post-AI capacity conflict mutated lesson references")
+
+        reorder_date = today + timedelta(days=13)
+        reorder_subject_a = {
+            "name": "Materia A",
+            "topics": [{"id": "question-a", "topic": "Questao original A?", "answer": "A."}],
+            "lessons": [
+                {
+                    "id": "shared-lesson-id",
+                    "title": "Mesmo titulo",
+                    "topic_ids": ["question-a"],
+                }
+            ],
+        }
+        reorder_subject_b = {
+            "name": "Materia B",
+            "topics": [{"id": "question-b", "topic": "Questao original B?", "answer": "B."}],
+            "lessons": [
+                {
+                    "id": "shared-lesson-id",
+                    "title": "Mesmo titulo",
+                    "topic_ids": ["question-b"],
+                }
+            ],
+        }
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=reorder_date,
+                    custom_subjects=[reorder_subject_a, reorder_subject_b],
+                )
+            )
+            session.commit()
+
+        reorder_ai_calls = 0
+
+        def mock_reorder_during_ai(**kwargs):
+            nonlocal reorder_ai_calls
+            reorder_ai_calls += 1
+            with Session(main.engine) as session:
+                reorder_record = session.exec(
+                    main.select(main.DiverseDay).where(
+                        main.DiverseDay.child_id == child_id,
+                        main.DiverseDay.study_date == reorder_date,
+                    )
+                ).first()
+                reorder_record.custom_subjects = list(reversed(reorder_record.custom_subjects))
+                reorder_record.updated_at = main.datetime.utcnow()
+                session.add(reorder_record)
+                session.commit()
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"question": f"Questao gerada para A {index}?", "answer": "A."}
+                        for index in range(1, 6)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_reorder_during_ai
+            reordered_generation_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": reorder_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "shared-lesson-id",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_capacity_generate_json
+        assert_status(reordered_generation_response, 409, "reject subject reorder during AI call")
+        if reorder_ai_calls != 1:
+            raise AssertionError(f"expected one AI call before reorder conflict, got {reorder_ai_calls}")
+        reordered_day_response = await client.get(
+            f"/api/study/diverse/{reorder_date.isoformat()}", headers=child_headers
+        )
+        assert_status(reordered_day_response, 200, "reload reordered diverse day")
+        reordered_subjects = reordered_day_response.json()["custom_subjects"]
+        if [subject["name"] for subject in reordered_subjects] != ["Materia B", "Materia A"]:
+            raise AssertionError(f"expected external reorder to remain committed, got {reordered_subjects}")
+        if any(len(subject["topics"]) != 1 for subject in reordered_subjects):
+            raise AssertionError(f"reordered subject received questions for old index, got {reordered_subjects}")
 
         diverse_ai_calls: list[dict[str, str]] = []
         original_generate_diverse_json = main.phrase_generation_service.generate_json_text
@@ -728,6 +1035,121 @@ async def run() -> None:
                 f"before={concurrent_ids_before}, "
                 f"after={len(concurrent_subject_after['lessons'][0]['topic_ids'])}"
             )
+        if main._diverse_question_locks:
+            raise AssertionError(
+                f"idle diverse generation locks must be removed, got {main._diverse_question_locks}"
+            )
+
+        cas_race_date = today + timedelta(days=14)
+        cas_base_subject = {
+            "name": "Historia CAS",
+            "topics": [
+                {"id": "question-cas-base", "topic": "Qual foi o evento inicial?", "answer": "Evento base."}
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-cas-race",
+                    "title": "Concorrencia",
+                    "topic_ids": ["question-cas-base"],
+                }
+            ],
+        }
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=cas_race_date,
+                    custom_subjects=[cas_base_subject],
+                )
+            )
+            session.commit()
+
+        generated_cas_fronts = [f"Questao CAS gerada {index}?" for index in range(1, 6)]
+        generate_reached_cas = main.threading.Event()
+        allow_generate_cas = main.threading.Event()
+        original_cas_update = main._cas_update_diverse_day
+
+        def mock_cas_race_ai(**kwargs):
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"question": front, "answer": "Resposta gerada."}
+                        for front in generated_cas_fronts
+                    ]
+                }
+            )
+
+        def delay_generate_cas(*args, **kwargs):
+            custom_subjects = kwargs["custom_subjects"]
+            fronts = {
+                topic.get("topic")
+                for subject in custom_subjects
+                for topic in subject.get("topics", [])
+            }
+            if any(front in fronts for front in generated_cas_fronts):
+                generate_reached_cas.set()
+                if not allow_generate_cas.wait(timeout=5):
+                    raise AssertionError("timed out waiting for concurrent PUT before generate CAS")
+            return original_cas_update(*args, **kwargs)
+
+        manual_cas_subject = {
+            "name": "Historia CAS",
+            "topics": [
+                *cas_base_subject["topics"],
+                {
+                    "id": "question-cas-manual",
+                    "topic": "Qual mudanca foi salva manualmente?",
+                    "answer": "A mudanca do PUT.",
+                },
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-cas-race",
+                    "title": "Concorrencia",
+                    "topic_ids": ["question-cas-base", "question-cas-manual"],
+                }
+            ],
+        }
+        try:
+            main.phrase_generation_service.generate_json_text = mock_cas_race_ai
+            main._cas_update_diverse_day = delay_generate_cas
+            generate_cas_task = asyncio.create_task(
+                client.post(
+                    "/api/study/diverse/questions/generate",
+                    headers=child_headers,
+                    json={
+                        "study_date": cas_race_date.isoformat(),
+                        "subject_index": 0,
+                        "lesson_id": "lesson-cas-race",
+                    },
+                )
+            )
+            reached_cas = await asyncio.to_thread(generate_reached_cas.wait, 5)
+            if not reached_cas:
+                raise AssertionError("generate did not reach delayed CAS update")
+            concurrent_put_response = await client.put(
+                f"/api/study/diverse/{cas_race_date.isoformat()}",
+                headers=child_headers,
+                json={"custom_subjects": [manual_cas_subject]},
+            )
+            assert_status(concurrent_put_response, 200, "concurrent Diverse PUT wins CAS race")
+            allow_generate_cas.set()
+            stale_generate_response = await generate_cas_task
+        finally:
+            allow_generate_cas.set()
+            main.phrase_generation_service.generate_json_text = original_generate_diverse_json
+            main._cas_update_diverse_day = original_cas_update
+        assert_status(stale_generate_response, 409, "stale generate loses CAS race without overwrite")
+        cas_race_final_response = await client.get(
+            f"/api/study/diverse/{cas_race_date.isoformat()}", headers=child_headers
+        )
+        assert_status(cas_race_final_response, 200, "reload Diverse CAS race result")
+        cas_race_final_subject = cas_race_final_response.json()["custom_subjects"][0]
+        cas_race_final_fronts = {topic["topic"] for topic in cas_race_final_subject["topics"]}
+        if "Qual mudanca foi salva manualmente?" not in cas_race_final_fronts:
+            raise AssertionError(f"winning PUT disappeared after CAS race: {cas_race_final_subject}")
+        if any(front in cas_race_final_fronts for front in generated_cas_fronts):
+            raise AssertionError(f"stale generate silently overwrote CAS winner: {cas_race_final_subject}")
 
         children_after_noah_response = await client.get("/api/parent/children")
         assert_status(children_after_noah_response, 200, "reload children for ownership test")
