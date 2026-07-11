@@ -199,6 +199,48 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         self.assertEqual(subject["topics"][0]["id"], "question-imported")
         self.assertEqual(subject["lessons"][0]["topic_ids"], ["question-imported"])
 
+    def test_arbitrary_legacy_ids_do_not_split_equivalent_subject_questions(self) -> None:
+        legacy = {
+            "name": "Historia",
+            "topics": [
+                {
+                    "id": "a",
+                    "topic": "O que foi a Revolução Francesa?",
+                    "answer": "Uma revolucao social e politica",
+                    "review_count": 1,
+                },
+                {
+                    "id": "b",
+                    "topic": "o que foi a revolucao francesa!",
+                    "answer": "",
+                    "review_count": 3,
+                    "last_rating": "knew",
+                },
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-history",
+                    "title": "Revolucoes",
+                    "topic_ids": ["a", "b"],
+                    "topics": [
+                        {
+                            "id": "legacy-copy",
+                            "topic": "O que foi a revolucao francesa",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        subject = normalize_subject(legacy)
+
+        self.assertEqual(len(subject["topics"]), 1)
+        self.assertEqual(subject["topics"][0]["id"], "a")
+        self.assertEqual(subject["topics"][0]["review_count"], 3)
+        self.assertEqual(subject["topics"][0]["last_rating"], "knew")
+        self.assertEqual(subject["lessons"][0]["topic_ids"], ["a"])
+        self.assertEqual(normalize_subject(subject), subject)
+
     def test_merges_lesson_only_duplicates_without_losing_review_progress(self) -> None:
         legacy = {
             "name": "Fisica",

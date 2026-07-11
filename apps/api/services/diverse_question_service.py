@@ -23,6 +23,30 @@ def stable_question_id(subject_name: str, front: str) -> str:
     return f"question-{hashlib.sha1(key.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _is_canonical_deterministic_id(value: str) -> bool:
+    prefix = "question-"
+    digest = value[len(prefix) :] if value.startswith(prefix) else ""
+    return len(digest) == 16 and all(ch in "0123456789abcdef" for ch in digest)
+
+
+def _is_distinct_truncated_question(canonical: dict, incoming: dict) -> bool:
+    """Recognize canonical records whose different full fronts were already truncated.
+
+    Arbitrary legacy IDs are not identity evidence. Two distinct IDs produced by
+    ``stable_question_id`` plus a front at the storage limit are evidence that a
+    prior normalization saw different full questions with the same 120-char prefix.
+    """
+    canonical_id = str(canonical.get("id") or "")
+    incoming_id = str(incoming.get("id") or "")
+    return (
+        len(str(canonical.get("topic") or "")) == 120
+        and len(str(incoming.get("topic") or "")) == 120
+        and canonical_id != incoming_id
+        and _is_canonical_deterministic_id(canonical_id)
+        and _is_canonical_deterministic_id(incoming_id)
+    )
+
+
 def _limited_text(value: Any, limit: int) -> str:
     return str(value or "").strip()[:limit]
 
@@ -127,15 +151,15 @@ def normalize_subject(raw: dict) -> dict:
         key = normalize_text(item.get("topic"))
         if not key:
             continue
+        incoming = normalize_question(item, name)
         explicit_id = _limited_text(item.get("id"), 80)
         if (
             explicit_id
             and key in explicit_id_keys
             and key in by_key
-            and by_key[key]["id"] != explicit_id
+            and _is_distinct_truncated_question(by_key[key], incoming)
         ):
             key = f"{key}|id:{explicit_id}"
-        incoming = normalize_question(item, name)
         subject_keys.add(key)
         canonical = by_key.get(key)
         if canonical is None:
