@@ -20,7 +20,6 @@ interface Props {
 }
 
 type Tab = 'study' | 'cards' | 'options';
-type DeckReloadResult = { overview: boolean; topics: boolean };
 
 const STATE_BADGE: Record<string, { label: string; cls: string }> = {
   new: { label: 'Novo', cls: 'bg-sky-100 text-sky-700' },
@@ -38,55 +37,58 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
   const [topicsError, setTopicsError] = useState('');
   const [topicsLoading, setTopicsLoading] = useState(false);
   const loggedCompletionRef = useRef(false);
+  const deckMountedRef = useRef(true);
   const overviewLoadRequestRef = useRef(0);
   const topicsLoadRequestRef = useRef(0);
 
+  async function loadOverview(showLoading = false): Promise<boolean> {
+    const requestId = ++overviewLoadRequestRef.current;
+    if (deckMountedRef.current && showLoading) setLoading(true);
+    if (deckMountedRef.current) setOverviewError('');
+    try {
+      const nextOverview = await api.getDeckOverview(subjectId);
+      if (requestId !== overviewLoadRequestRef.current) return false;
+      if (deckMountedRef.current) setOverview(nextOverview);
+      return true;
+    } catch {
+      if (deckMountedRef.current && requestId === overviewLoadRequestRef.current) {
+        setOverviewError('Não foi possível carregar o deck.');
+      }
+      return false;
+    } finally {
+      if (deckMountedRef.current && requestId === overviewLoadRequestRef.current) setLoading(false);
+    }
+  }
+
   async function retryTopics(): Promise<boolean> {
     const requestId = ++topicsLoadRequestRef.current;
-    setTopicsLoading(true);
-    setTopicsError('');
+    if (deckMountedRef.current) {
+      setTopicsLoading(true);
+      setTopicsError('');
+    }
     try {
       const nextTopics = await api.getCodingTopics(subjectId);
       if (requestId !== topicsLoadRequestRef.current) return false;
-      setTopics(nextTopics);
+      if (deckMountedRef.current) setTopics(nextTopics);
       return true;
     } catch {
-      if (requestId === topicsLoadRequestRef.current) {
+      if (deckMountedRef.current && requestId === topicsLoadRequestRef.current) {
         setTopicsError('Não foi possível carregar os tópicos.');
       }
       return false;
     } finally {
-      if (requestId === topicsLoadRequestRef.current) setTopicsLoading(false);
-    }
-  }
-
-  async function loadDeckData(showLoading = false): Promise<DeckReloadResult> {
-    const requestId = ++overviewLoadRequestRef.current;
-    if (showLoading) setLoading(true);
-    setOverviewError('');
-    try {
-      const [overviewResult, topicsResult] = await Promise.allSettled([
-        api.getDeckOverview(subjectId),
-        retryTopics(),
-      ]);
-      if (requestId !== overviewLoadRequestRef.current) {
-        return { overview: false, topics: false };
-      }
-      const overviewLoaded = overviewResult.status === 'fulfilled';
-      const topicsLoaded = topicsResult.status === 'fulfilled' && topicsResult.value;
-      if (overviewLoaded) {
-        setOverview(overviewResult.value);
-      } else {
-        setOverviewError('Não foi possível carregar o deck.');
-      }
-      return { overview: overviewLoaded, topics: topicsLoaded };
-    } finally {
-      if (requestId === overviewLoadRequestRef.current) setLoading(false);
+      if (deckMountedRef.current && requestId === topicsLoadRequestRef.current) setTopicsLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadDeckData(true);
+    deckMountedRef.current = true;
+    return () => { deckMountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    void loadOverview(true);
+    void retryTopics();
     return () => {
       overviewLoadRequestRef.current += 1;
       topicsLoadRequestRef.current += 1;
@@ -128,7 +130,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
       {overviewError && (
         <div role="alert" className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 sm:flex-row sm:items-center sm:justify-between">
           <p>{overviewError}</p>
-          <button type="button" onClick={() => void loadDeckData(true)} className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs hover:bg-rose-100">Tentar recarregar deck</button>
+          <button type="button" onClick={() => void loadOverview(true)} className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs hover:bg-rose-100">Tentar recarregar deck</button>
         </div>
       )}
 
@@ -139,7 +141,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
           subjectId={subjectId}
           subjectName={subjectName}
           stats={stats}
-          onFinished={loadDeckData}
+          onFinished={loadOverview}
           onLogged={() => { loggedCompletionRef.current = true; }}
         />
       ) : tab === 'cards' ? (
@@ -151,11 +153,11 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
           topicsError={topicsError}
           topicsLoading={topicsLoading}
           retryTopics={retryTopics}
-          onReload={loadDeckData}
+          onReload={loadOverview}
           onChanged={onChanged}
         />
       ) : (
-        <OptionsTab subjectId={subjectId} config={overview?.config} onSaved={loadDeckData} />
+        <OptionsTab subjectId={subjectId} config={overview?.config} onSaved={loadOverview} />
       )}
     </div>
   );
@@ -365,7 +367,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
   topicsError: string;
   topicsLoading: boolean;
   retryTopics: () => Promise<boolean>;
-  onReload: () => Promise<DeckReloadResult>;
+  onReload: () => Promise<boolean>;
   onChanged?: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -386,8 +388,9 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
   }, []);
 
   async function reloadAndNotify() {
-    const reloadResult = await onReload();
-    if (mountedRef.current && reloadResult.overview) onChanged?.();
+    void retryTopics();
+    const overviewReloaded = await onReload();
+    if (mountedRef.current && overviewReloaded) onChanged?.();
   }
 
   async function generateWithAi() {
@@ -402,15 +405,12 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
       setAiError('');
       setAiSuccess('');
       await api.generateAdditionalCodingFlashcards(selectedTopicId, context);
-      const reloadResult = await onReload();
-      if (reloadResult.overview) onChanged?.();
+      void retryTopics();
+      const overviewReloaded = await onReload();
+      if (overviewReloaded) onChanged?.();
       if (!mountedRef.current) return;
-      if (!reloadResult.overview) {
+      if (!overviewReloaded) {
         setAiError('As questões foram criadas, mas não foi possível recarregar o deck.');
-        return;
-      }
-      if (!reloadResult.topics) {
-        setAiError('As questões foram criadas, mas os tópicos precisam ser recarregados.');
         return;
       }
       setCreatingWithAi(false);
@@ -676,7 +676,7 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
     <div className="space-y-3 rounded-2xl border-2 border-primary/30 bg-primary-light/30 p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-black text-slate-700">{initial ? 'Editar card' : 'Novo card'}</p>
-        <button type="button" onClick={onCancel} disabled={disabled || busy} className="rounded-lg p-1 text-slate-400 hover:bg-white disabled:opacity-50"><X size={16} /></button>
+        <button type="button" aria-label="Fechar formulário do card" onClick={onCancel} disabled={disabled || busy} className="rounded-lg p-1 text-slate-400 hover:bg-white disabled:opacity-50"><X size={16} /></button>
       </div>
       <input value={front} onChange={(e) => setFront(e.target.value)} disabled={disabled || busy} placeholder="Frente (pergunta / conceito)" className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       <textarea value={back} onChange={(e) => setBack(e.target.value)} disabled={disabled || busy} placeholder="Verso (resposta / explicação)" rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
