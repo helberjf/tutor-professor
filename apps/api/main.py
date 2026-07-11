@@ -4,6 +4,7 @@ import json
 import os
 import re
 import secrets
+import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -17,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -167,6 +168,9 @@ AI_PROVIDER_OPTIONS: list[dict[str, str | bool]] = [
     {"id": "mistral", "label": "Mistral", "default_model": AI_PROVIDER_DEFAULT_MODELS["mistral"], "requires_base_url": False, "is_default": False},
 ]
 AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
+
+_topic_flashcard_locks_guard = threading.Lock()
+_topic_flashcard_locks: dict[int, threading.Lock] = {}
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
@@ -2054,6 +2058,36 @@ def _get_user_ai_config(session_record: UserSession | None, session: Session) ->
 
 # ── Coding Curriculum endpoints ───────────────────────────────────────────────
 
+def _get_topic_flashcard_lock(topic_id: int) -> threading.Lock:
+    with _topic_flashcard_locks_guard:
+        return _topic_flashcard_locks.setdefault(topic_id, threading.Lock())
+
+
+def _validate_topic_lesson_content(ai_content: object) -> dict:
+    if (
+        not isinstance(ai_content, dict)
+        or not isinstance(ai_content.get("sections"), list)
+        or not ai_content["sections"]
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="O topico precisa ter secoes validas de conteudo antes de gerar flashcards.",
+        )
+    try:
+        validated = TopicAIContentSchema.model_validate(ai_content)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="O conteudo da aula esta malformado e precisa ser regenerado.",
+        ) from exc
+    if any(not section.title.strip() or not section.body.strip() for section in validated.sections):
+        raise HTTPException(
+            status_code=422,
+            detail="As secoes da aula precisam ter titulo e conteudo validos.",
+        )
+    return validated.model_dump()
+
+
 def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> ProgrammingTopicSchema:
     status = getattr(topic.status, "value", topic.status)
     flashcard_count = len(
@@ -2514,11 +2548,7 @@ def generate_additional_coding_flashcards(
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
-    if not isinstance(topic.ai_content, dict) or not topic.ai_content.get("sections"):
-        raise HTTPException(
-            status_code=422,
-            detail="O tópico precisa ter conteúdo de aula antes de gerar mais flashcards.",
-        )
+    ai_content = _validate_topic_lesson_content(topic.ai_content)
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
@@ -2532,40 +2562,73 @@ def generate_additional_coding_flashcards(
     ).all()
     existing_fronts = [flashcard.front for flashcard in existing_fcs]
     user_context = sanitize_context(payload.context)
+    child_id = child.id or 0
+    subject_id = subject.id or 0
+    subject_name = subject.name
+    topic_title = topic.title
+
+    # Do not keep a database transaction open during the external AI call.
+    session.rollback()
     try:
         raw_flashcards = generate_additional_topic_flashcards(
-            subject_name=subject.name,
-            topic_title=topic.title,
-            ai_content=topic.ai_content,
+            subject_name=subject_name,
+            topic_title=topic_title,
+            ai_content=ai_content,
             existing_fronts=existing_fronts,
             user_context=user_context,
             ai_config=ai_config,
         )
-        validated_flashcards = validate_card_batch(raw_flashcards, existing_fronts)
+        validate_card_batch(raw_flashcards, existing_fronts)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    now = datetime.utcnow()
     created: list[ProgrammingFlashcard] = []
-    try:
-        for card in validated_flashcards:
-            flashcard = ProgrammingFlashcard(
-                topic_id=topic_id,
-                subject_id=subject.id or 0,
-                child_id=child.id or 0,
-                front=card.front,
-                back=card.back,
-                code_example=card.code_example,
-                created_at=now,
-            )
-            session.add(flashcard)
-            session.flush()
-            seed_coding_review_item(session, child.id or 0, flashcard.id or 0)
-            created.append(flashcard)
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
+    with _get_topic_flashcard_lock(topic_id):
+        try:
+            current_topic = session.get(ProgrammingTopic, topic_id)
+            if current_topic is None:
+                raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+            current_subject = session.get(ProgrammingSubject, current_topic.subject_id)
+            if (
+                current_subject is None
+                or current_subject.id != subject_id
+                or current_subject.child_id != child_id
+            ):
+                raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+            _validate_topic_lesson_content(current_topic.ai_content)
+            current_fcs = session.exec(
+                select(ProgrammingFlashcard).where(
+                    ProgrammingFlashcard.topic_id == topic_id
+                )
+            ).all()
+            current_fronts = [flashcard.front for flashcard in current_fcs]
+            validated_flashcards = validate_card_batch(raw_flashcards, current_fronts)
+
+            now = datetime.utcnow()
+            for card in validated_flashcards:
+                flashcard = ProgrammingFlashcard(
+                    topic_id=topic_id,
+                    subject_id=subject_id,
+                    child_id=child_id,
+                    front=card.front,
+                    back=card.back,
+                    code_example=card.code_example,
+                    created_at=now,
+                )
+                session.add(flashcard)
+                session.flush()
+                seed_coding_review_item(session, child_id, flashcard.id or 0)
+                created.append(flashcard)
+            session.commit()
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except HTTPException:
+            session.rollback()
+            raise
+        except Exception:
+            session.rollback()
+            raise
 
     for flashcard in created:
         session.refresh(flashcard)
