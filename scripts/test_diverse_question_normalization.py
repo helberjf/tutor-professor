@@ -9,6 +9,7 @@ API = Path(__file__).resolve().parents[1] / "apps" / "api"
 sys.path.insert(0, str(API))
 
 from services.diverse_question_service import (  # noqa: E402
+    has_canonical_subject_identities,
     normalize_subject,
     normalize_subjects,
     normalize_text,
@@ -18,6 +19,46 @@ from schemas.schemas import DiverseDayUpdateSchema  # noqa: E402
 
 
 class DiverseQuestionNormalizationTests(unittest.TestCase):
+    def test_detects_original_identity_completeness_before_normalization(self) -> None:
+        canonical = [
+            {
+                "id": "subject-a",
+                "name": "Historia",
+                "topics": [],
+                "lessons": [
+                    {"id": "lesson-a", "title": "A", "topic_ids": []},
+                    {"id": "lesson-b", "title": "B", "topic_ids": []},
+                ],
+            }
+        ]
+        missing_subject_id = [{**canonical[0], "id": ""}]
+        duplicate_subject_ids = [canonical[0], {**canonical[0], "name": "Outra"}]
+        duplicate_lesson_ids = [
+            {
+                **canonical[0],
+                "lessons": [canonical[0]["lessons"][0], canonical[0]["lessons"][0]],
+            }
+        ]
+
+        self.assertTrue(has_canonical_subject_identities(canonical))
+        self.assertFalse(has_canonical_subject_identities(missing_subject_id))
+        self.assertFalse(has_canonical_subject_identities(duplicate_subject_ids))
+        self.assertFalse(has_canonical_subject_identities(duplicate_lesson_ids))
+
+        legacy_payload = DiverseDayUpdateSchema.model_validate(
+            {"custom_subjects": missing_subject_id}
+        )
+        self.assertFalse(legacy_payload.identities_supplied)
+        self.assertNotIn("identities_supplied", legacy_payload.model_dump(mode="json"))
+        self.assertTrue(
+            has_canonical_subject_identities(legacy_payload.model_dump(mode="json")["custom_subjects"])
+        )
+
+        canonical_payload = DiverseDayUpdateSchema.model_validate(
+            {"custom_subjects": canonical}
+        )
+        self.assertTrue(canonical_payload.identities_supplied)
+
     def test_assigns_unique_stable_subject_and_lesson_ids_to_legacy_lists(self) -> None:
         legacy = [
             {

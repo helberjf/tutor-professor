@@ -33,6 +33,33 @@ def _stable_entity_id(prefix: str, key: str, ordinal: int, used_ids: set[str]) -
         salt += 1
 
 
+def has_canonical_subject_identities(raw_subjects: Any) -> bool:
+    """Return whether a raw list already carries unique persistent subject/lesson IDs."""
+    if not isinstance(raw_subjects, list):
+        return False
+    subject_ids: set[str] = set()
+    for subject in raw_subjects:
+        if not isinstance(subject, dict):
+            return False
+        subject_id = _limited_text(subject.get("id"), 80)
+        if not subject_id or subject_id in subject_ids:
+            return False
+        subject_ids.add(subject_id)
+
+        lessons = subject.get("lessons") or []
+        if not isinstance(lessons, list):
+            return False
+        lesson_ids: set[str] = set()
+        for lesson in lessons:
+            if not isinstance(lesson, dict):
+                return False
+            lesson_id = _limited_text(lesson.get("id"), 80)
+            if not lesson_id or lesson_id in lesson_ids:
+                return False
+            lesson_ids.add(lesson_id)
+    return True
+
+
 def normalize_subjects(raw_subjects: Any) -> list[dict]:
     """Normalize a Diverse subject list while assigning persistent unique identities."""
     source_subjects = [item for item in (raw_subjects or []) if isinstance(item, dict)]

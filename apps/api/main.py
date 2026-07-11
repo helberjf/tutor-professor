@@ -111,7 +111,12 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
-from services.diverse_question_service import normalize_subject, normalize_subjects, stable_question_id
+from services.diverse_question_service import (
+    has_canonical_subject_identities,
+    normalize_subject,
+    normalize_subjects,
+    stable_question_id,
+)
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     apply_deck_attempt,
@@ -1777,6 +1782,14 @@ def upsert_diverse_day(
     record = session.exec(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
+    stored_identities_are_canonical = record is not None and has_canonical_subject_identities(
+        record.custom_subjects
+    )
+    if stored_identities_are_canonical and not payload.identities_supplied:
+        raise HTTPException(
+            status_code=409,
+            detail="As identidades das materias mudaram. Recarregue antes de salvar.",
+        )
     normalized_old_subjects = normalize_subjects(
         record.custom_subjects if record is not None else []
     )
@@ -1888,6 +1901,28 @@ def generate_diverse_questions(
     ).first()
     if record is None:
         raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+
+    if not has_canonical_subject_identities(record.custom_subjects):
+        materialized_subjects = normalize_subjects(record.custom_subjects or [])
+        materialized_updated_at = _next_diverse_updated_at(record.updated_at)
+        if record.id is None or not _cas_update_diverse_day(
+            session,
+            record_id=record.id or 0,
+            expected_updated_at=record.updated_at,
+            custom_subjects=materialized_subjects,
+            new_updated_at=materialized_updated_at,
+        ):
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso mudou durante a migracao. Recarregue e tente novamente.",
+            )
+        session.commit()
+        session.expire_all()
+        materialized_record = session.get(DiverseDay, record.id)
+        if materialized_record is None:
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+        record = materialized_record
 
     normalized_subjects = normalize_subjects(record.custom_subjects or [])
     if payload.subject_index >= len(normalized_subjects):

@@ -713,6 +713,8 @@ async def run() -> None:
                 }
             ],
         }
+        reorder_preview = main.normalize_subjects([reorder_subject_a, reorder_subject_b])
+        reordered_selected_subject_id = reorder_preview[0]["id"]
         with Session(main.engine) as session:
             session.add(
                 main.DiverseDay(
@@ -761,7 +763,7 @@ async def run() -> None:
             )
         finally:
             main.phrase_generation_service.generate_json_text = original_capacity_generate_json
-        assert_status(reordered_generation_response, 409, "reject subject reorder during AI call")
+        assert_status(reordered_generation_response, 200, "follow materialized subject through reorder")
         if reorder_ai_calls != 1:
             raise AssertionError(f"expected one AI call before reorder conflict, got {reorder_ai_calls}")
         reordered_day_response = await client.get(
@@ -771,8 +773,15 @@ async def run() -> None:
         reordered_subjects = reordered_day_response.json()["custom_subjects"]
         if [subject["name"] for subject in reordered_subjects] != ["Materia B", "Materia A"]:
             raise AssertionError(f"expected external reorder to remain committed, got {reordered_subjects}")
-        if any(len(subject["topics"]) != 1 for subject in reordered_subjects):
-            raise AssertionError(f"reordered subject received questions for old index, got {reordered_subjects}")
+        reordered_by_id = {subject["id"]: subject for subject in reordered_subjects}
+        if len(reordered_by_id[reordered_selected_subject_id]["topics"]) != 6:
+            raise AssertionError(f"materialized subject lost generated questions after reorder: {reordered_subjects}")
+        if any(
+            len(subject["topics"]) != 1
+            for subject_id, subject in reordered_by_id.items()
+            if subject_id != reordered_selected_subject_id
+        ):
+            raise AssertionError(f"reordered subject received questions for another ID: {reordered_subjects}")
 
         canonical_reorder_date = today + timedelta(days=16)
         canonical_reorder_subjects = [
@@ -871,6 +880,155 @@ async def run() -> None:
             {topic["topic"] for topic in canonical_a["topics"]}
         ):
             raise AssertionError(f"canonical A is missing generated questions: {canonical_a}")
+
+        legacy_window_date = today + timedelta(days=17)
+        legacy_window_subjects = [
+            {
+                "name": "Materia legada repetida",
+                "topics": [
+                    {"topic": "Conteudo original legado A?", "answer": "A."}
+                ],
+                "lessons": [
+                    {
+                        "title": "Mesmo rotulo legado",
+                        "topics": [
+                            {"topic": "Conteudo original legado A?", "answer": "A."}
+                        ],
+                    }
+                ],
+            },
+            {
+                "name": "Materia legada repetida",
+                "topics": [
+                    {"topic": "Conteudo original legado B?", "answer": "B."}
+                ],
+                "lessons": [
+                    {
+                        "title": "Mesmo rotulo legado",
+                        "topics": [
+                            {"topic": "Conteudo original legado B?", "answer": "B."}
+                        ],
+                    }
+                ],
+            },
+        ]
+        legacy_window_preview = main.normalize_subjects(legacy_window_subjects)
+        selected_legacy_subject_id = legacy_window_preview[0]["id"]
+        selected_legacy_lesson_id = legacy_window_preview[0]["lessons"][0]["id"]
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=legacy_window_date,
+                    custom_subjects=legacy_window_subjects,
+                )
+            )
+            session.commit()
+
+        legacy_ai_started = main.threading.Event()
+        allow_legacy_ai_return = main.threading.Event()
+        observed_persisted_identities: dict[str, object] = {}
+        legacy_window_ai_calls = 0
+        legacy_generated_fronts = [
+            f"Questao gerada para legado A {index}?" for index in range(1, 6)
+        ]
+
+        def mock_legacy_window_ai(**kwargs):
+            nonlocal legacy_window_ai_calls
+            legacy_window_ai_calls += 1
+            with Session(main.engine) as session:
+                observed_record = session.exec(
+                    main.select(main.DiverseDay).where(
+                        main.DiverseDay.child_id == child_id,
+                        main.DiverseDay.study_date == legacy_window_date,
+                    )
+                ).first()
+                observed_persisted_identities["canonical"] = (
+                    main.has_canonical_subject_identities(observed_record.custom_subjects)
+                )
+                observed_persisted_identities["subjects"] = observed_record.custom_subjects
+                observed_persisted_identities["activity_count"] = len(
+                    session.exec(
+                        main.select(main.DailyActivity).where(
+                            main.DailyActivity.child_id == child_id,
+                            main.DailyActivity.activity_date == legacy_window_date,
+                            main.DailyActivity.activity_type == "diverse",
+                        )
+                    ).all()
+                )
+            legacy_ai_started.set()
+            if not allow_legacy_ai_return.wait(timeout=5):
+                raise AssertionError("timed out waiting for stale legacy PUT")
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"question": front, "answer": "Resposta legada A."}
+                        for front in legacy_generated_fronts
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_legacy_window_ai
+            legacy_generate_task = asyncio.create_task(
+                client.post(
+                    "/api/study/diverse/questions/generate",
+                    headers=child_headers,
+                    json={
+                        "study_date": legacy_window_date.isoformat(),
+                        "subject_index": 0,
+                        "lesson_id": selected_legacy_lesson_id,
+                    },
+                )
+            )
+            if not await asyncio.to_thread(legacy_ai_started.wait, 5):
+                raise AssertionError("legacy generation did not reach AI call")
+            stale_legacy_put_response = await client.put(
+                f"/api/study/diverse/{legacy_window_date.isoformat()}",
+                headers=child_headers,
+                json={"custom_subjects": list(reversed(legacy_window_subjects))},
+            )
+            allow_legacy_ai_return.set()
+            legacy_generate_response = await legacy_generate_task
+        finally:
+            allow_legacy_ai_return.set()
+            main.phrase_generation_service.generate_json_text = original_capacity_generate_json
+        assert_status(stale_legacy_put_response, 409, "reject stale reordered legacy PUT")
+        assert_status(legacy_generate_response, 200, "generate after materializing legacy identities")
+        if legacy_window_ai_calls != 1:
+            raise AssertionError(f"legacy materialization must preserve one AI call, got {legacy_window_ai_calls}")
+        if observed_persisted_identities.get("canonical") is not True:
+            raise AssertionError(
+                f"legacy identities were not persisted before AI call: {observed_persisted_identities}"
+            )
+        if observed_persisted_identities.get("activity_count") != 0:
+            raise AssertionError(
+                f"identity-only migration must not add activity: {observed_persisted_identities}"
+            )
+        persisted_before_ai = observed_persisted_identities["subjects"]
+        if persisted_before_ai[0]["id"] != selected_legacy_subject_id:
+            raise AssertionError(f"materialized subject identity changed unexpectedly: {persisted_before_ai}")
+        legacy_window_final = await client.get(
+            f"/api/study/diverse/{legacy_window_date.isoformat()}", headers=child_headers
+        )
+        assert_status(legacy_window_final, 200, "reload materialized legacy generation")
+        legacy_final_by_id = {
+            subject["id"]: subject for subject in legacy_window_final.json()["custom_subjects"]
+        }
+        selected_legacy_final = legacy_final_by_id[selected_legacy_subject_id]
+        other_legacy_final = next(
+            subject
+            for subject_id, subject in legacy_final_by_id.items()
+            if subject_id != selected_legacy_subject_id
+        )
+        if len(selected_legacy_final["topics"]) != 6:
+            raise AssertionError(f"legacy generation missed original subject identity: {selected_legacy_final}")
+        if len(other_legacy_final["topics"]) != 1:
+            raise AssertionError(f"stale legacy PUT redirected generated cards: {other_legacy_final}")
+        if not set(legacy_generated_fronts).issubset(
+            {topic["topic"] for topic in selected_legacy_final["topics"]}
+        ):
+            raise AssertionError(f"generated legacy cards attached to wrong identity: {legacy_final_by_id}")
 
         diverse_ai_calls: list[dict[str, str]] = []
         original_generate_diverse_json = main.phrase_generation_service.generate_json_text
@@ -1166,6 +1324,7 @@ async def run() -> None:
                 }
             ],
         }
+        cas_base_subject = main.normalize_subjects([cas_base_subject])[0]
         with Session(main.engine) as session:
             session.add(
                 main.DiverseDay(
@@ -1205,6 +1364,7 @@ async def run() -> None:
             return original_cas_update(*args, **kwargs)
 
         manual_cas_subject = {
+            "id": cas_base_subject["id"],
             "name": "Historia CAS",
             "topics": [
                 *cas_base_subject["topics"],
