@@ -14,6 +14,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
 WEB_API = ROOT / "apps" / "web" / "src" / "lib" / "api.ts"
+WEB_PACKAGE = ROOT / "apps" / "web" / "package.json"
 TOPIC_VIEW = (
     ROOT / "apps" / "web" / "src" / "components" / "coding" / "TopicView.tsx"
 )
@@ -79,6 +80,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.api_source = WEB_API.read_text(encoding="utf-8")
         cls.topic_view = TOPIC_VIEW.read_text(encoding="utf-8")
+        cls.web_package = json.loads(WEB_PACKAGE.read_text(encoding="utf-8"))
 
     def test_api_client_exposes_additional_flashcard_generation(self):
         self.assertIn("generateAdditionalCodingFlashcards", self.api_source)
@@ -120,7 +122,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
 
     def test_all_card_flows_share_count_sync_and_block_concurrent_mutations(self):
         self.assertIn("loadedFlashcardTopicId !== topic.id", self.topic_view)
-        self.assertIn("disabled={generatingAdditionalFlashcards", self.topic_view)
+        self.assertIn("disabled={generating || generatingAdditionalFlashcards", self.topic_view)
         self.assertIn("setShowAdditionalFlashcardForm(false)", self.topic_view)
         self.assertIn('role="status" aria-live="polite"', self.topic_view)
         self.assertIn('role="alert"', self.topic_view)
@@ -133,10 +135,69 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             "setAdditionalFlashcardError('')",
             "setAdditionalFlashcardSuccess(",
             "err instanceof Error ? err.message",
-            "disabled={generatingAdditionalFlashcards}",
+            "disabled={generating || generatingAdditionalFlashcards}",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.topic_view)
+
+    def test_generation_flows_are_mutually_exclusive_and_block_internal_back(self):
+        self.assertIn(
+            "async function handleGenerate(context?: string) {\n"
+            "    if (generating || generatingAdditionalFlashcards) return;",
+            self.topic_view,
+        )
+        self.assertIn("if (loadingFc) return;", self.topic_view)
+        self.assertIn(
+            "if (generating || generatingAdditionalFlashcards || addingFc || importingFc) return;",
+            self.topic_view,
+        )
+        self.assertRegex(
+            self.topic_view,
+            r"if \(generating \|\| generatingAdditionalFlashcards\) return;\s+onBack\(\);",
+        )
+        self.assertIn(
+            "aria-disabled={generating || generatingAdditionalFlashcards}",
+            self.topic_view,
+        )
+        self.assertGreaterEqual(
+            self.topic_view.count(
+                "disabled={generating || generatingAdditionalFlashcards}"
+            ),
+            3,
+        )
+        self.assertIn(
+            "onClick={() => void handleGenerate(regenerateContext)}\n"
+            "                    disabled={loadingFc || generating || generatingAdditionalFlashcards}",
+            self.topic_view,
+        )
+        self.assertGreaterEqual(
+            self.topic_view.count(
+                "disabled={loadingFc || generating || generatingAdditionalFlashcards}"
+            ),
+            3,
+        )
+
+    def test_full_regeneration_suspends_count_sync_until_new_cards_arrive(self):
+        start = self.topic_view.index("async function handleGenerate(context?: string)")
+        end = self.topic_view.index("async function handleSaveNotes()")
+        handler = self.topic_view[start:end]
+        self.assertLess(handler.index("setLoadingFc(true)"), handler.index("setTopic(updated)"))
+        self.assertLess(
+            handler.index("setLoadedFlashcardTopicId(null)"),
+            handler.index("setTopic(updated)"),
+        )
+        self.assertLess(
+            handler.index("setFlashcards(fcs)"),
+            handler.index("setLoadedFlashcardTopicId(topic.id)"),
+        )
+        self.assertIn("contentWasRegenerated", handler)
+        self.assertIn("setFlashcards([])", handler)
+
+    def test_topic_flashcard_helper_test_is_discoverable(self):
+        self.assertEqual(
+            self.web_package["scripts"].get("test:topic-flashcards"),
+            "node scripts/test-topic-flashcard-state.mjs",
+        )
 
 
 def topic_counts(topic_id: int) -> tuple[int, int]:

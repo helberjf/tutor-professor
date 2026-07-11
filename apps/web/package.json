@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:topic-flashcards": "node scripts/test-topic-flashcard-state.mjs",
     "start": "next start",
     "lint": "next lint"
   },
