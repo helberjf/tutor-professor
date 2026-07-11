@@ -193,6 +193,72 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         self.assertEqual(subject["lessons"][0]["topic_ids"], [question["id"]])
         self.assertEqual(subject["lessons"][1]["topic_ids"], [question["id"]])
 
+    def test_whitespace_only_code_does_not_block_valid_lesson_code(self) -> None:
+        legacy = {
+            "name": "Programacao",
+            "topics": [
+                {
+                    "topic": "Como percorrer uma lista?",
+                    "answer": "Use um loop",
+                    "code_example": "   \n\t",
+                }
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-loop",
+                    "title": "Loops",
+                    "topics": [
+                        {
+                            "topic": "Como percorrer uma lista?",
+                            "code_example": "for item in items:\n    print(item)",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        question = normalize_subject(legacy)["topics"][0]
+
+        self.assertEqual(question["code_example"], "for item in items:\n    print(item)")
+
+    def test_equal_review_counts_keep_rating_with_the_newer_review_timestamp(self) -> None:
+        legacy = {
+            "name": "Sociologia",
+            "topics": [],
+            "lessons": [
+                {
+                    "id": "lesson-old",
+                    "title": "Revisao antiga",
+                    "topics": [
+                        {
+                            "topic": "O que e cultura?",
+                            "last_rating": "knew",
+                            "review_count": 4,
+                            "last_reviewed": "2026-07-09T12:00:00",
+                        }
+                    ],
+                },
+                {
+                    "id": "lesson-new",
+                    "title": "Revisao nova",
+                    "topics": [
+                        {
+                            "topic": "O que é cultura?",
+                            "last_rating": "unknown",
+                            "review_count": 4,
+                            "last_reviewed": "2026-07-10T12:00:00",
+                        }
+                    ],
+                },
+            ],
+        }
+
+        question = normalize_subject(legacy)["topics"][0]
+
+        self.assertEqual(question["review_count"], 4)
+        self.assertEqual(question["last_reviewed"], "2026-07-10T12:00:00")
+        self.assertEqual(question["last_rating"], "unknown")
+
     def test_skips_blank_questions_and_does_not_mutate_input(self) -> None:
         legacy = {
             "name": "",
