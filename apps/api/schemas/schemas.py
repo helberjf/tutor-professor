@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 class FromAttributesModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -216,27 +216,40 @@ class DiverseDaySchema(BaseModel):
 
 class DiverseDayUpdateSchema(BaseModel):
     custom_subjects: List[DiverseSubjectSchema]
-    identities_supplied: bool = Field(default=True, exclude=True)
+    _original_identity_metadata: dict = PrivateAttr(default_factory=lambda: {"subjects": []})
+
+    @property
+    def original_identity_metadata(self) -> dict:
+        return self._original_identity_metadata
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def capture_original_identities(cls, value: Any, handler: Any) -> "DiverseDayUpdateSchema":
+        from services.diverse_question_service import capture_original_identity_metadata
+
+        raw_subjects = []
+        if isinstance(value, dict):
+            raw_subjects = [
+                subject.model_dump(mode="python") if isinstance(subject, BaseModel) else subject
+                for subject in (value.get("custom_subjects") or [])
+            ]
+        metadata = capture_original_identity_metadata(raw_subjects)
+        model = handler(value)
+        model._original_identity_metadata = metadata
+        return model
 
     @model_validator(mode="before")
     @classmethod
     def normalize_subject_identities(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
-        from services.diverse_question_service import (
-            has_canonical_subject_identities,
-            normalize_subjects,
-        )
+        from services.diverse_question_service import normalize_subjects
 
         raw_subjects = [
             subject.model_dump(mode="python") if isinstance(subject, BaseModel) else subject
             for subject in (value.get("custom_subjects") or [])
         ]
-        return {
-            **value,
-            "custom_subjects": normalize_subjects(raw_subjects),
-            "identities_supplied": has_canonical_subject_identities(raw_subjects),
-        }
+        return {**value, "custom_subjects": normalize_subjects(raw_subjects)}
 
 
 class GenerateDiverseQuestionsSchema(BaseModel):
