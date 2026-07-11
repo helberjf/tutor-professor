@@ -116,6 +116,21 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         self.assertNotIn("setCreatingWithAi(false)", catch_handler)
         self.assertNotIn("setOverview", handler)
 
+    def test_success_refreshes_external_state_before_any_unmount_guard(self):
+        handler_start = self.flashcard_deck.index("async function generateWithAi()")
+        handler_end = self.flashcard_deck.index("return (", handler_start)
+        handler = self.flashcard_deck[handler_start:handler_end]
+        endpoint = handler.index(
+            "await api.generateAdditionalCodingFlashcards(selectedTopicId, context)"
+        )
+        success_path = handler[endpoint:handler.index("catch", endpoint)]
+        self.assertIn("if (reloaded) onChanged?.()", success_path)
+        reload_call = success_path.index("const reloaded = await onReload()")
+        changed_call = success_path.index("if (reloaded) onChanged?.()")
+        mounted_guard = success_path.index("if (!mountedRef.current) return")
+        self.assertLess(reload_call, mounted_guard)
+        self.assertLess(changed_call, mounted_guard)
+
     def test_deck_uses_subject_language_for_all_code_examples(self):
         self.assertIn(
             '<SyntaxCodeBlock code={card.code_example} language={subjectName}',
