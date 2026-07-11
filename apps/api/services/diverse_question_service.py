@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import unicodedata
 from copy import deepcopy
 from typing import Any
@@ -14,7 +13,8 @@ def normalize_text(value: str) -> str:
     """Return the accent- and punctuation-insensitive key used for deduplication."""
     plain = unicodedata.normalize("NFD", str(value or ""))
     plain = "".join(ch for ch in plain if unicodedata.category(ch) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", plain.lower()).strip()
+    alphanumeric = "".join(ch.casefold() if ch.isalnum() else " " for ch in plain)
+    return " ".join(alphanumeric.split())
 
 
 def stable_question_id(subject_name: str, front: str) -> str:
@@ -36,14 +36,15 @@ def _review_count(value: Any) -> int:
 
 def normalize_question(raw: dict, subject_name: str) -> dict:
     """Normalize one Diverse question while retaining its learning state."""
-    front = _limited_text(raw.get("topic"), 120)
+    original_front = str(raw.get("topic") or "").strip()
+    front = original_front[:120]
     raw_rating = _limited_text(raw.get("last_rating"), 10).lower()
     raw_id = _limited_text(raw.get("id"), 80)
     raw_code = raw.get("code_example")
     code_example = str(raw_code)[:3000] if raw_code is not None else ""
     last_reviewed = _limited_text(raw.get("last_reviewed"), 40)
     return {
-        "id": raw_id or stable_question_id(subject_name, front),
+        "id": raw_id or stable_question_id(subject_name, original_front),
         "topic": front,
         "answer": _limited_text(raw.get("answer"), 2000),
         "code_example": code_example if code_example.strip() else None,
@@ -126,6 +127,14 @@ def normalize_subject(raw: dict) -> dict:
         key = normalize_text(item.get("topic"))
         if not key:
             continue
+        explicit_id = _limited_text(item.get("id"), 80)
+        if (
+            explicit_id
+            and key in explicit_id_keys
+            and key in by_key
+            and by_key[key]["id"] != explicit_id
+        ):
+            key = f"{key}|id:{explicit_id}"
         incoming = normalize_question(item, name)
         subject_keys.add(key)
         canonical = by_key.get(key)
