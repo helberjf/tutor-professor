@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,7 +36,20 @@ from schemas.schemas import GenerateAdditionalFlashcardsSchema
 from services import coding_service
 
 
-VALID_CPF = "52998224725"
+PRIMARY_EMAIL = "flashcards@example.com"
+SECONDARY_EMAIL = "other-parent@example.com"
+PASSWORD = "secret123"
+VALID_AI_CONTENT = {
+    "sections": [
+        {
+            "title": "Lexical scope",
+            "body": "Closures retain variables from their lexical scope.",
+            "code_example": "const add = x => y => x + y;",
+        }
+    ],
+    "quiz": [],
+    "flashcards": [],
+}
 
 
 def assert_status(response: httpx.Response, expected: int, label: str) -> None:
@@ -43,13 +57,6 @@ def assert_status(response: httpx.Response, expected: int, label: str) -> None:
         raise AssertionError(
             f"{label}: expected {expected}, got {response.status_code}: {response.text}"
         )
-
-
-def database_counts() -> tuple[int, int]:
-    with Session(main.engine) as session:
-        cards = session.exec(select(main.ProgrammingFlashcard)).all()
-        review_items = session.exec(select(main.CodingReviewItem)).all()
-        return len(cards), len(review_items)
 
 
 def make_cards(prefix: str) -> list[dict[str, str]]:
@@ -63,31 +70,124 @@ def make_cards(prefix: str) -> list[dict[str, str]]:
     ]
 
 
-class ProgrammingAIFlashcardTests(unittest.TestCase):
+def topic_counts(topic_id: int) -> tuple[int, int]:
+    with Session(main.engine) as session:
+        cards = session.exec(
+            select(main.ProgrammingFlashcard).where(
+                main.ProgrammingFlashcard.topic_id == topic_id
+            )
+        ).all()
+        card_ids = {card.id for card in cards}
+        review_items = session.exec(select(main.CodingReviewItem)).all()
+        return len(cards), sum(item.flashcard_id in card_ids for item in review_items)
+
+
+def topic_cards(topic_id: int) -> list[main.ProgrammingFlashcard]:
+    with Session(main.engine) as session:
+        return list(
+            session.exec(
+                select(main.ProgrammingFlashcard).where(
+                    main.ProgrammingFlashcard.topic_id == topic_id
+                )
+            ).all()
+        )
+
+
+def transport() -> httpx.ASGITransport:
+    return httpx.ASGITransport(app=main.app, raise_app_exceptions=False)
+
+
+@asynccontextmanager
+async def api_client(email: str | None = PRIMARY_EMAIL):
+    async with httpx.AsyncClient(
+        transport=transport(), base_url="http://testserver"
+    ) as client:
+        if email is not None:
+            login = await client.post(
+                "/api/auth/login", json={"email": email, "password": PASSWORD}
+            )
+            assert_status(login, 200, f"login {email}")
+        yield client
+
+
+async def create_topic(
+    client: httpx.AsyncClient,
+    *,
+    title: str,
+    ai_content: dict | None = VALID_AI_CONTENT,
+) -> tuple[int, int]:
+    subject_response = await client.post(
+        "/api/coding/subjects", json={"name": f"JavaScript {title}"}
+    )
+    assert_status(subject_response, 201, "create subject")
+    subject_id = subject_response.json()["id"]
+    topic_response = await client.post(
+        f"/api/coding/subjects/{subject_id}/topics",
+        json={"title": title, "generate_ai": False},
+    )
+    assert_status(topic_response, 201, "create topic")
+    topic_id = topic_response.json()["id"]
+    if ai_content is not None:
+        update = await client.put(
+            f"/api/coding/topics/{topic_id}", json={"ai_content": ai_content}
+        )
+        assert_status(update, 200, "save lesson content")
+    return subject_id, topic_id
+
+
+async def seed_accounts() -> None:
+    main.on_startup()
+    async with httpx.AsyncClient(
+        transport=transport(), base_url="http://testserver"
+    ) as client:
+        for email, cpf, child_name in (
+            (PRIMARY_EMAIL, "52998224725", "Lia"),
+            (SECONDARY_EMAIL, "39053344705", "Bia"),
+        ):
+            response = await client.post(
+                "/api/auth/register",
+                json={
+                    "first_name": "Parent",
+                    "last_name": "Test",
+                    "email": email,
+                    "cpf": cpf,
+                    "password": PASSWORD,
+                    "child_name": child_name,
+                },
+            )
+            assert_status(response, 201, f"register {email}")
+        login = await client.post(
+            "/api/auth/login", json={"email": PRIMARY_EMAIL, "password": PASSWORD}
+        )
+        assert_status(login, 200, "login primary for AI config")
+        settings = await client.put(
+            "/api/ai/settings",
+            json={
+                "provider": "gemini",
+                "api_key": "fake-test-key",
+                "model": "gemini-2.5-flash",
+            },
+        )
+        assert_status(settings, 200, "save fake AI config")
+
+
+class ProgrammingAIPromptTests(unittest.TestCase):
     def test_initial_prompt_requires_interview_cards_from_same_lesson_and_code(self):
         prompt = coding_service._TOPIC_PROMPT_TEMPLATE.lower()
-
-        self.assertIn("technical interview", prompt)
-        self.assertIn("sections from this same json response", prompt)
-        self.assertIn("reuse relevant code", prompt)
-        self.assertIn("reasoning", prompt)
-        self.assertIn("trade-offs", prompt)
-        self.assertIn("debugging", prompt)
-        self.assertIn("common pitfalls", prompt)
-        self.assertIn("practical application", prompt)
+        for expected in (
+            "technical interview",
+            "sections from this same json response",
+            "reuse relevant code",
+            "reasoning",
+            "trade-offs",
+            "debugging",
+            "common pitfalls",
+            "practical application",
+        ):
+            self.assertIn(expected, prompt)
 
     def test_additional_generator_sends_one_call_with_all_source_context(self):
         response = {"flashcards": make_cards("Closure")}
-        ai_content = {
-            "sections": [
-                {
-                    "title": "Closures",
-                    "body": "A closure captures lexical scope.",
-                    "code_example": "const add = x => y => x + y;",
-                }
-            ]
-        }
-
         with patch.object(
             coding_service._phrase_service,
             "generate_json_text",
@@ -96,19 +196,18 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
             cards = coding_service.generate_additional_topic_flashcards(
                 subject_name="JavaScript",
                 topic_title="Functions",
-                ai_content=ai_content,
+                ai_content=VALID_AI_CONTENT,
                 existing_fronts=["What is lexical scope?"],
                 user_context="Focus on debugging callbacks",
                 ai_config=object(),
             )
-
         self.assertEqual(len(cards), 5)
         generate.assert_called_once()
         prompt_text = generate.call_args.kwargs["prompt"]
         for expected in (
             "JavaScript",
             "Functions",
-            "Closures",
+            "Lexical scope",
             "const add = x => y => x + y;",
             "What is lexical scope?",
             "Focus on debugging callbacks",
@@ -124,94 +223,29 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             GenerateAdditionalFlashcardsSchema(context="x" * 1001)
 
-    def test_real_route_appends_atomically_and_rejects_invalid_batches(self):
-        asyncio.run(self._exercise_real_route())
 
-    async def _exercise_real_route(self) -> None:
-        main.on_startup()
-        transport = httpx.ASGITransport(app=main.app, raise_app_exceptions=False)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
-            register = await client.post(
-                "/api/auth/register",
-                json={
-                    "first_name": "Parent",
-                    "last_name": "Test",
-                    "email": "flashcards@example.com",
-                    "cpf": VALID_CPF,
-                    "password": "secret123",
-                    "child_name": "Lia",
-                },
-            )
-            assert_status(register, 201, "register")
-            assert_status(
-                await client.post(
-                    "/api/auth/login",
-                    json={"email": "flashcards@example.com", "password": "secret123"},
-                ),
-                200,
-                "login",
-            )
-            assert_status(
-                await client.put(
-                    "/api/ai/settings",
-                    json={
-                        "provider": "gemini",
-                        "api_key": "fake-test-key",
-                        "model": "gemini-2.5-flash",
-                    },
-                ),
-                200,
-                "save fake AI config",
-            )
+class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        asyncio.run(seed_accounts())
 
-            subject_response = await client.post(
-                "/api/coding/subjects", json={"name": "JavaScript"}
-            )
-            assert_status(subject_response, 201, "create subject")
-            subject_id = subject_response.json()["id"]
-            topic_response = await client.post(
-                f"/api/coding/subjects/{subject_id}/topics",
-                json={"title": "Closures", "generate_ai": False},
-            )
-            assert_status(topic_response, 201, "create topic")
-            topic_id = topic_response.json()["id"]
-            ai_content = {
-                "sections": [
-                    {
-                        "title": "Lexical scope",
-                        "body": "Closures retain variables from their lexical scope.",
-                        "code_example": "const add = x => y => x + y;",
-                    }
-                ],
-                "quiz": [],
-                "flashcards": [],
-            }
-            assert_status(
-                await client.put(
-                    f"/api/coding/topics/{topic_id}",
-                    json={"ai_content": ai_content},
-                ),
-                200,
-                "save lesson content",
-            )
-            existing_front = "How does a closure retain lexical state?"
-            existing_back = "Through lexical scope."
-            existing_code = "const savedValue = 42;"
+    def test_success_appends_five_and_preserves_existing_card(self):
+        asyncio.run(self._test_success())
+
+    async def _test_success(self) -> None:
+        async with api_client() as client:
+            _, topic_id = await create_topic(client, title="Success")
             existing_response = await client.post(
                 f"/api/coding/topics/{topic_id}/flashcards",
                 json={
-                    "front": existing_front,
-                    "back": existing_back,
-                    "code_example": existing_code,
+                    "front": "How does a closure retain lexical state?",
+                    "back": "Through lexical scope.",
+                    "code_example": "const savedValue = 42;",
                 },
             )
             assert_status(existing_response, 201, "seed existing card")
             existing_before = existing_response.json()
-            existing_id = existing_before["id"]
-            before_cards, before_reviews = database_counts()
-
+            before = topic_counts(topic_id)
             captured: dict[str, object] = {"calls": 0}
 
             def fake_generator(**kwargs):
@@ -219,21 +253,22 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
                 captured.update(kwargs)
                 return make_cards("New closure")
 
-            raw_context = "  Focus\n  on debugging callbacks  "
             with patch.object(main, "generate_additional_topic_flashcards", fake_generator):
-                generated_response = await client.post(
+                response = await client.post(
                     f"/api/coding/topics/{topic_id}/flashcards/generate",
-                    json={"context": raw_context},
+                    json={"context": "  Focus\n  on debugging callbacks  "},
                 )
-
-            assert_status(generated_response, 200, "append generated cards")
-            generated = generated_response.json()
+            assert_status(response, 200, "append generated cards")
+            generated = response.json()
             self.assertEqual(len(generated), 5)
+            self.assertEqual(topic_counts(topic_id), (before[0] + 5, before[1] + 5))
             self.assertEqual(captured["calls"], 1)
-            self.assertEqual(captured["subject_name"], "JavaScript")
-            self.assertEqual(captured["topic_title"], "Closures")
-            self.assertEqual(captured["ai_content"], ai_content)
-            self.assertEqual(captured["existing_fronts"], [existing_front])
+            self.assertEqual(captured["subject_name"], "JavaScript Success")
+            self.assertEqual(captured["topic_title"], "Success")
+            self.assertEqual(captured["ai_content"], VALID_AI_CONTENT)
+            self.assertEqual(
+                captured["existing_fronts"], [existing_before["front"]]
+            )
             self.assertEqual(captured["user_context"], "Focus on debugging callbacks")
             self.assertEqual(
                 captured["ai_config"],
@@ -244,47 +279,162 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
                     base_url=None,
                 ),
             )
-
-            listed_response = await client.get(
-                f"/api/coding/topics/{topic_id}/flashcards"
-            )
-            assert_status(listed_response, 200, "list appended cards")
-            listed = listed_response.json()
+            listed = (
+                await client.get(f"/api/coding/topics/{topic_id}/flashcards")
+            ).json()
             self.assertEqual(len(listed), 6)
-            existing_after = next(card for card in listed if card["id"] == existing_id)
-            self.assertEqual(existing_after["front"], existing_before["front"])
-            self.assertEqual(existing_after["back"], existing_before["back"])
-            self.assertEqual(
-                existing_after["code_example"], existing_before["code_example"]
+            existing_after = next(
+                card for card in listed if card["id"] == existing_before["id"]
             )
-
+            for field in ("front", "back", "code_example"):
+                self.assertEqual(existing_after[field], existing_before[field])
             generated_ids = {card["id"] for card in generated}
             with Session(main.engine) as session:
-                review_items = session.exec(select(main.CodingReviewItem)).all()
-                generated_review_ids = {
-                    item.flashcard_id
-                    for item in review_items
-                    if item.flashcard_id in generated_ids
-                }
-            self.assertEqual(generated_review_ids, generated_ids)
-            self.assertEqual(database_counts(), (before_cards + 5, before_reviews + 5))
+                items = session.exec(select(main.CodingReviewItem)).all()
+            self.assertEqual(
+                {item.flashcard_id for item in items if item.flashcard_id in generated_ids},
+                generated_ids,
+            )
 
-            stable_counts = database_counts()
+    def test_requires_authentication(self):
+        asyncio.run(self._test_requires_authentication())
+
+    async def _test_requires_authentication(self) -> None:
+        async with api_client() as owner:
+            _, topic_id = await create_topic(owner, title="Anonymous")
+        async with api_client(None) as anonymous:
+            with patch.object(
+                main, "generate_additional_topic_flashcards"
+            ) as generator:
+                response = await anonymous.post(
+                    f"/api/coding/topics/{topic_id}/flashcards/generate", json={}
+                )
+        self.assertEqual(response.status_code, 401)
+        generator.assert_not_called()
+        self.assertEqual(topic_counts(topic_id), (0, 0))
+
+    def test_rejects_missing_and_cross_owner_topics(self):
+        asyncio.run(self._test_missing_and_cross_owner())
+
+    async def _test_missing_and_cross_owner(self) -> None:
+        async with api_client() as owner:
+            _, topic_id = await create_topic(owner, title="Owned")
+            with patch.object(main, "generate_additional_topic_flashcards") as generator:
+                missing = await owner.post(
+                    "/api/coding/topics/999999/flashcards/generate", json={}
+                )
+            self.assertEqual(missing.status_code, 404)
+            generator.assert_not_called()
+        async with api_client(SECONDARY_EMAIL) as other:
+            with patch.object(
+                main, "generate_additional_topic_flashcards"
+            ) as generator:
+                cross_owner = await other.post(
+                    f"/api/coding/topics/{topic_id}/flashcards/generate", json={}
+                )
+        self.assertEqual(cross_owner.status_code, 404)
+        generator.assert_not_called()
+        self.assertEqual(topic_counts(topic_id), (0, 0))
+
+    def test_rejects_missing_or_malformed_lesson_content_before_ai(self):
+        asyncio.run(self._test_invalid_lesson_content())
+
+    async def _test_invalid_lesson_content(self) -> None:
+        async with api_client() as client:
+            for title, content in (
+                ("No content", None),
+                ("Empty sections", {"sections": [], "quiz": [], "flashcards": []}),
+                ("Wrong sections", {"sections": "not-a-list"}),
+                ("Invalid section", {"sections": [{"title": "Missing body"}]}),
+            ):
+                with self.subTest(title=title):
+                    _, topic_id = await create_topic(
+                        client, title=title, ai_content=content
+                    )
+                    with patch.object(
+                        main, "generate_additional_topic_flashcards"
+                    ) as generator:
+                        response = await client.post(
+                            f"/api/coding/topics/{topic_id}/flashcards/generate",
+                            json={},
+                        )
+                    self.assertEqual(response.status_code, 422)
+                    generator.assert_not_called()
+                    self.assertEqual(topic_counts(topic_id), (0, 0))
+
+    def test_rejects_missing_ai_configuration_before_generation(self):
+        asyncio.run(self._test_missing_ai_configuration())
+
+    async def _test_missing_ai_configuration(self) -> None:
+        async with api_client(SECONDARY_EMAIL) as client:
+            _, topic_id = await create_topic(client, title="No config")
+            with patch.object(main, "generate_additional_topic_flashcards") as generator:
+                response = await client.post(
+                    f"/api/coding/topics/{topic_id}/flashcards/generate", json={}
+                )
+        self.assertEqual(response.status_code, 422)
+        generator.assert_not_called()
+        self.assertEqual(topic_counts(topic_id), (0, 0))
+
+    def test_invalid_ai_json_and_non_object_cards_return_502_without_writes(self):
+        asyncio.run(self._test_malformed_ai_outputs())
+
+    async def _test_malformed_ai_outputs(self) -> None:
+        async with api_client() as client:
+            _, json_topic_id = await create_topic(client, title="Bad JSON")
+            with patch.object(
+                coding_service._phrase_service,
+                "generate_json_text",
+                return_value="{not-json",
+            ) as ai_call:
+                response = await client.post(
+                    f"/api/coding/topics/{json_topic_id}/flashcards/generate",
+                    json={},
+                )
+            self.assertEqual(response.status_code, 502)
+            ai_call.assert_called_once()
+            self.assertEqual(topic_counts(json_topic_id), (0, 0))
+
+            for title, bad_batch in (
+                ("None cards", [None] * 5),
+                ("Object cards", [object()] * 5),
+            ):
+                with self.subTest(title=title):
+                    _, topic_id = await create_topic(client, title=title)
+                    with patch.object(
+                        main,
+                        "generate_additional_topic_flashcards",
+                        return_value=bad_batch,
+                    ) as generator:
+                        response = await client.post(
+                            f"/api/coding/topics/{topic_id}/flashcards/generate",
+                            json={},
+                        )
+                    self.assertEqual(response.status_code, 502)
+                    generator.assert_called_once()
+                    self.assertEqual(topic_counts(topic_id), (0, 0))
+
+    def test_duplicate_batch_and_commit_failure_leave_zero_partial_rows(self):
+        asyncio.run(self._test_atomic_failures())
+
+    async def _test_atomic_failures(self) -> None:
+        async with api_client() as client:
+            _, duplicate_topic_id = await create_topic(client, title="Duplicate")
             duplicate_batch = make_cards("Duplicate")
             duplicate_batch[1]["front"] = duplicate_batch[0]["front"]
             with patch.object(
                 main,
                 "generate_additional_topic_flashcards",
                 return_value=duplicate_batch,
-            ) as invalid_generator:
-                invalid_response = await client.post(
-                    f"/api/coding/topics/{topic_id}/flashcards/generate",
-                    json={"context": None},
+            ):
+                response = await client.post(
+                    f"/api/coding/topics/{duplicate_topic_id}/flashcards/generate",
+                    json={},
                 )
-            self.assertEqual(invalid_response.status_code, 502)
-            invalid_generator.assert_called_once()
-            self.assertEqual(database_counts(), stable_counts)
+            self.assertEqual(response.status_code, 502)
+            self.assertEqual(topic_counts(duplicate_topic_id), (0, 0))
 
+            _, commit_topic_id = await create_topic(client, title="Commit failure")
             rollback_calls = 0
             original_rollback = main.Session.rollback
 
@@ -297,23 +447,89 @@ class ProgrammingAIFlashcardTests(unittest.TestCase):
                 main,
                 "generate_additional_topic_flashcards",
                 return_value=make_cards("Commit failure"),
-            ) as failed_generator, patch.object(
+            ), patch.object(
                 main.Session,
                 "commit",
                 side_effect=RuntimeError("controlled commit failure"),
-            ), patch.object(
-                main.Session,
-                "rollback",
-                tracking_rollback,
-            ):
-                failed_response = await client.post(
-                    f"/api/coding/topics/{topic_id}/flashcards/generate",
-                    json={"context": "test rollback"},
+            ), patch.object(main.Session, "rollback", tracking_rollback):
+                response = await client.post(
+                    f"/api/coding/topics/{commit_topic_id}/flashcards/generate",
+                    json={},
                 )
-            self.assertEqual(failed_response.status_code, 500)
-            failed_generator.assert_called_once()
+            self.assertEqual(response.status_code, 500)
             self.assertGreaterEqual(rollback_calls, 1)
-            self.assertEqual(database_counts(), stable_counts)
+            self.assertEqual(topic_counts(commit_topic_id), (0, 0))
+
+    def test_revalidates_fronts_after_generation_before_persisting(self):
+        asyncio.run(self._test_stale_snapshot())
+
+    async def _test_stale_snapshot(self) -> None:
+        async with api_client() as client:
+            subject_id, topic_id = await create_topic(client, title="Race")
+            generated = make_cards("Racing")
+
+            def generator_with_competing_insert(**kwargs):
+                with Session(main.engine) as competing_session:
+                    topic = competing_session.get(main.ProgrammingTopic, topic_id)
+                    subject = competing_session.get(main.ProgrammingSubject, subject_id)
+                    card = main.ProgrammingFlashcard(
+                        topic_id=topic_id,
+                        subject_id=subject_id,
+                        child_id=subject.child_id,
+                        front=generated[0]["front"],
+                        back="Inserted by a competing request.",
+                    )
+                    competing_session.add(card)
+                    competing_session.flush()
+                    main.seed_coding_review_item(
+                        competing_session, subject.child_id, card.id or 0
+                    )
+                    competing_session.commit()
+                return generated
+
+            with patch.object(
+                main,
+                "generate_additional_topic_flashcards",
+                side_effect=generator_with_competing_insert,
+            ) as generator:
+                response = await client.post(
+                    f"/api/coding/topics/{topic_id}/flashcards/generate", json={}
+                )
+            self.assertEqual(response.status_code, 502)
+            generator.assert_called_once()
+            self.assertEqual(topic_counts(topic_id), (1, 1))
+            self.assertEqual(topic_cards(topic_id)[0].back, "Inserted by a competing request.")
+
+    def test_initial_generation_uses_one_response_for_content_and_cards(self):
+        asyncio.run(self._test_initial_generation())
+
+    async def _test_initial_generation(self) -> None:
+        async with api_client() as client:
+            subject = await client.post(
+                "/api/coding/subjects", json={"name": "TypeScript Initial"}
+            )
+            assert_status(subject, 201, "create initial-generation subject")
+            subject_id = subject.json()["id"]
+            content = main.TopicAIContentSchema.model_validate(
+                {
+                    "sections": VALID_AI_CONTENT["sections"],
+                    "quiz": [],
+                    "flashcards": make_cards("Initial"),
+                }
+            )
+            with patch.object(
+                main, "generate_topic_ai_content", return_value=content
+            ) as generator:
+                response = await client.post(
+                    f"/api/coding/subjects/{subject_id}/topics",
+                    json={"title": "Initial", "generate_ai": True},
+                )
+            assert_status(response, 201, "create topic with initial AI content")
+            generator.assert_called_once()
+            payload = response.json()
+            self.assertEqual(payload["ai_content"], content.model_dump())
+            self.assertEqual(payload["flashcard_count"], 5)
+            self.assertEqual(topic_counts(payload["id"]), (5, 5))
 
 
 if __name__ == "__main__":
