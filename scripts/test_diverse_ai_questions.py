@@ -124,3 +124,16 @@ assert "Serão criadas 5 questões" in page
 assert 'role="alert"' in page
 assert "savingDiverse || loadingDiverse || generatingDiverseQuestions" in page
 assert "savingDiverse || loadingDiverse || questionGenerationBusy" in page
+
+# Mounted review sessions reconcile only when canonical topic IDs change.
+assert "reconcileStudyQueueByTopicIds" in page
+assert "const topicIdSignature = JSON.stringify(subject.topics.map((topic) => topic.id))" in page
+assert "previousStudyTopicIdsRef" in page
+reconcile_effect = page.split("// Reconcile the mounted review queue by canonical IDs.", 1)[1].split(
+    "  const doneCount", 1
+)[0]
+assert "JSON.parse(topicIdSignature)" in reconcile_effect
+assert "reconcileStudyQueueByTopicIds(current, previousTopicIds, nextTopicIds)" in reconcile_effect
+assert "previousStudyTopicIdsRef.current = nextTopicIds" in reconcile_effect
+assert "}, [topicIdSignature]);" in reconcile_effect
+assert "subject.topics" not in reconcile_effect

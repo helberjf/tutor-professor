@@ -13,7 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -2335,6 +2335,8 @@ function SubjectStudyCard({
   const [studyState, setStudyState] = useState<InlineStudyState>(() => ({
     order: subject.topics.map((_, i) => i), position: 0, userAnswer: '', revealed: false, results: [], done: false,
   }));
+  const topicIdSignature = JSON.stringify(subject.topics.map((topic) => topic.id));
+  const previousStudyTopicIdsRef = useRef<string[]>(JSON.parse(topicIdSignature));
 
   function handleParseImport() {
     setImportError('');
@@ -2369,6 +2371,14 @@ function SubjectStudyCard({
       setTimeout(() => setCopiedJson(false), 2000);
     });
   }
+
+  // Reconcile the mounted review queue by canonical IDs.
+  useEffect(() => {
+    const previousTopicIds = previousStudyTopicIdsRef.current;
+    const nextTopicIds = JSON.parse(topicIdSignature) as string[];
+    setStudyState((current) => reconcileStudyQueueByTopicIds(current, previousTopicIds, nextTopicIds));
+    previousStudyTopicIdsRef.current = nextTopicIds;
+  }, [topicIdSignature]);
 
   const doneCount = subject.topics.filter((t) => t.done).length;
   const totalTopics = subject.topics.length;
