@@ -196,6 +196,13 @@ class DiverseDayUpdateSchema(BaseModel):
     custom_subjects: List[DiverseSubjectSchema]
 
 
+class GenerateDiverseQuestionsSchema(BaseModel):
+    study_date: date
+    subject_index: int = Field(ge=0)
+    lesson_id: str = Field(min_length=1, max_length=80)
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
 class CodingTopicSchema(BaseModel):
     id: str = Field(default="", max_length=80)
     topic: str = Field(min_length=1, max_length=120)
