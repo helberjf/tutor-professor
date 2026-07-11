@@ -40,12 +40,13 @@ def normalize_question(raw: dict, subject_name: str) -> dict:
     raw_rating = _limited_text(raw.get("last_rating"), 10).lower()
     raw_id = _limited_text(raw.get("id"), 80)
     raw_code = raw.get("code_example")
+    code_example = str(raw_code)[:3000] if raw_code is not None else ""
     last_reviewed = _limited_text(raw.get("last_reviewed"), 40)
     return {
         "id": raw_id or stable_question_id(subject_name, front),
         "topic": front,
         "answer": _limited_text(raw.get("answer"), 2000),
-        "code_example": str(raw_code)[:3000] if raw_code not in (None, "") else None,
+        "code_example": code_example if code_example.strip() else None,
         "done": bool(raw.get("done", False)),
         "last_rating": raw_rating if raw_rating in _VALID_RATINGS else None,
         "review_count": _review_count(raw.get("review_count")),
@@ -73,11 +74,12 @@ def _merge_review_progress(canonical: dict, incoming: dict) -> None:
 
     canonical["review_count"] = current_count
     if incoming_count == current_count:
-        if not canonical.get("last_rating") and incoming.get("last_rating"):
-            canonical["last_rating"] = incoming["last_rating"]
         incoming_reviewed = incoming.get("last_reviewed")
         if incoming_reviewed and incoming_reviewed > (canonical.get("last_reviewed") or ""):
             canonical["last_reviewed"] = incoming_reviewed
+            canonical["last_rating"] = incoming.get("last_rating")
+        elif not canonical.get("last_rating") and incoming.get("last_rating"):
+            canonical["last_rating"] = incoming["last_rating"]
 
 
 def _merge_question(canonical: dict, incoming: dict, *, merge_review: bool) -> None:
