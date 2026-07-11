@@ -103,17 +103,28 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
                 self.assertIn(expected, self.topic_view)
 
     def test_success_appends_cards_and_updates_topic_count_by_five(self):
+        self.assertIn("appendGeneratedFlashcards", self.topic_view)
+        self.assertIn("syncTopicFlashcardCount", self.topic_view)
         self.assertIn(
             "api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext)",
             self.topic_view,
         )
         self.assertIn(
-            "setFlashcards((current) => [...current, ...created])",
+            "setFlashcards((current) => appendGeneratedFlashcards(current, created))",
             self.topic_view,
         )
         self.assertNotIn("setFlashcards(created)", self.topic_view)
-        self.assertIn("flashcard_count: topic.flashcard_count + 5", self.topic_view)
-        self.assertIn("onTopicUpdated(updatedTopic)", self.topic_view)
+        self.assertNotIn("flashcard_count: topic.flashcard_count + 5", self.topic_view)
+        self.assertIn("syncTopicFlashcardCount(topic, flashcards.length)", self.topic_view)
+        self.assertIn("onTopicUpdated(syncedTopic)", self.topic_view)
+
+    def test_all_card_flows_share_count_sync_and_block_concurrent_mutations(self):
+        self.assertIn("loadedFlashcardTopicId !== topic.id", self.topic_view)
+        self.assertIn("disabled={generatingAdditionalFlashcards", self.topic_view)
+        self.assertIn("setShowAdditionalFlashcardForm(false)", self.topic_view)
+        self.assertIn('role="status" aria-live="polite"', self.topic_view)
+        self.assertIn('role="alert"', self.topic_view)
+        self.assertIn('aria-busy={generatingAdditionalFlashcards}', self.topic_view)
 
     def test_form_handles_cancel_loading_success_and_api_errors(self):
         for expected in (
