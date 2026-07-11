@@ -377,6 +377,49 @@ async def run() -> None:
         if len(lesson_topic_ids) != 1 or canonical_topics.get(lesson_topic_ids[0], {}).get("topic") != "Je m'appelle":
             raise AssertionError(f"expected diverse lesson reference to round-trip, got {diverse_payload}")
 
+        legacy_duplicate_subject = {
+            "name": "Biologia",
+            "topics": [{"topic": "O que e mitose?", "answer": "Divisao celular"}],
+            "lessons": [
+                {
+                    "id": "lesson-mitose",
+                    "title": "Mitose",
+                    "topics": [{"topic": "O que e mitose?", "answer": "Divisao celular"}],
+                }
+            ],
+        }
+        canonical_duplicate_subject = main.normalize_subject(legacy_duplicate_subject)
+        with Session(main.engine) as session:
+            diverse_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == today,
+                )
+            ).first()
+            if diverse_record is None:
+                raise AssertionError("expected saved diverse record for legacy migration regression")
+            diverse_record.custom_subjects = [legacy_duplicate_subject]
+            session.add(diverse_record)
+            session.commit()
+
+        activity_before_noop = await client.get(f"/api/activity/day/{today.isoformat()}", headers=child_headers)
+        assert_status(activity_before_noop, 200, "activity count before diverse legacy no-op")
+        diverse_count_before_noop = activity_before_noop.json()["activities_by_type"].get("diverse", 0)
+        canonical_noop_response = await client.put(
+            f"/api/study/diverse/{today.isoformat()}",
+            headers=child_headers,
+            json={"custom_subjects": [canonical_duplicate_subject]},
+        )
+        assert_status(canonical_noop_response, 200, "canonical save after diverse legacy migration")
+        activity_after_noop = await client.get(f"/api/activity/day/{today.isoformat()}", headers=child_headers)
+        assert_status(activity_after_noop, 200, "activity count after diverse legacy no-op")
+        diverse_count_after_noop = activity_after_noop.json()["activities_by_type"].get("diverse", 0)
+        if diverse_count_after_noop != diverse_count_before_noop:
+            raise AssertionError(
+                "semantic no-op legacy migration must not create another diverse activity: "
+                f"before={diverse_count_before_noop}, after={diverse_count_after_noop}"
+            )
+
         save_ai_response = await client.put(
             "/api/ai/settings",
             json={"provider": "gemini", "api_key": "test-ai-key", "model": "gemini-2.5-flash"},

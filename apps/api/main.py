@@ -1736,7 +1736,12 @@ def upsert_diverse_day(
     record = session.exec(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
-    old_summary = summarize_diverse_activity(record.custom_subjects if record is not None else None)
+    normalized_old_subjects = [
+        normalize_subject(subject)
+        for subject in (record.custom_subjects if record is not None else [])
+        if isinstance(subject, dict)
+    ]
+    old_summary = summarize_diverse_activity(normalized_old_subjects)
     subjects_data = [normalize_subject(_normalize_diverse_subject_input(s)) for s in payload.custom_subjects]
     new_summary = summarize_diverse_activity(subjects_data)
     if record is None:

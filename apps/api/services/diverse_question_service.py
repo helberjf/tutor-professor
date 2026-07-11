@@ -208,9 +208,14 @@ def normalize_subject(raw: dict) -> dict:
             }
         )
 
+    canonical_ids = {question["id"] for question in by_key.values()}
     for lesson in lessons:
         lesson["topic_ids"] = list(
-            dict.fromkeys(resolve_alias(question_id) for question_id in lesson["topic_ids"])
+            dict.fromkeys(
+                resolved_id
+                for question_id in lesson["topic_ids"]
+                if (resolved_id := resolve_alias(question_id)) in canonical_ids
+            )
         )
 
     return {"name": name, "topics": list(by_key.values()), "lessons": lessons}

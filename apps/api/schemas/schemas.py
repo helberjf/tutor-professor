@@ -167,7 +167,7 @@ class DiverseLessonBlockSchema(BaseModel):
 
 class DiverseSubjectSchema(BaseModel):
     name: str = Field(min_length=1, max_length=60)
-    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=50)
+    topics: List["CodingTopicSchema"] = Field(default_factory=list, max_length=1550)
     lessons: List[DiverseLessonBlockSchema] = Field(default_factory=list, max_length=30)
 
     @model_validator(mode="before")
