@@ -420,6 +420,22 @@ async def run() -> None:
                 f"before={diverse_count_before_noop}, after={diverse_count_after_noop}"
             )
 
+        missing_diverse_questions_response = await client.post(
+            "/api/study/diverse/questions/generate",
+            headers=child_headers,
+            json={
+                "study_date": today.isoformat(),
+                "subject_index": 0,
+                "lesson_id": "lesson-mitose",
+                "context": "  prova   de vestibular  ",
+            },
+        )
+        assert_status(
+            missing_diverse_questions_response,
+            422,
+            "append diverse questions requires AI settings",
+        )
+
         save_ai_response = await client.put(
             "/api/ai/settings",
             json={"provider": "gemini", "api_key": "test-ai-key", "model": "gemini-2.5-flash"},
@@ -435,6 +451,215 @@ async def run() -> None:
         assert_status(stored_ai_response, 200, "stored ai settings")
         if "test-ai-key" in stored_ai_response.text:
             raise AssertionError("raw AI key leaked in settings response")
+
+        diverse_ai_calls: list[dict[str, str]] = []
+        original_generate_diverse_json = main.phrase_generation_service.generate_json_text
+
+        def mock_diverse_questions_json(*, system_text, prompt, temperature, ai_config, timeout_seconds=None):
+            diverse_ai_calls.append({"system_text": system_text, "prompt": prompt})
+            return (
+                '{"questions":['
+                '{"question":"Como a mitose conserva o numero de cromossomos?","answer":"Replica e separa igualmente as cromatides."},'
+                '{"question":"Em qual fase os cromossomos se alinham no equador?","answer":"Na metafase."},'
+                '{"question":"Qual e a funcao do fuso mitotico?","answer":"Mover e separar os cromossomos."},'
+                '{"question":"O que ocorre durante a anafase?","answer":"As cromatides irmas migram para polos opostos."},'
+                '{"question":"Por que a mitose e importante no crescimento?","answer":"Ela aumenta o numero de celulas somaticas."}'
+                ']}'
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_diverse_questions_json
+            append_diverse_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": today.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-mitose",
+                    "context": "  prova   de vestibular  ",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_generate_diverse_json
+        assert_status(append_diverse_response, 200, "append five diverse AI questions")
+        appended_questions = append_diverse_response.json()
+        if len(appended_questions) != 5 or len(diverse_ai_calls) != 1:
+            raise AssertionError(
+                f"expected five questions from exactly one AI call, got {appended_questions}, calls={diverse_ai_calls}"
+            )
+        prompt = diverse_ai_calls[0]["prompt"]
+        for expected_prompt_part in [
+            "Biologia",
+            "Mitose",
+            "O que e mitose?",
+            "Divisao celular",
+            "prova de vestibular",
+        ]:
+            if expected_prompt_part not in prompt:
+                raise AssertionError(f"expected {expected_prompt_part!r} in diverse prompt, got {prompt}")
+
+        generated_day_response = await client.get(
+            f"/api/study/diverse/{today.isoformat()}", headers=child_headers
+        )
+        assert_status(generated_day_response, 200, "reload generated diverse questions")
+        generated_subject = generated_day_response.json()["custom_subjects"][0]
+        generated_lesson = generated_subject["lessons"][0]
+        generated_topics_by_id = {topic["id"]: topic for topic in generated_subject["topics"]}
+        appended_ids = [question["id"] for question in appended_questions]
+        if generated_lesson["topic_ids"][-5:] != appended_ids:
+            raise AssertionError(
+                f"expected lesson to reference appended canonical IDs, got {generated_lesson}"
+            )
+        if any(generated_topics_by_id.get(question_id) != question for question_id, question in zip(appended_ids, appended_questions)):
+            raise AssertionError(
+                f"expected response questions to be canonical persisted topics, got {generated_subject}"
+            )
+
+        questions_before_failure = generated_subject["topics"]
+        lesson_ids_before_failure = generated_lesson["topic_ids"]
+
+        def mock_malformed_diverse_json(**kwargs):
+            return "not valid JSON"
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_malformed_diverse_json
+            malformed_diverse_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": today.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-mitose",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_generate_diverse_json
+        assert_status(malformed_diverse_response, 502, "reject malformed diverse AI batch")
+        after_failure_response = await client.get(
+            f"/api/study/diverse/{today.isoformat()}", headers=child_headers
+        )
+        assert_status(after_failure_response, 200, "reload diverse day after malformed AI batch")
+        after_failure_subject = after_failure_response.json()["custom_subjects"][0]
+        if after_failure_subject["topics"] != questions_before_failure:
+            raise AssertionError("malformed AI batch partially changed canonical diverse questions")
+        if after_failure_subject["lessons"][0]["topic_ids"] != lesson_ids_before_failure:
+            raise AssertionError("malformed AI batch partially changed diverse lesson references")
+
+        invalid_subject_response = await client.post(
+            "/api/study/diverse/questions/generate",
+            headers=child_headers,
+            json={
+                "study_date": today.isoformat(),
+                "subject_index": 99,
+                "lesson_id": "lesson-mitose",
+            },
+        )
+        assert_status(invalid_subject_response, 404, "reject missing diverse subject")
+        invalid_lesson_response = await client.post(
+            "/api/study/diverse/questions/generate",
+            headers=child_headers,
+            json={
+                "study_date": today.isoformat(),
+                "subject_index": 0,
+                "lesson_id": "missing-lesson",
+            },
+        )
+        assert_status(invalid_lesson_response, 404, "reject missing diverse lesson")
+        negative_subject_response = await client.post(
+            "/api/study/diverse/questions/generate",
+            headers=child_headers,
+            json={
+                "study_date": today.isoformat(),
+                "subject_index": -1,
+                "lesson_id": "lesson-mitose",
+            },
+        )
+        assert_status(negative_subject_response, 422, "validate diverse subject index")
+
+        technical_subject = {
+            "name": "Programação",
+            "topics": [
+                {
+                    "topic": "O que e uma lista em Python?",
+                    "answer": "Uma colecao mutavel e ordenada.",
+                }
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-python-listas",
+                    "title": "Listas",
+                    "topics": [
+                        {
+                            "topic": "O que e uma lista em Python?",
+                            "answer": "Uma colecao mutavel e ordenada.",
+                        }
+                    ],
+                }
+            ],
+        }
+        with Session(main.engine) as session:
+            technical_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == today,
+                )
+            ).first()
+            if technical_record is None:
+                raise AssertionError("expected diverse record before technical question generation")
+            technical_record.custom_subjects = [
+                *technical_record.custom_subjects,
+                technical_subject,
+            ]
+            session.add(technical_record)
+            session.commit()
+
+        technical_ai_calls: list[str] = []
+
+        def mock_technical_questions_json(*, system_text, prompt, temperature, ai_config, timeout_seconds=None):
+            technical_ai_calls.append(prompt)
+            return (
+                '{"questions":['
+                '{"question":"Como remover duplicados preservando a ordem?","answer":"Use um conjunto auxiliar.","code_example":"seen = set()\\nresult = [x for x in values if not (x in seen or seen.add(x))]"},'
+                '{"question":"Qual a complexidade de buscar em uma lista?","answer":"O(n) no pior caso."},'
+                '{"question":"Quando preferir uma tupla a uma lista?","answer":"Quando a colecao deve ser imutavel."},'
+                '{"question":"O que list comprehension melhora?","answer":"Concisao ao transformar ou filtrar iteraveis."},'
+                '{"question":"Como uma lista difere de um gerador?","answer":"A lista materializa valores; o gerador e lazy."}'
+                ']}'
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_technical_questions_json
+            technical_questions_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": today.isoformat(),
+                    "subject_index": 1,
+                    "lesson_id": "lesson-python-listas",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_generate_diverse_json
+        assert_status(technical_questions_response, 200, "append technical interview questions")
+        technical_questions = technical_questions_response.json()
+        if len(technical_ai_calls) != 1 or "technical-interview" not in technical_ai_calls[0]:
+            raise AssertionError(f"expected technical-interview priority in one AI call, got {technical_ai_calls}")
+        if not technical_questions[0].get("code_example"):
+            raise AssertionError(f"expected optional code example to persist, got {technical_questions}")
+
+        children_after_noah_response = await client.get("/api/parent/children")
+        assert_status(children_after_noah_response, 200, "reload children for ownership test")
+        noah = next(child for child in children_after_noah_response.json() if child["name"] == "Noah")
+        wrong_child_response = await client.post(
+            "/api/study/diverse/questions/generate",
+            headers={"X-Child-ID": str(noah["id"])},
+            json={
+                "study_date": today.isoformat(),
+                "subject_index": 0,
+                "lesson_id": "lesson-mitose",
+            },
+        )
+        assert_status(wrong_child_response, 404, "do not expose another child's diverse day")
 
         old_topic_flashcard_response = await client.post(
             f"/api/coding/topics/{coding_topic['id']}/flashcards",
@@ -536,9 +761,12 @@ async def run() -> None:
         assert_status(coding_review_attempt_response, 200, "coding review attempt logs activity")
 
         captured_diverse_prompt: dict[str, str] = {}
+        initial_diverse_ai_call_count = 0
         original_generate_json_text = main.phrase_generation_service.generate_json_text
         try:
             def mock_generate_json_text(*, system_text, prompt, temperature, ai_config, timeout_seconds=None):
+                nonlocal initial_diverse_ai_call_count
+                initial_diverse_ai_call_count += 1
                 captured_diverse_prompt["prompt"] = prompt
                 return (
                     '{"subject":"React","flashcards":['
@@ -563,6 +791,11 @@ async def run() -> None:
         assert_status(context_flashcards_response, 200, "generate flashcards with context")
         if "hooks, props e erros comuns" not in captured_diverse_prompt.get("prompt", ""):
             raise AssertionError(f"expected AI context in diverse prompt, got {captured_diverse_prompt}")
+        if initial_diverse_ai_call_count != 1:
+            raise AssertionError(
+                "initial Diverse question generation must use one AI request/response, "
+                f"got {initial_diverse_ai_call_count}"
+            )
 
         activity_response = await client.get("/api/activity/today", headers=child_headers)
         assert_status(activity_response, 200, "today activity log")

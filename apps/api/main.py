@@ -40,6 +40,7 @@ from schemas.schemas import (
     GenerateBookRequestSchema,
     GenerateFlashcardsRequestSchema,
     GenerateFlashcardsResponseSchema,
+    GenerateDiverseQuestionsSchema,
     GeneratedFlashcardSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
@@ -108,7 +109,7 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
-from services.diverse_question_service import normalize_subject
+from services.diverse_question_service import normalize_subject, normalize_text, stable_question_id
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     apply_deck_attempt,
@@ -1777,6 +1778,202 @@ def upsert_diverse_day(
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
+
+
+_TECHNICAL_SUBJECT_TERMS = {
+    "algoritmo",
+    "backend",
+    "banco de dados",
+    "ciencia da computacao",
+    "codigo",
+    "computacao",
+    "desenvolvimento",
+    "devops",
+    "engenharia de software",
+    "frontend",
+    "informatica",
+    "javascript",
+    "programacao",
+    "python",
+    "react",
+    "software",
+    "sql",
+    "tecnologia",
+    "typescript",
+}
+
+
+def _is_technical_diverse_subject(subject_name: str) -> bool:
+    normalized_name = normalize_text(sanitize_context(subject_name))
+    return any(term in normalized_name for term in _TECHNICAL_SUBJECT_TERMS)
+
+
+@app.post("/api/study/diverse/questions/generate", response_model=list[CodingTopicSchema])
+def generate_diverse_questions(
+    payload: GenerateDiverseQuestionsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[CodingTopicSchema]:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    record = session.exec(
+        select(DiverseDay).where(
+            DiverseDay.child_id == child_id,
+            DiverseDay.study_date == payload.study_date,
+        )
+    ).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+
+    normalized_subjects = [
+        normalize_subject(subject)
+        for subject in (record.custom_subjects or [])
+        if isinstance(subject, dict)
+    ]
+    if payload.subject_index >= len(normalized_subjects):
+        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+    selected_subject = normalized_subjects[payload.subject_index]
+    selected_lesson = next(
+        (
+            lesson
+            for lesson in selected_subject.get("lessons", [])
+            if lesson.get("id") == payload.lesson_id
+        ),
+        None,
+    )
+    if selected_lesson is None:
+        raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+        )
+
+    subject_name = str(selected_subject.get("name") or "Materia")
+    lesson_title = str(selected_lesson.get("title") or "Licao")
+    existing_topics = selected_subject.get("topics") or []
+    existing_fronts = [str(topic.get("topic") or "") for topic in existing_topics]
+    topics_by_id = {
+        str(topic.get("id") or ""): topic
+        for topic in existing_topics
+        if isinstance(topic, dict)
+    }
+    linked_questions = [
+        (
+            str(topics_by_id[topic_id].get("topic") or ""),
+            str(topics_by_id[topic_id].get("answer") or ""),
+        )
+        for topic_id in selected_lesson.get("topic_ids") or []
+        if topic_id in topics_by_id
+    ]
+    context = sanitize_context(payload.context)
+    technical_subject = _is_technical_diverse_subject(subject_name)
+    focus_instruction = (
+        "This is a technical subject: prioritize technical-interview questions, practical reasoning, "
+        "and common interview trade-offs. A short code_example is allowed when it helps the answer."
+        if technical_subject
+        else "This is a general subject: create exam-style questions that test understanding and application."
+    )
+    linked_text = (
+        "\n".join(f"- Pergunta: {front}\n  Resposta: {answer}" for front, answer in linked_questions)
+        or "- Nenhuma"
+    )
+    all_fronts_text = "\n".join(f"- {front}" for front in existing_fronts) or "- Nenhuma"
+    context_text = context or "Nenhum contexto adicional."
+    system_text = (
+        "Voce cria questoes de estudo em JSON. Retorne somente JSON valido, sem markdown. "
+        "Cada item deve ter question, answer e pode ter code_example."
+    )
+    prompt = (
+        "Crie exatamente 5 questoes unicas e nao repetidas.\n"
+        f"Materia: {subject_name}\n"
+        f"Licao: {lesson_title}\n"
+        f"Orientacao: {focus_instruction}\n"
+        "Questoes ja ligadas a esta licao:\n"
+        f"{linked_text}\n"
+        "Todas as perguntas ja existentes na materia (nao repetir):\n"
+        f"{all_fronts_text}\n"
+        f"Contexto do usuario: {context_text}\n"
+        "Formato obrigatorio: {\"questions\":[{\"question\":\"...\",\"answer\":\"...\","
+        "\"code_example\":null}]}"
+    )
+
+    # The AI call and full batch validation happen before the persisted JSON is changed.
+    session.rollback()
+    try:
+        raw_text = phrase_generation_service.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=0.5,
+            ai_config=ai_config,
+        )
+        data = _extract_json_object(raw_text)
+        raw_questions = data.get("questions")
+        if not isinstance(raw_questions, list):
+            raise ValueError("Exactly five cards are required")
+        validated_questions = validate_card_batch(raw_questions, existing_fronts)
+        if any(len(question.front) > 120 for question in validated_questions):
+            raise ValueError("Card fronts must have at most 120 characters")
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # Reload after the external call and validate against the current canonical state.
+    current_record = session.exec(
+        select(DiverseDay).where(
+            DiverseDay.child_id == child_id,
+            DiverseDay.study_date == payload.study_date,
+        )
+    ).first()
+    if current_record is None:
+        raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+    current_subjects = [
+        normalize_subject(subject)
+        for subject in (current_record.custom_subjects or [])
+        if isinstance(subject, dict)
+    ]
+    if payload.subject_index >= len(current_subjects):
+        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+    current_subject = current_subjects[payload.subject_index]
+    current_lesson = next(
+        (lesson for lesson in current_subject.get("lessons", []) if lesson.get("id") == payload.lesson_id),
+        None,
+    )
+    if current_lesson is None:
+        raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+
+    current_fronts = [str(topic.get("topic") or "") for topic in current_subject.get("topics") or []]
+    try:
+        validated_questions = validate_card_batch(raw_questions, current_fronts)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    created_topics: list[dict] = []
+    for question in validated_questions:
+        topic = {
+            "id": stable_question_id(str(current_subject.get("name") or "Materia"), question.front),
+            "topic": question.front,
+            "answer": question.back,
+            "code_example": question.code_example,
+            "done": False,
+            "last_rating": None,
+            "review_count": 0,
+            "last_reviewed": None,
+        }
+        created_topics.append(topic)
+    current_subject["topics"].extend(created_topics)
+    current_lesson["topic_ids"].extend(topic["id"] for topic in created_topics)
+    current_lesson["topic_ids"] = list(dict.fromkeys(current_lesson["topic_ids"]))
+    current_record.custom_subjects = current_subjects
+    current_record.updated_at = datetime.utcnow()
+    session.add(current_record)
+    session.commit()
+
+    return [_build_diverse_topic_schema(topic) for topic in created_topics]
 
 
 _LEVEL_LABELS = {
