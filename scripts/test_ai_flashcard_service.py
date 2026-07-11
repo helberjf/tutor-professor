@@ -39,6 +39,12 @@ class AIFlashcardServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_card_batch(make_cards()[:4], existing_fronts=[])
 
+    def test_rejects_non_mapping_card_items_with_controlled_error(self):
+        for invalid_cards in ([None] * 5, [object()] * 5):
+            with self.subTest(item=invalid_cards[0]):
+                with self.assertRaises(ValueError):
+                    validate_card_batch(invalid_cards, existing_fronts=[])
+
     def test_rejects_duplicate_questions_in_batch(self):
         cards = make_cards()
         cards[1]["front"] = "  QUESTION 1!!!  "

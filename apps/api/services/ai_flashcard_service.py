@@ -36,7 +36,7 @@ def _optional_text(value: Any, limit: int, *, preserve_lines: bool = False) -> s
 
 
 def validate_card_batch(
-    raw_cards: Iterable[Mapping[str, Any]], existing_fronts: Iterable[str]
+    raw_cards: Iterable[object], existing_fronts: Iterable[str]
 ) -> list[ValidatedCard]:
     cards = list(raw_cards)
     if len(cards) != 5:
@@ -47,6 +47,8 @@ def validate_card_batch(
     validated: list[ValidatedCard] = []
 
     for raw_card in cards:
+        if not isinstance(raw_card, Mapping):
+            raise ValueError("Each card must be a JSON object")
         front = _limited_text(raw_card.get("front") or raw_card.get("question"), 500)
         back = _limited_text(raw_card.get("back") or raw_card.get("answer"), 2000)
         if not front or not back:
