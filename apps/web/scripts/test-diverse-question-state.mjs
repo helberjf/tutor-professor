@@ -30,6 +30,7 @@ const {
   resolveDiverseGenerationTarget,
   updateItemById,
   updateSubjectById,
+  reconcileStudyQueueByTopicIds,
 } = module.exports;
 
 const replacement = Object.freeze({ id: 'subject-replacement', topics: [] });
@@ -103,5 +104,66 @@ assert.equal(
   null,
   'a removed subject must not redirect generation to its old index',
 );
+
+const activeQueue = Object.freeze({
+  order: Object.freeze([0, 1]),
+  position: 1,
+  userAnswer: 'draft for b',
+  revealed: true,
+  results: Object.freeze(['knew']),
+  done: false,
+});
+const appendedActiveQueue = reconcileStudyQueueByTopicIds(
+  activeQueue,
+  ['question-a', 'question-b'],
+  ['question-a', 'question-b', 'question-c', 'question-d', 'question-e', 'question-f', 'question-g'],
+);
+assert.deepEqual(appendedActiveQueue.order, [0, 1, 2, 3, 4, 5, 6]);
+assert.equal(appendedActiveQueue.position, 1);
+assert.deepEqual(appendedActiveQueue.results, ['knew']);
+assert.equal(appendedActiveQueue.userAnswer, 'draft for b');
+assert.equal(appendedActiveQueue.revealed, true);
+assert.equal(appendedActiveQueue.done, false);
+assert.deepEqual(
+  reconcileStudyQueueByTopicIds(
+    appendedActiveQueue,
+    ['question-a', 'question-b', 'question-c', 'question-d', 'question-e', 'question-f', 'question-g'],
+    ['question-a', 'question-b', 'question-c', 'question-d', 'question-e', 'question-f', 'question-g'],
+  ),
+  appendedActiveQueue,
+  'the same generated IDs must never be queued twice',
+);
+
+const completedQueue = Object.freeze({
+  order: Object.freeze([1, 0]),
+  position: 1,
+  userAnswer: 'old answer',
+  revealed: true,
+  results: Object.freeze(['partial', 'knew']),
+  done: true,
+});
+const appendedCompletedQueue = reconcileStudyQueueByTopicIds(
+  completedQueue,
+  ['question-a', 'question-b'],
+  ['question-a', 'question-b', 'question-c', 'question-d'],
+);
+assert.deepEqual(appendedCompletedQueue.order, [1, 0, 2, 3]);
+assert.equal(appendedCompletedQueue.position, 2, 'a completed session resumes at its first new topic');
+assert.deepEqual(appendedCompletedQueue.results, ['partial', 'knew']);
+assert.equal(appendedCompletedQueue.userAnswer, '');
+assert.equal(appendedCompletedQueue.revealed, false);
+assert.equal(appendedCompletedQueue.done, false);
+
+const removedCurrentQueue = reconcileStudyQueueByTopicIds(
+  activeQueue,
+  ['question-a', 'question-b'],
+  ['question-a', 'question-c'],
+);
+assert.deepEqual(removedCurrentQueue.order, [0, 1]);
+assert.equal(removedCurrentQueue.position, 1, 'removing the current topic advances safely to the next topic');
+assert.deepEqual(removedCurrentQueue.results, ['knew']);
+assert.equal(removedCurrentQueue.userAnswer, '');
+assert.equal(removedCurrentQueue.revealed, false);
+assert.equal(removedCurrentQueue.done, false);
 
 console.log('Diverse question state checks passed.');
