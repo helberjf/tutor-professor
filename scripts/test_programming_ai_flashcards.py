@@ -18,6 +18,9 @@ WEB_PACKAGE = ROOT / "apps" / "web" / "package.json"
 TOPIC_VIEW = (
     ROOT / "apps" / "web" / "src" / "components" / "coding" / "TopicView.tsx"
 )
+FLASHCARD_DECK = (
+    ROOT / "apps" / "web" / "src" / "components" / "coding" / "FlashcardDeck.tsx"
+)
 TMP_DIR = Path(tempfile.mkdtemp(prefix="programming-flashcards-api-"))
 DB_PATH = TMP_DIR / "test.sqlite"
 
@@ -80,7 +83,57 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.api_source = WEB_API.read_text(encoding="utf-8")
         cls.topic_view = TOPIC_VIEW.read_text(encoding="utf-8")
+        cls.flashcard_deck = FLASHCARD_DECK.read_text(encoding="utf-8")
         cls.web_package = json.loads(WEB_PACKAGE.read_text(encoding="utf-8"))
+
+    def test_deck_cards_tab_exposes_topic_scoped_ai_generation(self):
+        for expected in (
+            "Criar com IA",
+            "selectedTopicId",
+            "maxLength={1000}",
+            "Serão criadas 5 questões",
+            "api.getCodingTopics(subjectId)",
+            "api.generateAdditionalCodingFlashcards(selectedTopicId, context)",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.flashcard_deck)
+        self.assertRegex(
+            self.flashcard_deck,
+            r"if \(!selectedTopicId\)\s*\{[^}]+setAiError\(",
+        )
+
+    def test_deck_generation_reloads_authoritative_data_and_preserves_failed_form(self):
+        self.assertIn("async function generateWithAi()", self.flashcard_deck)
+        handler_start = self.flashcard_deck.index("async function generateWithAi()")
+        handler_end = self.flashcard_deck.index("return (", handler_start)
+        handler = self.flashcard_deck[handler_start:handler_end]
+        self.assertIn("await api.generateAdditionalCodingFlashcards(selectedTopicId, context)", handler)
+        self.assertIn("await onReload()", handler)
+        self.assertIn("onChanged?.()", handler)
+        self.assertIn("setCreatingWithAi(false)", handler)
+        self.assertLess(handler.index("await onReload()"), handler.index("setCreatingWithAi(false)"))
+        catch_handler = handler[handler.index("catch"):]
+        self.assertNotIn("setCreatingWithAi(false)", catch_handler)
+        self.assertNotIn("setOverview", handler)
+
+    def test_deck_uses_subject_language_for_all_code_examples(self):
+        self.assertIn(
+            '<SyntaxCodeBlock code={card.code_example} language={subjectName}',
+            self.flashcard_deck,
+        )
+        self.assertNotIn('language="typescript"', self.flashcard_deck)
+        self.assertIn("function CardRow({ card, subjectName", self.flashcard_deck)
+
+    def test_deck_generation_handles_empty_topics_reload_failure_and_concurrency(self):
+        for expected in (
+            "Nenhum tópico disponível para gerar questões.",
+            "const reloaded = await onReload()",
+            "if (!reloaded)",
+            "locked={generatingWithAi}",
+            "disabled={busy || locked}",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.flashcard_deck)
 
     def test_api_client_exposes_additional_flashcard_generation(self):
         self.assertIn("generateAdditionalCodingFlashcards", self.api_source)

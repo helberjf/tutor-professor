@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import {
   api, type DeckCard, type DeckConfig, type DeckOverview, type DeckRating, type DeckStats, type DeckStudyCard,
+  type ProgrammingTopic,
 } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
@@ -30,24 +31,38 @@ const STATE_BADGE: Record<string, { label: string; cls: string }> = {
 export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onChanged }: Props) {
   const [tab, setTab] = useState<Tab>('study');
   const [overview, setOverview] = useState<DeckOverview | null>(null);
+  const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const loggedCompletionRef = useRef(false);
+  const loadRequestRef = useRef(0);
 
-  async function loadOverview() {
-    setLoading(true);
+  async function loadDeckData(showLoading = false): Promise<boolean> {
+    const requestId = ++loadRequestRef.current;
+    if (showLoading) setLoading(true);
     setError('');
     try {
-      setOverview(await api.getDeckOverview(subjectId));
+      const [nextOverview, nextTopics] = await Promise.all([
+        api.getDeckOverview(subjectId),
+        api.getCodingTopics(subjectId),
+      ]);
+      if (requestId !== loadRequestRef.current) return false;
+      setOverview(nextOverview);
+      setTopics(nextTopics);
+      return true;
     } catch {
-      setError('Não foi possível carregar o deck.');
+      if (requestId === loadRequestRef.current) {
+        setError('Não foi possível carregar o deck.');
+      }
+      return false;
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadOverview();
+    void loadDeckData(true);
+    return () => { loadRequestRef.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
@@ -82,7 +97,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
         <DeckTab active={tab === 'options'} onClick={() => setTab('options')} icon={<Settings2 size={16} />} label="Opções" />
       </div>
 
-      {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
+      {error && <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
 
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={32} /></div>
@@ -91,13 +106,20 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
           subjectId={subjectId}
           subjectName={subjectName}
           stats={stats}
-          onFinished={loadOverview}
+          onFinished={loadDeckData}
           onLogged={() => { loggedCompletionRef.current = true; }}
         />
       ) : tab === 'cards' ? (
-        <CardsTab overview={overview} onReload={() => { loadOverview(); onChanged?.(); }} />
+        <CardsTab
+          subjectId={subjectId}
+          subjectName={subjectName}
+          overview={overview}
+          topics={topics}
+          onReload={loadDeckData}
+          onChanged={onChanged}
+        />
       ) : (
-        <OptionsTab subjectId={subjectId} config={overview?.config} onSaved={loadOverview} />
+        <OptionsTab subjectId={subjectId} config={overview?.config} onSaved={loadDeckData} />
       )}
     </div>
   );
@@ -266,7 +288,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
                 <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
                   <p className="leading-relaxed text-slate-700">{card.back}</p>
-                  {card.code_example && <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />}
+                  {card.code_example && <SyntaxCodeBlock code={card.code_example} language={subjectName} className="mt-3 p-3" />}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <GradeButton label="Errei" preview={card.previews.again} onClick={() => answer('again')} disabled={submitting} cls="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" />
@@ -299,10 +321,66 @@ function GradeButton({ label, preview, onClick, disabled, cls }: { label: string
 
 // ── Cards tab (browser) ──────────────────────────────────────────────────────
 
-function CardsTab({ overview, onReload }: { overview: DeckOverview | null; onReload: () => void }) {
+function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChanged }: {
+  subjectId: number;
+  subjectName: string;
+  overview: DeckOverview | null;
+  topics: ProgrammingTopic[];
+  onReload: () => Promise<boolean>;
+  onChanged?: () => void;
+}) {
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
+  const [creatingWithAi, setCreatingWithAi] = useState(false);
+  const [selectedTopicId, setSelectedTopicId] = useState<number | null>(null);
+  const [context, setContext] = useState('');
+  const [generatingWithAi, setGeneratingWithAi] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiSuccess, setAiSuccess] = useState('');
+  const mountedRef = useRef(true);
   const cards = overview?.cards ?? [];
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  async function reloadAndNotify() {
+    await onReload();
+    if (mountedRef.current) onChanged?.();
+  }
+
+  async function generateWithAi() {
+    if (generatingWithAi) return;
+    if (!selectedTopicId) {
+      setAiError('Selecione um tópico.');
+      return;
+    }
+    setGeneratingWithAi(true);
+    setAiError('');
+    setAiSuccess('');
+    try {
+      await api.generateAdditionalCodingFlashcards(selectedTopicId, context);
+      if (!mountedRef.current) return;
+      const reloaded = await onReload();
+      if (!mountedRef.current) return;
+      onChanged?.();
+      if (!reloaded) {
+        setAiError('As questões foram criadas, mas não foi possível recarregar o deck.');
+        return;
+      }
+      setCreatingWithAi(false);
+      setSelectedTopicId(null);
+      setContext('');
+      setAiSuccess('5 questões criadas com sucesso.');
+    } catch (err) {
+      if (mountedRef.current) {
+        setAiError(err instanceof Error ? err.message : 'Não foi possível criar as questões.');
+      }
+    } finally {
+      if (mountedRef.current) setGeneratingWithAi(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -326,20 +404,99 @@ function CardsTab({ overview, onReload }: { overview: DeckOverview | null; onRel
         </div>
         <button
           type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 font-black text-white hover:bg-primary-dark"
+          onClick={() => {
+            setCreatingWithAi(false);
+            setAiError('');
+            setAiSuccess('');
+            setCreating((value) => !value);
+          }}
+          disabled={generatingWithAi}
+          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 font-black text-white hover:bg-primary-dark disabled:opacity-50"
         >
           <Plus size={18} /> Novo card
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setCreating(false);
+            setAiError('');
+            setAiSuccess('');
+            setCreatingWithAi((value) => !value);
+          }}
+          disabled={generatingWithAi}
+          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-white px-4 font-black text-primary hover:bg-primary-light disabled:opacity-50"
+        >
+          <Sparkles size={18} /> Criar com IA
         </button>
       </div>
 
       {creating && overview && (
         <CardForm
-          subjectId={overview.subject_id}
+          subjectId={subjectId}
+          disabled={generatingWithAi}
           onCancel={() => setCreating(false)}
-          onSaved={() => { setCreating(false); onReload(); }}
+          onSaved={() => { setCreating(false); void reloadAndNotify(); }}
         />
       )}
+
+      {creatingWithAi && (
+        <div aria-busy={generatingWithAi} className="space-y-3 rounded-2xl border-2 border-primary/30 bg-primary-light/30 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-black text-slate-700">Criar cards com IA</p>
+            <button
+              type="button"
+              onClick={() => setCreatingWithAi(false)}
+              disabled={generatingWithAi}
+              aria-label="Cancelar criação com IA"
+              className="rounded-lg p-1 text-slate-400 hover:bg-white disabled:opacity-50"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Tópico *</span>
+            <select
+              required
+              value={selectedTopicId ?? ''}
+              onChange={(event) => setSelectedTopicId(event.target.value ? Number(event.target.value) : null)}
+              disabled={generatingWithAi || topics.length === 0}
+              className="min-h-11 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary disabled:opacity-50"
+            >
+              <option value="">Selecione um tópico</option>
+              {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}
+            </select>
+            {topics.length === 0 && (
+              <span role="status" className="text-xs font-bold text-amber-700">Nenhum tópico disponível para gerar questões.</span>
+            )}
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Contexto opcional</span>
+            <textarea
+              value={context}
+              onChange={(event) => setContext(event.target.value)}
+              maxLength={1000}
+              rows={3}
+              disabled={generatingWithAi}
+              placeholder="Ex.: foque em exemplos práticos e erros comuns"
+              className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50"
+            />
+            <span className="text-right text-[11px] font-semibold text-slate-400">{context.length}/1000</span>
+          </label>
+          <p className="text-xs font-bold text-slate-500">Serão criadas 5 questões</p>
+          {aiError && <p role="alert" className="text-xs font-bold text-rose-600">{aiError}</p>}
+          <button
+            type="button"
+            onClick={() => void generateWithAi()}
+            disabled={generatingWithAi || !selectedTopicId || topics.length === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+          >
+            {generatingWithAi ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {generatingWithAi ? 'Criando...' : 'Criar 5 questões'}
+          </button>
+        </div>
+      )}
+
+      {aiSuccess && <p role="status" aria-live="polite" className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{aiSuccess}</p>}
 
       {filtered.length === 0 ? (
         <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
@@ -349,7 +506,13 @@ function CardsTab({ overview, onReload }: { overview: DeckOverview | null; onRel
       ) : (
         <div className="space-y-2">
           {filtered.map((card) => (
-            <CardRow key={card.flashcard_id} card={card} onReload={onReload} />
+            <CardRow
+              key={card.flashcard_id}
+              card={card}
+              subjectName={subjectName}
+              onReload={reloadAndNotify}
+              locked={generatingWithAi}
+            />
           ))}
         </div>
       )}
@@ -357,12 +520,13 @@ function CardsTab({ overview, onReload }: { overview: DeckOverview | null; onRel
   );
 }
 
-function CardRow({ card, onReload }: { card: DeckCard; onReload: () => void }) {
+function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subjectName: string; onReload: () => void; locked: boolean }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const badge = STATE_BADGE[card.state] ?? STATE_BADGE.new;
 
   async function remove() {
+    if (locked) return;
     if (!confirm('Remover este card?')) return;
     setBusy(true);
     try {
@@ -377,6 +541,7 @@ function CardRow({ card, onReload }: { card: DeckCard; onReload: () => void }) {
     return (
       <CardForm
         initial={card}
+        disabled={locked}
         onCancel={() => setEditing(false)}
         onSaved={() => { setEditing(false); onReload(); }}
       />
@@ -388,6 +553,11 @@ function CardRow({ card, onReload }: { card: DeckCard; onReload: () => void }) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-black text-slate-800">{card.front}</p>
         <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{card.back}</p>
+        {card.code_example && (
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+            <SyntaxCodeBlock code={card.code_example} language={subjectName} className="p-3" />
+          </div>
+        )}
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] font-bold">
           <span className={`rounded-full px-2 py-0.5 ${badge.cls}`}>{badge.label}</span>
           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">{card.topic_title}</span>
@@ -398,14 +568,14 @@ function CardRow({ card, onReload }: { card: DeckCard; onReload: () => void }) {
         </div>
       </div>
       <div className="flex shrink-0 gap-1">
-        <button type="button" onClick={() => setEditing(true)} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary"><Pencil size={15} /></button>
-        <button type="button" onClick={remove} disabled={busy} className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={15} /></button>
+        <button type="button" onClick={() => setEditing(true)} disabled={locked} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-50"><Pencil size={15} /></button>
+        <button type="button" onClick={remove} disabled={busy || locked} className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={15} /></button>
       </div>
     </div>
   );
 }
 
-function CardForm({ subjectId, initial, onCancel, onSaved }: { subjectId?: number; initial?: DeckCard; onCancel: () => void; onSaved: () => void }) {
+function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: { subjectId?: number; initial?: DeckCard; disabled?: boolean; onCancel: () => void; onSaved: () => void }) {
   const [front, setFront] = useState(initial?.front ?? '');
   const [back, setBack] = useState(initial?.back ?? '');
   const [code, setCode] = useState(initial?.code_example ?? '');
@@ -413,6 +583,7 @@ function CardForm({ subjectId, initial, onCancel, onSaved }: { subjectId?: numbe
   const [err, setErr] = useState('');
 
   async function save() {
+    if (disabled) return;
     if (!front.trim() || !back.trim()) { setErr('Frente e verso são obrigatórios.'); return; }
     setBusy(true);
     setErr('');
@@ -434,13 +605,13 @@ function CardForm({ subjectId, initial, onCancel, onSaved }: { subjectId?: numbe
     <div className="space-y-3 rounded-2xl border-2 border-primary/30 bg-primary-light/30 p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-black text-slate-700">{initial ? 'Editar card' : 'Novo card'}</p>
-        <button type="button" onClick={onCancel} className="rounded-lg p-1 text-slate-400 hover:bg-white"><X size={16} /></button>
+        <button type="button" onClick={onCancel} disabled={disabled || busy} className="rounded-lg p-1 text-slate-400 hover:bg-white disabled:opacity-50"><X size={16} /></button>
       </div>
-      <input value={front} onChange={(e) => setFront(e.target.value)} placeholder="Frente (pergunta / conceito)" className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
-      <textarea value={back} onChange={(e) => setBack(e.target.value)} placeholder="Verso (resposta / explicação)" rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
-      <textarea value={code} onChange={(e) => setCode(e.target.value)} placeholder="Exemplo de código (opcional)" rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary" />
+      <input value={front} onChange={(e) => setFront(e.target.value)} disabled={disabled || busy} placeholder="Frente (pergunta / conceito)" className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
+      <textarea value={back} onChange={(e) => setBack(e.target.value)} disabled={disabled || busy} placeholder="Verso (resposta / explicação)" rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
+      <textarea value={code} onChange={(e) => setCode(e.target.value)} disabled={disabled || busy} placeholder="Exemplo de código (opcional)" rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       {err && <p className="text-xs font-bold text-rose-600">{err}</p>}
-      <button type="button" onClick={save} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+      <button type="button" onClick={save} disabled={busy || disabled} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50">
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar
       </button>
     </div>
