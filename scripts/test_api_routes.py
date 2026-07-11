@@ -369,8 +369,13 @@ async def run() -> None:
         assert_status(diverse_response, 200, "save diverse day with lesson blocks")
         diverse_payload = diverse_response.json()
         saved_subject = diverse_payload["custom_subjects"][0]
-        if saved_subject["lessons"][0]["topics"][0]["topic"] != "Je m'appelle":
-            raise AssertionError(f"expected diverse lesson block to round-trip, got {diverse_payload}")
+        saved_lesson = saved_subject["lessons"][0]
+        if "topics" in saved_lesson:
+            raise AssertionError(f"expected no embedded diverse lesson topics, got {diverse_payload}")
+        lesson_topic_ids = saved_lesson.get("topic_ids") or []
+        canonical_topics = {topic["id"]: topic for topic in saved_subject["topics"]}
+        if len(lesson_topic_ids) != 1 or canonical_topics.get(lesson_topic_ids[0], {}).get("topic") != "Je m'appelle":
+            raise AssertionError(f"expected diverse lesson reference to round-trip, got {diverse_payload}")
 
         save_ai_response = await client.put(
             "/api/ai/settings",
