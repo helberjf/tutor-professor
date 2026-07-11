@@ -17,10 +17,18 @@ assert '@app.post("/api/study/diverse/questions/generate"' in main
 endpoint = main.split("def generate_diverse_questions", 1)[1]
 endpoint = endpoint.split("\n@app.", 1)[0]
 assert "exam-style" in endpoint.lower()
-assert "technical subject" in endpoint.lower()
 assert "validate_card_batch" in endpoint
 assert "topic_ids" in endpoint
 assert "phrase_generation_service.generate_json_text" in endpoint
 assert endpoint.count("session.commit()") == 1
 assert "session.delete(" not in endpoint
 assert endpoint.count("phrase_generation_service.generate_json_text") == 1
+assert "_TECHNICAL_SUBJECT_TERMS" not in main
+assert "_is_technical_diverse_subject" not in main
+assert "Determine from the subject whether it is technical" in endpoint
+assert "PRIORITIZE technical-interview questions" in endpoint
+assert "otherwise create exam-style" in endpoint
+assert "_get_diverse_question_lock" in endpoint
+assert endpoint.index("phrase_generation_service.generate_json_text") < endpoint.index(
+    "with _get_diverse_question_lock"
+)

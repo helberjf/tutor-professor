@@ -109,7 +109,7 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
-from services.diverse_question_service import normalize_subject, normalize_text, stable_question_id
+from services.diverse_question_service import normalize_subject, stable_question_id
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     apply_deck_attempt,
@@ -173,6 +173,8 @@ AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
 
 _topic_flashcard_locks_guard = threading.Lock()
 _topic_flashcard_locks: dict[int, threading.Lock] = {}
+_diverse_question_locks_guard = threading.Lock()
+_diverse_question_locks: dict[tuple[int, date], threading.Lock] = {}
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
@@ -1780,32 +1782,10 @@ def upsert_diverse_day(
     )
 
 
-_TECHNICAL_SUBJECT_TERMS = {
-    "algoritmo",
-    "backend",
-    "banco de dados",
-    "ciencia da computacao",
-    "codigo",
-    "computacao",
-    "desenvolvimento",
-    "devops",
-    "engenharia de software",
-    "frontend",
-    "informatica",
-    "javascript",
-    "programacao",
-    "python",
-    "react",
-    "software",
-    "sql",
-    "tecnologia",
-    "typescript",
-}
-
-
-def _is_technical_diverse_subject(subject_name: str) -> bool:
-    normalized_name = normalize_text(sanitize_context(subject_name))
-    return any(term in normalized_name for term in _TECHNICAL_SUBJECT_TERMS)
+def _get_diverse_question_lock(child_id: int, study_date: date) -> threading.Lock:
+    key = (child_id, study_date)
+    with _diverse_question_locks_guard:
+        return _diverse_question_locks.setdefault(key, threading.Lock())
 
 
 @app.post("/api/study/diverse/questions/generate", response_model=list[CodingTopicSchema])
@@ -1870,12 +1850,11 @@ def generate_diverse_questions(
         if topic_id in topics_by_id
     ]
     context = sanitize_context(payload.context)
-    technical_subject = _is_technical_diverse_subject(subject_name)
     focus_instruction = (
-        "This is a technical subject: prioritize technical-interview questions, practical reasoning, "
-        "and common interview trade-offs. A short code_example is allowed when it helps the answer."
-        if technical_subject
-        else "This is a general subject: create exam-style questions that test understanding and application."
+        "Determine from the subject whether it is technical. If it is technical, "
+        "PRIORITIZE technical-interview questions, practical reasoning, and common trade-offs, "
+        "and allow a short code_example when useful; otherwise create exam-style questions "
+        "that test understanding and application."
     )
     linked_text = (
         "\n".join(f"- Pergunta: {front}\n  Resposta: {answer}" for front, answer in linked_questions)
@@ -1922,56 +1901,73 @@ def generate_diverse_questions(
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    # Reload after the external call and validate against the current canonical state.
-    current_record = session.exec(
-        select(DiverseDay).where(
-            DiverseDay.child_id == child_id,
-            DiverseDay.study_date == payload.study_date,
-        )
-    ).first()
-    if current_record is None:
-        raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
-    current_subjects = [
-        normalize_subject(subject)
-        for subject in (current_record.custom_subjects or [])
-        if isinstance(subject, dict)
-    ]
-    if payload.subject_index >= len(current_subjects):
-        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
-    current_subject = current_subjects[payload.subject_index]
-    current_lesson = next(
-        (lesson for lesson in current_subject.get("lessons", []) if lesson.get("id") == payload.lesson_id),
-        None,
-    )
-    if current_lesson is None:
-        raise HTTPException(status_code=404, detail="Licao nao encontrada.")
-
-    current_fronts = [str(topic.get("topic") or "") for topic in current_subject.get("topics") or []]
-    try:
-        validated_questions = validate_card_batch(raw_questions, current_fronts)
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
+    # Serialize only the persistence phase. AI requests remain concurrent and do not
+    # hold this lock while waiting on an external provider.
     created_topics: list[dict] = []
-    for question in validated_questions:
-        topic = {
-            "id": stable_question_id(str(current_subject.get("name") or "Materia"), question.front),
-            "topic": question.front,
-            "answer": question.back,
-            "code_example": question.code_example,
-            "done": False,
-            "last_rating": None,
-            "review_count": 0,
-            "last_reviewed": None,
-        }
-        created_topics.append(topic)
-    current_subject["topics"].extend(created_topics)
-    current_lesson["topic_ids"].extend(topic["id"] for topic in created_topics)
-    current_lesson["topic_ids"] = list(dict.fromkeys(current_lesson["topic_ids"]))
-    current_record.custom_subjects = current_subjects
-    current_record.updated_at = datetime.utcnow()
-    session.add(current_record)
-    session.commit()
+    with _get_diverse_question_lock(child_id, payload.study_date):
+        session.rollback()
+        session.expire_all()
+        current_record = session.exec(
+            select(DiverseDay).where(
+                DiverseDay.child_id == child_id,
+                DiverseDay.study_date == payload.study_date,
+            )
+        ).first()
+        if current_record is None:
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+        current_subjects = [
+            normalize_subject(subject)
+            for subject in (current_record.custom_subjects or [])
+            if isinstance(subject, dict)
+        ]
+        if payload.subject_index >= len(current_subjects):
+            raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+        current_subject = current_subjects[payload.subject_index]
+        current_lesson = next(
+            (
+                lesson
+                for lesson in current_subject.get("lessons", [])
+                if lesson.get("id") == payload.lesson_id
+            ),
+            None,
+        )
+        if current_lesson is None:
+            raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+
+        current_fronts = [
+            str(topic.get("topic") or "") for topic in current_subject.get("topics") or []
+        ]
+        try:
+            validated_questions = validate_card_batch(raw_questions, current_fronts)
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        for question in validated_questions:
+            topic = {
+                "id": stable_question_id(
+                    str(current_subject.get("name") or "Materia"), question.front
+                ),
+                "topic": question.front,
+                "answer": question.back,
+                "code_example": question.code_example,
+                "done": False,
+                "last_rating": None,
+                "review_count": 0,
+                "last_reviewed": None,
+            }
+            created_topics.append(topic)
+        current_subject["topics"].extend(created_topics)
+        current_lesson["topic_ids"].extend(topic["id"] for topic in created_topics)
+        current_lesson["topic_ids"] = list(dict.fromkeys(current_lesson["topic_ids"]))
+        current_record.custom_subjects = current_subjects
+        current_record.updated_at = datetime.utcnow()
+        session.add(current_record)
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
     return [_build_diverse_topic_schema(topic) for topic in created_topics]
 

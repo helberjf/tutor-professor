@@ -9,6 +9,7 @@ import os
 import sys
 import asyncio
 import tempfile
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -494,6 +495,9 @@ async def run() -> None:
             "O que e mitose?",
             "Divisao celular",
             "prova de vestibular",
+            "Determine from the subject whether it is technical",
+            "PRIORITIZE technical-interview questions",
+            "otherwise create exam-style",
         ]:
             if expected_prompt_part not in prompt:
                 raise AssertionError(f"expected {expected_prompt_part!r} in diverse prompt, got {prompt}")
@@ -577,11 +581,11 @@ async def run() -> None:
         assert_status(negative_subject_response, 422, "validate diverse subject index")
 
         technical_subject = {
-            "name": "Programação",
+            "name": "Sistemas Operacionais e Redes",
             "topics": [
                 {
-                    "topic": "O que e uma lista em Python?",
-                    "answer": "Uma colecao mutavel e ordenada.",
+                    "topic": "O que e um deadlock?",
+                    "answer": "Um bloqueio circular entre processos ou threads.",
                 }
             ],
             "lessons": [
@@ -590,8 +594,8 @@ async def run() -> None:
                     "title": "Listas",
                     "topics": [
                         {
-                            "topic": "O que e uma lista em Python?",
-                            "answer": "Uma colecao mutavel e ordenada.",
+                            "topic": "O que e um deadlock?",
+                            "answer": "Um bloqueio circular entre processos ou threads.",
                         }
                     ],
                 }
@@ -619,11 +623,11 @@ async def run() -> None:
             technical_ai_calls.append(prompt)
             return (
                 '{"questions":['
-                '{"question":"Como remover duplicados preservando a ordem?","answer":"Use um conjunto auxiliar.","code_example":"seen = set()\\nresult = [x for x in values if not (x in seen or seen.add(x))]"},'
-                '{"question":"Qual a complexidade de buscar em uma lista?","answer":"O(n) no pior caso."},'
-                '{"question":"Quando preferir uma tupla a uma lista?","answer":"Quando a colecao deve ser imutavel."},'
-                '{"question":"O que list comprehension melhora?","answer":"Concisao ao transformar ou filtrar iteraveis."},'
-                '{"question":"Como uma lista difere de um gerador?","answer":"A lista materializa valores; o gerador e lazy."}'
+                '{"question":"Como evitar deadlock ao adquirir dois locks?","answer":"Use uma ordem global consistente.","code_example":"with lock_a:\\n    with lock_b:\\n        update()"},'
+                '{"question":"Quais condicoes tornam um deadlock possivel?","answer":"Exclusao mutua, posse e espera, sem preempcao e espera circular."},'
+                '{"question":"Como mutex difere de semaforo?","answer":"Mutex tem posse exclusiva; semaforo controla uma contagem de recursos."},'
+                '{"question":"O que starvation significa no escalonamento?","answer":"Uma tarefa espera indefinidamente por recursos ou CPU."},'
+                '{"question":"Como detectar espera circular?","answer":"Procure ciclos no grafo de alocacao de recursos."}'
                 ']}'
             )
 
@@ -642,10 +646,88 @@ async def run() -> None:
             main.phrase_generation_service.generate_json_text = original_generate_diverse_json
         assert_status(technical_questions_response, 200, "append technical interview questions")
         technical_questions = technical_questions_response.json()
-        if len(technical_ai_calls) != 1 or "technical-interview" not in technical_ai_calls[0]:
-            raise AssertionError(f"expected technical-interview priority in one AI call, got {technical_ai_calls}")
+        if len(technical_ai_calls) != 1:
+            raise AssertionError(f"expected one technical-subject AI call, got {technical_ai_calls}")
+        for semantic_instruction in [
+            "Determine from the subject whether it is technical",
+            "PRIORITIZE technical-interview questions",
+            "otherwise create exam-style",
+        ]:
+            if semantic_instruction not in technical_ai_calls[0]:
+                raise AssertionError(
+                    f"expected semantic conditional instruction {semantic_instruction!r}, got {technical_ai_calls}"
+                )
         if not technical_questions[0].get("code_example"):
             raise AssertionError(f"expected optional code example to persist, got {technical_questions}")
+
+        concurrent_day_before = await client.get(
+            f"/api/study/diverse/{today.isoformat()}", headers=child_headers
+        )
+        assert_status(concurrent_day_before, 200, "load diverse day before concurrent append")
+        concurrent_subject_before = concurrent_day_before.json()["custom_subjects"][0]
+        concurrent_topics_before = len(concurrent_subject_before["topics"])
+        concurrent_ids_before = len(concurrent_subject_before["lessons"][0]["topic_ids"])
+        ai_overlap_barrier = main.threading.Barrier(2)
+        original_session_commit = main.Session.commit
+
+        batch_a = [
+            {"question": f"Questao concorrente A{i}?", "answer": f"Resposta A{i}."}
+            for i in range(1, 6)
+        ]
+        batch_b = [
+            {"question": f"Questao concorrente B{i}?", "answer": f"Resposta B{i}."}
+            for i in range(1, 6)
+        ]
+
+        def mock_concurrent_diverse_json(*, system_text, prompt, temperature, ai_config, timeout_seconds=None):
+            ai_overlap_barrier.wait(timeout=5)
+            cards = batch_a if "lote A" in prompt else batch_b
+            return main.json.dumps({"questions": cards})
+
+        def slow_concurrent_commit(session):
+            time.sleep(0.15)
+            return original_session_commit(session)
+
+        async def append_concurrent_batch(context: str):
+            return await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": today.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-mitose",
+                    "context": context,
+                },
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_concurrent_diverse_json
+            main.Session.commit = slow_concurrent_commit
+            concurrent_responses = await asyncio.gather(
+                append_concurrent_batch("lote A"),
+                append_concurrent_batch("lote B"),
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_generate_diverse_json
+            main.Session.commit = original_session_commit
+        for index, response in enumerate(concurrent_responses, start=1):
+            assert_status(response, 200, f"concurrent diverse append {index}")
+        concurrent_day_after = await client.get(
+            f"/api/study/diverse/{today.isoformat()}", headers=child_headers
+        )
+        assert_status(concurrent_day_after, 200, "reload diverse day after concurrent append")
+        concurrent_subject_after = concurrent_day_after.json()["custom_subjects"][0]
+        if len(concurrent_subject_after["topics"]) != concurrent_topics_before + 10:
+            raise AssertionError(
+                "concurrent appends must preserve both canonical batches: "
+                f"before={concurrent_topics_before}, after={len(concurrent_subject_after['topics'])}"
+            )
+        if len(concurrent_subject_after["lessons"][0]["topic_ids"]) != concurrent_ids_before + 10:
+            raise AssertionError(
+                "concurrent appends must preserve both lesson reference batches: "
+                f"before={concurrent_ids_before}, "
+                f"after={len(concurrent_subject_after['lessons'][0]['topic_ids'])}"
+            )
 
         children_after_noah_response = await client.get("/api/parent/children")
         assert_status(children_after_noah_response, 200, "reload children for ownership test")
