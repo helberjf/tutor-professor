@@ -186,12 +186,39 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             handler.index("setLoadedFlashcardTopicId(null)"),
             handler.index("setTopic(updated)"),
         )
-        self.assertLess(
-            handler.index("setFlashcards(fcs)"),
-            handler.index("setLoadedFlashcardTopicId(topic.id)"),
+        self.assertIn("await loadTopicFlashcards(topic.id)", handler)
+        self.assertNotIn("api.getTopicFlashcards", handler)
+        self.assertNotIn("setFlashcards([])", handler)
+        self.assertNotIn("contentWasRegenerated", handler)
+
+    def test_flashcard_load_failures_are_visible_retryable_and_not_empty(self):
+        for expected in (
+            "flashcardsLoadError",
+            "const loadTopicFlashcards = useCallback(async (topicId: number)",
+            "setFlashcardsLoadError('')",
+            "setLoadedFlashcardTopicId(null)",
+            "setFlashcardsLoadError(err instanceof Error ? err.message",
+            "onClick={() => void loadTopicFlashcards(topic.id)}",
+            "Tentar recarregar",
+            "flashcardsLoadError || loadedFlashcardTopicId !== topic.id",
+            "loadedFlashcardTopicId === topic.id && !flashcardsLoadError && flashcards.length === 0",
+            "const flashcardCountLabel",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.topic_view)
+        self.assertRegex(
+            self.topic_view,
+            r'role="alert"[^>]*>\s*<p>\{flashcardsLoadError',
         )
-        self.assertIn("contentWasRegenerated", handler)
-        self.assertIn("setFlashcards([])", handler)
+        form_start = self.topic_view.index("{showAdditionalFlashcardForm && (")
+        form_end = self.topic_view.index("{copyMessage && (", form_start)
+        additional_form = self.topic_view[form_start:form_end]
+        self.assertGreaterEqual(
+            additional_form.count(
+                "disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}"
+            ),
+            2,
+        )
 
     def test_topic_flashcard_helper_test_is_discoverable(self):
         self.assertEqual(
