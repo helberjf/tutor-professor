@@ -140,9 +140,11 @@ export interface DailyActivitySummarySchema {
 export type DiverseRating = 'knew' | 'partial' | 'unknown';
 
 export interface CodingTopic {
+  id: string;
   topic: string;
   done: boolean;
   answer?: string;
+  code_example?: string | null;
   /** Spaced-repetition state for the "Diverso" study mode */
   last_rating?: DiverseRating | null;
   review_count?: number;
@@ -152,7 +154,7 @@ export interface CodingTopic {
 export interface DiverseLessonBlock {
   id: string;
   title: string;
-  topics: CodingTopic[];
+  topic_ids: string[];
   created_at?: string | null;
 }
 
@@ -174,6 +176,7 @@ export interface CodingDayUpdatePayload {
 }
 
 export interface DiverseSubject {
+  id: string;
   name: string;
   topics: CodingTopic[];
   lessons?: DiverseLessonBlock[];

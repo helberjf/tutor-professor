@@ -9,6 +9,7 @@ import {
 
 import { StatusCard } from '@/components/status-card';
 import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
+import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
@@ -42,7 +43,7 @@ interface InlineStudyState {
 
 type StudyRating = 'knew' | 'partial' | 'unknown';
 type DiverseAIAction = 'create-subject' | 'suggest-subject' | 'topic' | 'lesson';
-type PendingLessonDraft = { subjectIndex: number; lesson: DiverseLessonBlock };
+type PendingLessonDraft = { subjectIndex: number; lesson: DiverseLessonBlock; topics: CodingTopic[] };
 
 const SUBJECT_META: Record<string, { label: string; badge: string; tone: string; iconColor: string; borderColor: string; bgColor: string }> = {
   react:      { label: 'React',      badge: '⚛',  tone: 'cyan',  iconColor: 'text-cyan-700',  borderColor: 'border-cyan-200',  bgColor: 'bg-cyan-50'  },
@@ -99,9 +100,16 @@ function getDiverseSubjectLessons(subject: DiverseSubject) {
   return subject.lessons ?? [];
 }
 
+function resolveDiverseLessonTopics(subject: DiverseSubject, lesson: DiverseLessonBlock) {
+  const topicsById = new Map(subject.topics.map((topic) => [topic.id, topic]));
+  return lesson.topic_ids
+    .map((topicId) => topicsById.get(topicId))
+    .filter((topic): topic is CodingTopic => topic !== undefined);
+}
+
 function getDiverseSubjectTopics(subject: DiverseSubject) {
   const seen = new Set<string>();
-  return [...subject.topics, ...getDiverseSubjectLessons(subject).flatMap((lesson) => lesson.topics)].filter((topic) => {
+  return subject.topics.filter((topic) => {
     const key = normalizeDiverseTopicText(topic.topic);
     if (!key || seen.has(key)) return false;
     seen.add(key);
@@ -166,6 +174,26 @@ function filterFreshDiverseTopics(topics: CodingTopic[], existingTopics: string[
 
 function createLocalLessonId() {
   return `lesson-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createLocalQuestionId() {
+  return `question-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createLocalSubjectId() {
+  return `subject-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function updateDiverseQuestionById(
+  subject: DiverseSubject,
+  questionId: string,
+  updater: (topic: CodingTopic) => CodingTopic,
+) {
+  return {
+    ...subject,
+    id: subject.id,
+    topics: subject.topics.map((topic) => topic.id === questionId ? updater(topic) : topic),
+  };
 }
 
 function buildLessonTitle(subject: DiverseSubject, topics: CodingTopic[]) {
@@ -529,16 +557,22 @@ export default function StudyPage() {
     const catalogEntry = catalog.find((c) => c.name.toLowerCase() === name.toLowerCase());
     const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
       ? catalogEntry.topics.map((t) => ({
+          id: t.id || createLocalQuestionId(),
           topic: t.topic,
           done: t.done ?? false,
           answer: t.answer ?? '',
+          code_example: t.code_example ?? null,
           // carry spaced-repetition history so reviews continue across days
           last_rating: t.last_rating ?? null,
           review_count: t.review_count ?? 0,
           last_reviewed: t.last_reviewed ?? null,
         }))
-      : [{ topic: 'Tópico 1', done: false, answer: '' }, { topic: 'Tópico 2', done: false, answer: '' }, { topic: 'Tópico 3', done: false, answer: '' }];
-    const newSubject: DiverseSubject = { name, topics: defaultTopics, lessons: [] };
+      : [
+          { id: createLocalQuestionId(), topic: 'Tópico 1', done: false, answer: '' },
+          { id: createLocalQuestionId(), topic: 'Tópico 2', done: false, answer: '' },
+          { id: createLocalQuestionId(), topic: 'Tópico 3', done: false, answer: '' },
+        ];
+    const newSubject: DiverseSubject = { id: createLocalSubjectId(), name, topics: defaultTopics, lessons: [] };
     const nextSubjects = [...subjects, newSubject];
     const newDay: DiverseDay = {
       id: diverseDay?.id ?? null,
@@ -554,8 +588,12 @@ export default function StudyPage() {
 
   function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
     if (!diverseDay || newTopics.length === 0) return;
+    const canonicalTopics = newTopics.map((topic) => ({
+      ...topic,
+      id: topic.id || createLocalQuestionId(),
+    }));
     const subjects = diverseDay.custom_subjects.map((s, si) =>
-      si === subjectIndex ? { ...s, topics: [...s.topics, ...newTopics] } : s
+      si === subjectIndex ? { ...s, topics: [...s.topics, ...canonicalTopics] } : s
     );
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
@@ -587,12 +625,11 @@ export default function StudyPage() {
       if (!current) return current;
       const subjects = current.custom_subjects.map((s, si) => {
         if (si !== subjectIndex) return s;
-        const lessons = getDiverseSubjectLessons(s).map((lesson, li) =>
-          li === lessonIndex
-            ? { ...lesson, topics: lesson.topics.map((t, ti) => (ti === topicIndex ? applyTopicRating(t, rating) : t)) }
-            : lesson
-        );
-        return { ...s, lessons };
+        const lesson = getDiverseSubjectLessons(s)[lessonIndex];
+        const questionId = lesson?.topic_ids[topicIndex];
+        return questionId
+          ? updateDiverseQuestionById(s, questionId, (topic) => applyTopicRating(topic, rating))
+          : s;
       });
       return { ...current, custom_subjects: subjects };
     });
@@ -655,6 +692,22 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
+  function updateDiverseLessonQuestion(
+    subjectIndex: number,
+    lessonIndex: number,
+    topicIndex: number,
+    updater: (topic: CodingTopic) => CodingTopic,
+  ) {
+    if (!diverseDay) return;
+    const subjects = diverseDay.custom_subjects.map((subject, index) => {
+      if (index !== subjectIndex) return subject;
+      const lesson = getDiverseSubjectLessons(subject)[lessonIndex];
+      const questionId = lesson?.topic_ids[topicIndex];
+      return questionId ? updateDiverseQuestionById(subject, questionId, updater) : subject;
+    });
+    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
+  }
+
   function updateDiverseLessonTitle(subjectIndex: number, lessonIndex: number, value: string) {
     updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({ ...lesson, title: value }));
   }
@@ -670,24 +723,15 @@ export default function StudyPage() {
   }
 
   function toggleDiverseLessonTopic(subjectIndex: number, lessonIndex: number, topicIndex: number) {
-    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
-      ...lesson,
-      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, done: !t.done } : t),
-    }));
+    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, done: !topic.done }));
   }
 
   function updateDiverseLessonTopicText(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
-    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
-      ...lesson,
-      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, topic: value } : t),
-    }));
+    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, topic: value }));
   }
 
   function updateDiverseLessonTopicAnswer(subjectIndex: number, lessonIndex: number, topicIndex: number, value: string) {
-    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({
-      ...lesson,
-      topics: lesson.topics.map((t, ti) => ti === topicIndex ? { ...t, answer: value } : t),
-    }));
+    updateDiverseLessonQuestion(subjectIndex, lessonIndex, topicIndex, (topic) => ({ ...topic, answer: value }));
   }
 
   function updateDiverseSubjectName(subjectIndex: number, value: string) {
@@ -702,6 +746,7 @@ export default function StudyPage() {
 
   function flashcardsToTopics(flashcards: { topic: string; answer: string }[]): CodingTopic[] {
     return flashcards.map((f) => ({
+      id: createLocalQuestionId(),
       topic: f.topic,
       done: false,
       answer: f.answer,
@@ -730,7 +775,7 @@ export default function StudyPage() {
         return;
       }
       const newTopics = flashcardsToTopics(result.flashcards);
-      const newSubject: DiverseSubject = { name: result.subject, topics: newTopics, lessons: [] };
+      const newSubject: DiverseSubject = { id: createLocalSubjectId(), name: result.subject, topics: newTopics, lessons: [] };
       const nextSubjects = [...subjects, newSubject];
       const newDay: DiverseDay = {
         id: diverseDay?.id ?? null,
@@ -817,9 +862,9 @@ export default function StudyPage() {
         id: createLocalLessonId(),
         title: buildLessonTitle(subject, topics),
         created_at: new Date().toISOString(),
-        topics,
+        topic_ids: topics.map((topic) => topic.id),
       };
-      setPendingLessonDraft({ subjectIndex, lesson });
+      setPendingLessonDraft({ subjectIndex, lesson, topics });
       setDiverseSaved('Preview da lição criado. Revise antes de salvar.');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível criar lição com IA.';
@@ -829,13 +874,16 @@ export default function StudyPage() {
 
   function savePendingLessonDraft() {
     if (!pendingLessonDraft) return;
-    const { subjectIndex, lesson } = pendingLessonDraft;
+    const { subjectIndex, lesson, topics } = pendingLessonDraft;
     setDiverseDay((current) => {
       const subject = current?.custom_subjects[subjectIndex];
       if (!current || !subject) return current;
-      const nextTopics = filterFreshDiverseTopics(lesson.topics, getDiverseAvoidTopics(subject));
+      const nextTopics = filterFreshDiverseTopics(topics, getDiverseAvoidTopics(subject));
+      const canonicalLesson = { ...lesson, topic_ids: nextTopics.map((topic) => topic.id) };
       const subjects = current.custom_subjects.map((s, si) =>
-        si === subjectIndex ? { ...s, topics: [...s.topics, ...nextTopics], lessons: [...getDiverseSubjectLessons(s), lesson] } : s
+        si === subjectIndex
+          ? { ...s, topics: [...s.topics, ...nextTopics], lessons: [...getDiverseSubjectLessons(s), canonicalLesson] }
+          : s
       );
       return { ...current, custom_subjects: subjects };
     });
@@ -1534,7 +1582,7 @@ function DiverseTab({
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.index, key)}
           onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.index, key, context)}
-          pendingLessonDraft={pendingLessonDraft?.subjectIndex === selectedSubject.index ? pendingLessonDraft.lesson : null}
+          pendingLessonDraft={pendingLessonDraft?.subjectIndex === selectedSubject.index ? pendingLessonDraft : null}
           onSaveLessonDraft={onSaveLessonDraft}
           onDiscardLessonDraft={onDiscardLessonDraft}
           onBulkAddTopics={(topics) => onBulkAddTopics(selectedSubject.index, topics)}
@@ -1703,7 +1751,7 @@ function DiverseSubjectDashboard({
   onUpdateSubjectName: (value: string) => void;
   onGenerateTopicAI: (apiKey?: string) => void;
   onGenerateLessonAI: (apiKey?: string, context?: string) => void;
-  pendingLessonDraft: DiverseLessonBlock | null;
+  pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
   onDiscardLessonDraft: () => void;
   onRemoveLesson: (li: number) => void;
@@ -1835,7 +1883,7 @@ function DiverseSubjectDashboard({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">Preview da lição</p>
-                <h2 className="mt-1 text-lg font-black text-slate-800">{pendingLessonDraft.title}</h2>
+                <h2 className="mt-1 text-lg font-black text-slate-800">{pendingLessonDraft.lesson.title}</h2>
                 <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} tópicos gerados</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:min-w-56">
@@ -1857,9 +1905,12 @@ function DiverseSubjectDashboard({
             </div>
             <ol className="mt-4 space-y-2">
               {pendingLessonDraft.topics.map((topic, index) => (
-                <li key={`${topic.topic}-${index}`} className="rounded-2xl border-2 border-white bg-white/90 p-3">
+                <li key={topic.id} className="rounded-2xl border-2 border-white bg-white/90 p-3">
                   <p className="text-sm font-black text-slate-800">{index + 1}. {topic.topic}</p>
                   <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{topic.answer || 'Sem resposta gerada.'}</p>
+                  {topic.code_example && (
+                    <SyntaxCodeBlock code={topic.code_example} language={subject.name} className="mt-3 p-3" />
+                  )}
                 </li>
               ))}
             </ol>
@@ -1893,7 +1944,8 @@ function DiverseSubjectDashboard({
                 <SubjectStudyCard
                   key={lesson.id}
                   defaultCollapsed={true}
-                  subject={{ name: lesson.title, topics: lesson.topics, lessons: [] }}
+                  subject={{ id: subject.id, name: lesson.title, topics: resolveDiverseLessonTopics(subject, lesson), lessons: [] }}
+                  syntaxLanguage={subject.name}
                   onRemove={() => onRemoveLesson(lessonIndex)}
                   onToggleTopic={(ti) => onToggleLessonTopic(lessonIndex, ti)}
                   onUpdateTopicText={(ti, v) => onUpdateLessonTopicText(lessonIndex, ti, v)}
@@ -1942,8 +1994,15 @@ function parseJsonTopics(raw: string): CodingTopic[] {
   const normalize = (item: Record<string, unknown>): CodingTopic | null => {
     const topic = (item.topic ?? item.question ?? item.front ?? item.pergunta ?? '') as string;
     const answer = (item.answer ?? item.back ?? item.resposta ?? '') as string;
+    const codeExample = (item.code_example ?? item.code ?? null) as string | null;
     if (!topic.trim()) return null;
-    return { topic: topic.trim(), answer: (answer ?? '').trim(), done: false };
+    return {
+      id: createLocalQuestionId(),
+      topic: topic.trim(),
+      answer: (answer ?? '').trim(),
+      code_example: codeExample?.trim() || null,
+      done: false,
+    };
   };
   if (Array.isArray(parsed)) return parsed.map(normalize).filter(Boolean) as CodingTopic[];
   const arr = parsed.flashcards ?? parsed.topics ?? parsed.items ?? parsed.cards;
@@ -1954,7 +2013,7 @@ function parseJsonTopics(raw: string): CodingTopic[] {
 
 function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
-  defaultCollapsed, onBulkAddTopics, onRateTopic, onSessionComplete,
+  defaultCollapsed, syntaxLanguage, onBulkAddTopics, onRateTopic, onSessionComplete,
 }: {
   subject: DiverseSubject;
   onRemove: () => void;
@@ -1963,10 +2022,12 @@ function SubjectStudyCard({
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
   defaultCollapsed?: boolean;
+  syntaxLanguage?: string;
   onBulkAddTopics?: (topics: CodingTopic[]) => void;
   onRateTopic?: (ti: number, rating: StudyRating) => void;
   onSessionComplete?: () => void;
 }) {
+  const codeLanguage = syntaxLanguage ?? subject.name;
   const studyCardRef = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false);
   const [activeTab, setActiveTab] = useState<'topics' | 'study' | 'view'>('topics');
@@ -2186,6 +2247,9 @@ function SubjectStudyCard({
                         placeholder="Explicacao / resposta (usada no modo Estudar)"
                         className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
                       />
+                      {t.code_example && (
+                        <SyntaxCodeBlock code={t.code_example} language={codeLanguage} className="mt-3 p-3" />
+                      )}
                     </div>
                   )}
                 </li>
@@ -2350,6 +2414,9 @@ function SubjectStudyCard({
                     <p className="text-sm font-semibold leading-relaxed text-slate-700">
                       {currentTopic.answer?.trim() || <span className="italic text-slate-400">Sem explicação cadastrada. Adicione uma na aba Lista.</span>}
                     </p>
+                    {currentTopic.code_example && (
+                      <SyntaxCodeBlock code={currentTopic.code_example} language={codeLanguage} className="mt-3 p-3" />
+                    )}
                     {studyState.userAnswer.trim() && (
                       <div className="mt-3 border-t border-emerald-200 pt-3">
                         <p className="text-xs font-bold text-slate-400 mb-1">Sua resposta</p>
@@ -2412,6 +2479,9 @@ function SubjectStudyCard({
                         <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
                           {topic.answer?.trim() || 'Sem explicacao cadastrada.'}
                         </p>
+                        {topic.code_example && (
+                          <SyntaxCodeBlock code={topic.code_example} language={codeLanguage} className="mt-3 p-3" />
+                        )}
                       </div>
                     </div>
                   </li>
