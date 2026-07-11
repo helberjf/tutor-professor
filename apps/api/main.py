@@ -111,7 +111,7 @@ from schemas.schemas import (
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
-from services.diverse_question_service import normalize_subject, stable_question_id
+from services.diverse_question_service import normalize_subject, normalize_subjects, stable_question_id
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
     apply_deck_attempt,
@@ -1612,9 +1612,7 @@ def get_diverse_catalog(request: Request, session: Session = Depends(get_session
     ).all()
     seen: dict[str, dict] = {}
     for record in records:
-        for subject in (record.custom_subjects or []):
-            if not isinstance(subject, dict):
-                continue
+        for subject in normalize_subjects(record.custom_subjects or []):
             name = subject.get("name", "").strip()
             if name and name not in seen:
                 seen[name] = {"name": name, "topics": subject.get("topics", [])}
@@ -1655,6 +1653,7 @@ def _build_diverse_lesson_schema(raw_lesson: dict) -> DiverseLessonBlockSchema:
 
 def _build_diverse_subject_schema(raw_subject: dict) -> DiverseSubjectSchema:
     return DiverseSubjectSchema(
+        id=str(raw_subject.get("id") or "")[:80],
         name=str(raw_subject.get("name", "")).strip()[:60] or "Materia",
         topics=[_build_diverse_topic_schema(t) for t in raw_subject.get("topics", []) if isinstance(t, dict)],
         lessons=[
@@ -1713,6 +1712,7 @@ def _next_diverse_updated_at(previous: datetime) -> datetime:
 def _normalize_diverse_subject_input(subject: DiverseSubjectSchema) -> dict:
     """Return validated subject data in the canonical persistence shape."""
     raw = {
+        "id": subject.id,
         "name": subject.name,
         "topics": [_topic_payload(topic) for topic in subject.topics],
         "lessons": [
@@ -1755,9 +1755,8 @@ def get_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            _build_diverse_subject_schema(normalize_subject(s))
-            for s in (record.custom_subjects or [])
-            if isinstance(s, dict)
+            _build_diverse_subject_schema(subject)
+            for subject in normalize_subjects(record.custom_subjects or [])
         ],
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -1778,13 +1777,13 @@ def upsert_diverse_day(
     record = session.exec(
         select(DiverseDay).where(DiverseDay.child_id == child_id, DiverseDay.study_date == study_date)
     ).first()
-    normalized_old_subjects = [
-        normalize_subject(subject)
-        for subject in (record.custom_subjects if record is not None else [])
-        if isinstance(subject, dict)
-    ]
+    normalized_old_subjects = normalize_subjects(
+        record.custom_subjects if record is not None else []
+    )
     old_summary = summarize_diverse_activity(normalized_old_subjects)
-    subjects_data = [normalize_subject(_normalize_diverse_subject_input(s)) for s in payload.custom_subjects]
+    subjects_data = normalize_subjects(
+        [_normalize_diverse_subject_input(subject) for subject in payload.custom_subjects]
+    )
     new_summary = summarize_diverse_activity(subjects_data)
     if record is None:
         record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)
@@ -1836,9 +1835,8 @@ def upsert_diverse_day(
         id=record.id,
         study_date=record.study_date,
         custom_subjects=[
-            _build_diverse_subject_schema(normalize_subject(s))
-            for s in (record.custom_subjects or [])
-            if isinstance(s, dict)
+            _build_diverse_subject_schema(subject)
+            for subject in normalize_subjects(record.custom_subjects or [])
         ],
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -1891,11 +1889,7 @@ def generate_diverse_questions(
     if record is None:
         raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
 
-    normalized_subjects = [
-        normalize_subject(subject)
-        for subject in (record.custom_subjects or [])
-        if isinstance(subject, dict)
-    ]
+    normalized_subjects = normalize_subjects(record.custom_subjects or [])
     if payload.subject_index >= len(normalized_subjects):
         raise HTTPException(status_code=404, detail="Materia nao encontrada.")
     selected_subject = normalized_subjects[payload.subject_index]
@@ -1920,8 +1914,10 @@ def generate_diverse_questions(
 
     subject_name = str(selected_subject.get("name") or "Materia")
     lesson_title = str(selected_lesson.get("title") or "Licao")
-    expected_subject_identity = (payload.subject_index, subject_name)
-    expected_lesson_identity = (payload.lesson_id, lesson_title)
+    selected_subject_id = str(selected_subject.get("id") or "")
+    selected_lesson_id = str(selected_lesson.get("id") or "")
+    expected_subject_identity = (selected_subject_id, subject_name)
+    expected_lesson_identity = (selected_lesson_id, lesson_title)
     existing_topics = selected_subject.get("topics") or []
     existing_fronts = [str(topic.get("topic") or "") for topic in existing_topics]
     topics_by_id = {
@@ -2003,16 +1999,19 @@ def generate_diverse_questions(
         ).first()
         if current_record is None:
             raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
-        current_subjects = [
-            normalize_subject(subject)
-            for subject in (current_record.custom_subjects or [])
-            if isinstance(subject, dict)
-        ]
-        if payload.subject_index >= len(current_subjects):
-            raise HTTPException(status_code=404, detail="Materia nao encontrada.")
-        current_subject = current_subjects[payload.subject_index]
+        current_subjects = normalize_subjects(current_record.custom_subjects or [])
+        current_subject = next(
+            (
+                subject
+                for subject in current_subjects
+                if subject.get("id") == selected_subject_id
+            ),
+            None,
+        )
+        if current_subject is None:
+            raise HTTPException(status_code=409, detail="A materia mudou durante a geracao.")
         current_subject_identity = (
-            payload.subject_index,
+            str(current_subject.get("id") or ""),
             str(current_subject.get("name") or "Materia"),
         )
         if current_subject_identity != expected_subject_identity:
@@ -2021,7 +2020,7 @@ def generate_diverse_questions(
             (
                 lesson
                 for lesson in current_subject.get("lessons", [])
-                if lesson.get("id") == payload.lesson_id
+                if lesson.get("id") == selected_lesson_id
             ),
             None,
         )

@@ -370,6 +370,8 @@ async def run() -> None:
         assert_status(diverse_response, 200, "save diverse day with lesson blocks")
         diverse_payload = diverse_response.json()
         saved_subject = diverse_payload["custom_subjects"][0]
+        if not saved_subject.get("id", "").startswith("subject-"):
+            raise AssertionError(f"expected persisted canonical subject identity, got {saved_subject}")
         saved_lesson = saved_subject["lessons"][0]
         if "topics" in saved_lesson:
             raise AssertionError(f"expected no embedded diverse lesson topics, got {diverse_payload}")
@@ -377,6 +379,18 @@ async def run() -> None:
         canonical_topics = {topic["id"]: topic for topic in saved_subject["topics"]}
         if len(lesson_topic_ids) != 1 or canonical_topics.get(lesson_topic_ids[0], {}).get("topic") != "Je m'appelle":
             raise AssertionError(f"expected diverse lesson reference to round-trip, got {diverse_payload}")
+        with Session(main.engine) as session:
+            stored_identity_record = session.exec(
+                main.select(main.DiverseDay).where(
+                    main.DiverseDay.child_id == child_id,
+                    main.DiverseDay.study_date == today,
+                )
+            ).first()
+            stored_subject_id = stored_identity_record.custom_subjects[0].get("id")
+        if stored_subject_id != saved_subject["id"]:
+            raise AssertionError(
+                f"subject identity was not persisted canonically: stored={stored_subject_id}, response={saved_subject}"
+            )
 
         legacy_duplicate_subject = {
             "name": "Biologia",
@@ -759,6 +773,104 @@ async def run() -> None:
             raise AssertionError(f"expected external reorder to remain committed, got {reordered_subjects}")
         if any(len(subject["topics"]) != 1 for subject in reordered_subjects):
             raise AssertionError(f"reordered subject received questions for old index, got {reordered_subjects}")
+
+        canonical_reorder_date = today + timedelta(days=16)
+        canonical_reorder_subjects = [
+            {
+                "id": "subject-canonical-a",
+                "name": "Materia com mesmo nome",
+                "topics": [
+                    {"id": "question-canonical-a", "topic": "Questao original canonica A?", "answer": "A."}
+                ],
+                "lessons": [
+                    {
+                        "id": "lesson-canonical-a",
+                        "title": "Mesmo titulo de licao",
+                        "topic_ids": ["question-canonical-a"],
+                    }
+                ],
+            },
+            {
+                "id": "subject-canonical-b",
+                "name": "Materia com mesmo nome",
+                "topics": [
+                    {"id": "question-canonical-b", "topic": "Questao original canonica B?", "answer": "B."}
+                ],
+                "lessons": [
+                    {
+                        "id": "lesson-canonical-b",
+                        "title": "Mesmo titulo de licao",
+                        "topic_ids": ["question-canonical-b"],
+                    }
+                ],
+            },
+        ]
+        with Session(main.engine) as session:
+            session.add(
+                main.DiverseDay(
+                    child_id=child_id,
+                    study_date=canonical_reorder_date,
+                    custom_subjects=canonical_reorder_subjects,
+                )
+            )
+            session.commit()
+
+        canonical_generated_fronts = [
+            f"Questao para identidade canonica A {index}?" for index in range(1, 6)
+        ]
+
+        def mock_canonical_reorder_during_ai(**kwargs):
+            with Session(main.engine) as session:
+                canonical_record = session.exec(
+                    main.select(main.DiverseDay).where(
+                        main.DiverseDay.child_id == child_id,
+                        main.DiverseDay.study_date == canonical_reorder_date,
+                    )
+                ).first()
+                canonical_record.custom_subjects = list(reversed(canonical_record.custom_subjects))
+                canonical_record.updated_at = main.datetime.utcnow()
+                session.add(canonical_record)
+                session.commit()
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"question": front, "answer": "Resposta A."}
+                        for front in canonical_generated_fronts
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_canonical_reorder_during_ai
+            canonical_reorder_response = await client.post(
+                "/api/study/diverse/questions/generate",
+                headers=child_headers,
+                json={
+                    "study_date": canonical_reorder_date.isoformat(),
+                    "subject_index": 0,
+                    "lesson_id": "lesson-canonical-a",
+                },
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_capacity_generate_json
+        assert_status(canonical_reorder_response, 200, "follow canonical subject identity after reorder")
+        canonical_reorder_day = await client.get(
+            f"/api/study/diverse/{canonical_reorder_date.isoformat()}", headers=child_headers
+        )
+        assert_status(canonical_reorder_day, 200, "reload canonical reorder result")
+        canonical_by_id = {
+            subject["id"]: subject for subject in canonical_reorder_day.json()["custom_subjects"]
+        }
+        canonical_a = canonical_by_id["subject-canonical-a"]
+        canonical_b = canonical_by_id["subject-canonical-b"]
+        if len(canonical_a["topics"]) != 6 or len(canonical_a["lessons"][0]["topic_ids"]) != 6:
+            raise AssertionError(f"generated questions did not follow canonical A identity: {canonical_a}")
+        if len(canonical_b["topics"]) != 1 or len(canonical_b["lessons"][0]["topic_ids"]) != 1:
+            raise AssertionError(f"canonical B was incorrectly mutated after reorder: {canonical_b}")
+        if not set(canonical_generated_fronts).issubset(
+            {topic["topic"] for topic in canonical_a["topics"]}
+        ):
+            raise AssertionError(f"canonical A is missing generated questions: {canonical_a}")
 
         diverse_ai_calls: list[dict[str, str]] = []
         original_generate_diverse_json = main.phrase_generation_service.generate_json_text

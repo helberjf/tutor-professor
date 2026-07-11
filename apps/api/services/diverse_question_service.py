@@ -23,6 +23,46 @@ def stable_question_id(subject_name: str, front: str) -> str:
     return f"question-{hashlib.sha1(key.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _stable_entity_id(prefix: str, key: str, ordinal: int, used_ids: set[str]) -> str:
+    salt = 0
+    while True:
+        source = f"{normalize_text(key)}|{ordinal}|{salt}"
+        candidate = f"{prefix}-{hashlib.sha1(source.encode('utf-8')).hexdigest()[:16]}"
+        if candidate not in used_ids:
+            return candidate
+        salt += 1
+
+
+def normalize_subjects(raw_subjects: Any) -> list[dict]:
+    """Normalize a Diverse subject list while assigning persistent unique identities."""
+    source_subjects = [item for item in (raw_subjects or []) if isinstance(item, dict)]
+    reserved_ids = {
+        subject_id
+        for item in source_subjects
+        if (subject_id := _limited_text(item.get("id"), 80))
+    }
+    used_ids: set[str] = set()
+    normalized_subjects: list[dict] = []
+
+    for ordinal, item in enumerate(source_subjects):
+        explicit_id = _limited_text(item.get("id"), 80)
+        if explicit_id and explicit_id not in used_ids:
+            subject_id = explicit_id
+        else:
+            subject_id = _stable_entity_id(
+                "subject",
+                str(item.get("name") or "Materia"),
+                ordinal,
+                reserved_ids | used_ids,
+            )
+        used_ids.add(subject_id)
+        prepared = deepcopy(item)
+        prepared["id"] = subject_id
+        normalized_subjects.append(normalize_subject(prepared))
+
+    return normalized_subjects
+
+
 def _is_canonical_deterministic_id(value: str) -> bool:
     prefix = "question-"
     digest = value[len(prefix) :] if value.startswith(prefix) else ""
@@ -122,6 +162,9 @@ def normalize_subject(raw: dict) -> dict:
     """
     source = deepcopy(raw) if isinstance(raw, dict) else {}
     name = _limited_text(source.get("name"), 60) or "Materia"
+    subject_id = _limited_text(source.get("id"), 80) or _stable_entity_id(
+        "subject", name, 0, set()
+    )
     by_key: dict[str, dict] = {}
     aliases: dict[str, str] = {}
     subject_keys: set[str] = set()
@@ -170,9 +213,29 @@ def normalize_subject(raw: dict) -> dict:
         retain_explicit_id(key, canonical, item)
 
     lessons: list[dict] = []
-    for raw_lesson in source.get("lessons") or []:
+    source_lessons = [
+        lesson for lesson in (source.get("lessons") or []) if isinstance(lesson, dict)
+    ]
+    reserved_lesson_ids = {
+        lesson_id
+        for lesson in source_lessons
+        if (lesson_id := _limited_text(lesson.get("id"), 80))
+    }
+    used_lesson_ids: set[str] = set()
+    for lesson_ordinal, raw_lesson in enumerate(source_lessons):
         if not isinstance(raw_lesson, dict):
             continue
+        explicit_lesson_id = _limited_text(raw_lesson.get("id"), 80)
+        if explicit_lesson_id and explicit_lesson_id not in used_lesson_ids:
+            lesson_id = explicit_lesson_id
+        else:
+            lesson_id = _stable_entity_id(
+                "lesson",
+                f"{subject_id}|{raw_lesson.get('title') or 'Licao'}",
+                lesson_ordinal,
+                reserved_lesson_ids | used_lesson_ids,
+            )
+        used_lesson_ids.add(lesson_id)
         ids: list[str] = []
         for raw_id in raw_lesson.get("topic_ids") or []:
             question_id = _limited_text(raw_id, 80)
@@ -197,7 +260,7 @@ def normalize_subject(raw: dict) -> dict:
 
         lessons.append(
             {
-                "id": _limited_text(raw_lesson.get("id"), 80),
+                "id": lesson_id,
                 "title": _limited_text(raw_lesson.get("title"), 80) or "Licao",
                 "created_at": (
                     _limited_text(raw_lesson.get("created_at"), 40)
@@ -218,4 +281,9 @@ def normalize_subject(raw: dict) -> dict:
             )
         )
 
-    return {"name": name, "topics": list(by_key.values()), "lessons": lessons}
+    return {
+        "id": subject_id,
+        "name": name,
+        "topics": list(by_key.values()),
+        "lessons": lessons,
+    }
