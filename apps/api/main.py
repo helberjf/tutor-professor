@@ -5,9 +5,10 @@ import os
 import re
 import secrets
 import threading
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -19,7 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import text
+from sqlalchemy import text, update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
@@ -174,7 +176,15 @@ AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
 _topic_flashcard_locks_guard = threading.Lock()
 _topic_flashcard_locks: dict[int, threading.Lock] = {}
 _diverse_question_locks_guard = threading.Lock()
-_diverse_question_locks: dict[tuple[int, date], threading.Lock] = {}
+
+
+class _DiverseQuestionLockEntry:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.users = 0
+
+
+_diverse_question_locks: dict[tuple[int, date], _DiverseQuestionLockEntry] = {}
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
@@ -429,15 +439,21 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
     logged_user_id = parent_session.user_id if parent_session is not None else None
 
     if request is not None:
-        raw_child_id = request.headers.get("x-child-id", "").strip()
-        if raw_child_id.isdigit():
-            selected_child = session.get(ChildProfile, int(raw_child_id))
-            if selected_child is not None and (
+        requested_header = request.headers.get("x-child-id")
+        if requested_header is not None:
+            raw_child_id = requested_header.strip()
+            if not raw_child_id.isdigit():
+                raise HTTPException(status_code=400, detail="X-Child-ID invalido.")
+            requested_child_id = int(raw_child_id)
+            selected_child = session.get(ChildProfile, requested_child_id)
+            is_accessible = selected_child is not None and (
                 (parent_session is not None and logged_user_id is None)
                 or selected_child.user_id == logged_user_id
                 or (parent_session is None and selected_child.user_id is None)
-            ):
-                return normalize_child_voice_preference(selected_child, session=session)
+            )
+            if not is_accessible or selected_child is None or selected_child.id != requested_child_id:
+                raise HTTPException(status_code=404, detail="Crianca nao encontrada.")
+            return normalize_child_voice_preference(selected_child, session=session)
 
     return get_default_child(session=session, user_id=logged_user_id)
 
@@ -1671,6 +1687,29 @@ def _lesson_payload(lesson: DiverseLessonBlockSchema) -> dict:
     }
 
 
+def _cas_update_diverse_day(
+    session: Session,
+    *,
+    record_id: int,
+    expected_updated_at: datetime,
+    custom_subjects: list[dict],
+    new_updated_at: datetime,
+) -> bool:
+    result = session.exec(
+        update(DiverseDay)
+        .where(
+            DiverseDay.id == record_id,
+            DiverseDay.updated_at == expected_updated_at,
+        )
+        .values(custom_subjects=custom_subjects, updated_at=new_updated_at)
+    )
+    return result.rowcount == 1
+
+
+def _next_diverse_updated_at(previous: datetime) -> datetime:
+    return max(datetime.utcnow(), previous + timedelta(microseconds=1))
+
+
 def _normalize_diverse_subject_input(subject: DiverseSubjectSchema) -> dict:
     """Return validated subject data in the canonical persistence shape."""
     raw = {
@@ -1749,9 +1788,6 @@ def upsert_diverse_day(
     new_summary = summarize_diverse_activity(subjects_data)
     if record is None:
         record = DiverseDay(child_id=child_id, study_date=study_date, custom_subjects=subjects_data, created_at=now, updated_at=now)
-    else:
-        record.custom_subjects = subjects_data
-        record.updated_at = now
     if (new_summary["topic_count"] > 0 or new_summary["lesson_count"] > 0) and new_summary != old_summary:
         subject_names = new_summary["subject_names"]
         add_daily_activity(
@@ -1766,9 +1802,36 @@ def upsert_diverse_day(
             ),
             result_details=new_summary,
         )
-    session.add(record)
-    session.commit()
-    session.refresh(record)
+    if record.id is None:
+        session.add(record)
+        try:
+            session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso foi criado simultaneamente. Recarregue e tente novamente.",
+            ) from exc
+        session.refresh(record)
+    else:
+        if not _cas_update_diverse_day(
+            session,
+            record_id=record.id,
+            expected_updated_at=record.updated_at,
+            custom_subjects=subjects_data,
+            new_updated_at=_next_diverse_updated_at(record.updated_at),
+        ):
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso mudou. Recarregue antes de salvar novamente.",
+            )
+        session.commit()
+        session.expire_all()
+        refreshed_record = session.get(DiverseDay, record.id)
+        if refreshed_record is None:
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+        record = refreshed_record
     return DiverseDaySchema(
         id=record.id,
         study_date=record.study_date,
@@ -1782,10 +1845,32 @@ def upsert_diverse_day(
     )
 
 
-def _get_diverse_question_lock(child_id: int, study_date: date) -> threading.Lock:
+@contextmanager
+def _diverse_question_lock(child_id: int, study_date: date) -> Iterator[None]:
     key = (child_id, study_date)
     with _diverse_question_locks_guard:
-        return _diverse_question_locks.setdefault(key, threading.Lock())
+        entry = _diverse_question_locks.get(key)
+        if entry is None:
+            entry = _DiverseQuestionLockEntry()
+            _diverse_question_locks[key] = entry
+        entry.users += 1
+    entry.lock.acquire()
+    try:
+        yield
+    finally:
+        entry.lock.release()
+        with _diverse_question_locks_guard:
+            entry.users -= 1
+            if entry.users == 0 and _diverse_question_locks.get(key) is entry:
+                _diverse_question_locks.pop(key, None)
+
+
+def _ensure_diverse_question_capacity(subject: dict, lesson: dict) -> None:
+    if len(subject.get("topics") or []) > 1545 or len(lesson.get("topic_ids") or []) > 45:
+        raise HTTPException(
+            status_code=409,
+            detail="A materia ou licao atingiu o limite para adicionar mais cinco questoes.",
+        )
 
 
 @app.post("/api/study/diverse/questions/generate", response_model=list[CodingTopicSchema])
@@ -1824,6 +1909,7 @@ def generate_diverse_questions(
     )
     if selected_lesson is None:
         raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+    _ensure_diverse_question_capacity(selected_subject, selected_lesson)
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
@@ -1834,6 +1920,8 @@ def generate_diverse_questions(
 
     subject_name = str(selected_subject.get("name") or "Materia")
     lesson_title = str(selected_lesson.get("title") or "Licao")
+    expected_subject_identity = (payload.subject_index, subject_name)
+    expected_lesson_identity = (payload.lesson_id, lesson_title)
     existing_topics = selected_subject.get("topics") or []
     existing_fronts = [str(topic.get("topic") or "") for topic in existing_topics]
     topics_by_id = {
@@ -1904,7 +1992,7 @@ def generate_diverse_questions(
     # Serialize only the persistence phase. AI requests remain concurrent and do not
     # hold this lock while waiting on an external provider.
     created_topics: list[dict] = []
-    with _get_diverse_question_lock(child_id, payload.study_date):
+    with _diverse_question_lock(child_id, payload.study_date):
         session.rollback()
         session.expire_all()
         current_record = session.exec(
@@ -1923,6 +2011,12 @@ def generate_diverse_questions(
         if payload.subject_index >= len(current_subjects):
             raise HTTPException(status_code=404, detail="Materia nao encontrada.")
         current_subject = current_subjects[payload.subject_index]
+        current_subject_identity = (
+            payload.subject_index,
+            str(current_subject.get("name") or "Materia"),
+        )
+        if current_subject_identity != expected_subject_identity:
+            raise HTTPException(status_code=409, detail="A materia mudou durante a geracao.")
         current_lesson = next(
             (
                 lesson
@@ -1933,6 +2027,12 @@ def generate_diverse_questions(
         )
         if current_lesson is None:
             raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+        if (
+            str(current_lesson.get("id") or ""),
+            str(current_lesson.get("title") or "Licao"),
+        ) != expected_lesson_identity:
+            raise HTTPException(status_code=409, detail="A licao mudou durante a geracao.")
+        _ensure_diverse_question_capacity(current_subject, current_lesson)
 
         current_fronts = [
             str(topic.get("topic") or "") for topic in current_subject.get("topics") or []
@@ -1960,9 +2060,19 @@ def generate_diverse_questions(
         current_subject["topics"].extend(created_topics)
         current_lesson["topic_ids"].extend(topic["id"] for topic in created_topics)
         current_lesson["topic_ids"] = list(dict.fromkeys(current_lesson["topic_ids"]))
-        current_record.custom_subjects = current_subjects
-        current_record.updated_at = datetime.utcnow()
-        session.add(current_record)
+        new_updated_at = _next_diverse_updated_at(current_record.updated_at)
+        if current_record.id is None or not _cas_update_diverse_day(
+            session,
+            record_id=current_record.id or 0,
+            expected_updated_at=current_record.updated_at,
+            custom_subjects=current_subjects,
+            new_updated_at=new_updated_at,
+        ):
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso mudou durante a geracao. Recarregue e tente novamente.",
+            )
         try:
             session.commit()
         except Exception:
