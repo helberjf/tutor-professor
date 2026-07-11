@@ -17,6 +17,63 @@ from schemas.schemas import DiverseDayUpdateSchema  # noqa: E402
 
 
 class DiverseQuestionNormalizationTests(unittest.TestCase):
+    def test_schema_preserves_full_legacy_aggregate_capacity(self) -> None:
+        subject_topics = [
+            {"topic": f"Pergunta da materia {index}", "answer": f"Resposta {index}"}
+            for index in range(50)
+        ]
+        lessons = [
+            {
+                "id": f"lesson-{lesson_index}",
+                "title": f"Licao {lesson_index}",
+                "topics": [
+                    {
+                        "topic": f"Pergunta da licao {lesson_index}-{question_index}",
+                        "answer": f"Resposta {lesson_index}-{question_index}",
+                    }
+                    for question_index in range(50)
+                ],
+            }
+            for lesson_index in range(30)
+        ]
+
+        payload = DiverseDayUpdateSchema.model_validate(
+            {"custom_subjects": [{"name": "Materia completa", "topics": subject_topics, "lessons": lessons}]}
+        )
+        serialized = payload.model_dump(mode="json")
+        round_tripped = DiverseDayUpdateSchema.model_validate(serialized).model_dump(mode="json")
+        subject = round_tripped["custom_subjects"][0]
+
+        self.assertEqual(len(subject["topics"]), 1550)
+        self.assertEqual(len(subject["lessons"]), 30)
+        self.assertTrue(all(len(lesson["topic_ids"]) == 50 for lesson in subject["lessons"]))
+        self.assertEqual(len({question["id"] for question in subject["topics"]}), 1550)
+
+    def test_drops_dangling_lesson_references_after_alias_resolution(self) -> None:
+        subject = normalize_subject(
+            {
+                "name": "Biologia",
+                "topics": [{"id": "question-valid", "topic": "O que e mitose?"}],
+                "lessons": [
+                    {
+                        "id": "lesson-1",
+                        "title": "Mitose",
+                        "topic_ids": ["question-missing", "question-valid", "question-missing", "question-valid"],
+                    }
+                ],
+            }
+        )
+
+        self.assertEqual(subject["lessons"][0]["topic_ids"], ["question-valid"])
+
+    def test_upsert_normalizes_stored_legacy_subjects_before_activity_comparison(self) -> None:
+        main = (API / "main.py").read_text(encoding="utf-8")
+        upsert_body = main.split("def upsert_diverse_day(", 1)[1].split("_LEVEL_LABELS", 1)[0]
+        before_new_subjects = upsert_body.split("subjects_data =", 1)[0]
+
+        self.assertIn("normalize_subject", before_new_subjects)
+        self.assertIn("old_summary = summarize_diverse_activity(normalized_old_subjects)", before_new_subjects)
+
     def test_schema_accepts_legacy_embedded_questions_without_serializing_copies(self) -> None:
         payload = DiverseDayUpdateSchema.model_validate(
             {
