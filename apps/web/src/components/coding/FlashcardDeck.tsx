@@ -99,7 +99,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
   const stats = overview?.stats;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <section className="kid-surface border-primary/30 p-6">
         <button type="button" onClick={onBack} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
           <ArrowLeft size={16} /> Todas as matérias
