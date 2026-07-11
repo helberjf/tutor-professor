@@ -20,6 +20,7 @@ interface Props {
 }
 
 type Tab = 'study' | 'cards' | 'options';
+type DeckReloadResult = { overview: boolean; topics: boolean };
 
 const STATE_BADGE: Record<string, { label: string; cls: string }> = {
   new: { label: 'Novo', cls: 'bg-sky-100 text-sky-700' },
@@ -33,36 +34,63 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
   const [overview, setOverview] = useState<DeckOverview | null>(null);
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [overviewError, setOverviewError] = useState('');
+  const [topicsError, setTopicsError] = useState('');
+  const [topicsLoading, setTopicsLoading] = useState(false);
   const loggedCompletionRef = useRef(false);
-  const loadRequestRef = useRef(0);
+  const overviewLoadRequestRef = useRef(0);
+  const topicsLoadRequestRef = useRef(0);
 
-  async function loadDeckData(showLoading = false): Promise<boolean> {
-    const requestId = ++loadRequestRef.current;
-    if (showLoading) setLoading(true);
-    setError('');
+  async function retryTopics(): Promise<boolean> {
+    const requestId = ++topicsLoadRequestRef.current;
+    setTopicsLoading(true);
+    setTopicsError('');
     try {
-      const [nextOverview, nextTopics] = await Promise.all([
-        api.getDeckOverview(subjectId),
-        api.getCodingTopics(subjectId),
-      ]);
-      if (requestId !== loadRequestRef.current) return false;
-      setOverview(nextOverview);
+      const nextTopics = await api.getCodingTopics(subjectId);
+      if (requestId !== topicsLoadRequestRef.current) return false;
       setTopics(nextTopics);
       return true;
     } catch {
-      if (requestId === loadRequestRef.current) {
-        setError('Não foi possível carregar o deck.');
+      if (requestId === topicsLoadRequestRef.current) {
+        setTopicsError('Não foi possível carregar os tópicos.');
       }
       return false;
     } finally {
-      if (requestId === loadRequestRef.current) setLoading(false);
+      if (requestId === topicsLoadRequestRef.current) setTopicsLoading(false);
+    }
+  }
+
+  async function loadDeckData(showLoading = false): Promise<DeckReloadResult> {
+    const requestId = ++overviewLoadRequestRef.current;
+    if (showLoading) setLoading(true);
+    setOverviewError('');
+    try {
+      const [overviewResult, topicsResult] = await Promise.allSettled([
+        api.getDeckOverview(subjectId),
+        retryTopics(),
+      ]);
+      if (requestId !== overviewLoadRequestRef.current) {
+        return { overview: false, topics: false };
+      }
+      const overviewLoaded = overviewResult.status === 'fulfilled';
+      const topicsLoaded = topicsResult.status === 'fulfilled' && topicsResult.value;
+      if (overviewLoaded) {
+        setOverview(overviewResult.value);
+      } else {
+        setOverviewError('Não foi possível carregar o deck.');
+      }
+      return { overview: overviewLoaded, topics: topicsLoaded };
+    } finally {
+      if (requestId === overviewLoadRequestRef.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     void loadDeckData(true);
-    return () => { loadRequestRef.current += 1; };
+    return () => {
+      overviewLoadRequestRef.current += 1;
+      topicsLoadRequestRef.current += 1;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
@@ -97,11 +125,16 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
         <DeckTab active={tab === 'options'} onClick={() => setTab('options')} icon={<Settings2 size={16} />} label="Opções" />
       </div>
 
-      {error && <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
+      {overviewError && (
+        <div role="alert" className="flex flex-col gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700 sm:flex-row sm:items-center sm:justify-between">
+          <p>{overviewError}</p>
+          <button type="button" onClick={() => void loadDeckData(true)} className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs hover:bg-rose-100">Tentar recarregar deck</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={32} /></div>
-      ) : tab === 'study' ? (
+      ) : !overview ? null : tab === 'study' ? (
         <StudyTab
           subjectId={subjectId}
           subjectName={subjectName}
@@ -115,6 +148,9 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
           subjectName={subjectName}
           overview={overview}
           topics={topics}
+          topicsError={topicsError}
+          topicsLoading={topicsLoading}
+          retryTopics={retryTopics}
           onReload={loadDeckData}
           onChanged={onChanged}
         />
@@ -321,12 +357,15 @@ function GradeButton({ label, preview, onClick, disabled, cls }: { label: string
 
 // ── Cards tab (browser) ──────────────────────────────────────────────────────
 
-function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChanged }: {
+function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topicsLoading, retryTopics, onReload, onChanged }: {
   subjectId: number;
   subjectName: string;
   overview: DeckOverview | null;
   topics: ProgrammingTopic[];
-  onReload: () => Promise<boolean>;
+  topicsError: string;
+  topicsLoading: boolean;
+  retryTopics: () => Promise<boolean>;
+  onReload: () => Promise<DeckReloadResult>;
   onChanged?: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -338,6 +377,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
   const mountedRef = useRef(true);
+  const generationLockRef = useRef(false);
   const cards = overview?.cards ?? [];
 
   useEffect(() => {
@@ -346,26 +386,31 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
   }, []);
 
   async function reloadAndNotify() {
-    await onReload();
-    if (mountedRef.current) onChanged?.();
+    const reloadResult = await onReload();
+    if (mountedRef.current && reloadResult.overview) onChanged?.();
   }
 
   async function generateWithAi() {
-    if (generatingWithAi) return;
-    if (!selectedTopicId) {
-      setAiError('Selecione um tópico.');
-      return;
-    }
-    setGeneratingWithAi(true);
-    setAiError('');
-    setAiSuccess('');
+    if (generationLockRef.current) return;
+    generationLockRef.current = true;
     try {
+      if (!selectedTopicId) {
+        setAiError('Selecione um tópico.');
+        return;
+      }
+      setGeneratingWithAi(true);
+      setAiError('');
+      setAiSuccess('');
       await api.generateAdditionalCodingFlashcards(selectedTopicId, context);
-      const reloaded = await onReload();
-      if (reloaded) onChanged?.();
+      const reloadResult = await onReload();
+      if (reloadResult.overview) onChanged?.();
       if (!mountedRef.current) return;
-      if (!reloaded) {
+      if (!reloadResult.overview) {
         setAiError('As questões foram criadas, mas não foi possível recarregar o deck.');
+        return;
+      }
+      if (!reloadResult.topics) {
+        setAiError('As questões foram criadas, mas os tópicos precisam ser recarregados.');
         return;
       }
       setCreatingWithAi(false);
@@ -377,6 +422,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
         setAiError(err instanceof Error ? err.message : 'Não foi possível criar as questões.');
       }
     } finally {
+      generationLockRef.current = false;
       if (mountedRef.current) setGeneratingWithAi(false);
     }
   }
@@ -395,6 +441,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
+            aria-label="Buscar cards"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar cards..."
@@ -458,13 +505,13 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
               required
               value={selectedTopicId ?? ''}
               onChange={(event) => setSelectedTopicId(event.target.value ? Number(event.target.value) : null)}
-              disabled={generatingWithAi || topics.length === 0}
+              disabled={generatingWithAi || topics.length === 0 || Boolean(topicsError)}
               className="min-h-11 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary disabled:opacity-50"
             >
               <option value="">Selecione um tópico</option>
               {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}
             </select>
-            {topics.length === 0 && (
+            {topics.length === 0 && !topicsError && (
               <span role="status" className="text-xs font-bold text-amber-700">Nenhum tópico disponível para gerar questões.</span>
             )}
           </label>
@@ -486,11 +533,25 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
           <button
             type="button"
             onClick={() => void generateWithAi()}
-            disabled={generatingWithAi || !selectedTopicId || topics.length === 0}
+            disabled={generatingWithAi || !selectedTopicId || topics.length === 0 || Boolean(topicsError)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50"
           >
             {generatingWithAi ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {generatingWithAi ? 'Criando...' : 'Criar 5 questões'}
+          </button>
+        </div>
+      )}
+
+      {topicsError && (
+        <div role="alert" className="flex flex-col gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+          <p>{topicsError}</p>
+          <button
+            type="button"
+            onClick={() => void retryTopics()}
+            disabled={topicsLoading || generatingWithAi}
+            className="rounded-xl border border-amber-200 bg-white px-3 py-1.5 text-xs hover:bg-amber-100 disabled:opacity-50"
+          >
+            {topicsLoading ? 'Recarregando...' : 'Tentar recarregar tópicos'}
           </button>
         </div>
       )}
@@ -522,6 +583,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, onReload, onChange
 function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subjectName: string; onReload: () => void; locked: boolean }) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [showCode, setShowCode] = useState(false);
   const badge = STATE_BADGE[card.state] ?? STATE_BADGE.new;
 
   async function remove() {
@@ -553,6 +615,16 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
         <p className="truncate font-black text-slate-800">{card.front}</p>
         <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{card.back}</p>
         {card.code_example && (
+          <button
+            type="button"
+            onClick={() => setShowCode((visible) => !visible)}
+            aria-expanded={showCode}
+            className="mt-2 text-xs font-black text-primary hover:underline"
+          >
+            {showCode ? 'Ocultar código' : 'Ver código'}
+          </button>
+        )}
+        {showCode && card.code_example && (
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
             <SyntaxCodeBlock code={card.code_example} language={subjectName} className="p-3" />
           </div>
@@ -567,8 +639,8 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
         </div>
       </div>
       <div className="flex shrink-0 gap-1">
-        <button type="button" onClick={() => setEditing(true)} disabled={locked} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-50"><Pencil size={15} /></button>
-        <button type="button" onClick={remove} disabled={busy || locked} className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={15} /></button>
+        <button type="button" aria-label="Editar card" onClick={() => setEditing(true)} disabled={locked} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-50"><Pencil size={15} /></button>
+        <button type="button" aria-label="Excluir card" onClick={remove} disabled={busy || locked} className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={15} /></button>
       </div>
     </div>
   );

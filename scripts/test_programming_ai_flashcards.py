@@ -124,9 +124,9 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             "await api.generateAdditionalCodingFlashcards(selectedTopicId, context)"
         )
         success_path = handler[endpoint:handler.index("catch", endpoint)]
-        self.assertIn("if (reloaded) onChanged?.()", success_path)
-        reload_call = success_path.index("const reloaded = await onReload()")
-        changed_call = success_path.index("if (reloaded) onChanged?.()")
+        self.assertIn("if (reloadResult.overview) onChanged?.()", success_path)
+        reload_call = success_path.index("const reloadResult = await onReload()")
+        changed_call = success_path.index("if (reloadResult.overview) onChanged?.()")
         mounted_guard = success_path.index("if (!mountedRef.current) return")
         self.assertLess(reload_call, mounted_guard)
         self.assertLess(changed_call, mounted_guard)
@@ -142,10 +142,49 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def test_deck_generation_handles_empty_topics_reload_failure_and_concurrency(self):
         for expected in (
             "Nenhum tópico disponível para gerar questões.",
-            "const reloaded = await onReload()",
-            "if (!reloaded)",
+            "const reloadResult = await onReload()",
+            "if (!reloadResult.overview)",
             "locked={generatingWithAi}",
             "disabled={busy || locked}",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.flashcard_deck)
+
+    def test_overview_and_topics_load_independently_with_scoped_retry(self):
+        for expected in (
+            "Promise.allSettled",
+            "overviewResult.status === 'fulfilled'",
+            "topicsResult.status === 'fulfilled'",
+            "topicsError",
+            "retryTopics",
+            "Tentar recarregar tópicos",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, self.flashcard_deck)
+        self.assertNotIn("Promise.all([\n        api.getDeckOverview", self.flashcard_deck)
+
+    def test_generation_uses_synchronous_ref_lock_released_unconditionally(self):
+        handler_start = self.flashcard_deck.index("async function generateWithAi()")
+        handler_end = self.flashcard_deck.index("return (", handler_start)
+        handler = self.flashcard_deck[handler_start:handler_end]
+        self.assertIn("generationLockRef", handler)
+        guard = handler.index("if (generationLockRef.current) return")
+        acquire = handler.index("generationLockRef.current = true")
+        endpoint = handler.index("await api.generateAdditionalCodingFlashcards")
+        release = handler.index("generationLockRef.current = false", endpoint)
+        self.assertLess(guard, acquire)
+        self.assertLess(acquire, endpoint)
+        self.assertIn("finally", handler[:release])
+
+    def test_card_code_is_lazy_and_controls_have_accessible_labels(self):
+        for expected in (
+            "showCode",
+            "Ver código",
+            "Ocultar código",
+            "showCode && card.code_example",
+            'aria-label="Buscar cards"',
+            'aria-label="Editar card"',
+            'aria-label="Excluir card"',
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.flashcard_deck)
