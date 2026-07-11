@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, CheckCircle2, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
@@ -83,6 +83,8 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [flashcards, setFlashcards] = useState<ProgrammingFlashcard[]>([]);
   const [loadingFc, setLoadingFc] = useState(true);
   const [loadedFlashcardTopicId, setLoadedFlashcardTopicId] = useState<number | null>(null);
+  const [flashcardsLoadError, setFlashcardsLoadError] = useState('');
+  const flashcardLoadRequestId = useRef(0);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [showRegenerateContext, setShowRegenerateContext] = useState(false);
@@ -106,23 +108,32 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [additionalFlashcardError, setAdditionalFlashcardError] = useState('');
   const [additionalFlashcardSuccess, setAdditionalFlashcardSuccess] = useState('');
 
-  useEffect(() => {
-    let active = true;
+  const loadTopicFlashcards = useCallback(async (topicId: number): Promise<boolean> => {
+    const requestId = ++flashcardLoadRequestId.current;
     setLoadingFc(true);
+    setFlashcardsLoadError('');
     setLoadedFlashcardTopicId(null);
-    api.getTopicFlashcards(topic.id)
-      .then((loadedFlashcards) => {
-        if (!active) return;
-        setFlashcards(loadedFlashcards);
-        setLoadedFlashcardTopicId(topic.id);
-      })
-      .finally(() => {
-        if (active) setLoadingFc(false);
-      });
+    try {
+      const loadedFlashcards = await api.getTopicFlashcards(topicId);
+      if (requestId !== flashcardLoadRequestId.current) return false;
+      setFlashcards(loadedFlashcards);
+      setLoadedFlashcardTopicId(topicId);
+      return true;
+    } catch (err) {
+      if (requestId !== flashcardLoadRequestId.current) return false;
+      setFlashcardsLoadError(err instanceof Error ? err.message : 'Não foi possível carregar os flashcards.');
+      return false;
+    } finally {
+      if (requestId === flashcardLoadRequestId.current) setLoadingFc(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTopicFlashcards(topic.id);
     return () => {
-      active = false;
+      flashcardLoadRequestId.current += 1;
     };
-  }, [topic.id]);
+  }, [loadTopicFlashcards, topic.id]);
 
   useEffect(() => {
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
@@ -144,29 +155,21 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     setGenerating(true);
     setGenError('');
     setLoadingFc(true);
+    setFlashcardsLoadError('');
     setLoadedFlashcardTopicId(null);
-    let contentWasRegenerated = false;
     try {
       const contextText = context?.trim();
       const updated = contextText
         ? await api.generateCodingTopicContent(topic.id, { context: contextText })
         : await api.generateCodingTopicContent(topic.id);
-      contentWasRegenerated = true;
       setTopic(updated);
       onTopicUpdated(updated);
-      const fcs = await api.getTopicFlashcards(topic.id);
-      setFlashcards(fcs);
-      setLoadedFlashcardTopicId(topic.id);
+      await loadTopicFlashcards(topic.id);
       setShowRegenerateContext(false);
       setRegenerateContext('');
     } catch (err: unknown) {
-      if (contentWasRegenerated) {
-        setFlashcards([]);
-        setGenError('A aula foi regenerada, mas não foi possível recarregar os flashcards. Tente novamente.');
-      } else {
-        setLoadedFlashcardTopicId(topic.id);
-        setGenError(err instanceof Error ? err.message : 'Erro ao gerar conteúdo.');
-      }
+      setLoadedFlashcardTopicId(topic.id);
+      setGenError(err instanceof Error ? err.message : 'Erro ao gerar conteúdo.');
     } finally {
       setLoadingFc(false);
       setGenerating(false);
@@ -193,6 +196,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   async function handleAddFlashcard(e: React.FormEvent) {
     e.preventDefault();
     if (generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()) return;
+    if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setAddingFc(true);
     try {
       const fc = await api.createTopicFlashcard(topic.id, {
@@ -213,6 +217,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   async function handleGenerateAdditionalFlashcards(e: React.FormEvent) {
     e.preventDefault();
     if (generating || generatingAdditionalFlashcards || addingFc || importingFc) return;
+    if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setGeneratingAdditionalFlashcards(true);
     setAdditionalFlashcardError('');
     setAdditionalFlashcardSuccess('');
@@ -251,6 +256,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   async function handleImportFlashcards(e: React.FormEvent) {
     e.preventDefault();
     if (generating || generatingAdditionalFlashcards) return;
+    if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setImportFcError('');
     setCopyMessage('');
 
@@ -285,6 +291,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
   async function handleDeleteFlashcard(id: number) {
     if (generating || generatingAdditionalFlashcards) return;
+    if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     await api.deleteCodingFlashcard(id);
     setFlashcards((prev) => prev.filter((fc) => fc.id !== id));
   }
@@ -299,6 +306,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
   const statusLabel =
     topic.status === 'mastered' ? '⭐ Dominado' : topic.status === 'studied' ? '✅ Estudado' : '🔘 Não iniciado';
+  const flashcardCountLabel = loadingFc ? '...' : loadedFlashcardTopicId === topic.id ? flashcards.length : 'erro';
 
   return (
     <div className="space-y-6">
@@ -490,7 +498,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       {/* Flashcards */}
       <div className="rounded-3xl border-2 border-slate-100 bg-white p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-black text-slate-800">Flashcards ({loadingFc ? '...' : flashcards.length})</h2>
+          <h2 className="font-black text-slate-800">Flashcards ({flashcardCountLabel})</h2>
           <div className="flex flex-wrap gap-2">
             {!showAdditionalFlashcardForm && (
               <button
@@ -502,7 +510,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                   setAdditionalFlashcardError('');
                   setAdditionalFlashcardSuccess('');
                 }}
-                disabled={generating || generatingAdditionalFlashcards || addingFc || importingFc || loadingFc}
+                disabled={loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards || addingFc || importingFc || loadingFc}
                 className="flex items-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 hover:bg-violet-100"
               >
                 <Sparkles size={14} />
@@ -512,7 +520,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             <button
               type="button"
               onClick={handleCopyFlashcards}
-              disabled={loadingFc || flashcards.length === 0}
+              disabled={loadingFc || loadedFlashcardTopicId !== topic.id || flashcards.length === 0}
               className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary disabled:opacity-40"
             >
               <Copy size={14} />
@@ -527,7 +535,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 setAdditionalFlashcardError('');
                 setImportFcError('');
               }}
-              disabled={generating || generatingAdditionalFlashcards}
+              disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
               className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showImportFc ? <X size={14} /> : <Upload size={14} />}
@@ -541,7 +549,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 setShowAdditionalFlashcardForm(false);
                 setAdditionalFlashcardError('');
               }}
-              disabled={generating || generatingAdditionalFlashcards}
+              disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
               className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showAddFc ? <X size={14} /> : <Plus size={14} />}
@@ -562,7 +570,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 placeholder="Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns..."
                 maxLength={1000}
                 rows={3}
-                disabled={generating || generatingAdditionalFlashcards}
+                disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
                 className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 disabled:opacity-60"
               />
             </label>
@@ -585,7 +593,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               </button>
               <button
                 type="submit"
-                disabled={generating || generatingAdditionalFlashcards}
+                disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
                 className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {generatingAdditionalFlashcards ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -609,7 +617,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             {importFcError && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{importFcError}</p>}
             <button
               type="submit"
-              disabled={importingFc || generating || generatingAdditionalFlashcards || !importFcText.trim()}
+              disabled={loadingFc || loadedFlashcardTopicId !== topic.id || importingFc || generating || generatingAdditionalFlashcards || !importFcText.trim()}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2 font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {importingFc ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
@@ -622,13 +630,25 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             <input value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder="Frente (conceito / pergunta)" maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder="Verso (resposta / explicação)" maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder="Exemplo de código (opcional)" maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
-            <button type="submit" disabled={addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+            <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
               {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar Flashcard
             </button>
           </form>
         )}
         {loadingFc ? (
           <div className="flex justify-center py-4"><Loader2 className="animate-spin text-primary" size={24} /></div>
+        ) : flashcardsLoadError || loadedFlashcardTopicId !== topic.id ? (
+          <div role="alert" className="rounded-2xl border-2 border-rose-100 bg-rose-50 p-4 text-center">
+            <p>{flashcardsLoadError || 'Não foi possível confirmar os flashcards deste tópico.'}</p>
+            <button
+              type="button"
+              onClick={() => void loadTopicFlashcards(topic.id)}
+              disabled={loadingFc || generating || generatingAdditionalFlashcards}
+              className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              Tentar recarregar
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {flashcards.map((fc) => (
@@ -647,7 +667,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 </div>
               </div>
             ))}
-            {flashcards.length === 0 && (
+            {loadedFlashcardTopicId === topic.id && !flashcardsLoadError && flashcards.length === 0 && (
               <p className="py-4 text-center text-sm text-slate-400">Nenhum flashcard. Gere com IA ou adicione manualmente.</p>
             )}
           </div>
