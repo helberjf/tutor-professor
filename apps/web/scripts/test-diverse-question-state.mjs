@@ -23,6 +23,7 @@ const module = { exports: {} };
 new Function('exports', 'module', compiled)(module.exports, module);
 
 const {
+  appendTopicToSubjectById,
   clearDraftForRemovedSubject,
   findItemIndexById,
   resolveItemsByIds,
@@ -63,5 +64,15 @@ const edited = updateItemById(toggled, visibleTopicId, (topic) => ({ ...topic, t
 assert.equal(edited[0].topic, 'Edited');
 const rated = updateItemById(edited, visibleTopicId, (topic) => ({ ...topic, review_count: topic.review_count + 1 }));
 assert.equal(rated[0].review_count, 1);
+
+const suggestedTopic = Object.freeze({ id: 'question-suggested', topic: 'AI suggestion' });
+const suggestionAfterReorder = appendTopicToSubjectById(reordered, 'subject-target', suggestedTopic);
+assert.strictEqual(suggestionAfterReorder[0], replacement, 'a reordered suggestion must not write to the previous index');
+assert.deepEqual(suggestionAfterReorder[1].topics, [suggestedTopic]);
+assert.strictEqual(
+  appendTopicToSubjectById(removed, 'subject-target', suggestedTopic),
+  removed,
+  'a removed suggestion target must leave its replacement untouched',
+);
 
 console.log('Diverse question state checks passed.');

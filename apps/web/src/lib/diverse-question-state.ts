@@ -27,6 +27,16 @@ export function updateSubjectById<T extends { id: string }>(
   return subjects.map((subject) => subject.id === subjectId ? updater(subject) : subject);
 }
 
+export function appendTopicToSubjectById<
+  TTopic,
+  TSubject extends { id: string; topics: TTopic[] },
+>(subjects: TSubject[], subjectId: string, topic: TTopic): TSubject[] {
+  return updateSubjectById(subjects, subjectId, (subject) => ({
+    ...subject,
+    topics: [...subject.topics, topic],
+  }));
+}
+
 export function clearDraftForRemovedSubject<T extends { subjectId: string }>(
   draft: T | null,
   removedSubjectId: string,
