@@ -84,6 +84,58 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         self.assertEqual(normalized["lessons"][0]["topic_ids"], [expected_id])
         self.assertEqual(normalize_subject(normalized), normalized)
 
+    def test_preserves_non_latin_alphanumeric_questions(self) -> None:
+        legacy = {
+            "name": "数学",
+            "topics": [{"topic": "什么是数学？", "answer": "研究数量和结构的学科"}],
+            "lessons": [
+                {
+                    "id": "lesson-math",
+                    "title": "数学基础",
+                    "topics": [{"topic": "什么是数学?", "answer": "研究数量和结构的学科"}],
+                }
+            ],
+        }
+
+        subject = normalize_subject(legacy)
+
+        self.assertEqual(normalize_text("什么是数学？"), "什么是数学")
+        self.assertEqual(len(subject["topics"]), 1)
+        self.assertEqual(subject["topics"][0]["topic"], "什么是数学？")
+        self.assertEqual(subject["lessons"][0]["topic_ids"], [subject["topics"][0]["id"]])
+        self.assertEqual(normalize_subject(subject), subject)
+
+    def test_long_questions_hash_complete_front_and_remain_unambiguous(self) -> None:
+        shared_prefix = "x" * 120
+        first = f"{shared_prefix} primeira continuacao"
+        second = f"{shared_prefix} segunda continuacao"
+        legacy = {
+            "name": "Matematica",
+            "topics": [
+                {"topic": first, "answer": "Resposta A"},
+                {"topic": second, "answer": "Resposta B"},
+            ],
+            "lessons": [
+                {
+                    "id": "lesson-long",
+                    "title": "Perguntas longas",
+                    "topics": [
+                        {"topic": first, "answer": "Resposta A"},
+                        {"topic": second, "answer": "Resposta B"},
+                    ],
+                }
+            ],
+        }
+
+        subject = normalize_subject(legacy)
+        question_ids = [question["id"] for question in subject["topics"]]
+
+        self.assertEqual([question["topic"] for question in subject["topics"]], [shared_prefix, shared_prefix])
+        self.assertEqual(len(set(question_ids)), 2)
+        self.assertEqual(question_ids, [stable_question_id("Matematica", first), stable_question_id("Matematica", second)])
+        self.assertEqual(subject["lessons"][0]["topic_ids"], question_ids)
+        self.assertEqual(normalize_subject(subject), subject)
+
     def test_preserves_existing_ids_and_deduplicates_lesson_references(self) -> None:
         canonical = {
             "name": "Quimica",
