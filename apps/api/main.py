@@ -749,6 +749,77 @@ def _persist_generated_language_lesson(
         raise
 
 
+def _materialize_shared_lesson_questions_for_child(
+    *,
+    session: Session,
+    lesson: Lesson,
+    child: ChildProfile,
+) -> None:
+    """Copy a shared lesson's canonical five-question batch for one child's review state."""
+    child_id = child.id or 0
+    lesson_id = lesson.id or 0
+    existing = session.exec(
+        select(LessonQuestion)
+        .where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.lesson_id == lesson_id,
+        )
+        .order_by(LessonQuestion.id)
+    ).all()
+
+    questions_by_child: dict[int, list[LessonQuestion]] = {}
+    for question in session.exec(
+        select(LessonQuestion)
+        .where(LessonQuestion.lesson_id == lesson_id)
+        .order_by(LessonQuestion.child_id, LessonQuestion.id)
+    ).all():
+        if question.child_id == child_id:
+            continue
+        questions_by_child.setdefault(question.child_id, []).append(question)
+
+    source_batch = next(
+        (questions[:5] for questions in questions_by_child.values() if len(questions) >= 5),
+        [],
+    )
+    if len(source_batch) != 5:
+        return
+
+    existing_keys = {question.front_key for question in existing}
+    missing = [question for question in source_batch if question.front_key not in existing_keys]
+    if not missing:
+        return
+
+    for source in missing:
+        session.add(
+            LessonQuestion(
+                child_id=child_id,
+                lesson_id=lesson_id,
+                target_language=lesson.target_language,
+                question_type=source.question_type,
+                front=source.front,
+                front_key=source.front_key,
+                back=source.back,
+                supporting_example=source.supporting_example,
+            )
+        )
+
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        materialized_keys = {
+            question.front_key
+            for question in session.exec(
+                select(LessonQuestion).where(
+                    LessonQuestion.child_id == child_id,
+                    LessonQuestion.lesson_id == lesson_id,
+                )
+            ).all()
+        }
+        if not {question.front_key for question in source_batch}.issubset(materialized_keys):
+            raise
+
+
 def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Lesson:
     """Return a shared generated lesson at the child's level, generating one if none exists."""
     level = compute_and_update_child_level(session=session, child=child)
@@ -767,6 +838,11 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             continue
         prog = progress_map.get(candidate.id or 0)
         if prog is None or not prog.is_completed:
+            _materialize_shared_lesson_questions_for_child(
+                session=session,
+                lesson=candidate,
+                child=child,
+            )
             return candidate  # free reuse — no Gemini call needed
 
     # ── Generate a new shared lesson ─────────────────────────────────────────

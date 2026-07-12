@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -177,6 +178,83 @@ class InitialLanguageLessonGenerationTests(unittest.TestCase):
         self.assertEqual(calls, 1)
         self.assertEqual(len(response.questions), 5)
         self.assertEqual({question.lesson_id for question in response.questions}, {lesson.id})
+
+    def test_shared_lesson_materializes_same_questions_once_for_second_child_without_ai(self) -> None:
+        calls = 0
+
+        def provider(**_kwargs) -> str:
+            nonlocal calls
+            calls += 1
+            return combined_lesson_payload()
+
+        second_child = ChildProfile(
+            id=2,
+            user_id=8,
+            name="Noé",
+            age_group="10-12",
+            base_language="Portuguese",
+            target_language="French",
+        )
+        self.session.add(second_child)
+        self.session.commit()
+        patches = self._common_patches(provider)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            lesson = main.auto_generate_lesson_for_child(self.session, self.child)
+            source_questions = self.session.exec(
+                select(LessonQuestion)
+                .where(
+                    LessonQuestion.child_id == (self.child.id or 0),
+                    LessonQuestion.lesson_id == (lesson.id or 0),
+                )
+                .order_by(LessonQuestion.id)
+            ).all()
+            source_questions[0].attempt_count = 4
+            source_questions[0].correct_count = 3
+            source_questions[0].error_count = 1
+            source_questions[0].streak = 2
+            source_questions[0].difficulty_score = 0.2
+            source_questions[0].last_reviewed = datetime.utcnow()
+            source_questions[0].next_review = datetime.utcnow() + timedelta(days=30)
+            self.session.add(source_questions[0])
+            self.session.commit()
+
+            reused = main.auto_generate_lesson_for_child(self.session, second_child)
+            repeated = main.auto_generate_lesson_for_child(self.session, second_child)
+
+        second_questions = self.session.exec(
+            select(LessonQuestion)
+            .where(
+                LessonQuestion.child_id == (second_child.id or 0),
+                LessonQuestion.lesson_id == (lesson.id or 0),
+            )
+            .order_by(LessonQuestion.id)
+        ).all()
+        self.assertEqual(calls, 1)
+        self.assertEqual(reused.id, lesson.id)
+        self.assertEqual(repeated.id, lesson.id)
+        self.assertEqual(len(second_questions), 5)
+        self.assertEqual(
+            [
+                (question.front, question.back, question.question_type, question.supporting_example)
+                for question in second_questions
+            ],
+            [
+                (question.front, question.back, question.question_type, question.supporting_example)
+                for question in source_questions
+            ],
+        )
+        self.assertTrue(
+            all(question.child_id == (second_child.id or 0) for question in second_questions)
+        )
+        self.assertTrue(all(question.attempt_count == 0 for question in second_questions))
+        self.assertTrue(all(question.correct_count == 0 for question in second_questions))
+        self.assertTrue(all(question.error_count == 0 for question in second_questions))
+        self.assertTrue(all(question.streak == 0 for question in second_questions))
+        self.assertTrue(all(question.difficulty_score == 0.45 for question in second_questions))
+        self.assertTrue(all(question.last_reviewed is None for question in second_questions))
+        self.assertTrue(
+            all(question.next_review < source_questions[0].next_review for question in second_questions)
+        )
 
     def test_invalid_question_batch_rolls_back_lesson_items_and_questions(self) -> None:
         calls = 0
