@@ -143,13 +143,14 @@ from services.language_question_service import (
     MAX_LESSON_QUESTIONS,
     build_language_questions_prompt,
     front_key_for,
+    register_lesson_question_attempt,
     validate_language_question_batch,
 )
 from services import fsrs_service
 from services.review_service import (
-    build_review_cards,
+    build_mixed_review_cards,
     compute_review_priority,
-    count_due_review_items,
+    count_due_mixed_review_items,
     register_review_attempt,
     seed_review_items_for_lesson,
 )
@@ -1464,8 +1465,8 @@ def get_review_session(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     return ReviewSessionSchema(
-        total_due=count_due_review_items(session=session, child_id=child.id or 0),
-        items=build_review_cards(session=session, child_id=child.id or 0, limit=limit),
+        total_due=count_due_mixed_review_items(session=session, child_id=child.id or 0),
+        items=build_mixed_review_cards(session=session, child_id=child.id or 0, limit=limit),
     )
 
 
@@ -1477,14 +1478,45 @@ def submit_review_attempt(
 ) -> ReviewResultSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    review_item = register_review_attempt(
-        session=session,
-        child_id=child.id or 0,
-        word_en=payload.word_en,
-        word_pt=payload.word_pt,
-        correct=payload.correct,
-        review_item_id=payload.review_item_id,
-    )
+    if payload.card_type == "lesson_question":
+        try:
+            reviewed_item = register_lesson_question_attempt(
+                session=session,
+                child_id=child.id or 0,
+                lesson_question_id=payload.lesson_question_id or 0,
+                correct=payload.correct,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Pergunta da licao nao encontrada.") from exc
+        card_id = reviewed_item.id or 0
+        activity_title = f"Review: {reviewed_item.front}"
+        activity_details = {
+            "card_type": "lesson_question",
+            "lesson_question_id": card_id,
+            "lesson_id": reviewed_item.lesson_id,
+            "correct": payload.correct,
+        }
+    else:
+        try:
+            reviewed_item = register_review_attempt(
+                session=session,
+                child_id=child.id or 0,
+                word_en=payload.word_en or "",
+                word_pt=payload.word_pt or "",
+                correct=payload.correct,
+                review_item_id=payload.review_item_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Item de revisao nao encontrado.") from exc
+        card_id = reviewed_item.id or 0
+        activity_title = f"Review: {reviewed_item.word_en}"
+        activity_details = {
+            "card_type": "vocabulary",
+            "review_item_id": card_id,
+            "word_en": reviewed_item.word_en,
+            "word_pt": reviewed_item.word_pt,
+            "correct": payload.correct,
+        }
     child.last_activity = datetime.utcnow()
 
     # Registra atividade de review no histórico diário
@@ -1492,27 +1524,24 @@ def submit_review_attempt(
         session,
         child_id=child.id or 0,
         activity_type="review",
-        activity_title=f"Review: {payload.word_en}",
+        activity_title=activity_title,
         activity_id=None,
         result_score=100.0 if payload.correct else 0.0,
-        result_details={
-            "word_en": payload.word_en,
-            "word_pt": payload.word_pt,
-            "correct": payload.correct,
-        },
+        result_details=activity_details,
     )
 
     session.add(child)
-    session.add(review_item)
+    session.add(reviewed_item)
     session.commit()
-    session.refresh(review_item)
+    session.refresh(reviewed_item)
 
     return ReviewResultSchema(
-        review_item_id=review_item.id or 0,
-        difficulty_score=review_item.difficulty_score,
-        next_review=review_item.next_review,
-        error_count=review_item.error_count,
-        correct_count=review_item.correct_count,
+        card_type=payload.card_type,
+        card_id=card_id,
+        difficulty_score=reviewed_item.difficulty_score,
+        next_review=reviewed_item.next_review,
+        error_count=reviewed_item.error_count,
+        correct_count=reviewed_item.correct_count,
     )
 
 

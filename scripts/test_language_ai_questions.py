@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import event, inspect, text
@@ -22,11 +22,14 @@ MIGRATION_PATH = API_DIR / "alembic" / "versions" / "0006_lesson_questions.py"
 UNIQUE_MIGRATION_PATH = API_DIR / "alembic" / "versions" / "0007_lesson_question_front_keys.py"
 sys.path.insert(0, str(API_DIR))
 
-from models.database import ChildProfile, Lesson, LessonQuestion  # noqa: E402
+from models.database import ChildProfile, Lesson, LessonQuestion, ReviewItem  # noqa: E402
 from schemas.schemas import (  # noqa: E402
     GenerateLessonQuestionsSchema,
     LessonQuestionSchema,
     LessonSchema,
+    ReviewAttemptSchema,
+    ReviewResultSchema,
+    ReviewSessionSchema,
 )
 from services.language_question_service import (  # noqa: E402
     ALLOWED_LANGUAGE_QUESTION_TYPES,
@@ -34,7 +37,13 @@ from services.language_question_service import (  # noqa: E402
     MAX_LANGUAGE_QUESTION_PROMPT_CHARS,
     build_language_questions_prompt,
     front_key_for,
+    register_lesson_question_attempt,
     validate_language_question_batch,
+)
+from services.review_service import (  # noqa: E402
+    build_mixed_review_cards,
+    count_due_mixed_review_items,
+    register_review_attempt,
 )
 
 
@@ -481,6 +490,284 @@ class LessonQuestionPersistenceTests(unittest.TestCase):
                     )
             finally:
                 connection.close()
+
+
+class MixedLanguageReviewTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+        SQLModel.metadata.create_all(self.engine)
+
+    def tearDown(self) -> None:
+        SQLModel.metadata.drop_all(self.engine)
+        self.engine.dispose()
+
+    def _seed_children_and_lessons(self, session: Session) -> tuple[int, int, int, int]:
+        child = ChildProfile(name="Ari", age_group="10-12", target_language="French")
+        foreign_child = ChildProfile(name="Bia", age_group="10-12", target_language="French")
+        session.add(child)
+        session.add(foreign_child)
+        session.flush()
+        lesson = Lesson(
+            title="Les salutations",
+            theme="Salutations",
+            objective="Se presenter",
+            child_id=child.id,
+            target_language="French",
+        )
+        foreign_lesson = Lesson(
+            title="Les nombres",
+            theme="Nombres",
+            objective="Compter",
+            child_id=foreign_child.id,
+            target_language="French",
+        )
+        session.add(lesson)
+        session.add(foreign_lesson)
+        session.flush()
+        return child.id or 0, lesson.id or 0, foreign_child.id or 0, foreign_lesson.id or 0
+
+    def test_review_schemas_discriminate_cards_and_validate_attempt_identifiers(self) -> None:
+        session = ReviewSessionSchema(
+            total_due=2,
+            items=[
+                {
+                    "card_type": "vocabulary",
+                    "review_item_id": 4,
+                    "prompt": "O que significa bonjour?",
+                    "answer": "ola",
+                    "options": ["ola", "tchau"],
+                    "word_en": "bonjour",
+                    "word_pt": "ola",
+                    "difficulty_score": 0.5,
+                    "error_count": 0,
+                },
+                {
+                    "card_type": "lesson_question",
+                    "lesson_question_id": 8,
+                    "lesson_id": 2,
+                    "prompt": "Completez: Je ___ ici.",
+                    "answer": "suis",
+                    "question_type": "sentence_completion",
+                    "supporting_example": None,
+                    "difficulty_score": 0.45,
+                    "error_count": 0,
+                },
+            ],
+        )
+        self.assertEqual([item.card_type for item in session.items], ["vocabulary", "lesson_question"])
+
+        legacy_vocabulary = ReviewAttemptSchema(word_en="bonjour", word_pt="ola", correct=True)
+        self.assertEqual(legacy_vocabulary.card_type, "vocabulary")
+        identified_vocabulary = ReviewAttemptSchema(
+            card_type="vocabulary", review_item_id=4, correct=False
+        )
+        self.assertEqual(identified_vocabulary.review_item_id, 4)
+        lesson_attempt = ReviewAttemptSchema(
+            card_type="lesson_question", lesson_question_id=8, correct=True
+        )
+        self.assertEqual(lesson_attempt.lesson_question_id, 8)
+
+        invalid_payloads = (
+            {"card_type": "lesson_question", "correct": True},
+            {"card_type": "lesson_question", "lesson_question_id": 8, "review_item_id": 4, "correct": True},
+            {"card_type": "vocabulary", "lesson_question_id": 8, "correct": True},
+            {"card_type": "vocabulary", "correct": True},
+        )
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                ReviewAttemptSchema(**payload)
+
+        result = ReviewResultSchema(
+            card_type="lesson_question",
+            card_id=8,
+            difficulty_score=0.3,
+            next_review=datetime.utcnow(),
+            error_count=0,
+            correct_count=1,
+        )
+        self.assertEqual(result.card_id, 8)
+
+    def test_mixed_cards_sort_due_items_once_apply_one_limit_and_exclude_foreign_or_future(self) -> None:
+        now = datetime.utcnow()
+        with Session(self.engine) as session:
+            child_id, lesson_id, foreign_child_id, foreign_lesson_id = self._seed_children_and_lessons(session)
+            vocabulary = ReviewItem(
+                child_id=child_id,
+                word_en="bonjour",
+                word_pt="ola",
+                difficulty_score=0.8,
+                error_count=2,
+                next_review=now - timedelta(hours=1),
+            )
+            future_vocabulary = ReviewItem(
+                child_id=child_id,
+                word_en="demain",
+                word_pt="amanha",
+                difficulty_score=1.0,
+                error_count=8,
+                next_review=now + timedelta(days=1),
+            )
+            question = LessonQuestion(
+                child_id=child_id,
+                lesson_id=lesson_id,
+                target_language="French",
+                question_type="grammar",
+                front="Completez: Je ___ ici.",
+                front_key=front_key_for("Completez: Je ___ ici."),
+                back="suis",
+                difficulty_score=0.9,
+                error_count=4,
+                next_review=now - timedelta(hours=2),
+            )
+            foreign_question = LessonQuestion(
+                child_id=foreign_child_id,
+                lesson_id=foreign_lesson_id,
+                target_language="French",
+                question_type="vocabulary",
+                front="Combien?",
+                front_key=front_key_for("Combien?"),
+                back="Quanto?",
+                difficulty_score=1.0,
+                error_count=10,
+                next_review=now - timedelta(days=3),
+            )
+            session.add(vocabulary)
+            session.add(future_vocabulary)
+            session.add(question)
+            session.add(foreign_question)
+            session.commit()
+
+            cards = build_mixed_review_cards(session=session, child_id=child_id, limit=2, now=now)
+            self.assertEqual([card["card_type"] for card in cards], ["lesson_question", "vocabulary"])
+            self.assertEqual(len(cards), 2)
+            self.assertEqual(cards[0]["prompt"], question.front)
+            self.assertEqual(cards[0]["answer"], question.back)
+            self.assertEqual(cards[1]["answer"], vocabulary.word_pt)
+            self.assertNotIn(future_vocabulary.id, [card.get("review_item_id") for card in cards])
+            self.assertNotIn(foreign_question.id, [card.get("lesson_question_id") for card in cards])
+            self.assertEqual(count_due_mixed_review_items(session, child_id, now=now), 2)
+            self.assertEqual(build_mixed_review_cards(session, child_id, limit=0, now=now), [])
+
+    def test_mixed_cards_have_stable_tie_order_and_empty_child_is_empty(self) -> None:
+        now = datetime.utcnow()
+        with Session(self.engine) as session:
+            child_id, lesson_id, _, _ = self._seed_children_and_lessons(session)
+            for index in range(2):
+                front = f"Question {index}"
+                session.add(
+                    LessonQuestion(
+                        child_id=child_id,
+                        lesson_id=lesson_id,
+                        target_language="French",
+                        question_type="grammar",
+                        front=front,
+                        front_key=front_key_for(front),
+                        back=f"Reponse {index}",
+                        difficulty_score=0.5,
+                        next_review=now - timedelta(minutes=10),
+                    )
+                )
+            session.commit()
+            first = build_mixed_review_cards(session, child_id, limit=5, now=now)
+            second = build_mixed_review_cards(session, child_id, limit=5, now=now)
+            self.assertEqual(
+                [card["lesson_question_id"] for card in first],
+                [card["lesson_question_id"] for card in second],
+            )
+            self.assertEqual(build_mixed_review_cards(session, 9999, limit=5, now=now), [])
+
+    def test_lesson_question_attempt_updates_only_owned_question_with_vocabulary_schedule_unchanged(self) -> None:
+        now = datetime.utcnow()
+        with Session(self.engine) as session:
+            child_id, lesson_id, foreign_child_id, foreign_lesson_id = self._seed_children_and_lessons(session)
+            vocabulary = ReviewItem(
+                child_id=child_id,
+                word_en="bonjour",
+                word_pt="ola",
+                next_review=now,
+            )
+            question = LessonQuestion(
+                child_id=child_id,
+                lesson_id=lesson_id,
+                target_language="French",
+                question_type="translation",
+                front="Traduisez: ola",
+                front_key=front_key_for("Traduisez: ola"),
+                back="bonjour",
+                next_review=now,
+            )
+            foreign_question = LessonQuestion(
+                child_id=foreign_child_id,
+                lesson_id=foreign_lesson_id,
+                target_language="French",
+                question_type="translation",
+                front="Traduisez: dois",
+                front_key=front_key_for("Traduisez: dois"),
+                back="deux",
+                next_review=now,
+            )
+            session.add(vocabulary)
+            session.add(question)
+            session.add(foreign_question)
+            session.commit()
+            vocabulary_due = vocabulary.next_review
+
+            updated = register_lesson_question_attempt(
+                session=session,
+                child_id=child_id,
+                lesson_question_id=question.id or 0,
+                correct=True,
+                now=now,
+            )
+            self.assertEqual(updated.attempt_count, 1)
+            self.assertEqual(updated.correct_count, 1)
+            self.assertEqual(updated.error_count, 0)
+            self.assertEqual(updated.streak, 1)
+            self.assertGreater(updated.next_review, now)
+            self.assertIsNone(updated.next_review.tzinfo)
+            self.assertEqual(vocabulary.next_review, vocabulary_due)
+
+            with self.assertRaisesRegex(ValueError, "not found"):
+                register_lesson_question_attempt(
+                    session=session,
+                    child_id=child_id,
+                    lesson_question_id=foreign_question.id or 0,
+                    correct=False,
+                    now=now,
+                )
+
+            retried = register_lesson_question_attempt(
+                session=session,
+                child_id=child_id,
+                lesson_question_id=question.id or 0,
+                correct=False,
+                now=now,
+            )
+            self.assertEqual(retried.attempt_count, 2)
+            self.assertEqual(retried.error_count, 1)
+            self.assertEqual(retried.streak, 0)
+            self.assertEqual(retried.next_review, now + timedelta(minutes=15))
+
+    def test_vocabulary_attempt_by_identifier_rejects_foreign_ownership(self) -> None:
+        with Session(self.engine) as session:
+            child_id, _, foreign_child_id, _ = self._seed_children_and_lessons(session)
+            foreign_vocabulary = ReviewItem(
+                child_id=foreign_child_id,
+                word_en="deux",
+                word_pt="dois",
+            )
+            session.add(foreign_vocabulary)
+            session.commit()
+
+            with self.assertRaisesRegex(ValueError, "not found"):
+                register_review_attempt(
+                    session=session,
+                    child_id=child_id,
+                    word_en="deux",
+                    word_pt="dois",
+                    correct=True,
+                    review_item_id=foreign_vocabulary.id,
+                )
 
 
 if __name__ == "__main__":

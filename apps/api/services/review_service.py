@@ -1,18 +1,28 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session, select
 
-from models.database import LessonItem, ReviewItem
+from models.database import LessonItem, LessonQuestion, ReviewItem
 
 
-def compute_review_priority(review_item: ReviewItem, now: datetime | None = None) -> float:
-    now = now or datetime.utcnow()
+def _utc_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def compute_review_priority(
+    review_item: ReviewItem | LessonQuestion,
+    now: datetime | None = None,
+) -> float:
+    now = _utc_naive(now or datetime.utcnow())
+    next_review = _utc_naive(review_item.next_review)
     overdue_hours = 0.0
-    if review_item.next_review <= now:
-        overdue_hours = (now - review_item.next_review).total_seconds() / 3600
+    if next_review <= now:
+        overdue_hours = (now - next_review).total_seconds() / 3600
 
     return (
         review_item.difficulty_score * 5
@@ -80,6 +90,8 @@ def register_review_attempt(
     review_item = None
     if review_item_id is not None:
         review_item = session.get(ReviewItem, review_item_id)
+        if review_item is None or review_item.child_id != child_id:
+            raise ValueError("Review item not found")
 
     if review_item is None:
         review_item = get_or_create_review_item(
@@ -180,6 +192,121 @@ def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[
                 "word_en": review_item.word_en,
                 "word_pt": review_item.word_pt,
                 "prompt": f"O que significa {review_item.word_en}?",
+                "options": options,
+                "difficulty_score": review_item.difficulty_score,
+                "error_count": review_item.error_count,
+            }
+        )
+
+    return cards
+
+
+def count_due_mixed_review_items(
+    session: Session,
+    child_id: int,
+    *,
+    now: datetime | None = None,
+) -> int:
+    reviewed_at = _utc_naive(now or datetime.utcnow())
+    vocabulary = session.exec(
+        select(ReviewItem).where(ReviewItem.child_id == child_id)
+    ).all()
+    questions = session.exec(
+        select(LessonQuestion).where(LessonQuestion.child_id == child_id)
+    ).all()
+    return sum(
+        1
+        for item in [*vocabulary, *questions]
+        if _utc_naive(item.next_review) <= reviewed_at
+    )
+
+
+def build_mixed_review_cards(
+    session: Session,
+    child_id: int,
+    limit: int = 5,
+    *,
+    now: datetime | None = None,
+) -> list[dict[str, object]]:
+    """Return one priority-sorted, child-owned queue across both language card types."""
+    if limit <= 0:
+        return []
+
+    reviewed_at = _utc_naive(now or datetime.utcnow())
+    vocabulary = session.exec(
+        select(ReviewItem).where(ReviewItem.child_id == child_id)
+    ).all()
+    questions = session.exec(
+        select(LessonQuestion).where(LessonQuestion.child_id == child_id)
+    ).all()
+
+    candidates: list[tuple[str, ReviewItem | LessonQuestion]] = [
+        ("vocabulary", item)
+        for item in vocabulary
+        if _utc_naive(item.next_review) <= reviewed_at
+    ]
+    candidates.extend(
+        ("lesson_question", question)
+        for question in questions
+        if _utc_naive(question.next_review) <= reviewed_at
+    )
+    selected = sorted(
+        candidates,
+        key=lambda candidate: (
+            -compute_review_priority(candidate[1], now=reviewed_at),
+            candidate[0],
+            candidate[1].id or 0,
+        ),
+    )[:limit]
+
+    rng = random.Random(child_id + len(vocabulary))
+    cards: list[dict[str, object]] = []
+    for card_type, item in selected:
+        if card_type == "lesson_question":
+            question = item
+            assert isinstance(question, LessonQuestion)
+            cards.append(
+                {
+                    "card_type": "lesson_question",
+                    "lesson_question_id": question.id or 0,
+                    "lesson_id": question.lesson_id,
+                    "prompt": question.front,
+                    "answer": question.back,
+                    "question_type": question.question_type,
+                    "supporting_example": question.supporting_example,
+                    "difficulty_score": question.difficulty_score,
+                    "error_count": question.error_count,
+                }
+            )
+            continue
+
+        review_item = item
+        assert isinstance(review_item, ReviewItem)
+        distractors: list[str] = []
+        for candidate in sorted(
+            vocabulary,
+            key=lambda value: (
+                -compute_review_priority(value, now=reviewed_at),
+                value.id or 0,
+            ),
+        ):
+            if candidate.id == review_item.id or candidate.word_pt in distractors:
+                continue
+            distractors.append(candidate.word_pt)
+            if len(distractors) == 2:
+                break
+        options = [review_item.word_pt, *distractors]
+        if len(options) == 1:
+            options.append("Ainda vou aprender")
+        rng.shuffle(options)
+        cards.append(
+            {
+                "card_type": "vocabulary",
+                "review_item_id": review_item.id or 0,
+                "word_en": review_item.word_en,
+                "word_pt": review_item.word_pt,
+                "prompt": f"O que significa {review_item.word_en}?",
+                "answer": review_item.word_pt,
                 "options": options,
                 "difficulty_score": review_item.difficulty_score,
                 "error_count": review_item.error_count,

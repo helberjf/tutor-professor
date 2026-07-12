@@ -4,8 +4,12 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Mapping
 
+from sqlmodel import Session
+
+from models.database import LessonQuestion
 from services.ai_flashcard_service import normalize_front, sanitize_context, validate_card_batch
 
 
@@ -169,3 +173,48 @@ def validate_language_question_batch(
         )
         for raw, card in zip(questions, validated_cards)
     ]
+
+
+def _utc_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def register_lesson_question_attempt(
+    *,
+    session: Session,
+    child_id: int,
+    lesson_question_id: int,
+    correct: bool,
+    now: datetime | None = None,
+) -> LessonQuestion:
+    """Apply the vocabulary review schedule to one child-owned lesson question."""
+    question = session.get(LessonQuestion, lesson_question_id)
+    if question is None or question.child_id != child_id:
+        raise ValueError("Lesson question not found")
+
+    reviewed_at = _utc_naive(now or datetime.utcnow())
+    question.last_reviewed = reviewed_at
+    question.attempt_count += 1
+
+    if correct:
+        question.correct_count += 1
+        question.streak += 1
+        question.difficulty_score = max(
+            0.1,
+            question.difficulty_score - 0.12 - min(question.streak, 3) * 0.03,
+        )
+        schedule_hours = [4, 12, 24, 72, 168]
+        base_hours = schedule_hours[min(question.streak - 1, len(schedule_hours) - 1)]
+        spacing_multiplier = max(0.5, 1.15 - question.difficulty_score)
+        question.next_review = reviewed_at + timedelta(hours=base_hours * spacing_multiplier)
+    else:
+        question.error_count += 1
+        question.streak = 0
+        question.difficulty_score = min(1.0, question.difficulty_score + 0.25)
+        retry_minutes = 5 if question.error_count >= 3 else 15
+        question.next_review = reviewed_at + timedelta(minutes=retry_minutes)
+
+    session.add(question)
+    return question

@@ -796,6 +796,104 @@ async def run() -> None:
             "French lesson completion stays deterministic",
         )
 
+        mixed_language_review_response = await client.get(
+            "/api/review?limit=50",
+            headers=child_headers,
+        )
+        assert_status(mixed_language_review_response, 200, "mixed French language review")
+        mixed_language_cards = mixed_language_review_response.json()["items"]
+        mixed_card_types = {card["card_type"] for card in mixed_language_cards}
+        if mixed_card_types != {"vocabulary", "lesson_question"}:
+            raise AssertionError(
+                f"expected vocabulary and lesson questions in review, got {mixed_language_cards}"
+            )
+        reviewed_lesson_question = next(
+            card for card in mixed_language_cards if card["card_type"] == "lesson_question"
+        )
+        reviewed_vocabulary = next(
+            card for card in mixed_language_cards if card["card_type"] == "vocabulary"
+        )
+
+        with Session(main.engine) as session:
+            question_before = session.get(
+                main.LessonQuestion,
+                reviewed_lesson_question["lesson_question_id"],
+            )
+            vocabulary_before = session.get(main.ReviewItem, reviewed_vocabulary["review_item_id"])
+            if question_before is None or vocabulary_before is None:
+                raise AssertionError("expected canonical mixed review records")
+            question_schedule_before = question_before.next_review
+            vocabulary_state_before = (
+                vocabulary_before.next_review,
+                vocabulary_before.attempt_count,
+                vocabulary_before.correct_count,
+                vocabulary_before.error_count,
+            )
+
+        lesson_question_attempt_response = await client.post(
+            "/api/review/attempt",
+            headers=child_headers,
+            json={
+                "card_type": "lesson_question",
+                "lesson_question_id": reviewed_lesson_question["lesson_question_id"],
+                "correct": True,
+            },
+        )
+        assert_status(lesson_question_attempt_response, 200, "grade French lesson question")
+        lesson_question_attempt = lesson_question_attempt_response.json()
+        if lesson_question_attempt["card_type"] != "lesson_question" or lesson_question_attempt[
+            "card_id"
+        ] != reviewed_lesson_question["lesson_question_id"]:
+            raise AssertionError(f"unexpected mixed review result: {lesson_question_attempt}")
+
+        with Session(main.engine) as session:
+            question_after = session.get(
+                main.LessonQuestion,
+                reviewed_lesson_question["lesson_question_id"],
+            )
+            vocabulary_after = session.get(main.ReviewItem, reviewed_vocabulary["review_item_id"])
+            if question_after is None or vocabulary_after is None:
+                raise AssertionError("expected mixed review records after grading")
+            if question_after.next_review <= question_schedule_before:
+                raise AssertionError("lesson question schedule did not move forward")
+            vocabulary_state_after = (
+                vocabulary_after.next_review,
+                vocabulary_after.attempt_count,
+                vocabulary_after.correct_count,
+                vocabulary_after.error_count,
+            )
+            if vocabulary_state_after != vocabulary_state_before:
+                raise AssertionError("grading a lesson question changed vocabulary scheduling")
+
+            foreign_review_question = main.LessonQuestion(
+                child_id=other_child_id,
+                lesson_id=french_lesson_id,
+                target_language="French",
+                question_type="grammar",
+                front="Question privee ?",
+                front_key=main.front_key_for("Question privee ?"),
+                back="Reponse privee.",
+            )
+            session.add(foreign_review_question)
+            session.commit()
+            session.refresh(foreign_review_question)
+            foreign_review_question_id = foreign_review_question.id or 0
+
+        foreign_lesson_question_attempt = await client.post(
+            "/api/review/attempt",
+            headers=child_headers,
+            json={
+                "card_type": "lesson_question",
+                "lesson_question_id": foreign_review_question_id,
+                "correct": False,
+            },
+        )
+        assert_status(
+            foreign_lesson_question_attempt,
+            404,
+            "reject grading another child's lesson question",
+        )
+
         with Session(main.engine) as session:
             restored_child = session.get(main.ChildProfile, child_id)
             if restored_child is None:
