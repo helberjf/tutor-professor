@@ -138,10 +138,11 @@ from services.coding_service import (
     register_coding_review_attempt,
     reset_daily_counters,
     seed_coding_review_item,
+    validate_additional_topic_flashcards,
     validate_initial_topic_content,
     VALID_TOPIC_STATUSES,
 )
-from services.ai_flashcard_service import sanitize_context, validate_card_batch
+from services.ai_flashcard_service import sanitize_context
 from services.language_question_service import (
     MAX_LESSON_QUESTIONS,
     build_language_questions_prompt,
@@ -3296,7 +3297,11 @@ def generate_additional_coding_flashcards(
             user_context=user_context,
             ai_config=ai_config,
         )
-        validate_card_batch(raw_flashcards, existing_fronts)
+        validate_additional_topic_flashcards(
+            raw_flashcards,
+            existing_fronts=existing_fronts,
+            ai_content=ai_content,
+        )
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -3313,14 +3318,18 @@ def generate_additional_coding_flashcards(
                 or current_subject.child_id != child_id
             ):
                 raise HTTPException(status_code=404, detail="Tópico não encontrado.")
-            _validate_topic_lesson_content(current_topic.ai_content)
+            current_ai_content = _validate_topic_lesson_content(current_topic.ai_content)
             current_fcs = session.exec(
                 select(ProgrammingFlashcard).where(
                     ProgrammingFlashcard.topic_id == topic_id
                 )
             ).all()
             current_fronts = [flashcard.front for flashcard in current_fcs]
-            validated_flashcards = validate_card_batch(raw_flashcards, current_fronts)
+            validated_flashcards = validate_additional_topic_flashcards(
+                raw_flashcards,
+                existing_fronts=current_fronts,
+                ai_content=current_ai_content,
+            )
 
             now = datetime.utcnow()
             for card in validated_flashcards:
