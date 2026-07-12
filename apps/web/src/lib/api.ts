@@ -54,6 +54,17 @@ export interface LessonContent extends Record<string, unknown> {
   phrase_breakdowns?: PhraseBreakdown[];
 }
 
+export interface LessonQuestion {
+  id: number;
+  lesson_id: number;
+  target_language: string;
+  question_type: string;
+  front: string;
+  back: string;
+  supporting_example: string | null;
+  created_at: string;
+}
+
 export interface Lesson {
   id: number;
   title: string;
@@ -61,6 +72,7 @@ export interface Lesson {
   objective: string;
   content: LessonContent;
   items: LessonItem[];
+  questions: LessonQuestion[];
   is_completed: boolean;
 }
 
@@ -808,6 +820,11 @@ export const api = {
   getTodayLesson: () => fetchAPI<Lesson>('/api/lesson/today'),
   getAllLessons: () => fetchAPI<LessonSummary[]>('/api/lessons'),
   getLessonById: (id: number) => fetchAPI<Lesson>(`/api/lesson/${id}`),
+  generateLessonQuestions: (lessonId: number, context?: string) =>
+    fetchAPI<LessonQuestion[]>(`/api/lessons/${lessonId}/questions/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ context: context?.trim() || null }),
+    }),
   completeLesson: (id: number) =>
     fetchAPI<{ status: string }>(`/api/lesson/complete?lesson_id=${id}`, {
       method: 'POST',
