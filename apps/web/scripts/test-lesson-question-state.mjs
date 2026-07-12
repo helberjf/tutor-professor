@@ -109,11 +109,27 @@ assert.equal(
   isUncertainLessonQuestionGenerationError(new IncompleteLessonQuestionBatchError()),
   true,
 );
+for (const status of [500, 502, 504]) {
+  assert.equal(
+    isUncertainLessonQuestionGenerationError(
+      new ApiError('server failed after accepting POST', { status, code: 'http' }),
+    ),
+    true,
+    `HTTP ${status} may follow a committed write and is therefore uncertain`,
+  );
+}
 assert.equal(
   isUncertainLessonQuestionGenerationError(
     new ApiError('validation failed', { status: 422, code: 'http' }),
   ),
   false,
+);
+assert.equal(
+  isUncertainLessonQuestionGenerationError(
+    new ApiError('conflict', { status: 409, code: 'http' }),
+  ),
+  false,
+  '4xx responses remain definite and can keep dedicated recovery behavior',
 );
 
 console.log('lesson question state checks passed');
