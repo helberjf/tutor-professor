@@ -51,8 +51,13 @@ python -m pip install -r apps/api/requirements.txt
 python scripts/init_db.py
 # run the API
 cd apps/api
+python database_bootstrap.py
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
+
+`database_bootstrap.py` safely detects verified legacy schemas, stamps the matching
+Alembic revision, and upgrades to `head`. It is idempotent, is also run by the API
+startup as a safety net, and must complete before the server begins accepting requests.
 
 ### 2. Frontend
 

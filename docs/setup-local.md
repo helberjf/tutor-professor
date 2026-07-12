@@ -99,8 +99,12 @@ This script will:
 From the `apps/api` directory, start the FastAPI server:
 
 ```bash
+python database_bootstrap.py
 uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
+
+The bootstrap is safe to run repeatedly. It verifies any unversioned legacy schema
+before stamping it and applies all pending Alembic migrations before the API starts.
 
 The backend API will be accessible at `http://localhost:8001`.
 

@@ -10,12 +10,14 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from apps.api.models.database import ChildProfile, Lesson, LessonItem
+from apps.api.database_bootstrap import bootstrap_database
 
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./apps/api/kids_tutor.sqlite")
 engine = create_engine(DATABASE_URL)
 
 def init_db():
+    bootstrap_database(DATABASE_URL)
     print("Creating tables...")
     SQLModel.metadata.create_all(engine)
     
