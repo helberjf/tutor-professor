@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import sqlite3
 import subprocess
@@ -16,6 +17,7 @@ BOOTSTRAP = API / "database_bootstrap.py"
 sys.path.insert(0, str(API))
 
 import database_bootstrap  # noqa: E402
+from services.language_question_service import front_key_for  # noqa: E402
 
 
 def sqlite_url(path: Path) -> str:
@@ -104,6 +106,40 @@ def has_lesson_question_identity(database: Path) -> bool:
     return False
 
 
+def insert_language_fixture(
+    database: Path, questions: list[tuple[int, str, str]]
+) -> None:
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            'INSERT INTO "user" '
+            "(id, first_name, last_name, email, cpf_hash, password_hash, auth_provider, created_at) "
+            "VALUES (1, 'Ada', 'Lovelace', 'ada@example.test', 'cpf', 'hash', "
+            "'password', CURRENT_TIMESTAMP)"
+        )
+        connection.execute(
+            "INSERT INTO childprofile "
+            "(id, user_id, name, age_group, base_language, current_level, streak_count, "
+            "voice_preference, auto_audio, target_language, created_at) "
+            "VALUES (1, 1, 'Student', '10-12', 'Portuguese', 1, 0, 'af_bella', 1, "
+            "'French', CURRENT_TIMESTAMP)"
+        )
+        connection.execute(
+            "INSERT INTO lesson "
+            "(id, title, theme, objective, content, is_completed, child_id, target_language) "
+            "VALUES (1, 'French verbs', 'Verbs', 'Practice', '{}', 0, 1, 'French')"
+        )
+        for question_id, front, front_key in questions:
+            connection.execute(
+                "INSERT INTO lessonquestion "
+                "(id, child_id, lesson_id, target_language, question_type, front, front_key, "
+                "back, difficulty_score, attempt_count, correct_count, error_count, streak, "
+                "next_review, created_at) "
+                "VALUES (?, 1, 1, 'French', 'translation', ?, ?, 'Ola', "
+                "0.45, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                (question_id, front, front_key),
+            )
+
+
 class DatabaseBootstrapTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
@@ -188,18 +224,68 @@ class DatabaseBootstrapTests(unittest.TestCase):
     def test_unversioned_head_shaped_database_is_stamped_without_data_loss(self) -> None:
         result = run_create_all(self.database, include_lesson_question=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        with sqlite3.connect(self.database) as connection:
-            connection.execute(
-                'INSERT INTO "user" '
-                "(id, first_name, last_name, email, cpf_hash, password_hash, auth_provider, created_at) "
-                "VALUES (1, 'Linus', 'Torvalds', 'linus@example.test', 'cpf', 'hash', "
-                "'password', CURRENT_TIMESTAMP)"
-            )
+        insert_language_fixture(
+            self.database,
+            [(1, "Bonjour?", front_key_for("Bonjour?"))],
+        )
 
         self.assert_bootstrap_succeeds()
         with sqlite3.connect(self.database) as connection:
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM "user"').fetchone()[0], 1)
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "INSERT INTO lessonquestion "
+                    "(id, child_id, lesson_id, target_language, question_type, front, front_key, "
+                    "back, difficulty_score, attempt_count, correct_count, error_count, streak, "
+                    "next_review, created_at) "
+                    "VALUES (2, 1, 1, 'French', 'translation', 'BONJOUR!', ?, 'Hello', "
+                    "0.45, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                    (front_key_for("BONJOUR!"),),
+                )
         self.assert_bootstrap_succeeds()
+
+    def test_unversioned_head_shape_with_noncanonical_front_key_is_rejected(self) -> None:
+        result = run_create_all(self.database, include_lesson_question=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        insert_language_fixture(
+            self.database,
+            [(1, "Bonjour?", "f" * 64)],
+        )
+
+        result = run_bootstrap(self.database)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("front_key", result.stdout + result.stderr)
+        self.assertIsNone(current_revision(self.database))
+        with sqlite3.connect(self.database) as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT front_key FROM lessonquestion WHERE id = 1"
+                ).fetchone()[0],
+                "f" * 64,
+            )
+
+    def test_unversioned_head_shape_accepts_exact_legacy_duplicate_keys(self) -> None:
+        result = run_create_all(self.database, include_lesson_question=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        canonical_key = front_key_for("Bonjour?")
+        duplicate_key = hashlib.sha256(
+            f"{canonical_key}\0legacy-2".encode("utf-8")
+        ).hexdigest()
+        insert_language_fixture(
+            self.database,
+            [
+                (1, "Bonjour?", canonical_key),
+                (2, "BONJOUR!", duplicate_key),
+            ],
+        )
+
+        self.assert_bootstrap_succeeds()
+        with sqlite3.connect(self.database) as connection:
+            rows = connection.execute(
+                "SELECT id, front_key FROM lessonquestion ORDER BY id"
+            ).fetchall()
+        self.assertEqual(rows, [(1, canonical_key), (2, duplicate_key)])
 
     def test_front_key_without_unique_identity_is_rejected_without_stamping(self) -> None:
         result = run_create_all(self.database, include_lesson_question=False)
