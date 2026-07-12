@@ -496,6 +496,8 @@ class ProgrammingAIPromptTests(unittest.TestCase):
             "exactly 5 flashcards",
             "must contain a nonblank code_example",
             "copy the exact code_example",
+            '"title": "string',
+            "choose a concise, progressive title",
             "reasoning",
             "trade-offs",
             "debugging",
@@ -503,6 +505,42 @@ class ProgrammingAIPromptTests(unittest.TestCase):
             "practical application",
         ):
             self.assertIn(expected, prompt)
+
+    def test_initial_validator_rejects_fronts_that_change_when_stored(self):
+        response = make_initial_content("Long")
+        shared_stored_prefix = "Q" * 499 + "?"
+        response["flashcards"][0]["front"] = shared_stored_prefix + " first?"
+        response["flashcards"][1]["front"] = shared_stored_prefix + " second?"
+
+        with patch.object(
+            coding_service._phrase_service,
+            "generate_json_text",
+            return_value=json.dumps(response),
+        ) as generate:
+            with self.assertRaises(RuntimeError):
+                coding_service.generate_topic_ai_content(
+                    subject_name="JavaScript",
+                    topic_title="Storage limits",
+                    ai_config=object(),
+                )
+        generate.assert_called_once()
+
+    def test_initial_validator_rejects_short_or_punctuation_only_code_fragments(self):
+        for fragment in (";", "=>", "add", "constadd"):
+            response = make_initial_content("Fragment")
+            response["flashcards"][0]["code_example"] = fragment
+            with self.subTest(fragment=fragment), patch.object(
+                coding_service._phrase_service,
+                "generate_json_text",
+                return_value=json.dumps(response),
+            ) as generate:
+                with self.assertRaises(RuntimeError):
+                    coding_service.generate_topic_ai_content(
+                        subject_name="JavaScript",
+                        topic_title="Meaningful code",
+                        ai_config=object(),
+                    )
+                generate.assert_called_once()
 
     def test_initial_generator_rejects_invalid_interview_card_batches(self):
         invalid_cases = {
@@ -921,9 +959,43 @@ class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
             assert_status(response, 201, "create topic with initial AI content")
             generator.assert_called_once()
             payload = response.json()
-            self.assertEqual(payload["ai_content"], content.model_dump())
+            self.assertEqual(payload["ai_content"], content.model_dump(exclude_none=True))
             self.assertEqual(payload["flashcard_count"], 5)
             self.assertEqual(topic_counts(payload["id"]), (5, 5))
+
+    def test_suggested_topic_uses_one_provider_response_for_title_lesson_and_cards(self):
+        asyncio.run(self._test_suggested_topic_single_provider_response())
+
+    async def _test_suggested_topic_single_provider_response(self) -> None:
+        async with api_client() as client:
+            subject = await client.post(
+                "/api/coding/subjects", json={"name": "Python Suggested"}
+            )
+            assert_status(subject, 201, "create suggested-topic subject")
+            subject_id = subject.json()["id"]
+            provider_response = make_initial_content("Iterator")
+            provider_response["title"] = "Iteradores assincronos"
+
+            with patch.object(
+                coding_service.PhraseGenerationService,
+                "generate_json_text",
+                autospec=True,
+                return_value=json.dumps(provider_response),
+            ) as provider_call:
+                response = await client.post(
+                    f"/api/coding/subjects/{subject_id}/topics/generate"
+                )
+
+            assert_status(response, 201, "generate suggested topic in one response")
+            provider_call.assert_called_once()
+            payload = response.json()
+            self.assertEqual(payload["title"], "Iteradores assincronos")
+            self.assertEqual(payload["ai_content"]["title"], "Iteradores assincronos")
+            self.assertEqual(payload["flashcard_count"], 5)
+            self.assertEqual(topic_counts(payload["id"]), (5, 5))
+            prompt = provider_call.call_args.kwargs["prompt"].lower()
+            self.assertIn("choose a concise, progressive title", prompt)
+            self.assertIn("python suggested", prompt)
 
     def test_invalid_initial_batches_return_502_without_topic_or_cards(self):
         asyncio.run(self._test_invalid_initial_batches_are_atomic())

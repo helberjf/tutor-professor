@@ -2808,7 +2808,7 @@ def _validate_topic_lesson_content(ai_content: object) -> dict:
             status_code=422,
             detail="As secoes da aula precisam ter titulo e conteudo validos.",
         )
-    return validated.model_dump()
+    return validated.model_dump(exclude_none=True)
 
 
 def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> ProgrammingTopicSchema:
@@ -2973,50 +2973,22 @@ def generate_coding_subject_topic(
         session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
         key=lambda t: t.order_index,
     )
-    existing_titles = [topic.title for topic in existing_topics]
     history_context = build_topic_history_context(existing_topics)
-    history_block = f"{history_context}\n" if history_context else "Nenhum topico criado ainda — sugira o primeiro topico fundamental da materia.\n"
-    prompt = (
-        "Sugira o proximo topico de estudo para uma materia de programacao.\n"
-        f"Materia: {subject.name}\n"
-        f"{history_block}"
-        "O topico deve CONTINUAR a progressao a partir do que ja foi estudado, "
-        "aprofundando ou avancando o proximo passo logico.\n"
-        "Escolha algo pratico, especifico e progressivo para estudar agora.\n"
-        "Evite repetir topicos existentes.\n"
-        "Retorne apenas JSON valido neste formato:\n"
-        '{ "title": "string" }\n'
-    )
-    try:
-        response_text = phrase_generation_service.generate_json_text(
-            system_text=(
-                "Voce e um professor de programacao. "
-                "Retorne somente JSON valido, sem markdown e sem comentarios."
-            ),
-            prompt=prompt,
-            temperature=0.6,
-            ai_config=ai_config,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    data = _extract_json_object(response_text)
-    title = str(data.get("title") or data.get("topic") or "").strip()[:200]
-    if not title:
-        raise HTTPException(status_code=502, detail="IA nao sugeriu um topico valido.")
-
-    existing_normalized = {item.lower().strip() for item in existing_titles}
-    if title.lower().strip() in existing_normalized:
-        title = f"{title} - pratica"[:200]
-
     try:
         content = generate_topic_ai_content(
             subject_name=subject.name,
-            topic_title=title,
+            topic_title="",
             ai_config=ai_config,
-            previous_context=history_context,
+            previous_context=(
+                history_context
+                or "- No topics exist yet; choose the first fundamental topic for this subject"
+            ),
         )
-        content = validate_initial_topic_content(content)
+        content = validate_initial_topic_content(content, require_title=True)
+        title = content.title or ""
+        existing_normalized = {topic.title.casefold().strip() for topic in existing_topics}
+        if title.casefold() in existing_normalized:
+            raise ValueError("AI suggested a topic title that already exists")
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -3026,7 +2998,7 @@ def generate_coding_subject_topic(
         title=title,
         order_index=len(existing_topics),
         status="not_started",
-        ai_content=content.model_dump(),
+        ai_content=content.model_dump(exclude_none=True),
         created_at=now,
         updated_at=now,
     )
@@ -3092,7 +3064,7 @@ def create_coding_topic(
         title=payload.title.strip(),
         order_index=order_index,
         status="not_started",
-        ai_content=content.model_dump() if content is not None else None,
+        ai_content=content.model_dump(exclude_none=True) if content is not None else None,
         created_at=now,
         updated_at=now,
     )
@@ -3213,7 +3185,7 @@ def generate_coding_topic_content(
         content = validate_initial_topic_content(content)
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    topic.ai_content = content.model_dump()
+    topic.ai_content = content.model_dump(exclude_none=True)
     topic.updated_at = datetime.utcnow()
     session.add(topic)
     existing_fcs = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
