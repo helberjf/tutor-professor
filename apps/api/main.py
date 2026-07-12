@@ -118,6 +118,7 @@ from services.diverse_question_service import (
     normalize_subject,
     normalize_subjects,
     stable_question_id,
+    validate_generated_question_batch,
 )
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.coding_service import (
@@ -2346,10 +2347,15 @@ def generate_diverse_questions(
         "that test understanding and application."
     )
     linked_text = (
-        "\n".join(f"- Pergunta: {front}\n  Resposta: {answer}" for front, answer in linked_questions)
+        "\n".join(
+            f"- Pergunta: {front[:120]}\n  Resposta: {answer[:400]}"
+            for front, answer in linked_questions[-50:]
+        )
         or "- Nenhuma"
     )
-    all_fronts_text = "\n".join(f"- {front}" for front in existing_fronts) or "- Nenhuma"
+    all_fronts_text = (
+        "\n".join(f"- {front[:120]}" for front in existing_fronts[-100:]) or "- Nenhuma"
+    )
     context_text = context or "Nenhum contexto adicional."
     system_text = (
         "Voce cria questoes de estudo em JSON. Retorne somente JSON valido, sem markdown. "
@@ -2368,6 +2374,7 @@ def generate_diverse_questions(
         "Formato obrigatorio: {\"questions\":[{\"question\":\"...\",\"answer\":\"...\","
         "\"code_example\":null}]}"
     )
+    prompt = prompt[:40_000]
 
     # The AI call and full batch validation happen before the persisted JSON is changed.
     session.rollback()
@@ -4394,8 +4401,14 @@ def generate_diverse_flashcards(
         raise HTTPException(status_code=400, detail="Informe uma materia ou peca para a IA sugerir uma.")
 
     count = payload.count
-    avoid_topics = [str(item).strip()[:120] for item in payload.avoid_topics if str(item).strip()]
-    avoid_topics_text = "\n".join(f"- {item}" for item in avoid_topics[:60])
+    if payload.generation_mode == "lesson" and count != 5:
+        raise HTTPException(status_code=422, detail="A criacao de licao requer exatamente 5 questoes.")
+    avoid_topics = [
+        str(item).strip()[:120]
+        for item in payload.avoid_topics[:100]
+        if str(item).strip()
+    ]
+    avoid_topics_text = "\n".join(f"- {item}" for item in avoid_topics)
     avoid_instruction = (
         "Topicos ja criados nesta materia. Nao repita nem gere variacoes muito parecidas:\n"
         f"{avoid_topics_text}\n"
@@ -4411,9 +4424,15 @@ def generate_diverse_flashcards(
         else ""
     )
 
+    focus_instruction = (
+        "Determine from the subject whether it is technical. If it is technical, "
+        "PRIORITIZE technical-interview questions, practical reasoning, and common trade-offs, "
+        "and allow/return a short code_example when useful; otherwise create exam-style questions "
+        "that test understanding and application."
+    )
     system_text = (
         "Voce cria flashcards educativos em formato JSON. "
-        "Gere flashcards com perguntas claras e respostas concisas. "
+        "Gere perguntas claras e respostas concisas. "
         "Retorne apenas JSON valido, sem markdown ou comentarios extras."
     )
     if suggest_subject:
@@ -4425,11 +4444,13 @@ def generate_diverse_flashcards(
             f"{subject_hint}\n"
             f"{avoid_instruction}"
             f"{context_instruction}"
+            f"Politica obrigatoria: {focus_instruction}\n"
             "Regras:\n"
             "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
-            "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+            "- Cada flashcard deve ter uma 'question' escrita como pergunta e uma 'answer' objetiva.\n"
             "- Cada flashcard deve ser novo em relacao aos topicos ja criados.\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
+            "- Use code_example apenas quando ajudar; caso contrario, retorne null.\n"
             "- As respostas devem ser concisas (ate 2 frases).\n"
             "- Escreva em portugues brasileiro.\n"
             "Retorne exatamente neste formato JSON:\n"
@@ -4438,7 +4459,8 @@ def generate_diverse_flashcards(
             '  "flashcards": [\n'
             "    {\n"
             '      "question": "string",\n'
-            '      "answer": "string"\n'
+            '      "answer": "string",\n'
+            '      "code_example": null\n'
             "    }\n"
             "  ]\n"
             "}\n"
@@ -4448,25 +4470,28 @@ def generate_diverse_flashcards(
             f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
             f"{avoid_instruction}"
             f"{context_instruction}"
+            f"Politica obrigatoria: {focus_instruction}\n"
             "Regras:\n"
-            "- Cada flashcard deve ter uma 'question' (pergunta ou conceito) e uma 'answer' (resposta ou definicao).\n"
+            "- Cada flashcard deve ter uma 'question' escrita como pergunta e uma 'answer' objetiva.\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
             "- As respostas devem ser concisas (ate 2 frases).\n"
             "- Cubra os conceitos mais importantes do assunto.\n"
             "- Nao repita topicos ja criados; avance para subtopicos novos, aplicacoes, exemplos ou erros comuns.\n"
             "- Escreva em portugues brasileiro.\n"
-            "- Se o assunto for tecnico (ex: programacao, React, Python), use exemplos praticos curtos.\n"
+            "- Use code_example apenas quando ajudar; caso contrario, retorne null.\n"
             "Retorne exatamente neste formato JSON:\n"
             "{\n"
             f'  "subject": "{subject}",\n'
             '  "flashcards": [\n'
             "    {\n"
             '      "question": "string",\n'
-            '      "answer": "string"\n'
+            '      "answer": "string",\n'
+            '      "code_example": null\n'
             "    }\n"
             "  ]\n"
             "}\n"
         )
+    prompt = prompt[:40_000]
 
     try:
         response_text = phrase_generation_service.generate_json_text(
@@ -4480,22 +4505,27 @@ def generate_diverse_flashcards(
 
     data = _extract_json_object(response_text)
 
-    raw_cards = data.get("flashcards") or []
+    raw_cards = data.get("flashcards")
+    try:
+        validated_cards = validate_generated_question_batch(
+            raw_cards,
+            expected_count=count,
+            existing_fronts=avoid_topics,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     flashcards = [
         GeneratedFlashcardSchema(
-            topic=str(card.get("question", "")).strip()[:120],
-            answer=str(card.get("answer", "")).strip()[:300],
+            topic=card["question"] or "",
+            answer=card["answer"] or "",
+            code_example=card["code_example"],
         )
-        for card in raw_cards
-        if isinstance(card, dict) and card.get("question") and card.get("answer")
+        for card in validated_cards
     ]
 
     generated_subject = str(data.get("subject") or subject).strip()[:60]
     if not generated_subject:
         generated_subject = "Materia sugerida"
-
-    if not flashcards:
-        raise HTTPException(status_code=502, detail="IA nao gerou flashcards validos.")
 
     return GenerateFlashcardsResponseSchema(subject=generated_subject, flashcards=flashcards)
 

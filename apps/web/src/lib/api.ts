@@ -539,11 +539,13 @@ export interface GenerateFlashcardsPayload {
   context?: string;
   api_key?: string;
   provider?: string;
+  generation_mode?: 'discovery' | 'topic' | 'lesson';
 }
 
 export interface GeneratedFlashcard {
   topic: string;
   answer: string;
+  code_example?: string | null;
 }
 
 export interface GenerateFlashcardsResponse {

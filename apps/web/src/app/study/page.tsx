@@ -127,7 +127,8 @@ function normalizeDiverseTopicText(value: string) {
 function getDiverseAvoidTopics(subject: DiverseSubject) {
   return getDiverseSubjectTopics(subject)
     .map((topic) => topic.topic.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(-100);
 }
 
 const RATING_WEIGHT: Record<StudyRating, number> = { unknown: 100, partial: 60, knew: 12 };
@@ -766,12 +767,13 @@ export default function StudyPage() {
     }
   }
 
-  function flashcardsToTopics(flashcards: { topic: string; answer: string }[]): CodingTopic[] {
+  function flashcardsToTopics(flashcards: { topic: string; answer: string; code_example?: string | null }[]): CodingTopic[] {
     return flashcards.map((f) => ({
       id: createLocalQuestionId(),
       topic: f.topic,
       done: false,
       answer: f.answer,
+      code_example: f.code_example ?? null,
     }));
   }
 
@@ -840,6 +842,7 @@ export default function StudyPage() {
       const result = await api.generateStudyFlashcards({
         subject: subject.name,
         count: 1,
+        generation_mode: 'topic',
         avoid_topics: avoidTopics,
         ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
       });
@@ -888,13 +891,14 @@ export default function StudyPage() {
       const result = await api.generateStudyFlashcards({
         subject: subject.name,
         count: AI_FLASHCARD_COUNT,
+        generation_mode: 'lesson',
         avoid_topics: avoidTopics,
         ...(context?.trim() ? { context: context.trim() } : {}),
         ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
       });
       const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
-      if (topics.length === 0) {
-        setAiError('A IA gerou apenas tópicos repetidos. Tente novamente para criar uma lição nova.');
+      if (topics.length !== AI_FLASHCARD_COUNT) {
+        setAiError('A IA precisa gerar exatamente 5 questões novas para criar a lição. Nenhum preview foi salvo.');
         return;
       }
       const lesson: DiverseLessonBlock = {
