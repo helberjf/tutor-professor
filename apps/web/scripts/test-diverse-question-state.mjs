@@ -28,6 +28,8 @@ const {
   findItemIndexById,
   resolveItemsByIds,
   resolveDiverseGenerationTarget,
+  mergeGeneratedDiverseQuestions,
+  generateAndSynchronizeDiverseQuestions,
   updateItemById,
   updateSubjectById,
   reconcileStudyQueueByTopicIds,
@@ -104,6 +106,104 @@ assert.equal(
   null,
   'a removed subject must not redirect generation to its old index',
 );
+
+const savedGenerationDay = Object.freeze({
+  ...generationDay,
+  custom_subjects: Object.freeze([
+    replacement,
+    Object.freeze({
+      id: 'subject-target',
+      topics: Object.freeze([
+        Object.freeze({ id: 'question-old', topic: 'Old', answer: 'Preserved', review_count: 3 }),
+      ]),
+      lessons: Object.freeze([
+        Object.freeze({ id: 'lesson-other', title: 'Other', topic_ids: Object.freeze([]) }),
+        Object.freeze({ id: 'lesson-target', title: 'Target', topic_ids: Object.freeze(['question-old']) }),
+      ]),
+    }),
+  ]),
+});
+const generatedQuestions = Object.freeze([
+  Object.freeze({ id: 'question-new-1', topic: 'New 1', answer: 'Answer 1' }),
+  Object.freeze({ id: 'question-new-2', topic: 'New 2', answer: 'Answer 2' }),
+]);
+const mergedGenerationDay = mergeGeneratedDiverseQuestions(
+  savedGenerationDay,
+  'subject-target',
+  'lesson-target',
+  generatedQuestions,
+);
+const mergedTarget = resolveDiverseGenerationTarget(mergedGenerationDay, 'subject-target', 'lesson-target');
+assert.deepEqual(
+  mergedTarget.subject.topics.map((topic) => topic.id),
+  ['question-old', 'question-new-1', 'question-new-2'],
+  'confirmed generated topics append without replacing old questions',
+);
+assert.equal(mergedTarget.subject.topics[0].review_count, 3, 'old review state is preserved');
+assert.deepEqual(
+  mergedTarget.lesson.topic_ids,
+  ['question-old', 'question-new-1', 'question-new-2'],
+  'confirmed generated IDs append to the target lesson once',
+);
+assert.strictEqual(
+  mergeGeneratedDiverseQuestions(
+    mergedGenerationDay,
+    'subject-target',
+    'lesson-target',
+    generatedQuestions,
+  ),
+  mergedGenerationDay,
+  'merging the same POST response twice is idempotent',
+);
+
+let generateCalls = 0;
+let refreshCalls = 0;
+const partialSyncEvents = [];
+const partialSyncOutcome = await generateAndSynchronizeDiverseQuestions({
+  savedDay: savedGenerationDay,
+  subjectId: 'subject-target',
+  lessonId: 'lesson-target',
+  generate: async () => {
+    generateCalls += 1;
+    partialSyncEvents.push('generate');
+    return generatedQuestions;
+  },
+  installConfirmed: (confirmedDay) => {
+    partialSyncEvents.push('install');
+    assert.deepEqual(
+      resolveDiverseGenerationTarget(confirmedDay, 'subject-target', 'lesson-target').lesson.topic_ids,
+      ['question-old', 'question-new-1', 'question-new-2'],
+    );
+  },
+  refresh: async () => {
+    refreshCalls += 1;
+    partialSyncEvents.push('refresh');
+    throw new Error('temporary GET failure');
+  },
+});
+assert.equal(generateCalls, 1);
+assert.equal(refreshCalls, 1);
+assert.equal(partialSyncOutcome.synchronized, false);
+assert.deepEqual(partialSyncEvents, ['generate', 'install', 'refresh'], 'confirmed state installs before GET synchronization');
+assert.deepEqual(
+  resolveDiverseGenerationTarget(partialSyncOutcome.day, 'subject-target', 'lesson-target').lesson.topic_ids,
+  ['question-old', 'question-new-1', 'question-new-2'],
+  'POST success plus GET failure resolves with the confirmed merged state',
+);
+
+let refreshAfterFailedPost = false;
+await assert.rejects(
+  generateAndSynchronizeDiverseQuestions({
+    savedDay: savedGenerationDay,
+    subjectId: 'subject-target',
+    lessonId: 'lesson-target',
+    generate: async () => { throw new Error('POST conflict'); },
+    refresh: async () => { refreshAfterFailedPost = true; return savedGenerationDay; },
+  }),
+  /POST conflict/,
+  'POST failures still reject for the existing conflict recovery path',
+);
+assert.equal(refreshAfterFailedPost, false);
 
 const activeQueue = Object.freeze({
   order: Object.freeze([0, 1]),

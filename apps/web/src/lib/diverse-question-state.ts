@@ -24,6 +24,82 @@ export function resolveDiverseGenerationTarget<
   return lesson ? { subjectIndex, subject, lesson } : null;
 }
 
+export function mergeGeneratedDiverseQuestions<
+  TTopic extends { id: string },
+  TLesson extends { id: string; topic_ids: string[] },
+  TSubject extends { id: string; topics: TTopic[]; lessons?: TLesson[] },
+  TDay extends { custom_subjects: TSubject[] },
+>(
+  day: TDay,
+  subjectId: string,
+  lessonId: string,
+  generatedTopics: readonly TTopic[],
+): TDay {
+  const subjectIndex = findItemIndexById(day.custom_subjects, subjectId);
+  if (subjectIndex < 0) return day;
+  const subject = day.custom_subjects[subjectIndex];
+  const lesson = subject.lessons?.find((candidate) => candidate.id === lessonId);
+  if (!lesson) return day;
+
+  const existingTopicIds = new Set(subject.topics.map((topic) => topic.id));
+  const appendedTopicIds = new Set<string>();
+  const freshTopics = generatedTopics.filter((topic) => {
+    if (!topic.id || existingTopicIds.has(topic.id) || appendedTopicIds.has(topic.id)) return false;
+    appendedTopicIds.add(topic.id);
+    return true;
+  });
+
+  const lessonTopicIds = new Set(lesson.topic_ids);
+  const freshLessonIds = generatedTopics
+    .map((topic) => topic.id)
+    .filter((topicId) => {
+      if (!topicId || lessonTopicIds.has(topicId)) return false;
+      lessonTopicIds.add(topicId);
+      return true;
+    });
+
+  if (freshTopics.length === 0 && freshLessonIds.length === 0) return day;
+
+  const nextSubjects = updateSubjectById(day.custom_subjects, subjectId, (subject) => ({
+    ...subject,
+    topics: [...subject.topics, ...freshTopics],
+    lessons: subject.lessons?.map((lesson) => lesson.id === lessonId
+      ? { ...lesson, topic_ids: [...lesson.topic_ids, ...freshLessonIds] }
+      : lesson),
+  }));
+  return { ...day, custom_subjects: nextSubjects };
+}
+
+export async function generateAndSynchronizeDiverseQuestions<
+  TTopic extends { id: string },
+  TLesson extends { id: string; topic_ids: string[] },
+  TSubject extends { id: string; topics: TTopic[]; lessons?: TLesson[] },
+  TDay extends { custom_subjects: TSubject[] },
+>({
+  savedDay,
+  subjectId,
+  lessonId,
+  generate,
+  installConfirmed,
+  refresh,
+}: {
+  savedDay: TDay;
+  subjectId: string;
+  lessonId: string;
+  generate: () => Promise<readonly TTopic[]>;
+  installConfirmed: (day: TDay) => void;
+  refresh: () => Promise<TDay>;
+}): Promise<{ day: TDay; synchronized: boolean }> {
+  const generatedTopics = await generate();
+  const mergedDay = mergeGeneratedDiverseQuestions(savedDay, subjectId, lessonId, generatedTopics);
+  installConfirmed(mergedDay);
+  try {
+    return { day: await refresh(), synchronized: true };
+  } catch {
+    return { day: mergedDay, synchronized: false };
+  }
+}
+
 export interface StudyQueueState<TResult> {
   order: number[];
   position: number;
