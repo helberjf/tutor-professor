@@ -140,7 +140,9 @@ from services.coding_service import (
 )
 from services.ai_flashcard_service import sanitize_context, validate_card_batch
 from services.language_question_service import (
+    MAX_LESSON_QUESTIONS,
     build_language_questions_prompt,
+    front_key_for,
     validate_language_question_batch,
 )
 from services import fsrs_service
@@ -500,26 +502,27 @@ def get_child_id_from_session(request: Request, session: Session = Depends(get_s
 
 def is_generated_lesson(lesson: Lesson) -> bool:
     content = lesson.content or {}
-    return content.get("generated_by") == "gemini"
+    return bool(str(content.get("generated_by") or "").strip())
 
 
 def list_accessible_lessons(session: Session, child_id: int, child_level: int | None = None, target_language: str = "English") -> list[Lesson]:
     """Return all lessons accessible to child_id.
 
-    - Static (non-generated) lessons are visible only when their target_language matches.
+    - Any lesson with child_id is private to that child, regardless of generation metadata.
+    - Shared static lessons are visible only when their target_language matches.
     - Shared generated lessons (child_id=None) are visible when level and target_language match.
-    - Legacy private generated lessons (child_id==child_id) remain visible to that child.
     """
     lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
     result: list[Lesson] = []
     for lesson in lessons:
-        if not is_generated_lesson(lesson):
+        if lesson.child_id is not None:
+            if lesson.child_id == child_id:
+                result.append(lesson)
+        elif not is_generated_lesson(lesson):
             # Static content: only show to children learning the same language
             if lesson.target_language == target_language:
                 result.append(lesson)
-        elif lesson.child_id == child_id:
-            result.append(lesson)  # legacy private lesson for this child
-        elif lesson.child_id is None:
+        else:
             # shared pool: include if language and level match
             if lesson.target_language != target_language:
                 continue
@@ -1157,6 +1160,14 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
+def _ensure_lesson_question_capacity(current_count: int) -> None:
+    if current_count > MAX_LESSON_QUESTIONS - 5:
+        raise HTTPException(
+            status_code=409,
+            detail="Esta licao atingiu o limite de perguntas geradas.",
+        )
+
+
 @app.post(
     "/api/lessons/{lesson_id}/questions/generate",
     response_model=list[LessonQuestionSchema],
@@ -1192,13 +1203,16 @@ def generate_lesson_questions(
 
     lesson_items = get_lesson_items(session=session, lesson_id=lesson_id)
     existing_questions = session.exec(
-        select(LessonQuestion).where(
+        select(LessonQuestion)
+        .where(
             LessonQuestion.child_id == child_id,
             LessonQuestion.lesson_id == lesson_id,
         )
+        .order_by(LessonQuestion.id)
     ).all()
+    _ensure_lesson_question_capacity(len(existing_questions))
     existing_fronts = [question.front for question in existing_questions]
-    target_language = child.target_language
+    target_language = lesson.target_language
     base_language = child.base_language
     phrase_breakdowns = (lesson.content or {}).get("phrase_breakdowns") or []
     if not isinstance(phrase_breakdowns, list):
@@ -1259,21 +1273,26 @@ def generate_lesson_questions(
                 or lesson_id not in current_accessible_ids
             ):
                 raise HTTPException(status_code=404, detail="Licao nao encontrada")
-            if (
-                current_child.target_language != target_language
-                or current_child.base_language != base_language
-            ):
+            if current_lesson.target_language != target_language:
                 raise HTTPException(
                     status_code=409,
-                    detail="Os idiomas da crianca mudaram durante a geracao. Tente novamente.",
+                    detail="O idioma da licao mudou durante a geracao. Tente novamente.",
+                )
+            if current_child.base_language != base_language:
+                raise HTTPException(
+                    status_code=409,
+                    detail="O idioma-base da crianca mudou durante a geracao. Tente novamente.",
                 )
 
             current_questions = session.exec(
-                select(LessonQuestion).where(
+                select(LessonQuestion)
+                .where(
                     LessonQuestion.child_id == child_id,
                     LessonQuestion.lesson_id == lesson_id,
                 )
+                .order_by(LessonQuestion.id)
             ).all()
+            _ensure_lesson_question_capacity(len(current_questions))
             validated_questions = validate_language_question_batch(
                 raw_questions,
                 [question.front for question in current_questions],
@@ -1286,6 +1305,7 @@ def generate_lesson_questions(
                     target_language=target_language,
                     question_type=question.question_type,
                     front=question.front,
+                    front_key=front_key_for(question.front),
                     back=question.back,
                     supporting_example=question.supporting_example,
                     next_review=now,
@@ -1294,6 +1314,12 @@ def generate_lesson_questions(
                 session.add(record)
                 created.append(record)
             session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Uma ou mais perguntas ja existem nesta licao.",
+            ) from exc
         except ValueError as exc:
             session.rollback()
             raise HTTPException(status_code=502, detail=str(exc)) from exc

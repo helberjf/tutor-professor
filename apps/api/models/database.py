@@ -75,12 +75,22 @@ class LessonItem(SQLModel, table=True):
 
 
 class LessonQuestion(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "child_id",
+            "lesson_id",
+            "front_key",
+            name="uq_lessonquestion_child_lesson_front_key",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="childprofile.id", index=True)
     lesson_id: int = Field(foreign_key="lesson.id", index=True)
     target_language: str = Field(max_length=40)
     question_type: str = Field(max_length=40)
     front: str = Field(max_length=500)
+    front_key: str = Field(max_length=64)
     back: str = Field(max_length=2000)
     supporting_example: Optional[str] = Field(default=None, max_length=1000)
     difficulty_score: float = Field(default=0.45)

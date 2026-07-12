@@ -542,6 +542,7 @@ async def run() -> None:
                 title="Les salutations",
                 theme="Rencontres",
                 objective="Se presenter poliment",
+                child_id=child_id,
                 target_language="French",
                 content={
                     "phrase_breakdowns": [
@@ -571,17 +572,39 @@ async def run() -> None:
             ).first()
             if other_child is None or other_child.id is None:
                 raise AssertionError("expected second child for lesson access test")
+            other_child.target_language = "French"
+            session.add(other_child)
             other_child_id = other_child.id
+            wrong_level_generated_lesson = main.Lesson(
+                title="Le francais avance",
+                theme="Niveau avance",
+                objective="Respecter le niveau de la lecon",
+                child_id=None,
+                level=(french_child.current_level or 1) + 1,
+                target_language="French",
+                content={"generated_by": "openai"},
+            )
+            session.add(wrong_level_generated_lesson)
+            session.commit()
+            wrong_level_generated_lesson_id = wrong_level_generated_lesson.id or 0
 
-        inaccessible_french_lesson_response = await client.post(
-            f"/api/lessons/{french_lesson_id}/questions/generate",
+        inaccessible_french_lesson_response = await client.get(
+            f"/api/lesson/{french_lesson_id}",
             headers={"X-Child-ID": str(other_child_id)},
-            json={},
         )
         assert_status(
             inaccessible_french_lesson_response,
             404,
             "reject French lesson generation for child without access",
+        )
+        wrong_level_generated_response = await client.get(
+            f"/api/lesson/{wrong_level_generated_lesson_id}",
+            headers=child_headers,
+        )
+        assert_status(
+            wrong_level_generated_response,
+            404,
+            "treat any generated provider as generated for level access",
         )
 
         french_ai_calls = 0
@@ -673,8 +696,12 @@ async def run() -> None:
             return main.json.dumps(
                 {
                     "questions": [
-                        {"front": f"Incomplete {index}?", "back": "Answer", "question_type": "grammar"}
-                        for index in range(1, 5)
+                        {
+                            "front": ({"not": "a string"} if index == 1 else f"Incomplete {index}?"),
+                            "back": "Answer",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
                     ]
                 }
             )
@@ -775,7 +802,261 @@ async def run() -> None:
                 raise AssertionError("expected child while restoring language")
             restored_child.target_language = "English"
             session.add(restored_child)
+            old_french_lesson = main.Lesson(
+                title="Ancienne lecon francaise",
+                theme="Revision",
+                objective="Conserver la langue de la lecon",
+                child_id=child_id,
+                target_language="French",
+                content={},
+            )
+            mutable_language_lesson = main.Lesson(
+                title="Lecon dont la langue change",
+                theme="Revision",
+                objective="Detecter un changement concurrent",
+                child_id=child_id,
+                target_language="French",
+                content={},
+            )
+            session.add(old_french_lesson)
+            session.add(mutable_language_lesson)
             session.commit()
+            session.refresh(old_french_lesson)
+            session.refresh(mutable_language_lesson)
+            old_french_lesson_id = old_french_lesson.id or 0
+            mutable_language_lesson_id = mutable_language_lesson.id or 0
+
+        old_lesson_prompt = ""
+
+        def mock_old_french_lesson_json(**kwargs):
+            nonlocal old_lesson_prompt
+            old_lesson_prompt = kwargs["prompt"]
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": f"Ancienne question {index} ?",
+                            "back": f"Reponse {index}.",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_old_french_lesson_json
+            old_french_questions_response = await client.post(
+                f"/api/lessons/{old_french_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(
+            old_french_questions_response,
+            200,
+            "generate from an old French lesson after child switches to English",
+        )
+        old_french_questions = old_french_questions_response.json()
+        if {question["target_language"] for question in old_french_questions} != {"French"}:
+            raise AssertionError(
+                "question language must come from the persisted lesson after child switches: "
+                f"{old_french_questions}"
+            )
+        if "Idioma-alvo: French" not in old_lesson_prompt or "Idioma-alvo: English" in old_lesson_prompt:
+            raise AssertionError(f"old lesson prompt used the child's current language: {old_lesson_prompt}")
+
+        def mock_language_change_during_ai(**_kwargs):
+            with Session(main.engine) as competing_session:
+                changing_lesson = competing_session.get(main.Lesson, mutable_language_lesson_id)
+                if changing_lesson is None:
+                    raise AssertionError("expected mutable language lesson")
+                changing_lesson.target_language = "German"
+                competing_session.add(changing_lesson)
+                competing_session.commit()
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": f"Question avant changement {index} ?",
+                            "back": f"Reponse {index}.",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_language_change_during_ai
+            language_changed_response = await client.post(
+                f"/api/lessons/{mutable_language_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(language_changed_response, 409, "reject lesson language changed during AI")
+        with Session(main.engine) as session:
+            language_changed_questions = session.exec(
+                main.select(main.LessonQuestion).where(
+                    main.LessonQuestion.child_id == child_id,
+                    main.LessonQuestion.lesson_id == mutable_language_lesson_id,
+                )
+            ).all()
+        if language_changed_questions:
+            raise AssertionError("lesson language race persisted a partial question batch")
+
+        with Session(main.engine) as session:
+            capacity_lesson = main.Lesson(
+                title="English capacity lesson",
+                theme="Capacity",
+                objective="Enforce the per-lesson question limit",
+                child_id=child_id,
+                target_language="English",
+                content={},
+            )
+            capacity_race_lesson = main.Lesson(
+                title="English capacity race lesson",
+                theme="Capacity",
+                objective="Recheck capacity after AI",
+                child_id=child_id,
+                target_language="English",
+                content={},
+            )
+            session.add(capacity_lesson)
+            session.add(capacity_race_lesson)
+            session.flush()
+            language_capacity_lesson_id = capacity_lesson.id or 0
+            language_capacity_race_lesson_id = capacity_race_lesson.id or 0
+            for lesson_id, count, prefix in (
+                (language_capacity_lesson_id, 195, "capacity-existing"),
+                (language_capacity_race_lesson_id, 194, "capacity-race-existing"),
+            ):
+                for index in range(count):
+                    front = f"{prefix} {index}?"
+                    session.add(
+                        main.LessonQuestion(
+                            child_id=child_id,
+                            lesson_id=lesson_id,
+                            target_language="English",
+                            question_type="grammar",
+                            front=front,
+                            front_key=main.front_key_for(front),
+                            back="Answer.",
+                        )
+                    )
+            session.commit()
+
+        language_capacity_ai_calls = 0
+
+        def mock_language_capacity_json(**_kwargs):
+            nonlocal language_capacity_ai_calls
+            language_capacity_ai_calls += 1
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": f"Capacity generated {index}?",
+                            "back": "Answer.",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_language_capacity_json
+            exact_language_capacity_response = await client.post(
+                f"/api/lessons/{language_capacity_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+            exceeded_language_capacity_response = await client.post(
+                f"/api/lessons/{language_capacity_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(exact_language_capacity_response, 200, "fill language question capacity exactly")
+        assert_status(exceeded_language_capacity_response, 409, "reject language capacity before AI")
+        if language_capacity_ai_calls != 1:
+            raise AssertionError(
+                f"language capacity rejection must happen before AI: {language_capacity_ai_calls}"
+            )
+        with Session(main.engine) as session:
+            exact_capacity_count = len(
+                session.exec(
+                    main.select(main.LessonQuestion).where(
+                        main.LessonQuestion.child_id == child_id,
+                        main.LessonQuestion.lesson_id == language_capacity_lesson_id,
+                    )
+                ).all()
+            )
+        if exact_capacity_count != main.MAX_LESSON_QUESTIONS:
+            raise AssertionError(f"unexpected exact language capacity count: {exact_capacity_count}")
+
+        def mock_language_capacity_change(**_kwargs):
+            with Session(main.engine) as competing_session:
+                for index in range(2):
+                    front = f"External capacity race {index}?"
+                    competing_session.add(
+                        main.LessonQuestion(
+                            child_id=child_id,
+                            lesson_id=language_capacity_race_lesson_id,
+                            target_language="English",
+                            question_type="grammar",
+                            front=front,
+                            front_key=main.front_key_for(front),
+                            back="External answer.",
+                        )
+                    )
+                competing_session.commit()
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": f"Race generated {index}?",
+                            "back": "Answer.",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_language_capacity_change
+            changed_language_capacity_response = await client.post(
+                f"/api/lessons/{language_capacity_race_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(
+            changed_language_capacity_response,
+            409,
+            "recheck language question capacity after AI",
+        )
+        with Session(main.engine) as session:
+            changed_capacity_count = len(
+                session.exec(
+                    main.select(main.LessonQuestion).where(
+                        main.LessonQuestion.child_id == child_id,
+                        main.LessonQuestion.lesson_id == language_capacity_race_lesson_id,
+                    )
+                ).all()
+            )
+        if changed_capacity_count != 196:
+            raise AssertionError(
+                "post-AI capacity conflict must preserve only external rows: "
+                f"{changed_capacity_count}"
+            )
 
         def capacity_subject(topic_count: int, linked_count: int, label: str) -> dict:
             topics = [
