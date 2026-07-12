@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const helperUrl = new URL('../src/lib/diverse-question-state.ts', import.meta.url);
+const apiUrl = new URL('../src/lib/api.ts', import.meta.url);
 
 let source;
 try {
@@ -22,6 +23,21 @@ const compiled = ts.transpileModule(source, {
 const module = { exports: {} };
 new Function('exports', 'module', compiled)(module.exports, module);
 
+const apiSource = readFileSync(apiUrl, 'utf8');
+const compiledApi = ts.transpileModule(apiSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020,
+  },
+}).outputText;
+const apiModule = { exports: {} };
+new Function('exports', 'module', 'require', compiledApi)(
+  apiModule.exports,
+  apiModule,
+  () => ({}),
+);
+const { ApiError } = apiModule.exports;
+
 const {
   appendTopicToSubjectById,
   clearDraftForRemovedSubject,
@@ -30,10 +46,33 @@ const {
   resolveDiverseGenerationTarget,
   mergeGeneratedDiverseQuestions,
   generateAndSynchronizeDiverseQuestions,
+  isUncertainDiverseGenerationError,
   updateItemById,
   updateSubjectById,
   reconcileStudyQueueByTopicIds,
 } = module.exports;
+
+assert.equal(
+  isUncertainDiverseGenerationError(new ApiError('offline after POST', { code: 'offline' })),
+  true,
+  'offline ApiError is an uncertain generation outcome',
+);
+assert.equal(
+  isUncertainDiverseGenerationError(new ApiError('unreadable response', { code: 'parse' })),
+  true,
+  'parse ApiError is an uncertain generation outcome',
+);
+assert.equal(isUncertainDiverseGenerationError(new TypeError('Failed to fetch')), true);
+assert.equal(
+  isUncertainDiverseGenerationError(new ApiError('validation', { status: 422, code: 'http' })),
+  false,
+  'ordinary API validation errors remain retry-safe errors',
+);
+assert.equal(
+  isUncertainDiverseGenerationError(new ApiError('conflict', { status: 409, code: 'http' })),
+  false,
+  '409 keeps its dedicated recovery behavior',
+);
 
 const replacement = Object.freeze({ id: 'subject-replacement', topics: [] });
 const target = Object.freeze({ id: 'subject-target', topics: [] });

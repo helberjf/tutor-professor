@@ -5,6 +5,13 @@ export function resolveItemsByIds<T extends { id: string }>(items: readonly T[],
     .filter((item): item is T => item !== undefined);
 }
 
+export function isUncertainDiverseGenerationError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (!(error instanceof Error) || !('code' in error)) return false;
+  const code = (error as Error & { code?: unknown }).code;
+  return code === 'offline' || code === 'parse';
+}
+
 export function findItemIndexById<T extends { id: string }>(items: readonly T[], itemId: string): number {
   return items.findIndex((item) => item.id === itemId);
 }

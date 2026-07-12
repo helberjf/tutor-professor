@@ -125,6 +125,12 @@ assert "activeTab !== 'view'" in page
 assert "activeTab === 'view'" in page
 assert 'value={lesson.id}' in page
 assert "diverseQuestionContext" in page
+assert "isUncertainDiverseGenerationError(err)" in page
+assert "A criação pode ter sido concluída. Recarregue a página antes de tentar novamente." in page
+generation_form = page.split("async function handleGenerate()", 1)[1].split("\n  if (!open)", 1)[0]
+generation_error = generation_form.split("} catch (err) {", 1)[1].split("} finally {", 1)[0]
+assert "setDiverseQuestionContext('');" not in generation_error
+assert generation_form.index("setDiverseQuestionContext('');") < generation_form.index("} catch (err) {")
 assert "maxLength={1000}" in page
 assert "Serão criadas 5 questões" in page
 assert 'role="alert"' in page
