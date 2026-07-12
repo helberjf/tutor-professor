@@ -2,11 +2,61 @@ from __future__ import annotations
 
 import hashlib
 import unicodedata
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
 
 _VALID_RATINGS = {"knew", "partial", "unknown"}
+
+
+def validate_generated_question_batch(
+    raw_questions: Any,
+    *,
+    expected_count: int,
+    existing_fronts: list[str] | None = None,
+) -> list[dict[str, str | None]]:
+    """Validate an AI response without silently coercing or truncating content."""
+    if not isinstance(raw_questions, list) or len(raw_questions) != expected_count:
+        count_name = "five" if expected_count == 5 else str(expected_count)
+        raise ValueError(f"Exactly {count_name} questions are required")
+
+    known = {normalize_text(front) for front in (existing_fronts or [])}
+    batch: set[str] = set()
+    validated: list[dict[str, str | None]] = []
+    for raw in raw_questions:
+        if not isinstance(raw, Mapping):
+            raise ValueError("Each question must be a JSON object")
+        question = raw.get("question")
+        answer = raw.get("answer")
+        code_example = raw.get("code_example")
+        if not isinstance(question, str) or not isinstance(answer, str):
+            raise ValueError("Question and answer must be strings")
+        question = question.strip()
+        answer = answer.strip()
+        if not question or not answer:
+            raise ValueError("Question and answer must not be empty")
+        if len(question) > 120 or len(answer) > 2000:
+            raise ValueError("Question or answer exceeds the allowed length")
+        if not question.endswith("?"):
+            raise ValueError("Each item must be written as a question")
+        key = normalize_text(question)
+        if not key or key in known or key in batch:
+            raise ValueError("Questions must be unique")
+        if code_example is not None and not isinstance(code_example, str):
+            raise ValueError("code_example must be a string or null")
+        normalized_code = code_example.strip() if isinstance(code_example, str) else None
+        if normalized_code and len(normalized_code) > 3000:
+            raise ValueError("code_example exceeds the allowed length")
+        batch.add(key)
+        validated.append(
+            {
+                "question": question,
+                "answer": answer,
+                "code_example": normalized_code or None,
+            }
+        )
+    return validated
 
 
 def normalize_text(value: str) -> str:

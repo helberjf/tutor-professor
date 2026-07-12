@@ -849,15 +849,17 @@ class GenerateFlashcardsRequestSchema(BaseModel):
     subject: str = Field(default="", max_length=80)
     count: int = Field(default=5, ge=1, le=10)
     suggest_subject: bool = False
-    avoid_topics: List[str] = Field(default_factory=list, max_length=80)
+    avoid_topics: List[str] = Field(default_factory=list, max_length=100)
     context: Optional[str] = Field(default=None, max_length=1000)
     api_key: Optional[str] = Field(default=None, max_length=500)
     provider: str = Field(default="gemini", max_length=40)
+    generation_mode: Literal["discovery", "topic", "lesson"] = "discovery"
 
 
 class GeneratedFlashcardSchema(BaseModel):
     topic: str
     answer: str
+    code_example: Optional[str] = Field(default=None, max_length=3000)
 
 
 class GenerateFlashcardsResponseSchema(BaseModel):
