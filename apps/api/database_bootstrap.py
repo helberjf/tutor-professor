@@ -1,265 +1,367 @@
-"""Safely attach unversioned databases to Alembic and upgrade to head.
+"""Safely attach known unversioned schemas to Alembic and upgrade to head.
 
-This module deliberately does not import ``main`` or the SQLModel metadata.  It
-must run before any ``create_all`` call so Alembic remains the owner of the
-versioned schema.
+The bootstrap owns the complete inspect/stamp/upgrade critical section. SQLite
+file databases use an operating-system file lock and PostgreSQL uses a
+session-level advisory lock. Other database backends are refused rather than
+running migrations without an interprocess lock.
+
+This module deliberately does not import ``main`` or call ``create_all``.
+Importing the model metadata is safe and lets legacy schema checks stay aligned
+with the complete SQLModel schema.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Iterable
+from typing import Iterator
 
 from alembic import command
 from alembic.config import Config
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine import Engine
+from sqlalchemy import UniqueConstraint, create_engine, inspect, text
+from sqlalchemy.engine import Connection, Engine, make_url
+from sqlalchemy.sql.schema import Table
+from sqlmodel import SQLModel
+
+import models.database  # noqa: F401  # Register every table in SQLModel.metadata.
 
 
 API_DIR = Path(__file__).resolve().parent
 HEAD_REVISION = "0007"
-
-REVISION_TABLE_COLUMNS: dict[str, dict[str, set[str]]] = {
-    "0001": {
-        "user": {
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "cpf_hash",
-            "password_hash",
-            "created_at",
-        },
-        "childprofile": {"id", "name", "age_group", "created_at"},
-        "parentsettings": {"id", "password_hash"},
-        "lesson": {"id", "title", "theme", "objective", "content"},
-        "lessonitem": {"id", "word_en", "word_pt", "lesson_id"},
-        "reviewitem": {"id", "word_en", "word_pt", "child_id"},
-        "childlessonprogress": {"id", "child_id", "lesson_id"},
-        "quizattempt": {"id", "lesson_id", "score"},
-        "audiocache": {"id", "text_hash", "voice", "file_path"},
-    },
-    "0002": {
-        "usersession": {
-            "id",
-            "session_token_hash",
-            "user_id",
-            "created_at",
-            "last_seen_at",
-            "expires_at",
-        },
-    },
-    "0003": {
-        "studyday": {
-            "id",
-            "child_id",
-            "study_date",
-            "plan_text",
-            "studied_text",
-            "distractions",
-            "created_at",
-            "updated_at",
-        },
-    },
-    "0004": {
-        "programmingsubject": {"id", "child_id", "name", "created_at"},
-        "programmingtopic": {"id", "subject_id", "title", "ai_content"},
-        "programmingflashcard": {
-            "id",
-            "topic_id",
-            "subject_id",
-            "child_id",
-            "front",
-            "back",
-        },
-        "codingreviewitem": {"id", "flashcard_id", "child_id", "next_review"},
-    },
-    "0005": {"studyday": {"pomodoro_count"}},
-    "0006": {
-        "lessonquestion": {
-            "id",
-            "child_id",
-            "lesson_id",
-            "target_language",
-            "question_type",
-            "front",
-            "back",
-            "supporting_example",
-            "difficulty_score",
-            "attempt_count",
-            "correct_count",
-            "error_count",
-            "streak",
-            "last_reviewed",
-            "next_review",
-            "created_at",
-        },
-    },
-}
+POSTGRES_ADVISORY_LOCK_ID = 4992089506640973647
 
 
 class UnsafeUnversionedSchema(RuntimeError):
     """Raised when stamping would hide missing migration effects."""
 
 
-def _table_names(engine: Engine) -> set[str]:
-    return set(inspect(engine).get_table_names())
+class DatabaseBootstrapError(RuntimeError):
+    """A credential-safe bootstrap failure."""
 
 
-def _column_names(engine: Engine, table_name: str) -> set[str]:
-    return {column["name"] for column in inspect(engine).get_columns(table_name)}
+@dataclass(frozen=True)
+class ColumnShape:
+    nullable: bool
 
 
-def _require_shape(engine: Engine, revision: str) -> None:
-    tables = _table_names(engine)
-    for table_name, required_columns in REVISION_TABLE_COLUMNS[revision].items():
-        if table_name not in tables:
-            raise UnsafeUnversionedSchema(
-                f"Cannot stamp Alembic revision {revision}: table {table_name!r} is missing."
+@dataclass(frozen=True)
+class TableShape:
+    columns: dict[str, ColumnShape]
+    primary_key: tuple[str, ...]
+    foreign_keys: frozenset[tuple[tuple[str, ...], str, tuple[str, ...]]]
+    unique_constraints: frozenset[tuple[str, ...]]
+    indexes: frozenset[tuple[str, tuple[str, ...], bool]]
+
+
+def _metadata_table_shape(table: Table) -> TableShape:
+    return TableShape(
+        columns={
+            column.name: ColumnShape(
+                nullable=bool(column.nullable),
             )
-        missing_columns = required_columns - _column_names(engine, table_name)
-        if missing_columns:
-            missing = ", ".join(sorted(missing_columns))
-            raise UnsafeUnversionedSchema(
-                f"Cannot stamp Alembic revision {revision}: "
-                f"table {table_name!r} is missing columns: {missing}."
+            for column in table.columns
+        },
+        primary_key=tuple(column.name for column in table.primary_key.columns),
+        foreign_keys=frozenset(
+            (
+                tuple(constraint.column_keys),
+                constraint.referred_table.name,
+                tuple(element.column.name for element in constraint.elements),
             )
-
-
-def _has_unique_identity(engine: Engine) -> bool:
-    inspector = inspect(engine)
-    expected = ("child_id", "lesson_id", "front_key")
-    unique_shapes: Iterable[tuple[str, ...]] = (
-        tuple(constraint.get("column_names") or ())
-        for constraint in inspector.get_unique_constraints("lessonquestion")
+            for constraint in table.foreign_key_constraints
+        ),
+        unique_constraints=frozenset(
+            tuple(column.name for column in constraint.columns)
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        ),
+        indexes=frozenset(
+            (
+                str(index.name),
+                tuple(column.name for column in index.columns),
+                bool(index.unique),
+            )
+            for index in table.indexes
+        ),
     )
-    if expected in unique_shapes:
-        return True
-    return any(
-        index.get("unique") and tuple(index.get("column_names") or ()) == expected
-        for index in inspector.get_indexes("lessonquestion")
+
+
+def _actual_table_shape(bind: Engine | Connection, table_name: str) -> TableShape:
+    inspector = inspect(bind)
+    columns = inspector.get_columns(table_name)
+    indexes = inspector.get_indexes(table_name)
+    return TableShape(
+        columns={
+            column["name"]: ColumnShape(
+                nullable=bool(column["nullable"]),
+            )
+            for column in columns
+        },
+        primary_key=tuple(
+            inspector.get_pk_constraint(table_name).get("constrained_columns") or ()
+        ),
+        foreign_keys=frozenset(
+            (
+                tuple(constraint.get("constrained_columns") or ()),
+                str(constraint.get("referred_table")),
+                tuple(constraint.get("referred_columns") or ()),
+            )
+            for constraint in inspector.get_foreign_keys(table_name)
+        ),
+        unique_constraints=frozenset(
+            tuple(constraint.get("column_names") or ())
+            for constraint in inspector.get_unique_constraints(table_name)
+        ),
+        indexes=frozenset(
+            (
+                str(index.get("name")),
+                tuple(index.get("column_names") or ()),
+                bool(index.get("unique")),
+            )
+            for index in indexes
+            if not index.get("duplicates_constraint")
+        ),
     )
 
 
-def _detect_unversioned_revision(engine: Engine) -> str | None:
-    tables = _table_names(engine) - {"alembic_version"}
+CURRENT_SHAPE: dict[str, TableShape] = {
+    table.name: _metadata_table_shape(table)
+    for table in SQLModel.metadata.sorted_tables
+}
+LEGACY_CREATE_ALL_SHAPE = {
+    name: shape for name, shape in CURRENT_SHAPE.items() if name != "lessonquestion"
+}
+_head_lesson_shape = CURRENT_SHAPE["lessonquestion"]
+MIGRATION_0006_SHAPE = {
+    **LEGACY_CREATE_ALL_SHAPE,
+    "lessonquestion": replace(
+        _head_lesson_shape,
+        columns={
+            name: shape
+            for name, shape in _head_lesson_shape.columns.items()
+            if name != "front_key"
+        },
+        unique_constraints=frozenset(
+            columns
+            for columns in _head_lesson_shape.unique_constraints
+            if columns != ("child_id", "lesson_id", "front_key")
+        ),
+    ),
+}
+
+
+def _schema_error(table_name: str, detail: str) -> UnsafeUnversionedSchema:
+    return UnsafeUnversionedSchema(
+        f"Cannot safely stamp the unversioned database: table {table_name!r} {detail}."
+    )
+
+
+def _validate_table_shape(
+    table_name: str, expected: TableShape, actual: TableShape
+) -> None:
+    expected_names = set(expected.columns)
+    actual_names = set(actual.columns)
+    if expected_names != actual_names:
+        missing = sorted(expected_names - actual_names)
+        extra = sorted(actual_names - expected_names)
+        detail = f"has different columns (missing={missing}, extra={extra})"
+        raise _schema_error(table_name, detail)
+
+    for column_name in sorted(expected_names):
+        expected_column = expected.columns[column_name]
+        actual_column = actual.columns[column_name]
+        if expected_column.nullable != actual_column.nullable:
+            raise _schema_error(
+                table_name,
+                f"column {column_name!r} has incorrect nullable state",
+            )
+    if expected.primary_key != actual.primary_key:
+        raise _schema_error(table_name, "has an incorrect primary key")
+    if expected.foreign_keys != actual.foreign_keys:
+        raise _schema_error(table_name, "has different foreign key constraints")
+    if expected.unique_constraints != actual.unique_constraints:
+        raise _schema_error(table_name, "has different unique constraints")
+    if expected.indexes != actual.indexes:
+        raise _schema_error(table_name, "has different indexes")
+
+
+def _validate_known_shape(
+    bind: Engine | Connection, expected_tables: dict[str, TableShape]
+) -> None:
+    inspector = inspect(bind)
+    actual_tables = set(inspector.get_table_names()) - {"alembic_version"}
+    missing_tables = set(expected_tables) - actual_tables
+    if missing_tables:
+        raise UnsafeUnversionedSchema(
+            "Cannot safely stamp the unversioned database: missing required tables "
+            f"{sorted(missing_tables)}."
+        )
+    for table_name in sorted(expected_tables):
+        _validate_table_shape(
+            table_name,
+            expected_tables[table_name],
+            _actual_table_shape(bind, table_name),
+        )
+
+
+def _detect_unversioned_revision(bind: Engine | Connection) -> str | None:
+    inspector = inspect(bind)
+    tables = set(inspector.get_table_names()) - {"alembic_version"}
     if not tables:
         return None
 
-    _require_shape(engine, "0001")
-    revision = "0001"
+    if "lessonquestion" not in tables:
+        _validate_known_shape(bind, LEGACY_CREATE_ALL_SHAPE)
+        return "0005"
 
-    if "usersession" in tables:
-        _require_shape(engine, "0002")
-        revision = "0002"
-    elif tables & {"studyday", "programmingsubject", "lessonquestion"}:
-        raise UnsafeUnversionedSchema(
-            "Cannot infer a safe Alembic revision: later tables exist without usersession."
-        )
-
-    if "studyday" in tables:
-        if revision != "0002":
-            raise UnsafeUnversionedSchema(
-                "Cannot infer a safe Alembic revision for the studyday table."
-            )
-        _require_shape(engine, "0003")
-        revision = "0003"
-    elif tables & {"programmingsubject", "programmingtopic", "lessonquestion"}:
-        raise UnsafeUnversionedSchema(
-            "Cannot infer a safe Alembic revision: later tables exist without studyday."
-        )
-
-    programming_tables = {
-        "programmingsubject",
-        "programmingtopic",
-        "programmingflashcard",
-        "codingreviewitem",
+    lesson_columns = {
+        column["name"] for column in inspector.get_columns("lessonquestion")
     }
-    present_programming_tables = tables & programming_tables
-    if present_programming_tables:
-        if revision != "0003" or present_programming_tables != programming_tables:
-            raise UnsafeUnversionedSchema(
-                "Cannot infer a safe Alembic revision from a partial coding schema."
-            )
-        _require_shape(engine, "0004")
-        revision = "0004"
-    elif "lessonquestion" in tables:
-        raise UnsafeUnversionedSchema(
-            "Cannot infer a safe Alembic revision: lessonquestion exists without coding tables."
-        )
+    if "front_key" not in lesson_columns:
+        _validate_known_shape(bind, MIGRATION_0006_SHAPE)
+        return "0006"
 
-    if "studyday" in tables and "pomodoro_count" in _column_names(engine, "studyday"):
-        if revision != "0004":
-            raise UnsafeUnversionedSchema(
-                "Cannot infer a safe Alembic revision for studyday.pomodoro_count."
-            )
-        _require_shape(engine, "0005")
-        revision = "0005"
-    elif revision == "0004" and "lessonquestion" in tables:
-        raise UnsafeUnversionedSchema(
-            "Cannot infer a safe Alembic revision: lessonquestion exists without pomodoro_count."
-        )
+    _validate_known_shape(bind, CURRENT_SHAPE)
+    return HEAD_REVISION
 
-    if "lessonquestion" in tables:
-        if revision != "0005":
-            raise UnsafeUnversionedSchema(
-                "Cannot infer a safe Alembic revision for lessonquestion."
+
+@contextmanager
+def _lock_sqlite_file(database_path: str) -> Iterator[None]:
+    if database_path in {"", ":memory:"}:
+        # In-memory SQLite databases are process-local, so no interprocess lock
+        # can coordinate or is needed between their independent schemas.
+        yield
+        return
+
+    path = Path(database_path)
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    lock_path = Path(f"{path}.alembic.lock")
+    with lock_path.open("a+b") as lock_file:
+        lock_file.seek(0, os.SEEK_END)
+        if lock_file.tell() == 0:
+            lock_file.write(b"\0")
+            lock_file.flush()
+        lock_file.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            while True:
+                try:
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    # Windows' blocking mode gives up after a short fixed retry
+                    # window. Non-blocking retries keep the critical section
+                    # serialized even when a migration takes longer.
+                    time.sleep(0.1)
+            try:
+                yield
+            finally:
+                lock_file.seek(0)
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _bootstrap_lock(
+    engine: Engine, database_url: str
+) -> Iterator[Engine | Connection]:
+    url = make_url(database_url)
+    if engine.dialect.name == "sqlite":
+        with _lock_sqlite_file(url.database or ":memory:"):
+            yield engine
+        return
+
+    if engine.dialect.name == "postgresql":
+        with engine.connect() as connection:
+            connection.execute(
+                text("SELECT pg_advisory_lock(:lock_id)"),
+                {"lock_id": POSTGRES_ADVISORY_LOCK_ID},
             )
-        _require_shape(engine, "0006")
-        revision = "0006"
-        lesson_columns = _column_names(engine, "lessonquestion")
-        if "front_key" in lesson_columns:
-            front_key = next(
-                column
-                for column in inspect(engine).get_columns("lessonquestion")
-                if column["name"] == "front_key"
-            )
-            if front_key.get("nullable") or not _has_unique_identity(engine):
-                raise UnsafeUnversionedSchema(
-                    "Cannot stamp 0007: lessonquestion.front_key must be NOT NULL and "
-                    "have a unique identity on (child_id, lesson_id, front_key)."
+            try:
+                yield connection
+            finally:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": POSTGRES_ADVISORY_LOCK_ID},
                 )
-            revision = HEAD_REVISION
+        return
 
-    return revision
+    raise DatabaseBootstrapError(
+        "Database bootstrap requires SQLite or PostgreSQL so migrations can be "
+        "protected by a cross-process lock."
+    )
 
 
 def _alembic_config(database_url: str) -> Config:
     config = Config(str(API_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(API_DIR / "alembic"))
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     return config
 
 
-def bootstrap_database(database_url: str | None = None) -> str:
-    """Stamp a verified legacy schema when needed, then upgrade to Alembic head."""
+def _release_inspection_transaction(bind: Engine | Connection) -> None:
+    """Release PostgreSQL catalog locks while retaining the session advisory lock."""
 
-    load_dotenv(API_DIR / ".env")
-    resolved_url = database_url or os.getenv("DATABASE_URL") or "sqlite:///./kids_tutor.sqlite"
-    config = _alembic_config(resolved_url)
-    engine = create_engine(resolved_url)
+    if isinstance(bind, Connection):
+        bind.commit()
+
+
+def _run_bootstrap(database_url: str) -> str:
+    config = _alembic_config(database_url)
+    engine = create_engine(database_url)
+    previous_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = database_url
     try:
-        tables = _table_names(engine)
-        has_version_table = "alembic_version" in tables
-        detected_revision = None if has_version_table else _detect_unversioned_revision(engine)
+        with _bootstrap_lock(engine, database_url) as inspection_bind:
+            tables = set(inspect(inspection_bind).get_table_names())
+            has_version_table = "alembic_version" in tables
+            detected_revision = (
+                None
+                if has_version_table
+                else _detect_unversioned_revision(inspection_bind)
+            )
+            _release_inspection_transaction(inspection_bind)
+            if not has_version_table and detected_revision is not None:
+                command.stamp(config, detected_revision)
+            command.upgrade(config, "head")
     finally:
         engine.dispose()
-
-    previous_url = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = resolved_url
-    try:
-        if not has_version_table and detected_revision is not None:
-            command.stamp(config, detected_revision)
-        command.upgrade(config, "head")
-    finally:
         if previous_url is None:
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = previous_url
     return HEAD_REVISION
+
+
+def bootstrap_database(database_url: str | None = None) -> str:
+    """Verify a known legacy schema, serialize migration, and upgrade to head."""
+
+    load_dotenv(API_DIR / ".env")
+    resolved_url = database_url or os.getenv("DATABASE_URL") or "sqlite:///./kids_tutor.sqlite"
+    try:
+        return _run_bootstrap(resolved_url)
+    except (UnsafeUnversionedSchema, DatabaseBootstrapError):
+        raise
+    except Exception:
+        # Never propagate driver/Alembic errors that can contain a full URI or
+        # password. Operators get a stable message and can inspect DB-side logs.
+        raise DatabaseBootstrapError(
+            "Database bootstrap failed; connection details were redacted."
+        ) from None
 
 
 def main() -> None:
