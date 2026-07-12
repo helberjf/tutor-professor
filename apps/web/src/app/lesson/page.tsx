@@ -226,6 +226,7 @@ function LessonPageContent() {
 
     try {
       await api.submitReviewAttempt({
+        card_type: 'vocabulary',
         word_en: currentItem.word_en,
         word_pt: currentItem.word_pt,
         correct: isCorrect,

@@ -9,7 +9,7 @@ export function isUncertainLessonQuestionGenerationError(error: unknown): boolea
   if (error instanceof IncompleteLessonQuestionBatchError || error instanceof TypeError) {
     return true;
   }
-  if (!(error instanceof Error) || !('code' in error)) {
+  if (!(error instanceof Error)) {
     return false;
   }
   const apiError = error as Error & { code?: unknown; status?: unknown };

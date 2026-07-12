@@ -6,13 +6,13 @@ import { ArrowLeft, CheckCircle2, Loader2, Volume2, XCircle, Zap } from 'lucide-
 
 import { StatusCard } from '@/components/status-card';
 import { CelebrationOverlay } from '@/components/celebration';
-import { ApiError, api, type ReviewCard, type ReviewSession } from '@/lib/api';
+import { ApiError, api, type ReviewSession, type VocabularyReviewCard } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 
 export default function QuickReviewPage() {
   const authState = useRequireAuth();
-  const [session, setSession] = useState<ReviewSession | null>(null);
+  const [session, setSession] = useState<ReviewSession<VocabularyReviewCard> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -75,6 +75,7 @@ export default function QuickReviewPage() {
 
     try {
       await api.submitReviewAttempt({
+        card_type: 'vocabulary',
         review_item_id: card.review_item_id,
         word_en: card.word_en,
         word_pt: card.word_pt,
@@ -253,7 +254,7 @@ export default function QuickReviewPage() {
 
   // ─── Main card ────────────────────────────────────────────────────────────
 
-  const card: ReviewCard = session.items[currentIndex];
+  const card: VocabularyReviewCard = session.items[currentIndex];
   const total = session.items.length;
   const progressWidth = ((currentIndex + 1) / total) * 100;
   const options = card.options.slice(0, 3);
