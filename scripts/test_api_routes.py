@@ -807,6 +807,24 @@ async def run() -> None:
             raise AssertionError(
                 f"expected vocabulary and lesson questions in review, got {mixed_language_cards}"
             )
+
+        vocabulary_only_review_response = await client.get(
+            "/api/review?limit=50&vocabulary_only=true",
+            headers=child_headers,
+        )
+        assert_status(
+            vocabulary_only_review_response,
+            200,
+            "vocabulary-only French language review",
+        )
+        vocabulary_only_cards = vocabulary_only_review_response.json()["items"]
+        if not vocabulary_only_cards or any(
+            card["card_type"] != "vocabulary" for card in vocabulary_only_cards
+        ):
+            raise AssertionError(
+                "vocabulary_only review leaked a lesson question into the vocabulary renderer: "
+                f"{vocabulary_only_cards}"
+            )
         reviewed_lesson_question = next(
             card for card in mixed_language_cards if card["card_type"] == "lesson_question"
         )

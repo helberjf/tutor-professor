@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from models.database import LessonItem, LessonQuestion, ReviewItem
@@ -149,10 +150,11 @@ def get_due_review_items(session: Session, child_id: int, limit: int = 5) -> lis
 
 def count_due_review_items(session: Session, child_id: int) -> int:
     now = datetime.utcnow()
-    review_items = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child_id)
-    ).all()
-    return sum(1 for item in review_items if item.next_review <= now)
+    statement = select(func.count(ReviewItem.id)).where(
+        ReviewItem.child_id == child_id,
+        ReviewItem.next_review <= now,
+    )
+    return int(session.exec(statement).one())
 
 
 def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[dict[str, object]]:
@@ -188,10 +190,12 @@ def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[
         rng.shuffle(options)
         cards.append(
             {
+                "card_type": "vocabulary",
                 "review_item_id": review_item.id or 0,
                 "word_en": review_item.word_en,
                 "word_pt": review_item.word_pt,
                 "prompt": f"O que significa {review_item.word_en}?",
+                "answer": review_item.word_pt,
                 "options": options,
                 "difficulty_score": review_item.difficulty_score,
                 "error_count": review_item.error_count,
@@ -208,17 +212,19 @@ def count_due_mixed_review_items(
     now: datetime | None = None,
 ) -> int:
     reviewed_at = _utc_naive(now or datetime.utcnow())
-    vocabulary = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child_id)
-    ).all()
-    questions = session.exec(
-        select(LessonQuestion).where(LessonQuestion.child_id == child_id)
-    ).all()
-    return sum(
-        1
-        for item in [*vocabulary, *questions]
-        if _utc_naive(item.next_review) <= reviewed_at
-    )
+    vocabulary_due = session.exec(
+        select(func.count(ReviewItem.id)).where(
+            ReviewItem.child_id == child_id,
+            ReviewItem.next_review <= reviewed_at,
+        )
+    ).one()
+    question_due = session.exec(
+        select(func.count(LessonQuestion.id)).where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.next_review <= reviewed_at,
+        )
+    ).one()
+    return int(vocabulary_due) + int(question_due)
 
 
 def build_mixed_review_cards(
@@ -234,34 +240,46 @@ def build_mixed_review_cards(
 
     reviewed_at = _utc_naive(now or datetime.utcnow())
     vocabulary = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child_id)
+        select(ReviewItem).where(
+            ReviewItem.child_id == child_id,
+            ReviewItem.next_review <= reviewed_at,
+        )
     ).all()
     questions = session.exec(
-        select(LessonQuestion).where(LessonQuestion.child_id == child_id)
+        select(LessonQuestion).where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.next_review <= reviewed_at,
+        )
     ).all()
 
-    candidates: list[tuple[str, ReviewItem | LessonQuestion]] = [
-        ("vocabulary", item)
-        for item in vocabulary
-        if _utc_naive(item.next_review) <= reviewed_at
+    vocabulary_by_priority = sorted(
+        (
+            (compute_review_priority(item, now=reviewed_at), item)
+            for item in vocabulary
+        ),
+        key=lambda candidate: (-candidate[0], candidate[1].id or 0),
+    )
+    candidates: list[tuple[float, str, ReviewItem | LessonQuestion]] = [
+        (priority, "vocabulary", item)
+        for priority, item in vocabulary_by_priority
     ]
     candidates.extend(
-        ("lesson_question", question)
+        (compute_review_priority(question, now=reviewed_at), "lesson_question", question)
         for question in questions
-        if _utc_naive(question.next_review) <= reviewed_at
     )
     selected = sorted(
         candidates,
         key=lambda candidate: (
-            -compute_review_priority(candidate[1], now=reviewed_at),
-            candidate[0],
-            candidate[1].id or 0,
+            -candidate[0],
+            candidate[1],
+            candidate[2].id or 0,
         ),
     )[:limit]
 
     rng = random.Random(child_id + len(vocabulary))
     cards: list[dict[str, object]] = []
-    for card_type, item in selected:
+    vocabulary_options = [item for _, item in vocabulary_by_priority]
+    for _, card_type, item in selected:
         if card_type == "lesson_question":
             question = item
             assert isinstance(question, LessonQuestion)
@@ -283,13 +301,7 @@ def build_mixed_review_cards(
         review_item = item
         assert isinstance(review_item, ReviewItem)
         distractors: list[str] = []
-        for candidate in sorted(
-            vocabulary,
-            key=lambda value: (
-                -compute_review_priority(value, now=reviewed_at),
-                value.id or 0,
-            ),
-        ):
+        for candidate in vocabulary_options:
             if candidate.id == review_item.id or candidate.word_pt in distractors:
                 continue
             distractors.append(candidate.word_pt)
