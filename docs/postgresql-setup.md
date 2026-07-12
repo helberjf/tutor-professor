@@ -42,7 +42,7 @@ DATABASE_URL=postgresql://kids_tutor:kids_tutor_secret@localhost:5432/kids_tutor
 ```powershell
 cd apps/api
 pip install -r requirements.txt   # instala psycopg2-binary e alembic
-alembic upgrade head
+python database_bootstrap.py
 ```
 
 ### 4. Iniciar o backend normalmente
@@ -63,7 +63,7 @@ docker-compose up db -d
 
 # Em seguida rode as migrações
 cd apps/api
-alembic upgrade head
+python database_bootstrap.py
 ```
 
 O `docker-compose.yml` já tem o serviço `db` configurado com usuário, senha e volume persistente.
@@ -133,7 +133,7 @@ DATABASE_URL=postgresql://kids_tutor:SENHA_FORTE@localhost:5432/kids_tutor
 
 ```bash
 cd /app/apps/api
-alembic upgrade head
+python database_bootstrap.py
 ```
 
 ### 4. Adicionar novas migrações no futuro
@@ -146,7 +146,7 @@ cd apps/api
 alembic revision --autogenerate -m "descricao da mudanca"
 
 # Aplicar no banco
-alembic upgrade head
+python database_bootstrap.py
 ```
 
 ### 5. Backups automáticos (recomendado)

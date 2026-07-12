@@ -24,6 +24,7 @@ from sqlalchemy import text, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from database_bootstrap import bootstrap_database
 from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
@@ -416,6 +417,7 @@ def normalize_existing_child_profiles() -> None:
 
 @app.on_event("startup")
 def on_startup() -> None:
+    bootstrap_database(DATABASE_URL)
     create_db_and_tables()
     _run_schema_migrations()
     normalize_existing_child_profiles()

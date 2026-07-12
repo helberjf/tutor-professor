@@ -20,5 +20,5 @@ RUN mkdir -p audio_cache
 # Expose port
 EXPOSE 8001
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Apply/stamp verified Alembic migrations before importing the application.
+CMD ["sh", "-c", "python database_bootstrap.py && exec uvicorn main:app --host 0.0.0.0 --port 8001"]

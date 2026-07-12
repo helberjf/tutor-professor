@@ -84,4 +84,9 @@ if ($tunnelUrl) {
 }
 Write-Host ''
 
+python database_bootstrap.py
+if ($LASTEXITCODE -ne 0) {
+  throw "Database bootstrap failed with exit code $LASTEXITCODE."
+}
+
 python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
