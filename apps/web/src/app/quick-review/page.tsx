@@ -32,7 +32,7 @@ export default function QuickReviewPage() {
     setError(null);
     setShowCelebration(false);
     try {
-      const data = await api.getReviewSession(15);
+      const data = await api.getReviewSession(15, { vocabularyOnly: true });
       setSession(data);
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a revisao.'));

@@ -233,6 +233,11 @@ export interface ReviewSession {
   items: ReviewCard[];
 }
 
+export interface ReviewSessionOptions {
+  /** Restrict the response to cards supported by vocabulary-only review screens. */
+  vocabularyOnly?: boolean;
+}
+
 export interface ReviewAttemptResult {
   review_item_id: number;
   difficulty_score: number;
@@ -845,7 +850,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getReviewSession: (limit = 5) => fetchAPI<ReviewSession>(`/api/review?limit=${limit}`),
+  getReviewSession: (
+    limit = 5,
+    { vocabularyOnly = false }: ReviewSessionOptions = {},
+  ) => fetchAPI<ReviewSession>(
+    `/api/review?limit=${limit}${vocabularyOnly ? '&vocabulary_only=true' : ''}`,
+  ),
   submitReviewAttempt: (payload: {
     review_item_id?: number;
     word_en: string;

@@ -15,7 +15,7 @@ import requests
 from cryptography.fernet import Fernet, InvalidToken
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -148,8 +148,10 @@ from services.language_question_service import (
 )
 from services import fsrs_service
 from services.review_service import (
+    build_review_cards,
     build_mixed_review_cards,
     compute_review_priority,
+    count_due_review_items,
     count_due_mixed_review_items,
     register_review_attempt,
     seed_review_items_for_lesson,
@@ -1460,13 +1462,23 @@ def submit_quiz(
 def get_review_session(
     request: Request,
     limit: int = 5,
+    vocabulary_only: bool = Query(
+        default=False,
+        description="Return only vocabulary cards for vocabulary-only review clients.",
+    ),
     session: Session = Depends(get_session),
 ) -> ReviewSessionSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    if vocabulary_only:
+        return ReviewSessionSchema(
+            total_due=count_due_review_items(session=session, child_id=child_id),
+            items=build_review_cards(session=session, child_id=child_id, limit=limit),
+        )
     return ReviewSessionSchema(
-        total_due=count_due_mixed_review_items(session=session, child_id=child.id or 0),
-        items=build_mixed_review_cards(session=session, child_id=child.id or 0, limit=limit),
+        total_due=count_due_mixed_review_items(session=session, child_id=child_id),
+        items=build_mixed_review_cards(session=session, child_id=child_id, limit=limit),
     )
 
 

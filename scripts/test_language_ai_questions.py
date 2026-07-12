@@ -676,6 +676,104 @@ class MixedLanguageReviewTests(unittest.TestCase):
             )
             self.assertEqual(build_mixed_review_cards(session, 9999, limit=5, now=now), [])
 
+    def test_mixed_builder_loads_each_due_table_once_and_never_loads_future_rows(self) -> None:
+        now = datetime.utcnow()
+        statements: list[str] = []
+
+        @event.listens_for(self.engine, "before_cursor_execute")
+        def capture_sql(_connection, _cursor, statement, _parameters, _context, _many) -> None:
+            if statement.lstrip().upper().startswith("SELECT"):
+                statements.append(statement.lower())
+
+        try:
+            with Session(self.engine) as session:
+                child_id, lesson_id, _, _ = self._seed_children_and_lessons(session)
+                session.add(
+                    ReviewItem(
+                        child_id=child_id,
+                        word_en="bonjour",
+                        word_pt="ola",
+                        next_review=now - timedelta(minutes=1),
+                    )
+                )
+                session.add(
+                    ReviewItem(
+                        child_id=child_id,
+                        word_en="demain",
+                        word_pt="amanha",
+                        next_review=now + timedelta(days=1),
+                    )
+                )
+                session.add(
+                    LessonQuestion(
+                        child_id=child_id,
+                        lesson_id=lesson_id,
+                        target_language="French",
+                        question_type="translation",
+                        front="Traduisez ola.",
+                        front_key=front_key_for("Traduisez ola."),
+                        back="bonjour",
+                        next_review=now - timedelta(minutes=1),
+                    )
+                )
+                session.commit()
+                statements.clear()
+
+                cards = build_mixed_review_cards(session, child_id, limit=5, now=now)
+
+            review_selects = [sql for sql in statements if "from reviewitem" in sql]
+            question_selects = [sql for sql in statements if "from lessonquestion" in sql]
+            self.assertEqual(len(review_selects), 1, review_selects)
+            self.assertEqual(len(question_selects), 1, question_selects)
+            self.assertIn("next_review <=", review_selects[0])
+            self.assertIn("next_review <=", question_selects[0])
+            self.assertNotIn("demain", [card.get("word_en") for card in cards])
+        finally:
+            event.remove(self.engine, "before_cursor_execute", capture_sql)
+
+    def test_due_count_uses_two_sql_counts_without_loading_review_entities(self) -> None:
+        now = datetime.utcnow()
+        statements: list[str] = []
+
+        @event.listens_for(self.engine, "before_cursor_execute")
+        def capture_sql(_connection, _cursor, statement, _parameters, _context, _many) -> None:
+            if statement.lstrip().upper().startswith("SELECT"):
+                statements.append(statement.lower())
+
+        try:
+            with Session(self.engine) as session:
+                child_id, lesson_id, _, _ = self._seed_children_and_lessons(session)
+                session.add(
+                    ReviewItem(
+                        child_id=child_id,
+                        word_en="bonjour",
+                        word_pt="ola",
+                        next_review=now - timedelta(minutes=1),
+                    )
+                )
+                session.add(
+                    LessonQuestion(
+                        child_id=child_id,
+                        lesson_id=lesson_id,
+                        target_language="French",
+                        question_type="translation",
+                        front="Traduisez ola.",
+                        front_key=front_key_for("Traduisez ola."),
+                        back="bonjour",
+                        next_review=now - timedelta(minutes=1),
+                    )
+                )
+                session.commit()
+                statements.clear()
+
+                self.assertEqual(count_due_mixed_review_items(session, child_id, now=now), 2)
+
+            self.assertEqual(len(statements), 2, statements)
+            self.assertTrue(all("count(" in sql for sql in statements), statements)
+            self.assertTrue(all("next_review <=" in sql for sql in statements), statements)
+        finally:
+            event.remove(self.engine, "before_cursor_execute", capture_sql)
+
     def test_lesson_question_attempt_updates_only_owned_question_with_vocabulary_schedule_unchanged(self) -> None:
         now = datetime.utcnow()
         with Session(self.engine) as session:
