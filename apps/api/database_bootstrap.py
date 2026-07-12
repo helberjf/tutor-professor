@@ -50,9 +50,15 @@ class DatabaseBootstrapError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class NormalizedColumnType:
+    family: str
+    attributes: tuple[tuple[str, int | bool | str | None], ...] = ()
+
+
+@dataclass(frozen=True)
 class ColumnShape:
     nullable: bool
-    type_family: str
+    type_signatures: frozenset[NormalizedColumnType]
     server_defaults: frozenset[str | None]
 
 
@@ -77,42 +83,60 @@ _POSTGRES_CAST_RE = re.compile(
 )
 
 
-def _normalize_column_type(column_type: object) -> str:
-    """Collapse dialect-specific SQLAlchemy types into semantic families."""
+def _type_signature(
+    family: str, **attributes: int | bool | str | None
+) -> NormalizedColumnType:
+    return NormalizedColumnType(family, tuple(sorted(attributes.items())))
+
+
+def _normalize_column_type(column_type: object) -> NormalizedColumnType:
+    """Collapse dialect types while retaining attributes that affect DDL."""
 
     if isinstance(column_type, sqltypes.Boolean):
-        return "boolean"
+        return _type_signature("boolean")
     if isinstance(column_type, sqltypes.SmallInteger):
-        return "small_integer"
+        return _type_signature("small_integer")
     if isinstance(column_type, sqltypes.BigInteger):
-        return "big_integer"
+        return _type_signature("big_integer")
     if isinstance(column_type, sqltypes.Integer):
-        return "integer"
+        return _type_signature("integer")
     if isinstance(column_type, sqltypes.Float):
-        return "float"
+        return _type_signature("float", precision=column_type.precision)
     if isinstance(column_type, sqltypes.Numeric):
-        return "numeric"
+        return _type_signature(
+            "numeric",
+            precision=column_type.precision,
+            scale=column_type.scale,
+        )
     if isinstance(column_type, sqltypes.DateTime):
-        return "datetime"
+        return _type_signature("datetime", timezone=bool(column_type.timezone))
     if isinstance(column_type, sqltypes.Date):
-        return "date"
+        return _type_signature("date")
     if isinstance(column_type, sqltypes.Time):
-        return "time"
+        return _type_signature("time", timezone=bool(column_type.timezone))
     if isinstance(column_type, sqltypes.Interval):
-        return "interval"
+        return _type_signature(
+            "interval",
+            day_precision=getattr(column_type, "day_precision", None),
+            second_precision=getattr(column_type, "second_precision", None),
+        )
     if isinstance(column_type, sqltypes.JSON):
-        return "json"
+        return _type_signature("json")
     uuid_type = getattr(sqltypes, "Uuid", ())
     if uuid_type and isinstance(column_type, uuid_type):
-        return "uuid"
+        return _type_signature("uuid")
     if isinstance(column_type, sqltypes.LargeBinary):
-        return "binary"
+        return _type_signature("binary", length=column_type.length)
     if isinstance(column_type, sqltypes.Text):
-        return "text"
+        return _type_signature("text", collation=column_type.collation)
     # Native PostgreSQL ENUM and SQLModel Enum columns intentionally match
     # migration-created VARCHAR columns with the same application contract.
     if isinstance(column_type, (sqltypes.Enum, sqltypes.String)):
-        return "string"
+        return _type_signature(
+            "string",
+            collation=getattr(column_type, "collation", None),
+            length=getattr(column_type, "length", None),
+        )
 
     affinity = getattr(column_type, "_type_affinity", type(column_type))
     if isinstance(affinity, type) and affinity is not type(column_type):
@@ -120,7 +144,9 @@ def _normalize_column_type(column_type: object) -> str:
             return _normalize_column_type(affinity())
         except TypeError:
             pass
-    return f"other:{affinity.__module__}.{affinity.__qualname__}".casefold()
+    return _type_signature(
+        f"other:{affinity.__module__}.{affinity.__qualname__}".casefold()
+    )
 
 
 def _has_balanced_outer_parentheses(value: str) -> bool:
@@ -216,7 +242,41 @@ def _normalize_check_constraint(expression: object) -> str:
     return _normalize_sql_expression(expression)
 
 
-def _metadata_server_defaults(column: object, type_family: str) -> frozenset[str | None]:
+_KNOWN_MIGRATION_STRING_LENGTHS = {
+    ("user", "first_name"): 80,
+    ("user", "last_name"): 80,
+    ("user", "email"): 254,
+    ("programmingsubject", "name"): 100,
+    ("programmingsubject", "description"): 500,
+    ("programmingsubject", "icon_emoji"): 10,
+    ("programmingtopic", "title"): 200,
+    ("programmingtopic", "status"): 20,
+    ("programmingtopic", "notes"): 5000,
+    ("programmingflashcard", "front"): 500,
+    ("programmingflashcard", "back"): 2000,
+    ("programmingflashcard", "code_example"): 3000,
+    ("lessonquestion", "target_language"): 40,
+    ("lessonquestion", "question_type"): 40,
+    ("lessonquestion", "front"): 500,
+    ("lessonquestion", "front_key"): 64,
+    ("lessonquestion", "back"): 2000,
+    ("lessonquestion", "supporting_example"): 1000,
+}
+
+
+def _signature_with_attribute(
+    signature: NormalizedColumnType,
+    attribute: str,
+    value: int | bool | str | None,
+) -> NormalizedColumnType:
+    attributes = dict(signature.attributes)
+    attributes[attribute] = value
+    return _type_signature(signature.family, **attributes)
+
+
+def _metadata_server_defaults(
+    column: object, type_signature: NormalizedColumnType
+) -> frozenset[str | None]:
     defaults: set[str | None] = {_normalize_server_default(column.server_default)}
     python_default = column.default
     if python_default is not None and python_default.is_scalar:
@@ -230,21 +290,34 @@ def _metadata_server_defaults(column: object, type_family: str) -> frozenset[str
         defaults.add(_normalize_server_default(value))
     if (
         column.primary_key
-        and type_family in {"small_integer", "integer", "big_integer"}
+        and type_signature.family in {"small_integer", "integer", "big_integer"}
         and column.autoincrement in {True, "auto"}
     ):
         defaults.add("auto_increment")
     return frozenset(defaults)
 
 
+def _metadata_column_shape(table_name: str, column: object) -> ColumnShape:
+    signature = _normalize_column_type(column.type)
+    signatures = {signature}
+    migration_length = _KNOWN_MIGRATION_STRING_LENGTHS.get(
+        (table_name, column.name)
+    )
+    if migration_length is not None and signature.family == "string":
+        signatures.add(
+            _signature_with_attribute(signature, "length", migration_length)
+        )
+    return ColumnShape(
+        nullable=bool(column.nullable),
+        type_signatures=frozenset(signatures),
+        server_defaults=_metadata_server_defaults(column, signature),
+    )
+
+
 def _metadata_table_shape(table: Table) -> TableShape:
     return TableShape(
         columns={
-            column.name: ColumnShape(
-                nullable=bool(column.nullable),
-                type_family=(type_family := _normalize_column_type(column.type)),
-                server_defaults=_metadata_server_defaults(column, type_family),
-            )
+            column.name: _metadata_column_shape(table.name, column)
             for column in table.columns
         },
         primary_key=tuple(column.name for column in table.primary_key.columns),
@@ -285,7 +358,9 @@ def _actual_table_shape(bind: Engine | Connection, table_name: str) -> TableShap
         columns={
             column["name"]: ColumnShape(
                 nullable=bool(column["nullable"]),
-                type_family=_normalize_column_type(column["type"]),
+                type_signatures=frozenset(
+                    {_normalize_column_type(column["type"])}
+                ),
                 server_defaults=frozenset(
                     {
                         "auto_increment"
@@ -394,7 +469,9 @@ def _validate_table_shape(
                 table_name,
                 f"column {column_name!r} has incorrect nullable state",
             )
-        if expected_column.type_family != actual_column.type_family:
+        if not actual_column.type_signatures.issubset(
+            expected_column.type_signatures
+        ):
             raise _schema_error(
                 table_name,
                 f"column {column_name!r} has an incorrect type",
