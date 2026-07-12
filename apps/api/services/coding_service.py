@@ -11,7 +11,12 @@ from schemas.schemas import CodingReviewCardSchema, TopicAIContentSchema
 from services import fsrs_service
 from services.fsrs_service import CardState, DeckOptions, parse_steps
 from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
-from services.ai_flashcard_service import normalize_front, sanitize_context
+from services.ai_flashcard_service import (
+    ValidatedCard,
+    normalize_front,
+    sanitize_context,
+    validate_card_batch,
+)
 
 _phrase_service = PhraseGenerationService()
 
@@ -412,7 +417,7 @@ User instructions:
 Return a JSON object with exactly this schema:
 {{
   "flashcards": [
-    {{ "front": "string", "back": "string", "code_example": "string or null" }}
+    {{ "front": "string", "back": "string", "code_example": "nonblank string copied from the saved lesson" }}
   ]
 }}
 
@@ -420,7 +425,7 @@ Rules:
 - Return exactly 5 flashcards
 - Every front must be phrased as a technical interview question
 - Test concepts taught in the saved lesson, not unrelated material
-- Reuse or adapt relevant lesson code in code_example when it helps answer the question
+- Every flashcard must contain a nonblank code_example copied exactly from the saved lesson
 - Prioritize reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
 - All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
 """
@@ -520,6 +525,45 @@ def _compact_additional_lesson(ai_content: dict) -> dict[str, list[dict[str, str
             }
         )
     return {"sections": compact_sections}
+
+
+def validate_additional_topic_flashcards(
+    raw_cards: list[object],
+    *,
+    existing_fronts: list[str],
+    ai_content: dict,
+) -> list[ValidatedCard]:
+    """Validate interview form and exact linkage to code in the saved lesson."""
+
+    validated = validate_card_batch(raw_cards, existing_fronts)
+    lesson_codes = [
+        str(section.get("code_example") or "").strip()
+        for section in ai_content.get("sections", [])
+        if isinstance(section, dict)
+        and str(section.get("code_example") or "").strip()
+    ]
+    if not lesson_codes:
+        raise ValueError("The saved lesson must contain code for generated flashcards")
+
+    for card in validated:
+        if not card.front.endswith("?"):
+            raise ValueError(
+                "Every generated programming flashcard must be phrased as a question"
+            )
+        stored_code = str(card.code_example or "").strip()
+        normalized_code = _normalized_code(stored_code)
+        if len(normalized_code) < 4 or not any(
+            character.isalnum() for character in normalized_code
+        ):
+            raise ValueError(
+                "Every generated programming flashcard must include meaningful lesson code"
+            )
+        if not any(stored_code in lesson_code for lesson_code in lesson_codes):
+            raise ValueError(
+                "Every generated programming flashcard code example must come from the saved lesson"
+            )
+
+    return validated
 
 
 def _build_additional_flashcards_prompt(

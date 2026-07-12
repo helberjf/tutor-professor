@@ -72,7 +72,7 @@ def make_cards(prefix: str) -> list[dict[str, str]]:
         {
             "front": f"{prefix} interview question {index}?",
             "back": f"Answer {index}",
-            "code_example": f"const value{index} = {index};",
+            "code_example": "const add = x => y => x + y;",
         }
         for index in range(1, 6)
     ]
@@ -617,6 +617,32 @@ class ProgrammingAIPromptTests(unittest.TestCase):
         ):
             self.assertIn(expected, prompt_text)
 
+    def test_additional_validator_requires_questions_and_saved_lesson_code(self):
+        valid_cards = make_cards("Validated")
+        validated = coding_service.validate_additional_topic_flashcards(
+            valid_cards,
+            existing_fronts=[],
+            ai_content=VALID_AI_CONTENT,
+        )
+        self.assertEqual(len(validated), 5)
+
+        invalid_cases = {
+            "declarative front": make_cards("Declarative"),
+            "missing code": make_cards("Missing code"),
+            "unrelated code": make_cards("Unrelated code"),
+        }
+        invalid_cases["declarative front"][0]["front"] = "Explain lexical scope"
+        invalid_cases["missing code"][0]["code_example"] = ""
+        invalid_cases["unrelated code"][0]["code_example"] = "console.log('other');"
+
+        for label, cards in invalid_cases.items():
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                coding_service.validate_additional_topic_flashcards(
+                    cards,
+                    existing_fronts=[],
+                    ai_content=VALID_AI_CONTENT,
+                )
+
     def test_additional_prompt_is_bounded_and_uses_only_latest_hundred_fronts(self):
         huge_content = {
             "sections": [
@@ -836,6 +862,17 @@ class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
             for title, bad_batch in (
                 ("None cards", [None] * 5),
                 ("Object cards", [object()] * 5),
+                (
+                    "Declarative cards without code",
+                    [
+                        {
+                            "front": f"Lexical scope fact {index}",
+                            "back": f"Answer {index}",
+                            "code_example": None,
+                        }
+                        for index in range(5)
+                    ],
+                ),
             ):
                 with self.subTest(title=title):
                     _, topic_id = await create_topic(client, title=title)
