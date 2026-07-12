@@ -56,7 +56,7 @@ def run_create_all(
     )
     source = (
         "from sqlmodel import SQLModel, create_engine;"
-        "from sqlalchemy import UniqueConstraint;"
+        "from sqlalchemy import (CheckConstraint, DefaultClause, Integer, UniqueConstraint);"
         "from models.database import (LessonQuestion, ProgrammingFlashcard, UserAISettings);"
         f"{remove_lesson_question}"
         f"{mutation}"
@@ -374,6 +374,73 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("nullable", (result.stdout + result.stderr).lower())
         self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_column_type_mismatch_is_rejected_without_stamping(self) -> None:
+        mutation = "ProgrammingFlashcard.__table__.c.code_example.type=Integer();"
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("type", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_server_default_mismatch_is_rejected_without_stamping(self) -> None:
+        mutation = (
+            "ProgrammingFlashcard.__table__.c.code_example.server_default="
+            "DefaultClause(\"'unexpected'\");"
+        )
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("default", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_check_constraint_mismatch_is_rejected_without_stamping(self) -> None:
+        mutation = (
+            "ProgrammingFlashcard.__table__.append_constraint("
+            "CheckConstraint('length(front) > 0', "
+            "name='ck_programmingflashcard_front_nonempty'));"
+        )
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("check", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_sql_type_normalization_uses_cross_dialect_semantic_families(self) -> None:
+        from sqlalchemy import DateTime, Enum, JSON, String
+        from sqlalchemy.dialects import postgresql
+
+        normalize = database_bootstrap._normalize_column_type
+        self.assertEqual(normalize(String(80)), normalize(postgresql.VARCHAR(80)))
+        self.assertEqual(normalize(Enum("new", "done")), normalize(String(20)))
+        self.assertEqual(normalize(JSON()), normalize(postgresql.JSONB()))
+        self.assertEqual(normalize(DateTime()), normalize(postgresql.TIMESTAMP()))
+
+    def test_sql_expression_normalization_ignores_postgresql_rendering_noise(self) -> None:
+        normalize_default = database_bootstrap._normalize_server_default
+        self.assertEqual(normalize_default("'0'::integer"), normalize_default("(0)"))
+        self.assertEqual(normalize_default("now()"), normalize_default("CURRENT_TIMESTAMP"))
+
+        normalize_check = database_bootstrap._normalize_check_constraint
+        self.assertEqual(
+            normalize_check('(("attempt_count" >= (0)::integer))'),
+            normalize_check("attempt_count >= 0"),
+        )
 
     def test_percent_encoded_database_url_is_safe_and_errors_are_redacted(self) -> None:
         database_url = "postgresql://user:p%40ss@127.0.0.1:1/private_db"
