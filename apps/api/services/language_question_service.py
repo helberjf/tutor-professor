@@ -1,11 +1,12 @@
 """Prompting and validation for canonical language lesson questions."""
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
-from services.ai_flashcard_service import sanitize_context, validate_card_batch
+from services.ai_flashcard_service import normalize_front, sanitize_context, validate_card_batch
 
 
 ALLOWED_LANGUAGE_QUESTION_TYPES = (
@@ -16,6 +17,11 @@ ALLOWED_LANGUAGE_QUESTION_TYPES = (
     "comprehension",
     "contextual_usage",
 )
+MAX_LESSON_QUESTIONS = 200
+MAX_EXISTING_FRONTS_IN_PROMPT = 100
+MAX_LANGUAGE_QUESTION_PROMPT_CHARS = 40_000
+_MAX_ITEM_SECTION_CHARS = 6_000
+_MAX_BREAKDOWN_SECTION_CHARS = 8_000
 
 
 @dataclass(frozen=True)
@@ -26,8 +32,43 @@ class ValidatedLanguageQuestion:
     supporting_example: str | None = None
 
 
-def _json_for_prompt(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), default=str)
+def front_key_for(front: str) -> str:
+    """Return the database identity for an accent/punctuation-insensitive front."""
+    return hashlib.sha256(normalize_front(front).encode("utf-8")).hexdigest()
+
+
+def _bounded_prompt_value(value: Any, *, depth: int = 0, list_limit: int = 30) -> Any:
+    if depth >= 4:
+        if isinstance(value, Mapping):
+            return {"truncated": True}
+        if isinstance(value, (list, tuple)):
+            return ["truncated"]
+        return sanitize_context(value)[:300]
+    if isinstance(value, Mapping):
+        return {
+            sanitize_context(key)[:80]: _bounded_prompt_value(
+                item, depth=depth + 1, list_limit=list_limit
+            )
+            for key, item in list(value.items())[:20]
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _bounded_prompt_value(item, depth=depth + 1, list_limit=list_limit)
+            for item in value[:list_limit]
+        ]
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return sanitize_context(value)[:300]
+
+
+def _json_for_prompt(value: Any, limit: int, *, list_limit: int = 30) -> str:
+    encoded = json.dumps(
+        _bounded_prompt_value(value, list_limit=list_limit),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return encoded[:limit]
 
 
 def build_language_questions_prompt(
@@ -45,18 +86,24 @@ def build_language_questions_prompt(
     """Build a language-aware prompt without trusting client language labels."""
     sanitized_context = sanitize_context(context)
     allowed_types = ", ".join(ALLOWED_LANGUAGE_QUESTION_TYPES)
-    return (
+    retained_fronts = [
+        sanitize_context(front)[:160]
+        for front in list(existing_fronts)[-MAX_EXISTING_FRONTS_IN_PROMPT:]
+    ]
+    prompt = (
         "Crie exatamente 5 perguntas de estudo unicas para a licao abaixo. "
         "Use o idioma-alvo nas perguntas/respostas quando pedagogicamente adequado e "
         "o idioma-base para instrucoes, explicacoes e traducoes.\n"
-        f"Titulo: {lesson_title}\n"
-        f"Tema: {theme}\n"
-        f"Objetivo: {objective}\n"
-        f"Idioma-alvo: {target_language}\n"
-        f"Idioma-base: {base_language}\n"
-        f"Itens da licao: {_json_for_prompt(list(lesson_items))}\n"
-        f"Detalhamento das frases: {_json_for_prompt(list(phrase_breakdowns))}\n"
-        f"Perguntas existentes (nao repetir): {_json_for_prompt(list(existing_fronts))}\n"
+        f"Titulo: {sanitize_context(lesson_title)[:200]}\n"
+        f"Tema: {sanitize_context(theme)[:200]}\n"
+        f"Objetivo: {sanitize_context(objective)[:1000]}\n"
+        f"Idioma-alvo: {sanitize_context(target_language)[:40]}\n"
+        f"Idioma-base: {sanitize_context(base_language)[:40]}\n"
+        f"Itens da licao: {_json_for_prompt(list(lesson_items), _MAX_ITEM_SECTION_CHARS)}\n"
+        "Detalhamento das frases: "
+        f"{_json_for_prompt(list(phrase_breakdowns), _MAX_BREAKDOWN_SECTION_CHARS)}\n"
+        "Perguntas existentes (nao repetir): "
+        f"{_json_for_prompt(retained_fronts, 20_000, list_limit=MAX_EXISTING_FRONTS_IN_PROMPT)}\n"
         f"Contexto adicional: {sanitized_context or 'Nenhum contexto adicional.'}\n"
         f"Tipos permitidos: {allowed_types}. Use pelo menos 3 tipos distintos.\n"
         "Retorne somente JSON valido neste formato: "
@@ -64,6 +111,7 @@ def build_language_questions_prompt(
         '"supporting_example":"... ou null"}]}. '
         "Cada front deve ter no maximo 500 caracteres, cada back 2000 e cada exemplo 1000."
     )
+    return prompt[:MAX_LANGUAGE_QUESTION_PROMPT_CHARS]
 
 
 def _raw_text(raw: Mapping[str, Any], primary: str, fallback: str | None = None) -> str:
@@ -81,8 +129,15 @@ def validate_language_question_batch(
     for raw in questions:
         if not isinstance(raw, Mapping):
             raise ValueError("Each question must be a JSON object")
-        front = _raw_text(raw, "front", "question")
-        back = _raw_text(raw, "back", "answer")
+        for field in ("front", "back", "question_type"):
+            if not isinstance(raw.get(field), str):
+                raise ValueError(f"{field} must be a string")
+        if raw.get("supporting_example") is not None and not isinstance(
+            raw.get("supporting_example"), str
+        ):
+            raise ValueError("supporting_example must be a string or null")
+        front = _raw_text(raw, "front")
+        back = _raw_text(raw, "back")
         question_type = _raw_text(raw, "question_type")
         example = _raw_text(raw, "supporting_example")
         if len(front) > 500:

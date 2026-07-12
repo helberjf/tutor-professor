@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import sqlite3
+import subprocess
 import sys
+import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +19,7 @@ from sqlmodel import Session, SQLModel, create_engine
 ROOT = Path(__file__).resolve().parents[1]
 API_DIR = ROOT / "apps" / "api"
 MIGRATION_PATH = API_DIR / "alembic" / "versions" / "0006_lesson_questions.py"
+UNIQUE_MIGRATION_PATH = API_DIR / "alembic" / "versions" / "0007_lesson_question_front_keys.py"
 sys.path.insert(0, str(API_DIR))
 
 from models.database import ChildProfile, Lesson, LessonQuestion  # noqa: E402
@@ -25,7 +30,10 @@ from schemas.schemas import (  # noqa: E402
 )
 from services.language_question_service import (  # noqa: E402
     ALLOWED_LANGUAGE_QUESTION_TYPES,
+    MAX_EXISTING_FRONTS_IN_PROMPT,
+    MAX_LANGUAGE_QUESTION_PROMPT_CHARS,
     build_language_questions_prompt,
+    front_key_for,
     validate_language_question_batch,
 )
 
@@ -79,6 +87,30 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
             self.assertIn(question_type, prompt)
         self.assertIn("exatamente 5", prompt.lower())
         self.assertIn("pelo menos 3 tipos", prompt.lower())
+
+    def test_prompt_bounds_history_and_large_lesson_content(self) -> None:
+        history = [f"Historico {index}" for index in range(150)]
+        prompt = build_language_questions_prompt(
+            lesson_title="T" * 5000,
+            theme="H" * 5000,
+            objective="O" * 10000,
+            target_language="French",
+            base_language="Portuguese",
+            lesson_items=[{"word_en": "W" * 5000, "extra": "X" * 5000} for _ in range(500)],
+            phrase_breakdowns=[
+                {"phrase_en": "P" * 5000, "word_by_word": [{"en": "E" * 5000}] * 100}
+                for _ in range(500)
+            ],
+            existing_fronts=history,
+            context="C" * 1000,
+        )
+
+        self.assertLessEqual(len(prompt), MAX_LANGUAGE_QUESTION_PROMPT_CHARS)
+        first_retained = len(history) - MAX_EXISTING_FRONTS_IN_PROMPT
+        self.assertNotIn(f'"Historico {first_retained - 1}"', prompt)
+        self.assertIn(f'"Historico {first_retained}"', prompt)
+        self.assertIn('"Historico 149"', prompt)
+        self.assertNotIn("T" * 201, prompt)
 
     def test_validator_accepts_five_unique_questions_across_three_types(self) -> None:
         raw_questions = [
@@ -147,6 +179,31 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unique"):
             validate_language_question_batch(raw_questions, [])
 
+    def test_validator_rejects_non_string_ai_fields_before_coercion(self) -> None:
+        def valid_questions() -> list[dict]:
+            return [
+                {
+                    "front": f"Pergunta estrita {index}?",
+                    "back": f"Resposta {index}.",
+                    "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                    "supporting_example": None,
+                }
+                for index in range(1, 6)
+            ]
+
+        invalid_values = {
+            "front": {"nested": "question"},
+            "back": ["not", "text"],
+            "question_type": 123,
+            "supporting_example": {"nested": "example"},
+        }
+        for field, invalid_value in invalid_values.items():
+            with self.subTest(field=field):
+                questions = valid_questions()
+                questions[0][field] = invalid_value
+                with self.assertRaisesRegex(ValueError, f"{field} must be"):
+                    validate_language_question_batch(questions, [])
+
     def test_main_declares_generation_route_and_canonical_question_query(self) -> None:
         source = (API_DIR / "main.py").read_text(encoding="utf-8")
         self.assertIn('"/api/lessons/{lesson_id}/questions/generate"', source)
@@ -194,6 +251,7 @@ class LessonQuestionPersistenceTests(unittest.TestCase):
                 target_language="French",
                 question_type="translation",
                 front="Comment dit-on bom dia en francais ?",
+                front_key=front_key_for("Comment dit-on bom dia en francais ?"),
                 back="Bonjour",
                 supporting_example="Bonjour, Marie !",
             )
@@ -211,6 +269,59 @@ class LessonQuestionPersistenceTests(unittest.TestCase):
             self.assertGreaterEqual(question.next_review, before_insert)
             self.assertGreaterEqual(question.created_at, before_insert)
 
+    def test_two_sessions_cannot_commit_same_normalized_front_for_one_lesson(self) -> None:
+        with Session(self.engine) as setup_session:
+            child = ChildProfile(name="Ari", age_group="10-12", target_language="French")
+            setup_session.add(child)
+            setup_session.flush()
+            lesson = Lesson(
+                title="Les salutations",
+                theme="Salutations",
+                objective="Se presenter",
+                child_id=child.id,
+                target_language="French",
+            )
+            setup_session.add(lesson)
+            setup_session.commit()
+            setup_session.refresh(child)
+            setup_session.refresh(lesson)
+            child_id = child.id or 0
+            lesson_id = lesson.id or 0
+
+        first_session = Session(self.engine)
+        second_session = Session(self.engine)
+        try:
+            first_session.add(
+                LessonQuestion(
+                    child_id=child_id,
+                    lesson_id=lesson_id,
+                    target_language="French",
+                    question_type="translation",
+                    front="Comment dit-on bonjour ?",
+                    front_key=front_key_for("Comment dit-on bonjour ?"),
+                    back="Bonjour",
+                )
+            )
+            first_session.commit()
+
+            second_session.add(
+                LessonQuestion(
+                    child_id=child_id,
+                    lesson_id=lesson_id,
+                    target_language="French",
+                    question_type="translation",
+                    front="COMMENT DIT ON BONJOUR!",
+                    front_key=front_key_for("COMMENT DIT ON BONJOUR!"),
+                    back="Bonjour",
+                )
+            )
+            with self.assertRaises(IntegrityError):
+                second_session.commit()
+            second_session.rollback()
+        finally:
+            first_session.close()
+            second_session.close()
+
     def test_model_declares_child_and_lesson_indexes_and_foreign_keys(self) -> None:
         table = LessonQuestion.__table__
         self.assertEqual(
@@ -227,10 +338,11 @@ class LessonQuestionPersistenceTests(unittest.TestCase):
                 connection.execute(
                     text(
                         "INSERT INTO lessonquestion "
-                        "(child_id, lesson_id, target_language, question_type, front, back, "
+                        "(child_id, lesson_id, target_language, question_type, front, front_key, back, "
                         "difficulty_score, attempt_count, correct_count, error_count, streak, "
                         "next_review, created_at) VALUES "
-                        "(999, 999, 'French', 'grammar', 'Question', 'Answer', "
+                        "(999, 999, 'French', 'grammar', 'Question', "
+                        f"'{front_key_for('Question')}', 'Answer', "
                         "0.45, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
                     )
                 )
@@ -291,6 +403,84 @@ class LessonQuestionPersistenceTests(unittest.TestCase):
             source.index('op.drop_index("ix_lessonquestion_child_id"'),
             source.index('op.drop_table("lessonquestion")'),
         )
+
+    def test_front_key_migration_backfills_and_adds_database_uniqueness(self) -> None:
+        self.assertTrue(UNIQUE_MIGRATION_PATH.exists())
+        source = UNIQUE_MIGRATION_PATH.read_text(encoding="utf-8")
+        self.assertIn('revision: str = "0007"', source)
+        self.assertIn('down_revision: Union[str, None] = "0006"', source)
+        self.assertIn('sa.Column("front_key", sa.String(length=64)', source)
+        self.assertIn("normalize_front", source)
+        self.assertIn("uq_lessonquestion_child_lesson_front_key", source)
+        self.assertIn("batch_alter_table", source)
+
+    def test_front_key_migration_preserves_legacy_duplicates_and_reserves_canonical_key(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="lesson-question-migration-") as temp_dir:
+            database_path = Path(temp_dir) / "migration.sqlite"
+            environment = {
+                **os.environ,
+                "DATABASE_URL": f"sqlite:///{database_path.as_posix()}",
+            }
+
+            def migrate(revision: str) -> None:
+                subprocess.run(
+                    [sys.executable, "-m", "alembic", "upgrade", revision],
+                    cwd=API_DIR,
+                    env=environment,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+
+            migrate("0006")
+            connection = sqlite3.connect(database_path)
+            try:
+                connection.execute(
+                    "INSERT INTO childprofile (id, name, age_group, created_at) "
+                    "VALUES (1, 'Ari', '10-12', CURRENT_TIMESTAMP)"
+                )
+                connection.execute(
+                    "INSERT INTO lesson (id, title, theme, objective, content, is_completed) "
+                    "VALUES (1, 'Salut', 'Salut', 'Dire bonjour', '{}', 0)"
+                )
+                for question_id, front in (
+                    (1, "Comment dit-on bonjour ?"),
+                    (2, "COMMENT DIT ON BONJOUR!"),
+                ):
+                    connection.execute(
+                        "INSERT INTO lessonquestion "
+                        "(id, child_id, lesson_id, target_language, question_type, front, back, "
+                        "difficulty_score, attempt_count, correct_count, error_count, streak, "
+                        "next_review, created_at) VALUES "
+                        "(?, 1, 1, 'French', 'translation', ?, 'Bonjour', "
+                        "0.45, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        (question_id, front),
+                    )
+                connection.commit()
+            finally:
+                connection.close()
+
+            migrate("head")
+            connection = sqlite3.connect(database_path)
+            try:
+                rows = connection.execute(
+                    "SELECT id, front_key FROM lessonquestion ORDER BY id"
+                ).fetchall()
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[0][1], front_key_for("Comment dit-on bonjour ?"))
+                self.assertNotEqual(rows[0][1], rows[1][1])
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(
+                        "INSERT INTO lessonquestion "
+                        "(child_id, lesson_id, target_language, question_type, front, front_key, back, "
+                        "difficulty_score, attempt_count, correct_count, error_count, streak, "
+                        "next_review, created_at) VALUES "
+                        "(1, 1, 'French', 'translation', 'Bonjour duplicate', ?, 'Bonjour', "
+                        "0.45, 0, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                        (front_key_for("Comment dit-on bonjour ?"),),
+                    )
+            finally:
+                connection.close()
 
 
 if __name__ == "__main__":
