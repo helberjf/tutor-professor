@@ -80,8 +80,25 @@ class GeneratedPhraseSchema(BaseModel):
     word_by_word: List[WordByWordPairSchema] = Field(default_factory=list)
 
 
+class GeneratedLessonQuestionSchema(BaseModel):
+    front: str = Field(min_length=1, max_length=500)
+    back: str = Field(min_length=1, max_length=2000)
+    question_type: Literal[
+        "vocabulary",
+        "translation",
+        "sentence_completion",
+        "grammar",
+        "comprehension",
+        "contextual_usage",
+    ]
+    supporting_example: Optional[str] = Field(default=None, max_length=1000)
+
+
 class GeneratedLessonDraftSchema(BaseModel):
     phrases: List[GeneratedPhraseSchema] = Field(default_factory=list, min_length=3, max_length=3)
+    questions: List[GeneratedLessonQuestionSchema] = Field(
+        default_factory=list, min_length=5, max_length=5
+    )
 
 class QuizQuestionSchema(BaseModel):
     id: int
