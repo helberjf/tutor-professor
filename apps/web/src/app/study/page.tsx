@@ -13,7 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -1003,19 +1003,32 @@ export default function StudyPage() {
         throw new Error('A matéria ou lição foi removida durante a atualização. Nenhuma questão foi criada.');
       }
 
-      await api.generateDiverseQuestions({
-        study_date: generationDate,
-        subject_index: target.subjectIndex,
-        lesson_id: lessonId,
-        ...(context?.trim() ? { context: context.trim() } : {}),
+      const outcome = await generateAndSynchronizeDiverseQuestions({
+        savedDay: saved,
+        subjectId,
+        lessonId,
+        generate: () => api.generateDiverseQuestions({
+          study_date: generationDate,
+          subject_index: target.subjectIndex,
+          lesson_id: lessonId,
+          ...(context?.trim() ? { context: context.trim() } : {}),
+        }),
+        installConfirmed: (confirmedDay) => {
+          if (selectedDateRef.current !== generationDate) return;
+          diverseDayRef.current = confirmedDay;
+          setDiverseDay(confirmedDay);
+        },
+        refresh: () => api.getDiverseDay(generationDate),
       });
-
-      const fresh = await api.getDiverseDay(generationDate);
+      const successMessage = outcome.synchronized
+        ? '5 novas questões foram adicionadas à lição.'
+        : '5 novas questões foram criadas. A sincronização final falhou; recarregue a página se necessário.';
       if (selectedDateRef.current === generationDate) {
-        diverseDayRef.current = fresh;
-        setDiverseDay(fresh);
-        setDiverseSaved('5 novas questões foram adicionadas à lição.');
+        diverseDayRef.current = outcome.day;
+        setDiverseDay(outcome.day);
+        setDiverseSaved(successMessage);
       }
+      return successMessage;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const fresh = await api.getDiverseDay(generationDate);
@@ -1640,7 +1653,7 @@ function DiverseTab({
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (subjectId: string, apiKey?: string) => void;
   onGenerateLessonAI: (subjectId: string, apiKey?: string, context?: string) => void;
-  onGenerateMoreQuestions: (subjectId: string, lessonId: string, context?: string) => Promise<void>;
+  onGenerateMoreQuestions: (subjectId: string, lessonId: string, context?: string) => Promise<string>;
   generatingDiverseQuestions: boolean;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
@@ -1891,7 +1904,7 @@ function DiverseSubjectDashboard({
   onUpdateSubjectName: (value: string) => void;
   onGenerateTopicAI: (apiKey?: string) => void;
   onGenerateLessonAI: (apiKey?: string, context?: string) => void;
-  onGenerateMoreQuestions: (lessonId: string, context?: string) => Promise<void>;
+  onGenerateMoreQuestions: (lessonId: string, context?: string) => Promise<string>;
   questionGenerationBusy: boolean;
   pendingLessonDraft: PendingLessonDraft | null;
   onSaveLessonDraft: () => void;
@@ -2187,7 +2200,7 @@ function DiverseQuestionGenerationForm({
   fixedLesson?: DiverseLessonBlock;
   buttonLabel: string;
   busy: boolean;
-  onGenerate: (lessonId: string, context?: string) => Promise<void>;
+  onGenerate: (lessonId: string, context?: string) => Promise<string>;
 }) {
   const [open, setOpen] = useState(false);
   const [selectedLessonId, setSelectedLessonId] = useState(fixedLesson?.id ?? '');
@@ -2214,11 +2227,13 @@ function DiverseQuestionGenerationForm({
     setMessage('');
     setError('');
     try {
-      await onGenerate(lessonId, diverseQuestionContext.trim() || undefined);
-      setMessage('5 novas questões foram adicionadas e sincronizadas.');
+      const successMessage = await onGenerate(lessonId, diverseQuestionContext.trim() || undefined);
+      setMessage(successMessage);
       setDiverseQuestionContext('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível criar as questões. Tente novamente.');
+      setError(err instanceof TypeError
+        ? 'Não foi possível confirmar se as questões foram criadas. Recarregue a página antes de tentar novamente.'
+        : err instanceof Error ? err.message : 'Não foi possível criar as questões. Tente novamente.');
     } finally {
       submitLockRef.current = false;
       setSubmitting(false);
@@ -2319,7 +2334,7 @@ function SubjectStudyCard({
   questionGenerationLessons?: DiverseLessonBlock[];
   fixedQuestionGenerationLesson?: DiverseLessonBlock;
   questionGenerationButtonLabel?: string;
-  onGenerateMoreQuestions?: (lessonId: string, context?: string) => Promise<void>;
+  onGenerateMoreQuestions?: (lessonId: string, context?: string) => Promise<string>;
   questionGenerationBusy?: boolean;
 }) {
   const codeLanguage = syntaxLanguage ?? subject.name;

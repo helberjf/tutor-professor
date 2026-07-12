@@ -85,12 +85,18 @@ assert generation.index("resolveDiverseGenerationTarget(saved, subjectId, lesson
 assert "study_date: generationDate" in generation
 assert "subject_index: target.subjectIndex" in generation
 assert "lesson_id: lessonId" in generation
-assert "api.getDiverseDay(generationDate)" in generation
-assert "diverseDayRef.current = fresh" in generation
-assert "setDiverseDay(fresh)" in generation
+assert "generateAndSynchronizeDiverseQuestions" in generation
+assert "const outcome = await generateAndSynchronizeDiverseQuestions" in generation
+assert "generate: () => api.generateDiverseQuestions" in generation
+assert "installConfirmed:" in generation
+assert "refresh: () => api.getDiverseDay(generationDate)" in generation
+assert "diverseDayRef.current = outcome.day" in generation
+assert "setDiverseDay(outcome.day)" in generation
+assert "outcome.synchronized" in generation
+assert "recarregue a página se necessário" in generation
 assert "err instanceof ApiError && err.status === 409" in generation
 assert generation.index("} catch (err) {") > generation.index(
-    "const fresh = await api.getDiverseDay(generationDate)"
+    "const outcome = await generateAndSynchronizeDiverseQuestions"
 ), "save and generation conflicts must share the same refetch recovery"
 assert "diverseQuestionGenerationLockRef" in page
 assert "diverseMutationLockRef" in page
