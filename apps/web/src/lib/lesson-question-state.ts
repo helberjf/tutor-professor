@@ -12,8 +12,10 @@ export function isUncertainLessonQuestionGenerationError(error: unknown): boolea
   if (!(error instanceof Error) || !('code' in error)) {
     return false;
   }
-  const code = (error as Error & { code?: unknown }).code;
-  return code === 'offline' || code === 'parse';
+  const apiError = error as Error & { code?: unknown; status?: unknown };
+  return apiError.code === 'offline'
+    || apiError.code === 'parse'
+    || (typeof apiError.status === 'number' && apiError.status >= 500);
 }
 
 export function validateConfirmedLessonQuestionBatch<
