@@ -2387,11 +2387,11 @@ def generate_diverse_questions(
         )
         data = _extract_json_object(raw_text)
         raw_questions = data.get("questions")
-        if not isinstance(raw_questions, list):
-            raise ValueError("Exactly five cards are required")
-        validated_questions = validate_card_batch(raw_questions, existing_fronts)
-        if any(len(question.front) > 120 for question in validated_questions):
-            raise ValueError("Card fronts must have at most 120 characters")
+        validated_questions = validate_generated_question_batch(
+            raw_questions,
+            expected_count=5,
+            existing_fronts=existing_fronts,
+        )
     except HTTPException:
         raise
     except (RuntimeError, ValueError) as exc:
@@ -2449,7 +2449,11 @@ def generate_diverse_questions(
             str(topic.get("topic") or "") for topic in current_subject.get("topics") or []
         ]
         try:
-            validated_questions = validate_card_batch(raw_questions, current_fronts)
+            validated_questions = validate_generated_question_batch(
+                raw_questions,
+                expected_count=5,
+                existing_fronts=current_fronts,
+            )
         except ValueError as exc:
             session.rollback()
             raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -2457,11 +2461,12 @@ def generate_diverse_questions(
         for question in validated_questions:
             topic = {
                 "id": stable_question_id(
-                    str(current_subject.get("name") or "Materia"), question.front
+                    str(current_subject.get("name") or "Materia"),
+                    question["question"] or "",
                 ),
-                "topic": question.front,
-                "answer": question.back,
-                "code_example": question.code_example,
+                "topic": question["question"],
+                "answer": question["answer"],
+                "code_example": question["code_example"],
                 "done": False,
                 "last_rating": None,
                 "review_count": 0,

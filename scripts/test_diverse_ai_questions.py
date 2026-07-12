@@ -19,7 +19,8 @@ assert '@app.post("/api/study/diverse/questions/generate"' in main
 endpoint = main.split("def generate_diverse_questions", 1)[1]
 endpoint = endpoint.split("\n@app.", 1)[0]
 assert "exam-style" in endpoint.lower()
-assert "validate_card_batch" in endpoint
+assert endpoint.count("validate_generated_question_batch") == 2
+assert "validate_card_batch" not in endpoint
 assert "topic_ids" in endpoint
 assert "phrase_generation_service.generate_json_text" in endpoint
 assert endpoint.count("session.commit()") == 2  # optional legacy migration + append
