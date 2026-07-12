@@ -73,6 +73,25 @@ class LessonItem(SQLModel, table=True):
     example_sentence_pt: str
     lesson_id: Optional[int] = Field(default=None, foreign_key="lesson.id")
 
+
+class LessonQuestion(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    lesson_id: int = Field(foreign_key="lesson.id", index=True)
+    target_language: str = Field(max_length=40)
+    question_type: str = Field(max_length=40)
+    front: str = Field(max_length=500)
+    back: str = Field(max_length=2000)
+    supporting_example: Optional[str] = Field(default=None, max_length=1000)
+    difficulty_score: float = Field(default=0.45)
+    attempt_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    error_count: int = Field(default=0)
+    streak: int = Field(default=0)
+    last_reviewed: Optional[datetime] = Field(default=None)
+    next_review: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class ReviewItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     word_en: str

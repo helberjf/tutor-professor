@@ -26,6 +26,17 @@ class LessonItemSchema(FromAttributesModel):
     example_sentence_en: str
     example_sentence_pt: str
 
+
+class LessonQuestionSchema(FromAttributesModel):
+    id: int
+    lesson_id: int
+    target_language: str
+    question_type: str
+    front: str
+    back: str
+    supporting_example: Optional[str] = None
+    created_at: datetime
+
 class LessonSchema(BaseModel):
     id: int
     title: str
@@ -33,6 +44,7 @@ class LessonSchema(BaseModel):
     objective: str
     content: Dict[str, Any]
     items: List[LessonItemSchema] = Field(default_factory=list)
+    questions: List[LessonQuestionSchema] = Field(default_factory=list)
     is_completed: bool = False
 
 
