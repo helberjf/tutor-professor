@@ -47,6 +47,54 @@ from services.review_service import (  # noqa: E402
 )
 
 
+class LanguageQuestionLessonUIContractTests(unittest.TestCase):
+    def test_client_exposes_canonical_questions_and_generation_request(self) -> None:
+        source = (ROOT / "apps" / "web" / "src" / "lib" / "api.ts").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("export interface LessonQuestion", source)
+        lesson_interface = source.split("export interface Lesson {", 1)[1].split("}\n", 1)[0]
+        self.assertIn("questions: LessonQuestion[];", lesson_interface)
+        generation = source.split("generateLessonQuestions:", 1)[1].split(
+            "completeLesson:", 1
+        )[0]
+        self.assertIn("/api/lessons/${lessonId}/questions/generate", generation)
+        self.assertIn("fetchAPI<LessonQuestion[]>", generation)
+        self.assertIn("method: 'POST'", generation)
+        self.assertIn("context: context?.trim() || null", generation)
+
+    def test_lesson_renders_canonical_questions_and_safe_inline_generation(self) -> None:
+        source = (ROOT / "apps" / "web" / "src" / "app" / "lesson" / "page.tsx").read_text(
+            encoding="utf-8"
+        )
+
+        for expected in (
+            "lesson.questions.map",
+            "Criar mais quest",
+            "lessonQuestionContext",
+            "maxLength={1000}",
+            "5 novas quest",
+            "<details",
+            "supporting_example",
+            "generateLessonQuestions",
+            "mergeLessonQuestionsById",
+            "validateConfirmedLessonQuestionBatch",
+            "isUncertainLessonQuestionGenerationError",
+            "activeLessonIdRef.current !== requestLessonId",
+            "generationRequestRef.current !== requestToken",
+            "generationRequestRef.current",
+        ):
+            self.assertIn(expected, source)
+
+        generation = source.split("async function handleGenerateLessonQuestions", 1)[1].split(
+            "\n  if (authState.status", 1
+        )[0]
+        self.assertIn("setLesson((currentLesson)", generation)
+        self.assertNotIn("loadLesson()", generation)
+        self.assertIn("Recarregue a licao antes de tentar novamente", generation)
+
+
 class LanguageQuestionGenerationTests(unittest.TestCase):
     def test_generation_schema_accepts_optional_context_and_limits_its_length(self) -> None:
         payload = GenerateLessonQuestionsSchema(context="  foco   em  pronomes  ")

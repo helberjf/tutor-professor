@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, PartyPopper, Sparkles, Volume2 } from 'lucide-react';
 
@@ -9,6 +9,7 @@ import { StatusCard } from '@/components/status-card';
 import { CelebrationOverlay } from '@/components/celebration';
 import { ApiError, api, type LevelAnalysis, type Lesson, type LessonItem, type PhraseBreakdown } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { isUncertainLessonQuestionGenerationError, mergeLessonQuestionsById, validateConfirmedLessonQuestionBatch } from '@/lib/lesson-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 
 export default function LessonPage() {
@@ -63,14 +64,43 @@ function LessonPageContent() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [allDone, setAllDone] = useState(false);
   const [generatingNew, setGeneratingNew] = useState(false);
+  const [lessonQuestionFormOpen, setLessonQuestionFormOpen] = useState(false);
+  const [lessonQuestionContext, setLessonQuestionContext] = useState('');
+  const [lessonQuestionGenerating, setLessonQuestionGenerating] = useState(false);
+  const [lessonQuestionMessage, setLessonQuestionMessage] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const mountedRef = useRef(false);
+  const activeLessonIdRef = useRef<number | null>(null);
+  const generationRequestRef = useRef<symbol | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeLessonIdRef.current = null;
+      generationRequestRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    activeLessonIdRef.current = lesson?.id ?? null;
+  }, [lesson?.id]);
 
   useEffect(() => {
     if (completed) setShowCelebration(true);
   }, [completed]);
 
   async function loadLesson() {
+    activeLessonIdRef.current = null;
+    generationRequestRef.current = null;
     setLoading(true);
     setGenerating(false);
+    setLessonQuestionGenerating(false);
+    setLessonQuestionFormOpen(false);
+    setLessonQuestionContext('');
+    setLessonQuestionMessage(null);
     setAllDone(false);
     try {
       const id = lessonIdParam ? parseInt(lessonIdParam, 10) : null;
@@ -118,7 +148,13 @@ function LessonPageContent() {
   }
 
   async function generateNewLesson() {
+    activeLessonIdRef.current = null;
+    generationRequestRef.current = null;
     setGeneratingNew(true);
+    setLessonQuestionGenerating(false);
+    setLessonQuestionFormOpen(false);
+    setLessonQuestionContext('');
+    setLessonQuestionMessage(null);
     setAllDone(false);
     setError(null);
     try {
@@ -221,6 +257,73 @@ function LessonPageContent() {
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar a licao.'));
     } finally {
       setSavingLesson(false);
+    }
+  }
+
+  async function handleGenerateLessonQuestions() {
+    if (!lesson || generationRequestRef.current) {
+      return;
+    }
+
+    const requestLessonId = lesson.id;
+    const requestToken = Symbol(`lesson-questions-${requestLessonId}`);
+    generationRequestRef.current = requestToken;
+    setLessonQuestionGenerating(true);
+    setLessonQuestionMessage(null);
+
+    try {
+      const response = await api.generateLessonQuestions(requestLessonId, lessonQuestionContext);
+      const confirmedQuestions = validateConfirmedLessonQuestionBatch(response, requestLessonId);
+      if (
+        !mountedRef.current
+        || activeLessonIdRef.current !== requestLessonId
+        || generationRequestRef.current !== requestToken
+      ) {
+        return;
+      }
+
+      setLesson((currentLesson) => {
+        if (!currentLesson || currentLesson.id !== requestLessonId) {
+          return currentLesson;
+        }
+        return {
+          ...currentLesson,
+          questions: mergeLessonQuestionsById(currentLesson.questions, confirmedQuestions),
+        };
+      });
+      setLessonQuestionContext('');
+      setLessonQuestionFormOpen(false);
+      setLessonQuestionMessage({
+        tone: 'success',
+        text: '5 novas questoes foram adicionadas a esta licao.',
+      });
+    } catch (err) {
+      if (
+        !mountedRef.current
+        || activeLessonIdRef.current !== requestLessonId
+        || generationRequestRef.current !== requestToken
+      ) {
+        return;
+      }
+
+      if (isUncertainLessonQuestionGenerationError(err)) {
+        setLessonQuestionMessage({
+          tone: 'error',
+          text: 'Nao foi possivel confirmar o resultado. Recarregue a licao antes de tentar novamente para evitar questoes duplicadas.',
+        });
+      } else {
+        setLessonQuestionMessage({
+          tone: 'error',
+          text: err instanceof ApiError ? err.message : 'Nao foi possivel criar novas questoes.',
+        });
+      }
+    } finally {
+      if (generationRequestRef.current === requestToken) {
+        generationRequestRef.current = null;
+        if (mountedRef.current && activeLessonIdRef.current === requestLessonId) {
+          setLessonQuestionGenerating(false);
+        }
+      }
     }
   }
 
@@ -606,6 +709,125 @@ function LessonPageContent() {
             </div>
           </div>
 
+          <section className="kid-surface mt-6 border-violet-200 p-5 md:p-7" aria-labelledby="lesson-questions-title">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">Perguntas da licao</p>
+                <h2 id="lesson-questions-title" className="mt-1 text-2xl font-black text-slate-800">
+                  Pratique o conteudo
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  {lesson.questions.length > 0
+                    ? `${lesson.questions.length} questao${lesson.questions.length === 1 ? '' : 'oes'} salva${lesson.questions.length === 1 ? '' : 's'} nesta licao.`
+                    : 'Ainda nao ha questoes extras nesta licao.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setLessonQuestionFormOpen((open) => !open);
+                  setLessonQuestionMessage(null);
+                }}
+                disabled={lessonQuestionGenerating}
+                aria-expanded={lessonQuestionFormOpen}
+                aria-controls="lesson-question-generator"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Sparkles size={17} />
+                {lessonQuestionFormOpen ? 'Fechar' : 'Criar mais questoes'}
+              </button>
+            </div>
+
+            {lessonQuestionFormOpen ? (
+              <form
+                id="lesson-question-generator"
+                className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 md:p-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleGenerateLessonQuestions();
+                }}
+              >
+                <label htmlFor="lesson-question-context" className="text-sm font-black text-slate-800">
+                  Contexto opcional
+                </label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Informe um foco, como gramatica, vocabulario ou uma situacao de uso. A IA criara exatamente 5 novas questoes ligadas a esta licao.
+                </p>
+                <textarea
+                  id="lesson-question-context"
+                  value={lessonQuestionContext}
+                  onChange={(event) => setLessonQuestionContext(event.target.value)}
+                  maxLength={1000}
+                  disabled={lessonQuestionGenerating}
+                  rows={3}
+                  placeholder="Ex.: priorize pronomes e conversacao em viagens"
+                  className="mt-3 w-full resize-y rounded-2xl border-2 border-violet-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-violet-500 disabled:opacity-60"
+                />
+                <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs font-bold text-slate-400">
+                    {lessonQuestionContext.length} / 1000
+                  </span>
+                  <button
+                    type="submit"
+                    disabled={lessonQuestionGenerating}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {lessonQuestionGenerating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
+                    {lessonQuestionGenerating ? 'Criando 5 questoes...' : 'Criar 5 novas questoes'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {lessonQuestionMessage ? (
+              <p
+                role={lessonQuestionMessage.tone === 'error' ? 'alert' : 'status'}
+                className={`mt-4 rounded-2xl px-4 py-3 text-sm font-bold ${
+                  lessonQuestionMessage.tone === 'error'
+                    ? 'bg-rose-50 text-rose-700'
+                    : 'bg-emerald-50 text-emerald-700'
+                }`}
+              >
+                {lessonQuestionMessage.text}
+              </p>
+            ) : null}
+
+            {lesson.questions.length > 0 ? (
+              <div className="mt-5 space-y-3">
+                {lesson.questions.map((question, index) => (
+                  <article key={question.id} className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">
+                        {formatQuestionType(question.question_type)}
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                        {question.target_language}
+                      </span>
+                      <span className="ml-auto text-xs font-bold text-slate-400">#{index + 1}</span>
+                    </div>
+                    <p className="mt-3 text-base font-black leading-7 text-slate-800 md:text-lg">
+                      {question.front}
+                    </p>
+                    <details className="group mt-3 rounded-xl bg-slate-50 px-4 py-3">
+                      <summary className="cursor-pointer text-sm font-black text-violet-700 marker:text-violet-400">
+                        Ver resposta
+                      </summary>
+                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 md:text-base">
+                        {question.back}
+                      </p>
+                      {question.supporting_example ? (
+                        <div className="mt-3 rounded-xl bg-white px-3 py-2 text-sm leading-6 text-slate-600">
+                          <span className="font-black text-slate-700">Exemplo: </span>
+                          {question.supporting_example}
+                        </div>
+                      ) : null}
+                    </details>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
         </div>
       </main>
 
@@ -630,6 +852,18 @@ function LessonPageContent() {
       )}
     </>
   );
+}
+
+function formatQuestionType(questionType: string) {
+  const labels: Record<string, string> = {
+    vocabulary: 'Vocabulario',
+    translation: 'Traducao',
+    grammar: 'Gramatica',
+    sentence_completion: 'Completar frase',
+    comprehension: 'Compreensao',
+    contextual_usage: 'Uso em contexto',
+  };
+  return labels[questionType] || questionType.replaceAll('_', ' ');
 }
 
 function buildActivityOptions(items: LessonItem[], currentItem: LessonItem) {
