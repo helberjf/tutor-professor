@@ -7,11 +7,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
 BOOTSTRAP = API / "database_bootstrap.py"
+sys.path.insert(0, str(API))
+
+import database_bootstrap  # noqa: E402
 
 
 def sqlite_url(path: Path) -> str:
@@ -43,15 +47,17 @@ def run_bootstrap(database: Path) -> subprocess.CompletedProcess[str]:
 
 
 def run_create_all(
-    database: Path, *, include_lesson_question: bool
+    database: Path, *, include_lesson_question: bool, mutation: str = ""
 ) -> subprocess.CompletedProcess[str]:
     remove_lesson_question = (
         "" if include_lesson_question else "SQLModel.metadata.remove(LessonQuestion.__table__);"
     )
     source = (
         "from sqlmodel import SQLModel, create_engine;"
-        "from models.database import LessonQuestion;"
+        "from sqlalchemy import UniqueConstraint;"
+        "from models.database import (LessonQuestion, ProgrammingFlashcard, UserAISettings);"
         f"{remove_lesson_question}"
+        f"{mutation}"
         f"engine=create_engine({sqlite_url(database)!r});"
         "SQLModel.metadata.create_all(engine);engine.dispose()"
     )
@@ -137,24 +143,30 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assert_bootstrap_succeeds()
 
     def test_unversioned_0006_shape_is_upgraded_instead_of_stamped_head(self) -> None:
+        result = run_create_all(self.database, include_lesson_question=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = run_alembic(self.database, "stamp", "0005")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = run_alembic(self.database, "upgrade", "0006")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with sqlite3.connect(self.database) as connection:
             connection.execute(
                 'INSERT INTO "user" '
-                "(id, first_name, last_name, email, cpf_hash, password_hash, created_at) "
-                "VALUES (1, 'Grace', 'Hopper', 'grace@example.test', 'cpf', 'hash', CURRENT_TIMESTAMP)"
+                "(id, first_name, last_name, email, cpf_hash, password_hash, auth_provider, created_at) "
+                "VALUES (1, 'Grace', 'Hopper', 'grace@example.test', 'cpf', 'hash', "
+                "'password', CURRENT_TIMESTAMP)"
             )
             connection.execute(
                 "INSERT INTO childprofile "
                 "(id, user_id, name, age_group, base_language, current_level, streak_count, "
-                "voice_preference, auto_audio, created_at) "
-                "VALUES (1, 1, 'Student', '10-12', 'Portuguese', 1, 0, 'af_bella', 1, CURRENT_TIMESTAMP)"
+                "voice_preference, auto_audio, target_language, created_at) "
+                "VALUES (1, 1, 'Student', '10-12', 'Portuguese', 1, 0, 'af_bella', 1, "
+                "'French', CURRENT_TIMESTAMP)"
             )
             connection.execute(
                 "INSERT INTO lesson "
-                "(id, title, theme, objective, content, is_completed, child_id) "
-                "VALUES (1, 'French verbs', 'Verbs', 'Practice', '{}', 0, 1)"
+                "(id, title, theme, objective, content, is_completed, child_id, target_language) "
+                "VALUES (1, 'French verbs', 'Verbs', 'Practice', '{}', 0, 1, 'French')"
             )
             connection.execute(
                 "INSERT INTO lessonquestion "
@@ -190,6 +202,10 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assert_bootstrap_succeeds()
 
     def test_front_key_without_unique_identity_is_rejected_without_stamping(self) -> None:
+        result = run_create_all(self.database, include_lesson_question=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        result = run_alembic(self.database, "stamp", "0005")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         result = run_alembic(self.database, "upgrade", "0006")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         with sqlite3.connect(self.database) as connection:
@@ -198,8 +214,165 @@ class DatabaseBootstrapTests(unittest.TestCase):
 
         result = run_bootstrap(self.database)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("front_key", result.stdout + result.stderr)
+        self.assertIn("lessonquestion", (result.stdout + result.stderr).lower())
         self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_missing_code_example_is_rejected(self) -> None:
+        result = run_create_all(self.database, include_lesson_question=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with sqlite3.connect(self.database) as connection:
+            connection.execute("ALTER TABLE programmingflashcard DROP COLUMN code_example")
+
+        result = run_bootstrap(self.database)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("programmingflashcard", result.stdout + result.stderr)
+        self.assertIn("code_example", result.stdout + result.stderr)
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_missing_index_is_rejected(self) -> None:
+        mutation = (
+            "ProgrammingFlashcard.__table__.indexes.remove("
+            "next(index for index in ProgrammingFlashcard.__table__.indexes "
+            "if index.name == 'ix_programmingflashcard_topic_id'));"
+        )
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("index", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_missing_foreign_key_is_rejected(self) -> None:
+        mutation = (
+            "ProgrammingFlashcard.__table__.constraints.remove("
+            "next(constraint for constraint in ProgrammingFlashcard.__table__.foreign_key_constraints "
+            "if tuple(constraint.column_keys) == ('topic_id',)));"
+        )
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("foreign key", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_missing_unique_constraint_is_rejected(self) -> None:
+        mutation = (
+            "UserAISettings.__table__.constraints.remove("
+            "next(constraint for constraint in UserAISettings.__table__.constraints "
+            "if isinstance(constraint, UniqueConstraint)));"
+        )
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unique", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_legacy_shape_nullability_mismatch_is_rejected(self) -> None:
+        mutation = "ProgrammingFlashcard.__table__.c.code_example.nullable=False;"
+        result = run_create_all(
+            self.database, include_lesson_question=False, mutation=mutation
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        result = run_bootstrap(self.database)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("nullable", (result.stdout + result.stderr).lower())
+        self.assertIsNone(current_revision(self.database))
+
+    def test_percent_encoded_database_url_is_safe_and_errors_are_redacted(self) -> None:
+        database_url = "postgresql://user:p%40ss@127.0.0.1:1/private_db"
+        config = database_bootstrap._alembic_config(database_url)
+        self.assertEqual(config.get_main_option("sqlalchemy.url"), database_url)
+
+        with mock.patch.object(
+            database_bootstrap,
+            "create_engine",
+            side_effect=RuntimeError(f"connection failed: {database_url}"),
+        ):
+            with self.assertRaises(Exception) as raised:
+                database_bootstrap.bootstrap_database(database_url)
+
+        message = str(raised.exception)
+        self.assertNotIn("p%40ss", message)
+        self.assertNotIn(database_url, message)
+        self.assertNotIn("private_db", message)
+
+    def test_postgresql_advisory_lock_wraps_the_entire_critical_section(self) -> None:
+        engine = mock.MagicMock()
+        engine.dialect.name = "postgresql"
+        connection = engine.connect.return_value.__enter__.return_value
+
+        with database_bootstrap._bootstrap_lock(
+            engine, "postgresql://user:secret@db.example.test/app"
+        ) as inspection_bind:
+            self.assertIs(inspection_bind, connection)
+            self.assertEqual(connection.execute.call_count, 1)
+            acquire_sql = str(connection.execute.call_args.args[0])
+            self.assertIn("pg_advisory_lock", acquire_sql)
+
+        self.assertEqual(connection.execute.call_count, 2)
+        release_sql = str(connection.execute.call_args.args[0])
+        self.assertIn("pg_advisory_unlock", release_sql)
+
+    def test_postgresql_inspection_transaction_is_released_before_migrations(self) -> None:
+        connection = mock.MagicMock(spec=database_bootstrap.Connection)
+        database_bootstrap._release_inspection_transaction(connection)
+        connection.commit.assert_called_once_with()
+
+        engine = mock.MagicMock(spec=database_bootstrap.Engine)
+        database_bootstrap._release_inspection_transaction(engine)
+        self.assertFalse(hasattr(engine, "commit"))
+
+    def test_unknown_database_backend_is_refused_without_uri_disclosure(self) -> None:
+        engine = mock.MagicMock()
+        engine.dialect.name = "mysql"
+        database_url = "mysql://user:secret@db.example.test/private_db"
+
+        with self.assertRaises(database_bootstrap.DatabaseBootstrapError) as raised:
+            with database_bootstrap._bootstrap_lock(engine, database_url):
+                self.fail("unsupported backend must not enter the critical section")
+
+        message = str(raised.exception)
+        self.assertNotIn("secret", message)
+        self.assertNotIn("private_db", message)
+
+    def test_concurrent_empty_sqlite_bootstraps_are_serialized(self) -> None:
+        for iteration in range(2):
+            database = Path(self.temp_dir.name) / f"concurrent-{iteration}.sqlite"
+            command = [
+                sys.executable,
+                str(BOOTSTRAP),
+                "--database-url",
+                sqlite_url(database),
+            ]
+            processes = [
+                subprocess.Popen(
+                    command,
+                    cwd=API,
+                    env=os.environ.copy(),
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                for _ in range(2)
+            ]
+            results = [process.communicate(timeout=30) for process in processes]
+            for process, (stdout, stderr) in zip(processes, results):
+                self.assertEqual(process.returncode, 0, stdout + stderr)
+            self.assertEqual(current_revision(database), "0007")
+
+            repeated = run_bootstrap(database)
+            self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
 
     def test_migrated_database_can_downgrade_and_upgrade_0007(self) -> None:
         self.assert_bootstrap_succeeds()
@@ -230,6 +403,9 @@ class DatabaseBootstrapTests(unittest.TestCase):
 
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("database_bootstrap.py", readme)
+
+        alembic_env = (API / "alembic" / "env.py").read_text(encoding="utf-8")
+        self.assertIn('database_url.replace("%", "%%")', alembic_env)
 
 
 if __name__ == "__main__":
