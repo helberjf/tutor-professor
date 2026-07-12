@@ -104,6 +104,8 @@ class DiverseInitialSourceTests(unittest.TestCase):
         self.assertIn("linked_questions[-50:]", additional)
         self.assertIn("[:400]", additional)
         self.assertIn("prompt = prompt[:40_000]", additional)
+        self.assertEqual(additional.count("validate_generated_question_batch("), 2)
+        self.assertNotIn("validate_card_batch(", additional)
         avoid_builder = self.page.split("function getDiverseAvoidTopics", 1)[1].split("\n}", 1)[0]
         self.assertIn(".slice(-100)", avoid_builder)
 
@@ -177,6 +179,98 @@ class DiverseInitialRouteTests(unittest.TestCase):
         self.assertIn("technical-interview", prompt)
         self.assertIn("exam-style", prompt)
         self.assertIn("code_example", prompt)
+
+    def test_additional_generation_rejects_invalid_fields_without_mutation(self) -> None:
+        asyncio.run(self._test_additional_invalid_batches())
+
+    async def _test_additional_invalid_batches(self) -> None:
+        study_date = date(2026, 7, 14)
+        original_topic = {
+            "id": "strict-existing",
+            "topic": "What is the original question?",
+            "answer": "Original answer.",
+        }
+        with Session(main.engine) as session:
+            child = session.exec(select(main.ChildProfile)).first()
+            self.assertIsNotNone(child)
+            session.add(
+                main.DiverseDay(
+                    child_id=child.id,
+                    study_date=study_date,
+                    custom_subjects=[
+                        {
+                            "id": "strict-subject",
+                            "name": "React",
+                            "topics": [original_topic],
+                            "lessons": [
+                                {
+                                    "id": "strict-lesson",
+                                    "title": "Strict validation",
+                                    "topic_ids": ["strict-existing"],
+                                }
+                            ],
+                        }
+                    ],
+                )
+            )
+            session.commit()
+
+        valid = make_questions("Strict additional")
+        invalid_batches = {
+            "existing question": [
+                {**card, "question": original_topic["topic"]} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "numeric question": [
+                {**card, "question": 123} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "list answer": [
+                {**card, "answer": ["invalid"]} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "dict code": [
+                {**card, "code_example": {"bad": True}} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "missing question mark": [
+                {**card, "question": "Explain strict validation"} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "oversized answer": [
+                {**card, "answer": "a" * 2001} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+            "oversized code": [
+                {**card, "code_example": "c" * 3001} if index == 0 else card
+                for index, card in enumerate(valid)
+            ],
+        }
+
+        for label, cards in invalid_batches.items():
+            async with api_client() as client:
+                with patch.object(
+                    main.phrase_generation_service,
+                    "generate_json_text",
+                    return_value=json.dumps({"questions": cards}),
+                ):
+                    response = await client.post(
+                        "/api/study/diverse/questions/generate",
+                        json={
+                            "study_date": study_date.isoformat(),
+                            "subject_index": 0,
+                            "lesson_id": "strict-lesson",
+                        },
+                    )
+            with self.subTest(label=label):
+                self.assertEqual(response.status_code, 502, response.text)
+                with Session(main.engine) as session:
+                    record = session.exec(
+                        select(main.DiverseDay).where(main.DiverseDay.study_date == study_date)
+                    ).first()
+                    subject = main.normalize_subject(record.custom_subjects[0])
+                self.assertEqual([topic["id"] for topic in subject["topics"]], ["strict-existing"])
+                self.assertEqual(subject["lessons"][0]["topic_ids"], ["strict-existing"])
 
     def test_invalid_lesson_count_fails_atomically_after_one_call(self) -> None:
         asyncio.run(self._test_invalid_lesson_count())
