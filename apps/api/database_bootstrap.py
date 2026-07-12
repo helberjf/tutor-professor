@@ -13,8 +13,11 @@ with the complete SQLModel schema.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
+import re
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -209,6 +212,48 @@ def _validate_known_shape(
         )
 
 
+def _canonical_front_key(front: object) -> str:
+    # Keep this revision-specific transform frozen to the exact 0007 migration.
+    normalized = unicodedata.normalize("NFKD", str(front or "").lower())
+    normalized = "".join(
+        character
+        for character in normalized
+        if not unicodedata.combining(character)
+    )
+    normalized = " ".join(re.sub(r"[\W_]+", " ", normalized).split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _lesson_question_rows(bind: Engine | Connection) -> list[dict[str, object]]:
+    query = text(
+        "SELECT id, child_id, lesson_id, front, front_key FROM lessonquestion "
+        "ORDER BY child_id, lesson_id, id"
+    )
+    if isinstance(bind, Connection):
+        return [dict(row) for row in bind.execute(query).mappings()]
+    with bind.connect() as connection:
+        return [dict(row) for row in connection.execute(query).mappings()]
+
+
+def _validate_head_lesson_question_keys(bind: Engine | Connection) -> None:
+    """Require the exact deterministic data state produced by migration 0007."""
+
+    seen: set[tuple[object, object, str]] = set()
+    for row in _lesson_question_rows(bind):
+        expected_key = _canonical_front_key(row["front"])
+        identity = (row["child_id"], row["lesson_id"], expected_key)
+        if identity in seen:
+            expected_key = hashlib.sha256(
+                f"{expected_key}\0legacy-{row['id']}".encode("utf-8")
+            ).hexdigest()
+        seen.add(identity)
+        if row["front_key"] != expected_key:
+            raise _schema_error(
+                "lessonquestion",
+                f"row {row['id']!r} has a noncanonical front_key",
+            )
+
+
 def _detect_unversioned_revision(bind: Engine | Connection) -> str | None:
     inspector = inspect(bind)
     tables = set(inspector.get_table_names()) - {"alembic_version"}
@@ -227,6 +272,7 @@ def _detect_unversioned_revision(bind: Engine | Connection) -> str | None:
         return "0006"
 
     _validate_known_shape(bind, CURRENT_SHAPE)
+    _validate_head_lesson_question_keys(bind)
     return HEAD_REVISION
 
 
