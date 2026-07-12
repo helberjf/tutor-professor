@@ -95,6 +95,123 @@ class LanguageQuestionLessonUIContractTests(unittest.TestCase):
         self.assertIn("Recarregue a licao antes de tentar novamente", generation)
 
 
+class LanguageQuestionReviewUIContractTests(unittest.TestCase):
+    def test_client_models_mixed_review_as_a_discriminated_union(self) -> None:
+        source = (ROOT / "apps" / "web" / "src" / "lib" / "api.ts").read_text(
+            encoding="utf-8"
+        )
+
+        vocabulary = source.split("export interface VocabularyReviewCard", 1)[1].split(
+            "}\n", 1
+        )[0]
+        lesson_question = source.split(
+            "export interface LessonQuestionReviewCard", 1
+        )[1].split("}\n", 1)[0]
+        attempt = source.split("export type ReviewAttemptPayload", 1)[1].split(
+            "export interface ChatMessage", 1
+        )[0]
+
+        self.assertIn("card_type: 'vocabulary'", vocabulary)
+        self.assertIn("review_item_id: number", vocabulary)
+        self.assertIn("word_en: string", vocabulary)
+        self.assertIn("card_type: 'lesson_question'", lesson_question)
+        self.assertIn("lesson_question_id: number", lesson_question)
+        self.assertIn("supporting_example: string | null", lesson_question)
+        self.assertIn(
+            "export type ReviewCard = VocabularyReviewCard | LessonQuestionReviewCard",
+            source,
+        )
+        self.assertIn("card_type: 'vocabulary'", attempt)
+        self.assertIn("card_type: 'lesson_question'", attempt)
+        self.assertIn("lesson_question_id: number", attempt)
+        self.assertIn("submitReviewAttempt: (payload: ReviewAttemptPayload)", source)
+
+    def test_review_preserves_vocabulary_flow_and_grades_lesson_questions(self) -> None:
+        source = (
+            ROOT / "apps" / "web" / "src" / "app" / "review" / "page.tsx"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("card.card_type === 'lesson_question'", source)
+        self.assertIn("card.word_en", source)
+        self.assertIn("card.word_pt", source)
+        self.assertIn("card.prompt", source)
+        self.assertIn("card.answer", source)
+        self.assertIn("card.supporting_example", source)
+        self.assertIn("Nao sabia", source)
+        self.assertIn("Sabia", source)
+        for expected in (
+            "const CONFIDENCE_LEVELS",
+            "const [flipped, setFlipped]",
+            "const [audioSpeed, setAudioSpeed]",
+            "Virar carta",
+            "Traducao",
+            "Como voce se saiu?",
+            "handleVocabularyConfidence",
+            "beginMixedReviewSubmission",
+            "revealMixedReviewLessonAnswer",
+            "advanceReview(true)",
+            "captureReviewAttempt",
+            "isReviewAttemptCompletionCurrent",
+            "reviewSessionEpochRef.current += 1",
+        ):
+            self.assertIn(expected, source)
+        self.assertNotIn("selectedVocabularyOption", source)
+
+        grading = source.split("async function handleLessonQuestionAnswer", 1)[1].split(
+            "\n  function handleNext", 1
+        )[0]
+        self.assertIn("buildReviewAttemptPayload(card, correct)", grading)
+        self.assertIn("beginMixedReviewSubmission", grading)
+        self.assertIn("captureReviewAttempt", grading)
+        self.assertIn("isReviewAttemptCompletionCurrent", grading)
+        self.assertIn("advanceReview", grading)
+        self.assertIn("runLessonQuestionGeneration", source)
+
+    def test_review_generation_uses_dynamic_lessons_and_safe_request_recovery(self) -> None:
+        source = (
+            ROOT / "apps" / "web" / "src" / "app" / "review" / "page.tsx"
+        ).read_text(encoding="utf-8")
+
+        for expected in (
+            "api.getAllLessons()",
+            "api.getParentSettings()",
+            "selectedLessonId",
+            "targetLanguage",
+            "Criar mais quest",
+            "maxLength={1000}",
+            "5 novas quest",
+            "generateLessonQuestions",
+            "validateConfirmedLessonQuestionBatch",
+            "isUncertainLessonQuestionGenerationError",
+            "generationRequestRef.current",
+            "generationInFlightRef.current",
+            "generationNeedsReviewReload",
+            "mountedRef.current",
+            "requestLessonId",
+            "reloadReviewAfterGeneration",
+            "generationError.status === 409",
+        ):
+            self.assertIn(expected, source)
+
+        generation = source.split("async function handleGenerateLessonQuestions", 1)[1].split(
+            "\n  async function handleGenerationRecoveryReload", 1
+        )[0]
+        self.assertIn("validate: validateConfirmedLessonQuestionBatch", generation)
+        self.assertIn("reload: () => reloadReviewAfterGeneration", generation)
+        self.assertIn("selectedLessonIdRef.current === requestLessonId", generation)
+        self.assertIn("generationRequestRef.current === requestToken", generation)
+        self.assertNotIn("French", generation)
+        self.assertNotIn("English", generation)
+        self.assertIn("finally", generation)
+        self.assertIn("generationRequestRef.current === requestToken", generation)
+
+        quick_review = (
+            ROOT / "apps" / "web" / "src" / "app" / "quick-review" / "page.tsx"
+        ).read_text(encoding="utf-8")
+        self.assertIn("vocabularyOnly: true", quick_review)
+        self.assertIn("ReviewSession<VocabularyReviewCard>", quick_review)
+
+
 class LanguageQuestionGenerationTests(unittest.TestCase):
     def test_generation_schema_accepts_optional_context_and_limits_its_length(self) -> None:
         payload = GenerateLessonQuestionsSchema(context="  foco   em  pronomes  ")

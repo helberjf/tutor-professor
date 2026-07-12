@@ -235,19 +235,35 @@ export interface QuizSubmitResponse {
   encouragement: string;
 }
 
-export interface ReviewCard {
+export interface VocabularyReviewCard {
+  card_type: 'vocabulary';
   review_item_id: number;
   word_en: string;
   word_pt: string;
   prompt: string;
+  answer: string;
   options: string[];
   difficulty_score: number;
   error_count: number;
 }
 
-export interface ReviewSession {
+export interface LessonQuestionReviewCard {
+  card_type: 'lesson_question';
+  lesson_question_id: number;
+  lesson_id: number;
+  prompt: string;
+  answer: string;
+  question_type: string;
+  supporting_example: string | null;
+  difficulty_score: number;
+  error_count: number;
+}
+
+export type ReviewCard = VocabularyReviewCard | LessonQuestionReviewCard;
+
+export interface ReviewSession<TCard extends ReviewCard = ReviewCard> {
   total_due: number;
-  items: ReviewCard[];
+  items: TCard[];
 }
 
 export interface ReviewSessionOptions {
@@ -256,12 +272,27 @@ export interface ReviewSessionOptions {
 }
 
 export interface ReviewAttemptResult {
-  review_item_id: number;
+  card_type: 'vocabulary' | 'lesson_question';
+  card_id: number;
   difficulty_score: number;
   next_review: string;
   error_count: number;
   correct_count: number;
 }
+
+export type ReviewAttemptPayload =
+  | {
+      card_type: 'vocabulary';
+      review_item_id?: number;
+      word_en: string;
+      word_pt: string;
+      correct: boolean;
+    }
+  | {
+      card_type: 'lesson_question';
+      lesson_question_id: number;
+      correct: boolean;
+    };
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -845,6 +876,19 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
   }
 }
+function getReviewSession(
+  limit: number,
+  options: { vocabularyOnly: true },
+): Promise<ReviewSession<VocabularyReviewCard>>;
+function getReviewSession(limit?: number, options?: ReviewSessionOptions): Promise<ReviewSession>;
+function getReviewSession(
+  limit = 5,
+  { vocabularyOnly = false }: ReviewSessionOptions = {},
+): Promise<ReviewSession> {
+  return fetchAPI<ReviewSession>(
+    `/api/review?limit=${limit}${vocabularyOnly ? '&vocabulary_only=true' : ''}`,
+  );
+}
 
 export const api = {
   request: fetchAPI,
@@ -899,18 +943,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  getReviewSession: (
-    limit = 5,
-    { vocabularyOnly = false }: ReviewSessionOptions = {},
-  ) => fetchAPI<ReviewSession>(
-    `/api/review?limit=${limit}${vocabularyOnly ? '&vocabulary_only=true' : ''}`,
-  ),
-  submitReviewAttempt: (payload: {
-    review_item_id?: number;
-    word_en: string;
-    word_pt: string;
-    correct: boolean;
-  }) =>
+  getReviewSession,
+  submitReviewAttempt: (payload: ReviewAttemptPayload) =>
     fetchAPI<ReviewAttemptResult>('/api/review/attempt', {
       method: 'POST',
       body: JSON.stringify(payload),
