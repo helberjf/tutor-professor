@@ -1,4 +1,9 @@
-import { getApiBaseUrl, resolveApiBaseUrl } from '@/lib/api-config';
+import {
+  clearSavedApiBaseUrl,
+  getApiBaseUrl,
+  resolveApiBaseUrl,
+  resolveApiBaseUrlAfterOfflineFailure,
+} from '@/lib/api-config';
 import { getStoredActiveChildId } from '@/lib/active-child';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -767,6 +772,29 @@ async function parseError(response: Response): Promise<ApiError> {
   });
 }
 
+function isSafeRetryRequest(options: RequestInit) {
+  const method = (options.method || 'GET').toUpperCase();
+  return method === 'GET' || method === 'HEAD';
+}
+
+async function performApiFetch(url: string, options: RequestInit) {
+  const activeChildId = getStoredActiveChildId();
+  const sessionToken = USE_TOKEN_AUTH ? getSessionToken() : null;
+
+  return fetch(url, {
+    ...options,
+    // Mantem o cookie para o fluxo same-site (desktop); o token cobre o celular.
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(activeChildId ? { 'X-Child-ID': String(activeChildId) } : {}),
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+      ...options.headers,
+    },
+    cache: 'no-store',
+  });
+}
+
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiBaseUrl = await resolveApiBaseUrl();
   if (!apiBaseUrl) {
@@ -775,29 +803,33 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
   }
 
-  const url = `${apiBaseUrl}${endpoint}`;
-
   let response: Response;
   try {
-    const activeChildId = getStoredActiveChildId();
-    const sessionToken = USE_TOKEN_AUTH ? getSessionToken() : null;
-    response = await fetch(url, {
-      ...options,
-      // Mantém o cookie para o fluxo same-site (desktop); o token cobre o celular.
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(activeChildId ? { 'X-Child-ID': String(activeChildId) } : {}),
-        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-        ...options.headers,
-      },
-      cache: 'no-store',
-    });
+    response = await performApiFetch(`${apiBaseUrl}${endpoint}`, options);
   } catch (error) {
     console.error('API call failed:', error);
-    throw new ApiError('O tutor nao conseguiu acessar o backend.', {
-      code: 'offline',
-    });
+    if (isSafeRetryRequest(options)) {
+      const fallbackBaseUrl = await resolveApiBaseUrlAfterOfflineFailure(apiBaseUrl);
+      if (fallbackBaseUrl) {
+        try {
+          response = await performApiFetch(`${fallbackBaseUrl}${endpoint}`, options);
+          clearSavedApiBaseUrl();
+        } catch (fallbackError) {
+          console.error('API fallback call failed:', fallbackError);
+          throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+            code: 'offline',
+          });
+        }
+      } else {
+        throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+          code: 'offline',
+        });
+      }
+    } else {
+      throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+        code: 'offline',
+      });
+    }
   }
 
   if (!response.ok) {

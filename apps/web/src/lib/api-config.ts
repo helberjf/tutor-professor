@@ -224,6 +224,19 @@ export async function resolveApiBaseUrl() {
   return getDefaultApiBaseUrl();
 }
 
+export async function resolveApiBaseUrlAfterOfflineFailure(failedBaseUrl: string) {
+  if (!isBrowser()) {
+    return null;
+  }
+
+  const runtimeConfig = await refreshRuntimeBackendConfig();
+  if (!runtimeConfig.baseUrl || runtimeConfig.baseUrl === failedBaseUrl) {
+    return null;
+  }
+
+  return runtimeConfig.baseUrl;
+}
+
 export function getApiConnectionDetails(): ApiConnectionDetails {
   const configuredConnection = getPreferredConfiguredConnection();
   if (configuredConnection.baseUrl) {
