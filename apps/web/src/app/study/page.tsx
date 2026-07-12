@@ -13,7 +13,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import {
   createInitialPomodoroState,
@@ -2231,8 +2231,8 @@ function DiverseQuestionGenerationForm({
       setMessage(successMessage);
       setDiverseQuestionContext('');
     } catch (err) {
-      setError(err instanceof TypeError
-        ? 'Não foi possível confirmar se as questões foram criadas. Recarregue a página antes de tentar novamente.'
+      setError(isUncertainDiverseGenerationError(err)
+        ? 'A criação pode ter sido concluída. Recarregue a página antes de tentar novamente.'
         : err instanceof Error ? err.message : 'Não foi possível criar as questões. Tente novamente.');
     } finally {
       submitLockRef.current = false;
