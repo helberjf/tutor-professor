@@ -78,6 +78,47 @@ def make_cards(prefix: str) -> list[dict[str, str]]:
     ]
 
 
+def make_initial_content(prefix: str = "Initial") -> dict:
+    lesson_code = "const add = (left, right) => left + right;"
+    return {
+        "sections": [
+            {
+                "title": "Introduction",
+                "body": "Introduce pure addition.",
+                "code_example": lesson_code,
+            },
+            {
+                "title": "Trade-offs",
+                "body": "Explain readability and reuse.",
+                "code_example": lesson_code,
+            },
+            {
+                "title": "Pitfalls",
+                "body": "Discuss invalid numeric input.",
+                "code_example": lesson_code,
+            },
+        ],
+        "quiz": [
+            {
+                "id": index,
+                "question": f"What does add do in case {index}?",
+                "options": ["Adds", "Subtracts", "Multiplies", "Divides"],
+                "correct_option": "Adds",
+                "explanation": "It returns the sum.",
+            }
+            for index in range(1, 6)
+        ],
+        "flashcards": [
+            {
+                "front": f"{prefix} technical interview question {index}?",
+                "back": f"Interview answer {index}.",
+                "code_example": lesson_code,
+            }
+            for index in range(1, 6)
+        ],
+    }
+
+
 class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -452,6 +493,9 @@ class ProgrammingAIPromptTests(unittest.TestCase):
             "technical interview",
             "sections from this same json response",
             "reuse relevant code",
+            "exactly 5 flashcards",
+            "must contain a nonblank code_example",
+            "copy the exact code_example",
             "reasoning",
             "trade-offs",
             "debugging",
@@ -459,6 +503,53 @@ class ProgrammingAIPromptTests(unittest.TestCase):
             "practical application",
         ):
             self.assertIn(expected, prompt)
+
+    def test_initial_generator_rejects_invalid_interview_card_batches(self):
+        invalid_cases = {
+            "four cards": {**make_initial_content(), "flashcards": make_initial_content()["flashcards"][:4]},
+            "duplicate fronts": make_initial_content(),
+            "not a question": make_initial_content(),
+            "blank code": make_initial_content(),
+            "unrelated code": make_initial_content(),
+        }
+        invalid_cases["duplicate fronts"]["flashcards"][1]["front"] = invalid_cases["duplicate fronts"]["flashcards"][0]["front"]
+        invalid_cases["not a question"]["flashcards"][0]["front"] = "Explain pure addition"
+        invalid_cases["blank code"]["flashcards"][0]["code_example"] = "   "
+        invalid_cases["unrelated code"]["flashcards"][0]["code_example"] = "console.log('unrelated');"
+
+        for label, response in invalid_cases.items():
+            with self.subTest(label=label), patch.object(
+                coding_service._phrase_service,
+                "generate_json_text",
+                return_value=json.dumps(response),
+            ) as generate:
+                with self.assertRaises(RuntimeError):
+                    coding_service.generate_topic_ai_content(
+                        subject_name="JavaScript",
+                        topic_title="Functions",
+                        ai_config=object(),
+                    )
+                generate.assert_called_once()
+
+    def test_initial_generator_preserves_section_and_quiz_requirements(self):
+        for label, response in (
+            ("too few sections", {**make_initial_content(), "sections": make_initial_content()["sections"][:2]}),
+            ("too few quiz questions", {**make_initial_content(), "quiz": make_initial_content()["quiz"][:4]}),
+            ("wrong option count", make_initial_content()),
+        ):
+            if label == "wrong option count":
+                response["quiz"][0]["options"] = response["quiz"][0]["options"][:3]
+            with self.subTest(label=label), patch.object(
+                coding_service._phrase_service,
+                "generate_json_text",
+                return_value=json.dumps(response),
+            ):
+                with self.assertRaises(RuntimeError):
+                    coding_service.generate_topic_ai_content(
+                        subject_name="JavaScript",
+                        topic_title="Functions",
+                        ai_config=object(),
+                    )
 
     def test_additional_generator_sends_one_call_with_all_source_context(self):
         response = {"flashcards": make_cards("Closure")}
@@ -487,6 +578,41 @@ class ProgrammingAIPromptTests(unittest.TestCase):
             "Focus on debugging callbacks",
         ):
             self.assertIn(expected, prompt_text)
+
+    def test_additional_prompt_is_bounded_and_uses_only_latest_hundred_fronts(self):
+        huge_content = {
+            "sections": [
+                {
+                    "title": f"Section {index}",
+                    "body": f"BODY-{index}-" + ("x" * 10000),
+                    "code_example": f"const retainedCode{index} = {index};" + ("y" * 10000),
+                }
+                for index in range(1000)
+            ],
+            "quiz": [{"question": "z" * 10000}] * 1000,
+            "flashcards": [{"front": "w" * 10000}] * 1000,
+        }
+        existing_fronts = [f"Old interview front {index}? " + ("q" * 1000) for index in range(200)]
+        with patch.object(
+            coding_service._phrase_service,
+            "generate_json_text",
+            return_value=json.dumps({"flashcards": make_cards("Bounded")}),
+        ) as generate:
+            coding_service.generate_additional_topic_flashcards(
+                subject_name="JavaScript" * 100,
+                topic_title="Functions" * 100,
+                ai_content=huge_content,
+                existing_fronts=existing_fronts,
+                user_context="context " * 1000,
+                ai_config=object(),
+            )
+
+        prompt_text = generate.call_args.kwargs["prompt"]
+        self.assertLessEqual(len(prompt_text), 40_000)
+        self.assertIn("retainedCode0", prompt_text)
+        self.assertIn("Old interview front 199?", prompt_text)
+        self.assertNotIn("Old interview front 99?", prompt_text)
+        self.assertNotIn("Section 999", prompt_text)
 
     def test_request_schema_has_optional_context_limited_to_1000_characters(self):
         self.assertIsNone(GenerateAdditionalFlashcardsSchema().context)
@@ -784,13 +910,7 @@ class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
             )
             assert_status(subject, 201, "create initial-generation subject")
             subject_id = subject.json()["id"]
-            content = main.TopicAIContentSchema.model_validate(
-                {
-                    "sections": VALID_AI_CONTENT["sections"],
-                    "quiz": [],
-                    "flashcards": make_cards("Initial"),
-                }
-            )
+            content = main.TopicAIContentSchema.model_validate(make_initial_content())
             with patch.object(
                 main, "generate_topic_ai_content", return_value=content
             ) as generator:
@@ -804,6 +924,59 @@ class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
             self.assertEqual(payload["ai_content"], content.model_dump())
             self.assertEqual(payload["flashcard_count"], 5)
             self.assertEqual(topic_counts(payload["id"]), (5, 5))
+
+    def test_invalid_initial_batches_return_502_without_topic_or_cards(self):
+        asyncio.run(self._test_invalid_initial_batches_are_atomic())
+
+    async def _test_invalid_initial_batches_are_atomic(self) -> None:
+        async with api_client() as client:
+            no_cards = make_initial_content("No cards")
+            no_cards["flashcards"] = []
+            null_code = make_initial_content("Null code")
+            for card in null_code["flashcards"]:
+                card["code_example"] = None
+            cases = (
+                ("zero cards", main.TopicAIContentSchema.model_validate(no_cards)),
+                ("all null code", main.TopicAIContentSchema.model_validate(null_code)),
+                ("malformed JSON", RuntimeError("IA retornou JSON inválido")),
+            )
+
+            for index, (label, outcome) in enumerate(cases):
+                with self.subTest(label=label):
+                    subject = await client.post(
+                        "/api/coding/subjects",
+                        json={"name": f"TypeScript Atomic {index}"},
+                    )
+                    assert_status(subject, 201, "create atomic subject")
+                    subject_id = subject.json()["id"]
+                    patch_kwargs = (
+                        {"side_effect": outcome}
+                        if isinstance(outcome, Exception)
+                        else {"return_value": outcome}
+                    )
+                    with patch.object(
+                        main, "generate_topic_ai_content", **patch_kwargs
+                    ) as generator:
+                        response = await client.post(
+                            f"/api/coding/subjects/{subject_id}/topics",
+                            json={"title": "Must not persist", "generate_ai": True},
+                        )
+
+                    self.assertEqual(response.status_code, 502)
+                    generator.assert_called_once()
+                    with Session(main.engine) as session:
+                        topics = session.exec(
+                            select(main.ProgrammingTopic).where(
+                                main.ProgrammingTopic.subject_id == subject_id
+                            )
+                        ).all()
+                        cards = session.exec(
+                            select(main.ProgrammingFlashcard).where(
+                                main.ProgrammingFlashcard.subject_id == subject_id
+                            )
+                        ).all()
+                    self.assertEqual(topics, [])
+                    self.assertEqual(cards, [])
 
 
 if __name__ == "__main__":
