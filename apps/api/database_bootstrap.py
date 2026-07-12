@@ -20,14 +20,16 @@ import time
 import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from enum import Enum as PythonEnum
 from pathlib import Path
 from typing import Iterator
 
 from alembic import command
 from alembic.config import Config
 from dotenv import load_dotenv
-from sqlalchemy import UniqueConstraint, create_engine, inspect, text
+from sqlalchemy import CheckConstraint, UniqueConstraint, create_engine, inspect, text
 from sqlalchemy.engine import Connection, Engine, make_url
+from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.schema import Table
 from sqlmodel import SQLModel
 
@@ -50,6 +52,8 @@ class DatabaseBootstrapError(RuntimeError):
 @dataclass(frozen=True)
 class ColumnShape:
     nullable: bool
+    type_family: str
+    server_defaults: frozenset[str | None]
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,178 @@ class TableShape:
     foreign_keys: frozenset[tuple[tuple[str, ...], str, tuple[str, ...]]]
     unique_constraints: frozenset[tuple[str, ...]]
     indexes: frozenset[tuple[str, tuple[str, ...], bool]]
+    check_constraints: frozenset[str]
+
+
+_POSTGRES_CAST_RE = re.compile(
+    r"::\s*(?:"
+    r"double\s+precision|character\s+varying|"
+    r"timestamp(?:\s+(?:with|without)\s+time\s+zone)?|"
+    r"time(?:\s+(?:with|without)\s+time\s+zone)?|"
+    r"[a-z_][\w$]*(?:\.[a-z_][\w$]*)*"
+    r")(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?(?:\s*\[\s*\])?",
+    re.IGNORECASE,
+)
+
+
+def _normalize_column_type(column_type: object) -> str:
+    """Collapse dialect-specific SQLAlchemy types into semantic families."""
+
+    if isinstance(column_type, sqltypes.Boolean):
+        return "boolean"
+    if isinstance(column_type, sqltypes.SmallInteger):
+        return "small_integer"
+    if isinstance(column_type, sqltypes.BigInteger):
+        return "big_integer"
+    if isinstance(column_type, sqltypes.Integer):
+        return "integer"
+    if isinstance(column_type, sqltypes.Float):
+        return "float"
+    if isinstance(column_type, sqltypes.Numeric):
+        return "numeric"
+    if isinstance(column_type, sqltypes.DateTime):
+        return "datetime"
+    if isinstance(column_type, sqltypes.Date):
+        return "date"
+    if isinstance(column_type, sqltypes.Time):
+        return "time"
+    if isinstance(column_type, sqltypes.Interval):
+        return "interval"
+    if isinstance(column_type, sqltypes.JSON):
+        return "json"
+    uuid_type = getattr(sqltypes, "Uuid", ())
+    if uuid_type and isinstance(column_type, uuid_type):
+        return "uuid"
+    if isinstance(column_type, sqltypes.LargeBinary):
+        return "binary"
+    if isinstance(column_type, sqltypes.Text):
+        return "text"
+    # Native PostgreSQL ENUM and SQLModel Enum columns intentionally match
+    # migration-created VARCHAR columns with the same application contract.
+    if isinstance(column_type, (sqltypes.Enum, sqltypes.String)):
+        return "string"
+
+    affinity = getattr(column_type, "_type_affinity", type(column_type))
+    if isinstance(affinity, type) and affinity is not type(column_type):
+        try:
+            return _normalize_column_type(affinity())
+        except TypeError:
+            pass
+    return f"other:{affinity.__module__}.{affinity.__qualname__}".casefold()
+
+
+def _has_balanced_outer_parentheses(value: str) -> bool:
+    if not (value.startswith("(") and value.endswith(")")):
+        return False
+    depth = 0
+    quote: str | None = None
+    index = 0
+    while index < len(value):
+        character = value[index]
+        if quote is not None:
+            if character == quote:
+                if index + 1 < len(value) and value[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = None
+        elif character in {"'", '"'}:
+            quote = character
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0 and index != len(value) - 1:
+                return False
+            if depth < 0:
+                return False
+        index += 1
+    return depth == 0 and quote is None
+
+
+def _strip_outer_parentheses(value: str) -> str:
+    result = value.strip()
+    while _has_balanced_outer_parentheses(result):
+        result = result[1:-1].strip()
+    return result
+
+
+def _normalize_sql_expression(value: object) -> str:
+    expression = str(value).strip()
+    expression = _POSTGRES_CAST_RE.sub("", expression)
+    expression = _strip_outer_parentheses(expression)
+    expression = re.sub(r'"([^"\n]+)"', r"\1", expression)
+    expression = re.sub(r"`([^`\n]+)`", r"\1", expression)
+    expression = re.sub(r"\[([^\]\n]+)\]", r"\1", expression)
+
+    normalized: list[str] = []
+    index = 0
+    while index < len(expression):
+        character = expression[index]
+        if character == "'":
+            end = index + 1
+            while end < len(expression):
+                if expression[end] == "'":
+                    if end + 1 < len(expression) and expression[end + 1] == "'":
+                        end += 2
+                        continue
+                    end += 1
+                    break
+                end += 1
+            normalized.append(expression[index:end])
+            index = end
+            continue
+        if not character.isspace():
+            normalized.append(character.casefold())
+        index += 1
+
+    result = _strip_outer_parentheses("".join(normalized))
+    atom = re.compile(r"\(([-+]?\d+(?:\.\d+)?|true|false|null|[a-z_][\w.]*)\)")
+    while True:
+        simplified = atom.sub(r"\1", result)
+        if simplified == result:
+            break
+        result = simplified
+    return _strip_outer_parentheses(result)
+
+
+def _normalize_server_default(default: object | None) -> str | None:
+    if default is None:
+        return None
+    argument = getattr(default, "arg", default)
+    expression = _normalize_sql_expression(argument)
+    if expression.startswith("nextval("):
+        return "auto_increment"
+    if expression in {"now()", "current_timestamp", "current_timestamp()"}:
+        return "current_timestamp"
+    literal = re.fullmatch(r"'([-+]?\d+(?:\.\d+)?|true|false)'", expression)
+    if literal:
+        return literal.group(1)
+    return expression
+
+
+def _normalize_check_constraint(expression: object) -> str:
+    return _normalize_sql_expression(expression)
+
+
+def _metadata_server_defaults(column: object, type_family: str) -> frozenset[str | None]:
+    defaults: set[str | None] = {_normalize_server_default(column.server_default)}
+    python_default = column.default
+    if python_default is not None and python_default.is_scalar:
+        value = python_default.arg
+        if isinstance(value, PythonEnum):
+            value = value.value
+        if isinstance(value, str):
+            value = repr(value)
+        elif isinstance(value, bool):
+            value = "true" if value else "false"
+        defaults.add(_normalize_server_default(value))
+    if (
+        column.primary_key
+        and type_family in {"small_integer", "integer", "big_integer"}
+        and column.autoincrement in {True, "auto"}
+    ):
+        defaults.add("auto_increment")
+    return frozenset(defaults)
 
 
 def _metadata_table_shape(table: Table) -> TableShape:
@@ -66,6 +242,8 @@ def _metadata_table_shape(table: Table) -> TableShape:
         columns={
             column.name: ColumnShape(
                 nullable=bool(column.nullable),
+                type_family=(type_family := _normalize_column_type(column.type)),
+                server_defaults=_metadata_server_defaults(column, type_family),
             )
             for column in table.columns
         },
@@ -91,6 +269,11 @@ def _metadata_table_shape(table: Table) -> TableShape:
             )
             for index in table.indexes
         ),
+        check_constraints=frozenset(
+            _normalize_check_constraint(constraint.sqltext)
+            for constraint in table.constraints
+            if isinstance(constraint, CheckConstraint)
+        ),
     )
 
 
@@ -102,6 +285,14 @@ def _actual_table_shape(bind: Engine | Connection, table_name: str) -> TableShap
         columns={
             column["name"]: ColumnShape(
                 nullable=bool(column["nullable"]),
+                type_family=_normalize_column_type(column["type"]),
+                server_defaults=frozenset(
+                    {
+                        "auto_increment"
+                        if column.get("identity") is not None
+                        else _normalize_server_default(column.get("default"))
+                    }
+                ),
             )
             for column in columns
         },
@@ -129,6 +320,11 @@ def _actual_table_shape(bind: Engine | Connection, table_name: str) -> TableShap
             for index in indexes
             if not index.get("duplicates_constraint")
         ),
+        check_constraints=frozenset(
+            _normalize_check_constraint(constraint["sqltext"])
+            for constraint in inspector.get_check_constraints(table_name)
+            if constraint.get("sqltext") is not None
+        ),
     )
 
 
@@ -136,6 +332,21 @@ CURRENT_SHAPE: dict[str, TableShape] = {
     table.name: _metadata_table_shape(table)
     for table in SQLModel.metadata.sorted_tables
 }
+_head_lesson_shape = CURRENT_SHAPE["lessonquestion"]
+CURRENT_SHAPE["lessonquestion"] = replace(
+    _head_lesson_shape,
+    columns={
+        name: (
+            replace(
+                shape,
+                server_defaults=shape.server_defaults | {"current_timestamp"},
+            )
+            if name in {"next_review", "created_at"}
+            else shape
+        )
+        for name, shape in _head_lesson_shape.columns.items()
+    },
+)
 LEGACY_CREATE_ALL_SHAPE = {
     name: shape for name, shape in CURRENT_SHAPE.items() if name != "lessonquestion"
 }
@@ -183,6 +394,18 @@ def _validate_table_shape(
                 table_name,
                 f"column {column_name!r} has incorrect nullable state",
             )
+        if expected_column.type_family != actual_column.type_family:
+            raise _schema_error(
+                table_name,
+                f"column {column_name!r} has an incorrect type",
+            )
+        if not actual_column.server_defaults.issubset(
+            expected_column.server_defaults
+        ):
+            raise _schema_error(
+                table_name,
+                f"column {column_name!r} has an incorrect server default",
+            )
     if expected.primary_key != actual.primary_key:
         raise _schema_error(table_name, "has an incorrect primary key")
     if expected.foreign_keys != actual.foreign_keys:
@@ -191,6 +414,8 @@ def _validate_table_shape(
         raise _schema_error(table_name, "has different unique constraints")
     if expected.indexes != actual.indexes:
         raise _schema_error(table_name, "has different indexes")
+    if expected.check_constraints != actual.check_constraints:
+        raise _schema_error(table_name, "has different check constraints")
 
 
 def _validate_known_shape(
