@@ -422,14 +422,57 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assertIsNone(current_revision(self.database))
 
     def test_sql_type_normalization_uses_cross_dialect_semantic_families(self) -> None:
-        from sqlalchemy import DateTime, Enum, JSON, String
+        from sqlalchemy import DateTime, Enum, JSON, Numeric, String
         from sqlalchemy.dialects import postgresql
 
         normalize = database_bootstrap._normalize_column_type
         self.assertEqual(normalize(String(80)), normalize(postgresql.VARCHAR(80)))
-        self.assertEqual(normalize(Enum("new", "done")), normalize(String(20)))
+        self.assertEqual(normalize(Enum("new", "done")), normalize(String(4)))
+        self.assertEqual(normalize(Numeric(20, 8)), normalize(postgresql.NUMERIC(20, 8)))
         self.assertEqual(normalize(JSON()), normalize(postgresql.JSONB()))
-        self.assertEqual(normalize(DateTime()), normalize(postgresql.TIMESTAMP()))
+        self.assertEqual(
+            normalize(DateTime(timezone=True)),
+            normalize(postgresql.TIMESTAMP(timezone=True)),
+        )
+
+    def test_table_shape_rejects_semantic_type_attribute_mismatches(self) -> None:
+        from sqlalchemy import DateTime, Numeric, String
+
+        def table_shape(column_type: object) -> database_bootstrap.TableShape:
+            return database_bootstrap.TableShape(
+                columns={
+                    "value": database_bootstrap.ColumnShape(
+                        nullable=False,
+                        type_signatures=frozenset(
+                            {
+                                database_bootstrap._normalize_column_type(
+                                    column_type
+                                )
+                            }
+                        ),
+                        server_defaults=frozenset({None}),
+                    )
+                },
+                primary_key=(),
+                foreign_keys=frozenset(),
+                unique_constraints=frozenset(),
+                indexes=frozenset(),
+                check_constraints=frozenset(),
+            )
+
+        mismatches = (
+            (String(10), String(500)),
+            (Numeric(5, 2), Numeric(20, 8)),
+            (DateTime(timezone=False), DateTime(timezone=True)),
+        )
+        for expected_type, actual_type in mismatches:
+            with self.subTest(expected=expected_type, actual=actual_type):
+                with self.assertRaises(database_bootstrap.UnsafeUnversionedSchema):
+                    database_bootstrap._validate_table_shape(
+                        "typed_table",
+                        table_shape(expected_type),
+                        table_shape(actual_type),
+                    )
 
     def test_sql_expression_normalization_ignores_postgresql_rendering_noise(self) -> None:
         normalize_default = database_bootstrap._normalize_server_default
