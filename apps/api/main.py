@@ -24,7 +24,7 @@ from sqlalchemy import text, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -43,11 +43,13 @@ from schemas.schemas import (
     GenerateFlashcardsRequestSchema,
     GenerateFlashcardsResponseSchema,
     GenerateDiverseQuestionsSchema,
+    GenerateLessonQuestionsSchema,
     GeneratedFlashcardSchema,
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LevelAnalysisSchema,
     LessonItemSchema,
+    LessonQuestionSchema,
     LessonSchema,
     LessonSummarySchema,
     ParentLoginSchema,
@@ -137,6 +139,10 @@ from services.coding_service import (
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import sanitize_context, validate_card_batch
+from services.language_question_service import (
+    build_language_questions_prompt,
+    validate_language_question_batch,
+)
 from services import fsrs_service
 from services.review_service import (
     build_review_cards,
@@ -181,15 +187,37 @@ AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
 _topic_flashcard_locks_guard = threading.Lock()
 _topic_flashcard_locks: dict[int, threading.Lock] = {}
 _diverse_question_locks_guard = threading.Lock()
+_lesson_question_locks_guard = threading.Lock()
 
 
-class _DiverseQuestionLockEntry:
+class _KeyedLockEntry:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.users = 0
 
 
-_diverse_question_locks: dict[tuple[int, date], _DiverseQuestionLockEntry] = {}
+_diverse_question_locks: dict[tuple[int, date], _KeyedLockEntry] = {}
+_lesson_question_locks: dict[tuple[int, int], _KeyedLockEntry] = {}
+
+
+@contextmanager
+def _lesson_question_lock(child_id: int, lesson_id: int) -> Iterator[None]:
+    key = (child_id, lesson_id)
+    with _lesson_question_locks_guard:
+        entry = _lesson_question_locks.get(key)
+        if entry is None:
+            entry = _KeyedLockEntry()
+            _lesson_question_locks[key] = entry
+        entry.users += 1
+    entry.lock.acquire()
+    try:
+        yield
+    finally:
+        entry.lock.release()
+        with _lesson_question_locks_guard:
+            entry.users -= 1
+            if entry.users == 0 and _lesson_question_locks.get(key) is entry:
+                _lesson_question_locks.pop(key, None)
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
@@ -735,6 +763,14 @@ def get_next_lesson_day(session: Session) -> int:
 
 def build_lesson_response(session: Session, lesson: Lesson, child_id: int) -> LessonSchema:
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
+    lesson_questions = session.exec(
+        select(LessonQuestion)
+        .where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.lesson_id == (lesson.id or 0),
+        )
+        .order_by(LessonQuestion.id)
+    ).all()
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
     lesson_progress = progress_map.get(lesson.id or 0)
     return LessonSchema(
@@ -744,6 +780,7 @@ def build_lesson_response(session: Session, lesson: Lesson, child_id: int) -> Le
         objective=lesson.objective,
         content=lesson.content or {},
         items=[LessonItemSchema.model_validate(item) for item in lesson_items],
+        questions=[LessonQuestionSchema.model_validate(question) for question in lesson_questions],
         is_completed=lesson_progress.is_completed if lesson_progress else False,
     )
 
@@ -1118,6 +1155,158 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
         raise HTTPException(status_code=404, detail="Licao nao encontrada")
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
+
+
+@app.post(
+    "/api/lessons/{lesson_id}/questions/generate",
+    response_model=list[LessonQuestionSchema],
+)
+def generate_lesson_questions(
+    lesson_id: int,
+    payload: GenerateLessonQuestionsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[LessonQuestionSchema]:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    lesson = session.get(Lesson, lesson_id)
+    accessible_lesson_ids = {
+        item.id or 0
+        for item in list_accessible_lessons(
+            session=session,
+            child_id=child_id,
+            child_level=child.current_level,
+            target_language=child.target_language,
+        )
+    }
+    if lesson is None or lesson_id not in accessible_lesson_ids:
+        raise HTTPException(status_code=404, detail="Licao nao encontrada")
+
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+        )
+
+    lesson_items = get_lesson_items(session=session, lesson_id=lesson_id)
+    existing_questions = session.exec(
+        select(LessonQuestion).where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.lesson_id == lesson_id,
+        )
+    ).all()
+    existing_fronts = [question.front for question in existing_questions]
+    target_language = child.target_language
+    base_language = child.base_language
+    phrase_breakdowns = (lesson.content or {}).get("phrase_breakdowns") or []
+    if not isinstance(phrase_breakdowns, list):
+        phrase_breakdowns = []
+    prompt = build_language_questions_prompt(
+        lesson_title=lesson.title,
+        theme=lesson.theme,
+        objective=lesson.objective,
+        target_language=target_language,
+        base_language=base_language,
+        lesson_items=[item.model_dump(mode="json") for item in lesson_items],
+        phrase_breakdowns=[item for item in phrase_breakdowns if isinstance(item, dict)],
+        existing_fronts=existing_fronts,
+        context=payload.context,
+    )
+
+    # Keep the external request outside the persistence transaction.
+    session.rollback()
+    try:
+        raw_text = phrase_generation_service.generate_json_text(
+            system_text=(
+                "Voce cria perguntas para aprender idiomas. Retorne somente JSON valido, "
+                "sem markdown nem texto adicional."
+            ),
+            prompt=prompt,
+            temperature=0.4,
+            ai_config=ai_config,
+        )
+        data = _extract_json_object(raw_text)
+        raw_questions = data.get("questions")
+        if not isinstance(raw_questions, list):
+            raise ValueError("Exactly five cards are required")
+        validate_language_question_batch(raw_questions, existing_fronts)
+    except HTTPException:
+        raise
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    created: list[LessonQuestion] = []
+    with _lesson_question_lock(child_id, lesson_id):
+        try:
+            session.rollback()
+            session.expire_all()
+            current_child = get_requested_child(request=request, session=session)
+            current_lesson = session.get(Lesson, lesson_id)
+            current_accessible_ids = {
+                item.id or 0
+                for item in list_accessible_lessons(
+                    session=session,
+                    child_id=current_child.id or 0,
+                    child_level=current_child.current_level,
+                    target_language=current_child.target_language,
+                )
+            }
+            if (
+                current_child.id != child_id
+                or current_lesson is None
+                or lesson_id not in current_accessible_ids
+            ):
+                raise HTTPException(status_code=404, detail="Licao nao encontrada")
+            if (
+                current_child.target_language != target_language
+                or current_child.base_language != base_language
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="Os idiomas da crianca mudaram durante a geracao. Tente novamente.",
+                )
+
+            current_questions = session.exec(
+                select(LessonQuestion).where(
+                    LessonQuestion.child_id == child_id,
+                    LessonQuestion.lesson_id == lesson_id,
+                )
+            ).all()
+            validated_questions = validate_language_question_batch(
+                raw_questions,
+                [question.front for question in current_questions],
+            )
+            now = datetime.utcnow()
+            for question in validated_questions:
+                record = LessonQuestion(
+                    child_id=child_id,
+                    lesson_id=lesson_id,
+                    target_language=target_language,
+                    question_type=question.question_type,
+                    front=question.front,
+                    back=question.back,
+                    supporting_example=question.supporting_example,
+                    next_review=now,
+                    created_at=now,
+                )
+                session.add(record)
+                created.append(record)
+            session.commit()
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except HTTPException:
+            session.rollback()
+            raise
+        except Exception:
+            session.rollback()
+            raise
+
+    for question in created:
+        session.refresh(question)
+    return [LessonQuestionSchema.model_validate(question) for question in created]
 
 
 @app.post("/api/lesson/complete")
@@ -1975,7 +2164,7 @@ def _diverse_question_lock(child_id: int, study_date: date) -> Iterator[None]:
     with _diverse_question_locks_guard:
         entry = _diverse_question_locks.get(key)
         if entry is None:
-            entry = _DiverseQuestionLockEntry()
+            entry = _KeyedLockEntry()
             _diverse_question_locks[key] = entry
         entry.users += 1
     entry.lock.acquire()

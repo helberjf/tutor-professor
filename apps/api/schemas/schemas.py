@@ -57,6 +57,10 @@ class LessonSummarySchema(BaseModel):
     completed_at: Optional[datetime] = None
 
 
+class GenerateLessonQuestionsSchema(BaseModel):
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
 class WordByWordPairSchema(BaseModel):
     en: str = Field(min_length=1, max_length=80)
     pt: str = Field(min_length=1, max_length=120)

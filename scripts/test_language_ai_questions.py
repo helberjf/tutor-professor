@@ -18,7 +18,140 @@ MIGRATION_PATH = API_DIR / "alembic" / "versions" / "0006_lesson_questions.py"
 sys.path.insert(0, str(API_DIR))
 
 from models.database import ChildProfile, Lesson, LessonQuestion  # noqa: E402
-from schemas.schemas import LessonQuestionSchema, LessonSchema  # noqa: E402
+from schemas.schemas import (  # noqa: E402
+    GenerateLessonQuestionsSchema,
+    LessonQuestionSchema,
+    LessonSchema,
+)
+from services.language_question_service import (  # noqa: E402
+    ALLOWED_LANGUAGE_QUESTION_TYPES,
+    build_language_questions_prompt,
+    validate_language_question_batch,
+)
+
+
+class LanguageQuestionGenerationTests(unittest.TestCase):
+    def test_generation_schema_accepts_optional_context_and_limits_its_length(self) -> None:
+        payload = GenerateLessonQuestionsSchema(context="  foco   em  pronomes  ")
+        self.assertEqual(payload.context, "  foco   em  pronomes  ")
+        with self.assertRaises(ValueError):
+            GenerateLessonQuestionsSchema(context="x" * 1001)
+
+    def test_prompt_uses_actual_languages_lesson_material_and_sanitized_context(self) -> None:
+        prompt = build_language_questions_prompt(
+            lesson_title="Les salutations",
+            theme="Rencontres",
+            objective="Se presenter poliment",
+            target_language="French",
+            base_language="Portuguese",
+            lesson_items=[
+                {
+                    "word_en": "Bonjour",
+                    "word_pt": "Ola",
+                    "example_sentence_en": "Bonjour, Marie !",
+                    "example_sentence_pt": "Ola, Marie!",
+                }
+            ],
+            phrase_breakdowns=[
+                {
+                    "phrase_en": "Je m'appelle Lea",
+                    "phrase_pt": "Eu me chamo Lea",
+                    "word_by_word": [{"en": "Je", "pt": "Eu"}],
+                }
+            ],
+            existing_fronts=["Comment dit-on ola ?"],
+            context="  entrevista   oral\ncom pronomes  ",
+        )
+
+        for expected in (
+            "Les salutations",
+            "Rencontres",
+            "Se presenter poliment",
+            "French",
+            "Portuguese",
+            "Bonjour",
+            "Je m'appelle Lea",
+            "Comment dit-on ola ?",
+            "entrevista oral com pronomes",
+        ):
+            self.assertIn(expected, prompt)
+        for question_type in ALLOWED_LANGUAGE_QUESTION_TYPES:
+            self.assertIn(question_type, prompt)
+        self.assertIn("exatamente 5", prompt.lower())
+        self.assertIn("pelo menos 3 tipos", prompt.lower())
+
+    def test_validator_accepts_five_unique_questions_across_three_types(self) -> None:
+        raw_questions = [
+            {
+                "front": "Traduza bom dia para o frances.",
+                "back": "Bonjour.",
+                "question_type": "translation",
+                "supporting_example": "Bonjour, Marie !",
+            },
+            {
+                "front": "Complete: Je ___ Lea.",
+                "back": "m'appelle",
+                "question_type": "sentence_completion",
+            },
+            {
+                "front": "Qual pronome significa eu?",
+                "back": "Je.",
+                "question_type": "grammar",
+            },
+            {
+                "front": "O que significa merci?",
+                "back": "Obrigado.",
+                "question_type": "vocabulary",
+            },
+            {
+                "front": "Como responder a Comment ca va?",
+                "back": "Ca va bien.",
+                "question_type": "contextual_usage",
+            },
+        ]
+
+        validated = validate_language_question_batch(raw_questions, ["Pergunta anterior"])
+
+        self.assertEqual(len(validated), 5)
+        self.assertEqual(validated[0].question_type, "translation")
+        self.assertEqual(validated[0].supporting_example, "Bonjour, Marie !")
+
+    def test_validator_rejects_unknown_type_and_insufficient_variety(self) -> None:
+        base_questions = [
+            {"front": f"Pergunta {index}?", "back": "Resposta", "question_type": question_type}
+            for index, question_type in enumerate(
+                ["grammar", "grammar", "translation", "translation", "grammar"], start=1
+            )
+        ]
+        with self.assertRaisesRegex(ValueError, "at least three"):
+            validate_language_question_batch(base_questions, [])
+
+        base_questions[-1]["question_type"] = "interview"
+        with self.assertRaisesRegex(ValueError, "Unsupported"):
+            validate_language_question_batch(base_questions, [])
+
+    def test_validator_rejects_duplicates_and_enforces_saved_field_lengths(self) -> None:
+        raw_questions = [
+            {
+                "front": "A" * 501 if index == 1 else f"Pergunta {index}?",
+                "back": "Resposta",
+                "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+            }
+            for index in range(1, 6)
+        ]
+        with self.assertRaisesRegex(ValueError, "500"):
+            validate_language_question_batch(raw_questions, [])
+
+        raw_questions[0]["front"] = "Pergunta repetida?"
+        raw_questions[1]["front"] = "Pergunta repetida!"
+        with self.assertRaisesRegex(ValueError, "unique"):
+            validate_language_question_batch(raw_questions, [])
+
+    def test_main_declares_generation_route_and_canonical_question_query(self) -> None:
+        source = (API_DIR / "main.py").read_text(encoding="utf-8")
+        self.assertIn('"/api/lessons/{lesson_id}/questions/generate"', source)
+        self.assertIn("GenerateLessonQuestionsSchema", source)
+        self.assertIn("LessonQuestion", source)
 
 
 class LessonQuestionPersistenceTests(unittest.TestCase):
