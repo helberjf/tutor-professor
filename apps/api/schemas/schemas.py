@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -110,14 +110,34 @@ class ReviewSchema(FromAttributesModel):
     word_pt: str
     difficulty_score: float
 
-class ReviewCardSchema(BaseModel):
+class VocabularyReviewCardSchema(BaseModel):
+    card_type: Literal["vocabulary"] = "vocabulary"
     review_item_id: int
     word_en: str
     word_pt: str
     prompt: str
+    answer: str
     options: List[str] = Field(default_factory=list)
     difficulty_score: float
     error_count: int
+
+
+class LessonQuestionReviewCardSchema(BaseModel):
+    card_type: Literal["lesson_question"] = "lesson_question"
+    lesson_question_id: int
+    lesson_id: int
+    prompt: str
+    answer: str
+    question_type: str
+    supporting_example: Optional[str] = None
+    difficulty_score: float
+    error_count: int
+
+
+ReviewCardSchema = Annotated[
+    Union[VocabularyReviewCardSchema, LessonQuestionReviewCardSchema],
+    Field(discriminator="card_type"),
+]
 
 
 class ReviewSessionSchema(BaseModel):
@@ -126,14 +146,36 @@ class ReviewSessionSchema(BaseModel):
 
 
 class ReviewAttemptSchema(BaseModel):
-    review_item_id: Optional[int] = None
-    word_en: str
-    word_pt: str
+    card_type: Literal["vocabulary", "lesson_question"] = "vocabulary"
+    review_item_id: Optional[int] = Field(default=None, gt=0)
+    lesson_question_id: Optional[int] = Field(default=None, gt=0)
+    word_en: Optional[str] = None
+    word_pt: Optional[str] = None
     correct: bool
+
+    @model_validator(mode="after")
+    def validate_card_identifier(self) -> "ReviewAttemptSchema":
+        if self.card_type == "lesson_question":
+            if self.lesson_question_id is None:
+                raise ValueError("lesson_question_id is required for lesson_question attempts")
+            if self.review_item_id is not None:
+                raise ValueError("review_item_id is not valid for lesson_question attempts")
+            return self
+
+        if self.lesson_question_id is not None:
+            raise ValueError("lesson_question_id is not valid for vocabulary attempts")
+        if self.review_item_id is None and not (
+            (self.word_en or "").strip() and (self.word_pt or "").strip()
+        ):
+            raise ValueError(
+                "review_item_id or both word_en and word_pt are required for vocabulary attempts"
+            )
+        return self
 
 
 class ReviewResultSchema(BaseModel):
-    review_item_id: int
+    card_type: Literal["vocabulary", "lesson_question"]
+    card_id: int
     difficulty_score: float
     next_review: datetime
     error_count: int
