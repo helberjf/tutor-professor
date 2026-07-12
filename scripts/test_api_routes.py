@@ -619,13 +619,13 @@ async def run() -> None:
                 {
                     "questions": [
                         {
-                            "front": "Traduisez bom dia en francais.",
+                            "front": "Comment traduit-on bom dia en francais ?",
                             "back": "Bonjour.",
                             "question_type": "translation",
                             "supporting_example": "Bonjour, Marie !",
                         },
                         {
-                            "front": "Completez : Je ___ Lia.",
+                            "front": "Quel mot complete la phrase : Je ___ Lia ?",
                             "back": "m'appelle",
                             "question_type": "sentence_completion",
                         },

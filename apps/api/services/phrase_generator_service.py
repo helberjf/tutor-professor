@@ -13,6 +13,10 @@ import certifi
 import requests
 
 from schemas.schemas import GeneratedLessonDraftSchema
+from services.language_question_service import (
+    ALLOWED_LANGUAGE_QUESTION_TYPES,
+    validate_language_question_batch,
+)
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,7 @@ OPENAI_COMPATIBLE_BASE_URLS = {
 }
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
+MAX_INITIAL_LANGUAGE_PROMPT_CHARS = 40_000
 
 
 @lru_cache(maxsize=1)
@@ -140,12 +145,14 @@ class PhraseGenerationService:
         topic: str | None = None,
         level: int = 1,
         target_language: str = "English",
+        base_language: str = "Portuguese",
         ai_config: AIProviderConfig | None = None,
     ) -> GeneratedLessonDraftSchema:
         config = self._resolve_config(ai_config)
         provider_label = self._provider_label(config.provider)
         system_text = (
-            f"You create child-safe {target_language} lessons for Brazilian Portuguese speakers. "
+            f"You create child-safe {str(target_language).strip()[:40]} lessons for "
+            f"{str(base_language).strip()[:40]} speakers. "
             "Always return valid JSON only, with no markdown fences, no commentary, and no extra keys."
         )
         prompt = self._build_prompt(
@@ -155,6 +162,7 @@ class PhraseGenerationService:
             topic=topic,
             level=level,
             target_language=target_language,
+            base_language=base_language,
         )
 
         response_text = self.generate_json_text(
@@ -377,10 +385,17 @@ class PhraseGenerationService:
         topic: str | None,
         level: int = 1,
         target_language: str = "English",
+        base_language: str = "Portuguese",
     ) -> str:
-        topic_text = topic.strip() if topic else ""
+        topic_text = topic.strip()[:80] if topic else ""
         recent_phrase_list = existing_phrases[-24:] if len(existing_phrases) > 24 else existing_phrases
-        existing_text = "\n".join(f"- {phrase}" for phrase in recent_phrase_list) or "- none yet"
+        existing_text = (
+            "\n".join(f"- {str(phrase).strip()[:160]}" for phrase in recent_phrase_list)
+            or "- none yet"
+        )
+        safe_target_language = str(target_language or "English").strip()[:40] or "English"
+        safe_base_language = str(base_language or "Portuguese").strip()[:40] or "Portuguese"
+        safe_age_group = str(age_group or "").strip()[:40]
 
         topic_instruction = (
             f'Theme preference: "{topic_text}". Keep the three phrases connected to that theme.\n'
@@ -420,21 +435,27 @@ class PhraseGenerationService:
                 "(e.g. 'If you practice every day, you will improve quickly')."
             )
 
-        return (
-            f"Create the content for {target_language} for today - Day {next_day}.\n"
-            f"Child age group: {age_group}.\n"
+        prompt = (
+            f"Create the content for {safe_target_language} for today - Day {next_day}.\n"
+            f"Child age group: {safe_age_group}.\n"
             f"{difficulty_note}\n"
             f"{topic_instruction}"
-            f"Native language for translations: Brazilian Portuguese.\n"
+            f"Native/base language for translations and explanations: {safe_base_language}.\n"
             "Rules:\n"
-            f"- Generate exactly 3 short, useful {target_language} phrases for one day of study.\n"
+            f"- Generate exactly 3 short, useful {safe_target_language} phrases for one day of study.\n"
             "- Make them safe, friendly, and practical for a child.\n"
             "- Do not reuse or closely paraphrase any existing phrase listed below.\n"
-            "- Keep the output suitable for a Brazilian Portuguese speaker.\n"
-            f"- Each phrase must include a natural Portuguese translation of the {target_language} phrase.\n"
+            f"- Keep the output suitable for a {safe_base_language} speaker.\n"
+            f"- Each phrase must include a natural {safe_base_language} translation of the {safe_target_language} phrase.\n"
             "- Each phrase must include a word_by_word array in the same order as the target-language phrase.\n"
             "- Each phrase must include short teaching notes in example_sentence_en and example_sentence_pt.\n"
             "- Keep example sentences descriptive, simple, and under 18 words when possible.\n"
+            "- Generate exactly 5 unique study questions about these same phrases in the same response.\n"
+            "- Every question front must end with a question mark and must not repeat another front.\n"
+            "- Use at least 3 different question types from: "
+            f"{', '.join(ALLOWED_LANGUAGE_QUESTION_TYPES)}.\n"
+            "- Vary vocabulary, translation, completion, grammar, comprehension, and contextual usage as appropriate.\n"
+            "- Keep each question tied directly to this lesson and suitable for an exam or oral assessment.\n"
             "- Return JSON only using this exact shape:\n"
             "{\n"
             '  "phrases": [\n'
@@ -447,11 +468,20 @@ class PhraseGenerationService:
             '        { "en": "string", "pt": "string" }\n'
             "      ]\n"
             "    }\n"
+            "  ],\n"
+            '  "questions": [\n'
+            "    {\n"
+            '      "front": "string ending with ?",\n'
+            '      "back": "string",\n'
+            '      "question_type": "vocabulary|translation|sentence_completion|grammar|comprehension|contextual_usage",\n'
+            '      "supporting_example": "string or null"\n'
+            "    }\n"
             "  ]\n"
             "}\n"
             "Existing phrases to avoid:\n"
             f"{existing_text}\n"
         )
+        return prompt[:MAX_INITIAL_LANGUAGE_PROMPT_CHARS]
 
     def _extract_response_text(self, payload: dict[str, Any], provider_label: str = "Gemini") -> str:
         candidates = payload.get("candidates") or []
@@ -491,3 +521,11 @@ class PhraseGenerationService:
 
             if not phrase.word_by_word:
                 raise RuntimeError("Each generated phrase must include word-by-word translations.")
+
+        try:
+            validate_language_question_batch(
+                [question.model_dump() for question in draft.questions],
+                [],
+            )
+        except ValueError as exc:
+            raise RuntimeError(f"AI provider returned invalid lesson questions: {exc}") from exc

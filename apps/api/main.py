@@ -656,6 +656,99 @@ def compute_and_update_child_level(session: Session, child: ChildProfile) -> int
     return level
 
 
+def _persist_generated_language_lesson(
+    *,
+    session: Session,
+    child: ChildProfile,
+    draft,
+    next_day: int,
+    level: int,
+    ai_config: AIProviderConfig | None,
+    topic: str | None = None,
+) -> Lesson:
+    """Persist one generated lesson and its child-owned questions in one transaction."""
+    validated_questions = validate_language_question_batch(
+        [question.model_dump() for question in draft.questions],
+        [],
+    )
+    lesson = Lesson(
+        id=next_day,
+        title=f"{child.target_language} de hoje - Dia {next_day}",
+        theme="Frases do dia",
+        objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
+        content={
+            "daily_goal": "3 frases para hoje",
+            "phrase_breakdowns": [
+                {
+                    "phrase_en": phrase.phrase_en,
+                    "phrase_pt": phrase.phrase_pt,
+                    "word_by_word": [
+                        {"en": pair.en, "pt": pair.pt}
+                        for pair in phrase.word_by_word
+                    ],
+                }
+                for phrase in draft.phrases
+            ],
+            "generated_by": ai_config.provider if ai_config else "gemini",
+            "generated_model": ai_config.model if ai_config else phrase_generation_service.model,
+            "generated_level": level,
+            "generated_topic": topic.strip() if topic else None,
+            "generated_at": datetime.utcnow().isoformat(),
+        },
+        child_id=None,
+        level=level,
+        target_language=child.target_language,
+    )
+
+    try:
+        session.add(lesson)
+        session.flush()
+        created_items: list[LessonItem] = []
+        for phrase in draft.phrases:
+            lesson_item = LessonItem(
+                word_en=phrase.phrase_en,
+                word_pt=phrase.phrase_pt,
+                example_sentence_en=phrase.example_sentence_en,
+                example_sentence_pt=phrase.example_sentence_pt,
+                lesson_id=lesson.id,
+            )
+            session.add(lesson_item)
+            created_items.append(lesson_item)
+        session.flush()
+
+        quiz_questions = build_generated_quiz_questions(
+            session=session,
+            lesson_items=created_items,
+            target_language=child.target_language,
+        )
+        lesson.content = {
+            **(lesson.content or {}),
+            "quiz_questions": [question.model_dump() for question in quiz_questions],
+        }
+        session.add(lesson)
+
+        for question in validated_questions:
+            session.add(
+                LessonQuestion(
+                    child_id=child.id or 0,
+                    lesson_id=lesson.id or 0,
+                    target_language=child.target_language,
+                    question_type=question.question_type,
+                    front=question.front,
+                    front_key=front_key_for(question.front),
+                    back=question.back,
+                    supporting_example=question.supporting_example,
+                )
+            )
+
+        session.commit()
+        session.refresh(lesson)
+        return lesson
+    except Exception:
+        session.rollback()
+        raise
+
+
 def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Lesson:
     """Return a shared generated lesson at the child's level, generating one if none exists."""
     level = compute_and_update_child_level(session=session, child=child)
@@ -704,6 +797,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             existing_phrases=existing_phrases,
             level=level,
             target_language=child.target_language,
+            base_language=child.base_language,
             ai_config=ai_config,
         )
     except Exception as exc:
@@ -712,57 +806,14 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
             detail=f"Nao foi possivel gerar a licao com o Gemini. {exc}",
         ) from exc
 
-    lesson = Lesson(
-        id=next_day,
-        title=f"{child.target_language} de hoje - Dia {next_day}",
-        theme="Frases do dia",
-        objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
-        content={
-            "daily_goal": "3 frases para hoje",
-            "phrase_breakdowns": [
-                {
-                    "phrase_en": phrase.phrase_en,
-                    "phrase_pt": phrase.phrase_pt,
-                    "word_by_word": [{"en": p.en, "pt": p.pt} for p in phrase.word_by_word],
-                }
-                for phrase in draft.phrases
-            ],
-            "generated_by": ai_config.provider if ai_config else "gemini",
-            "generated_model": ai_config.model if ai_config else phrase_generation_service.model,
-            "generated_level": level,
-            "generated_at": datetime.utcnow().isoformat(),
-        },
-        child_id=None,  # shared — available to all children at this level
+    return _persist_generated_language_lesson(
+        session=session,
+        child=child,
+        draft=draft,
+        next_day=next_day,
         level=level,
-        target_language=child.target_language,
+        ai_config=ai_config,
     )
-    session.add(lesson)
-    session.commit()
-    session.refresh(lesson)
-
-    created_items: list[LessonItem] = []
-    for phrase in draft.phrases:
-        lesson_item = LessonItem(
-            word_en=phrase.phrase_en,
-            word_pt=phrase.phrase_pt,
-            example_sentence_en=phrase.example_sentence_en,
-            example_sentence_pt=phrase.example_sentence_pt,
-            lesson_id=lesson.id,
-        )
-        session.add(lesson_item)
-        created_items.append(lesson_item)
-    session.commit()
-
-    quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items, target_language=child.target_language)
-    lesson.content = {
-        **(lesson.content or {}),
-        "quiz_questions": [q.model_dump() for q in quiz_questions],
-    }
-    session.add(lesson)
-    session.commit()
-    session.refresh(lesson)
-
-    return lesson
 
 
 def get_next_lesson_day(session: Session) -> int:
@@ -4254,6 +4305,7 @@ def generate_parent_lesson(
                 topic=payload.topic,
                 level=level,
                 target_language=child.target_language,
+                base_language=child.base_language,
                 ai_config=ai_config,
             )
         except Exception as exc:
@@ -4264,60 +4316,15 @@ def generate_parent_lesson(
                 ) from exc
             break  # partial success — return what was already generated
 
-        lesson = Lesson(
-            id=next_day,
-            title=f"{child.target_language} de hoje - Dia {next_day}",
-            theme="Frases do dia",
-            objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
-            content={
-                "daily_goal": "3 frases para hoje",
-                "phrase_breakdowns": [
-                    {
-                        "phrase_en": phrase.phrase_en,
-                        "phrase_pt": phrase.phrase_pt,
-                        "word_by_word": [
-                            {"en": pair.en, "pt": pair.pt}
-                            for pair in phrase.word_by_word
-                        ],
-                    }
-                    for phrase in draft.phrases
-                ],
-                "generated_by": ai_config.provider if ai_config else "gemini",
-                "generated_model": ai_config.model if ai_config else phrase_generation_service.model,
-                "generated_level": level,
-                "generated_topic": payload.topic.strip() if payload.topic else None,
-                "generated_at": datetime.utcnow().isoformat(),
-            },
-            child_id=None,  # shared — available to all children at this level
+        lesson = _persist_generated_language_lesson(
+            session=session,
+            child=child,
+            draft=draft,
+            next_day=next_day,
             level=level,
-            target_language=child.target_language,
+            ai_config=ai_config,
+            topic=payload.topic,
         )
-        session.add(lesson)
-        session.commit()
-        session.refresh(lesson)
-
-        created_items: list[LessonItem] = []
-        for phrase in draft.phrases:
-            lesson_item = LessonItem(
-                word_en=phrase.phrase_en,
-                word_pt=phrase.phrase_pt,
-                example_sentence_en=phrase.example_sentence_en,
-                example_sentence_pt=phrase.example_sentence_pt,
-                lesson_id=lesson.id,
-            )
-            session.add(lesson_item)
-            created_items.append(lesson_item)
-
-        session.commit()
-
-        quiz_questions = build_generated_quiz_questions(session=session, lesson_items=created_items, target_language=child.target_language)
-        lesson.content = {
-            **(lesson.content or {}),
-            "quiz_questions": [question.model_dump() for question in quiz_questions],
-        }
-        session.add(lesson)
-        session.commit()
-        session.refresh(lesson)
 
         generated_lessons.append(build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0))
 

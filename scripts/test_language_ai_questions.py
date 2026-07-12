@@ -289,13 +289,13 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
     def test_validator_accepts_five_unique_questions_across_three_types(self) -> None:
         raw_questions = [
             {
-                "front": "Traduza bom dia para o frances.",
+                "front": "Como se traduz bom dia para o frances?",
                 "back": "Bonjour.",
                 "question_type": "translation",
                 "supporting_example": "Bonjour, Marie !",
             },
             {
-                "front": "Complete: Je ___ Lea.",
+                "front": "Quel mot complète la phrase : Je ___ Lea?",
                 "back": "m'appelle",
                 "question_type": "sentence_completion",
             },
@@ -336,6 +336,20 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             validate_language_question_batch(base_questions, [])
 
+    def test_validator_rejects_front_that_is_not_written_as_a_question(self) -> None:
+        raw_questions = [
+            {
+                "front": f"Pergunta válida {index}?",
+                "back": "Resposta",
+                "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+            }
+            for index in range(1, 6)
+        ]
+        raw_questions[0]["front"] = "Traduza esta frase."
+
+        with self.assertRaisesRegex(ValueError, "written as a question"):
+            validate_language_question_batch(raw_questions, [])
+
     def test_validator_rejects_duplicates_and_enforces_saved_field_lengths(self) -> None:
         raw_questions = [
             {
@@ -349,7 +363,7 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
             validate_language_question_batch(raw_questions, [])
 
         raw_questions[0]["front"] = "Pergunta repetida?"
-        raw_questions[1]["front"] = "Pergunta repetida!"
+        raw_questions[1]["front"] = "Pergunta repetida ?"
         with self.assertRaisesRegex(ValueError, "unique"):
             validate_language_question_batch(raw_questions, [])
 

@@ -154,6 +154,8 @@ def validate_language_question_batch(
             raise ValueError("Supporting example must have at most 1000 characters")
         if question_type not in ALLOWED_LANGUAGE_QUESTION_TYPES:
             raise ValueError(f"Unsupported question type: {question_type or '(empty)'}")
+        if not front.endswith(("?", "？")):
+            raise ValueError("Each item must be written as a question")
 
     validated_cards = validate_card_batch(questions, existing_fronts)
     question_types = {card.question_type for card in validated_cards}
