@@ -28,7 +28,7 @@ assert.match(
   /href="\/study"[\s\S]*?Iniciar estudos|Iniciar estudos[\s\S]*?href="\/study"/,
   'home page primary study CTA should link to /study',
 );
-assert.match(homePage, /Vamos aprender inglês do seu jeito/, 'home hero should use updated Portuguese copy');
+assert.match(homePage, /Vamos aprender tudo do seu jeito/, 'home hero should represent every supported subject');
 assert.doesNotMatch(homePage, /story-dots/, 'home hero should not use the white dotted background pattern');
 assert.match(homePage, /mx-auto max-w-6xl/, 'home page should use a wider responsive shell');
 assert.match(homePage, /rounded-\[1\.75rem\][\s\S]*bg-white/, 'home hero should use a high-contrast readable surface');
