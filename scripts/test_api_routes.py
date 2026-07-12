@@ -2131,19 +2131,34 @@ async def run() -> None:
         try:
             def mock_generate_topic_ai_content(**kwargs):
                 captured_topic_generation["user_context"] = kwargs.get("user_context", "")
+                lesson_code = "const total = values.reduce((sum, value) => sum + value, 0);"
                 return main.TopicAIContentSchema.model_validate(
                     {
-                        "sections": [{"title": "Variaveis novas", "body": "Conteudo regenerado."}],
-                        "quiz": [],
+                        "sections": [
+                            {
+                                "title": f"Variaveis novas {index}",
+                                "body": "Conteudo regenerado.",
+                                "code_example": lesson_code,
+                            }
+                            for index in range(1, 4)
+                        ],
+                        "quiz": [
+                            {
+                                "id": index,
+                                "question": f"O que o reduce faz no caso {index}?",
+                                "options": ["Soma", "Subtrai", "Multiplica", "Divide"],
+                                "correct_option": "Soma",
+                                "explanation": "O acumulador soma os valores.",
+                            }
+                            for index in range(1, 6)
+                        ],
                         "flashcards": [
                             {
-                                "front": "Novo card sobre tipos primitivos",
-                                "back": "Tipos primitivos guardam valores simples.",
-                            },
-                            {
-                                "front": "Novo card sobre inferencia",
-                                "back": "Inferencia permite deduzir o tipo pelo valor inicial.",
-                            },
+                                "front": f"Como voce explicaria o reduce em uma entrevista tecnica {index}?",
+                                "back": "Reduce acumula os valores do array.",
+                                "code_example": lesson_code,
+                            }
+                            for index in range(1, 6)
                         ],
                     }
                 )
@@ -2158,8 +2173,8 @@ async def run() -> None:
             main.generate_topic_ai_content = original_generate_topic_ai_content
         assert_status(regenerated_topic_response, 200, "regenerate coding topic content")
         regenerated_topic = regenerated_topic_response.json()
-        if regenerated_topic["flashcard_count"] != 2:
-            raise AssertionError(f"expected regenerated topic to report two new flashcards, got {regenerated_topic}")
+        if regenerated_topic["flashcard_count"] != 5:
+            raise AssertionError(f"expected regenerated topic to report five new flashcards, got {regenerated_topic}")
         if captured_topic_generation.get("user_context") != "refazer flashcards para iniciantes":
             raise AssertionError(f"expected regeneration context to reach AI service, got {captured_topic_generation}")
 
@@ -2170,7 +2185,11 @@ async def run() -> None:
         assert_status(regenerated_flashcards_response, 200, "list regenerated coding topic flashcards")
         regenerated_flashcards = regenerated_flashcards_response.json()
         regenerated_fronts = [card["front"] for card in regenerated_flashcards]
-        if regenerated_fronts != ["Novo card sobre tipos primitivos", "Novo card sobre inferencia"]:
+        expected_regenerated_fronts = [
+            f"Como voce explicaria o reduce em uma entrevista tecnica {index}?"
+            for index in range(1, 6)
+        ]
+        if regenerated_fronts != expected_regenerated_fronts:
             raise AssertionError(f"expected regenerated flashcards to replace old cards, got {regenerated_flashcards}")
 
         regenerated_deck_response = await client.get(

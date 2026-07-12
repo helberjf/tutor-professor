@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from models.database import CodingDeckConfig, CodingReviewItem, ProgrammingFlashcard, ProgrammingTopic
@@ -10,10 +11,13 @@ from schemas.schemas import CodingReviewCardSchema, TopicAIContentSchema
 from services import fsrs_service
 from services.fsrs_service import CardState, DeckOptions, parse_steps
 from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
+from services.ai_flashcard_service import normalize_front, sanitize_context
 
 _phrase_service = PhraseGenerationService()
 
 VALID_TOPIC_STATUSES = {"not_started", "studied", "mastered"}
+MAX_ADDITIONAL_FLASHCARD_PROMPT_CHARS = 40_000
+MAX_EXISTING_FLASHCARD_FRONTS = 100
 
 
 # ── SM-2 helpers ──────────────────────────────────────────────────────────────
@@ -369,17 +373,18 @@ Return a JSON object with exactly this schema:
     }}
   ],
   "flashcards": [
-    {{ "front": "string (concept or question, max 120 chars)", "back": "string (explanation, max 400 chars)", "code_example": "string or null" }}
+    {{ "front": "string (technical interview question, max 120 chars)", "back": "string (explanation, max 400 chars)", "code_example": "nonblank string copied from a section" }}
   ]
 }}
 
 Rules:
 - sections: 3 to 5 items (introduction, key concepts, code examples, when to use, common pitfalls)
 - quiz: exactly 5 questions with 4 options each
-- flashcards: 5 to 8 items covering key concepts
+- flashcards: exactly 5 flashcards covering key concepts
 - Every flashcard front must be phrased as a technical interview question
 - Flashcards must test concepts taught in sections from this same JSON response
-- Reuse relevant code from the lesson in code_example when code helps answer the question
+- Every flashcard must contain a nonblank code_example
+- Reuse relevant code: for every flashcard, copy the exact code_example from one of the sections (an exact excerpt is allowed)
 - Prefer reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
 - All explanatory text in Portuguese (Brazil); code and technical identifiers stay in English
 - code_example uses the programming language of the subject
@@ -415,6 +420,111 @@ Rules:
 - Prioritize reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
 - All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
 """
+
+
+def _normalized_code(value: object) -> str:
+    return "".join(str(value or "").split())
+
+
+def validate_initial_topic_content(value: object) -> TopicAIContentSchema:
+    """Validate the strict, single-response lesson contract used for new AI topics."""
+    try:
+        if isinstance(value, TopicAIContentSchema):
+            content = value
+        else:
+            content = TopicAIContentSchema.model_validate(value)
+    except ValidationError as exc:
+        raise ValueError("AI topic content does not match the required schema") from exc
+
+    if not 3 <= len(content.sections) <= 5:
+        raise ValueError("AI topic content must contain 3 to 5 sections")
+    section_codes: list[str] = []
+    for section in content.sections:
+        if not section.title.strip() or not section.body.strip():
+            raise ValueError("AI topic sections must have nonblank titles and bodies")
+        normalized = _normalized_code(section.code_example)
+        if normalized:
+            section_codes.append(normalized)
+
+    if len(content.quiz) != 5:
+        raise ValueError("AI topic content must contain exactly five quiz questions")
+    for question in content.quiz:
+        if not question.question.strip() or not question.explanation.strip():
+            raise ValueError("AI quiz questions and explanations must not be blank")
+        if len(question.options) != 4 or any(not option.strip() for option in question.options):
+            raise ValueError("Each AI quiz question must contain four nonblank options")
+        if question.correct_option not in question.options:
+            raise ValueError("Each AI quiz answer must match one of its options")
+
+    if len(content.flashcards) != 5:
+        raise ValueError("AI topic content must contain exactly five flashcards")
+    known_fronts: set[str] = set()
+    for flashcard in content.flashcards:
+        front = flashcard.front.strip()
+        back = flashcard.back.strip()
+        if not front or not back:
+            raise ValueError("AI flashcard fronts and backs must not be blank")
+        if not front.endswith("?"):
+            raise ValueError("Every AI flashcard front must be phrased as a question")
+        normalized_front = normalize_front(front)
+        if not normalized_front or normalized_front in known_fronts:
+            raise ValueError("AI flashcard fronts must be unique")
+        known_fronts.add(normalized_front)
+
+        code = _normalized_code(flashcard.code_example)
+        if not code:
+            raise ValueError("Every AI flashcard must include a nonblank code example")
+        if not any(code in lesson_code or lesson_code in code for lesson_code in section_codes):
+            raise ValueError("Every AI flashcard code example must come from the lesson sections")
+
+    return content
+
+
+def _compact_additional_lesson(ai_content: dict) -> dict[str, list[dict[str, str | None]]]:
+    """Keep the code-bearing lesson sections while bounding prompt size."""
+    compact_sections: list[dict[str, str | None]] = []
+    raw_sections = ai_content.get("sections")
+    if not isinstance(raw_sections, list):
+        raw_sections = []
+    for raw_section in raw_sections[:5]:
+        if not isinstance(raw_section, dict):
+            continue
+        code = str(raw_section.get("code_example") or "").strip()[:1800]
+        compact_sections.append(
+            {
+                "title": " ".join(str(raw_section.get("title") or "").split())[:200],
+                "body": " ".join(str(raw_section.get("body") or "").split())[:1200],
+                "code_example": code or None,
+            }
+        )
+    return {"sections": compact_sections}
+
+
+def _build_additional_flashcards_prompt(
+    *,
+    subject_name: str,
+    topic_title: str,
+    ai_content: dict,
+    existing_fronts: list[str],
+    user_context: str,
+) -> str:
+    compact_lesson = json.dumps(
+        _compact_additional_lesson(ai_content), ensure_ascii=False, indent=2
+    )
+    bounded_fronts = [
+        " ".join(str(front).split())[:160]
+        for front in existing_fronts[-MAX_EXISTING_FLASHCARD_FRONTS:]
+    ]
+    prompt = _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE.format(
+        subject_name=" ".join(str(subject_name).split())[:200],
+        topic_title=" ".join(str(topic_title).split())[:300],
+        ai_content=compact_lesson,
+        existing_fronts=json.dumps(bounded_fronts, ensure_ascii=False, indent=2),
+        user_context=sanitize_context(user_context) or "No additional instructions.",
+    )
+    if len(prompt) > MAX_ADDITIONAL_FLASHCARD_PROMPT_CHARS:
+        raise RuntimeError("The saved lesson is too large to build a safe AI prompt")
+    return prompt
 
 
 def generate_topic_ai_content(
@@ -455,7 +565,10 @@ def generate_topic_ai_content(
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError("IA retornou JSON inválido para o conteúdo do tópico.") from exc
-    return TopicAIContentSchema.model_validate(data)
+    try:
+        return validate_initial_topic_content(data)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 def generate_additional_topic_flashcards(
@@ -467,12 +580,12 @@ def generate_additional_topic_flashcards(
     user_context: str,
     ai_config: AIProviderConfig,
 ) -> list[dict]:
-    prompt = _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE.format(
+    prompt = _build_additional_flashcards_prompt(
         subject_name=subject_name,
         topic_title=topic_title,
-        ai_content=json.dumps(ai_content, ensure_ascii=False, indent=2),
-        existing_fronts=json.dumps(existing_fronts, ensure_ascii=False, indent=2),
-        user_context=user_context or "No additional instructions.",
+        ai_content=ai_content,
+        existing_fronts=existing_fronts,
+        user_context=user_context,
     )
     raw = _phrase_service.generate_json_text(
         system_text=_SYSTEM_TEXT,

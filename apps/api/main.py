@@ -136,6 +136,7 @@ from services.coding_service import (
     register_coding_review_attempt,
     reset_daily_counters,
     seed_coding_review_item,
+    validate_initial_topic_content,
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import sanitize_context, validate_card_batch
@@ -3015,7 +3016,8 @@ def generate_coding_subject_topic(
             ai_config=ai_config,
             previous_context=history_context,
         )
-    except RuntimeError as exc:
+        content = validate_initial_topic_content(content)
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     now = datetime.utcnow()
@@ -3060,55 +3062,62 @@ def create_coding_topic(
     subject = session.get(ProgrammingSubject, subject_id)
     if subject is None or subject.child_id != child.id:
         raise HTTPException(status_code=404, detail="Matéria não encontrada.")
-    existing_count = len(session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all())
+    existing_topics = sorted(
+        session.exec(
+            select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)
+        ).all(),
+        key=lambda item: item.order_index,
+    )
+    existing_count = len(existing_topics)
     order_index = payload.order_index if payload.order_index is not None else existing_count
     now = datetime.utcnow()
+    content: TopicAIContentSchema | None = None
+    if payload.generate_ai:
+        ai_config = _get_user_ai_config(user_session, session)
+        if ai_config:
+            try:
+                content = generate_topic_ai_content(
+                    subject_name=subject.name,
+                    topic_title=payload.title.strip(),
+                    ai_config=ai_config,
+                    previous_context=build_topic_history_context(existing_topics),
+                )
+                content = validate_initial_topic_content(content)
+            except (RuntimeError, ValueError) as exc:
+                session.rollback()
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+
     topic = ProgrammingTopic(
         subject_id=subject_id,
         title=payload.title.strip(),
         order_index=order_index,
         status="not_started",
+        ai_content=content.model_dump() if content is not None else None,
         created_at=now,
         updated_at=now,
     )
-    session.add(topic)
-    session.commit()
-    session.refresh(topic)
-    if payload.generate_ai:
-        ai_config = _get_user_ai_config(user_session, session)
-        if ai_config:
-            try:
-                previous_topics = sorted(
-                    session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
-                    key=lambda t: t.order_index,
+    try:
+        session.add(topic)
+        session.flush()
+        if content is not None:
+            for fc_draft in content.flashcards:
+                fc = ProgrammingFlashcard(
+                    topic_id=topic.id or 0,
+                    subject_id=subject_id,
+                    child_id=child.id or 0,
+                    front=fc_draft.front[:500],
+                    back=fc_draft.back[:2000],
+                    code_example=(fc_draft.code_example or "")[:3000] or None,
+                    created_at=now,
                 )
-                content = generate_topic_ai_content(
-                    subject_name=subject.name,
-                    topic_title=topic.title,
-                    ai_config=ai_config,
-                    previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
-                )
-                topic.ai_content = content.model_dump()
-                for fc_draft in content.flashcards:
-                    fc = ProgrammingFlashcard(
-                        topic_id=topic.id or 0,
-                        subject_id=subject_id,
-                        child_id=child.id or 0,
-                        front=fc_draft.front[:500],
-                        back=fc_draft.back[:2000],
-                        code_example=(fc_draft.code_example or "")[:3000] or None,
-                        created_at=now,
-                    )
-                    session.add(fc)
-                    session.flush()
-                    seed_coding_review_item(session, child.id or 0, fc.id or 0)
-                topic.updated_at = datetime.utcnow()
-                session.add(topic)
-                session.commit()
-                session.refresh(topic)
-            except Exception:
-                session.rollback()
-                session.refresh(topic)  # re-attach topic after rollback
+                session.add(fc)
+                session.flush()
+                seed_coding_review_item(session, child.id or 0, fc.id or 0)
+        session.commit()
+        session.refresh(topic)
+    except Exception:
+        session.rollback()
+        raise
     return _programming_topic_schema(session, topic)
 
 
@@ -3201,7 +3210,8 @@ def generate_coding_topic_content(
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
             user_context=context_text,
         )
-    except RuntimeError as exc:
+        content = validate_initial_topic_content(content)
+    except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     topic.ai_content = content.model_dump()
     topic.updated_at = datetime.utcnow()
