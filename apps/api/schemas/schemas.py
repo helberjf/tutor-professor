@@ -489,6 +489,7 @@ class AIFlashcardDraftSchema(BaseModel):
 
 
 class TopicAIContentSchema(BaseModel):
+    title: Optional[str] = None
     sections: List[AISectionSchema] = Field(default_factory=list)
     quiz: List[AIQuizQuestionSchema] = Field(default_factory=list)
     flashcards: List[AIFlashcardDraftSchema] = Field(default_factory=list)

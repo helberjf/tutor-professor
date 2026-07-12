@@ -356,10 +356,11 @@ _TOPIC_PROMPT_TEMPLATE = """\
 Create educational content for a programming topic.
 
 Subject: {subject_name}
-Topic: {topic_title}
+Topic request: {topic_request}
 
 Return a JSON object with exactly this schema:
 {{
+  "title": "string (concise programming topic title)",
   "sections": [
     {{ "title": "string", "body": "string (markdown-style text OK)", "code_example": "string or null" }}
   ],
@@ -378,13 +379,16 @@ Return a JSON object with exactly this schema:
 }}
 
 Rules:
+- When no explicit topic title is supplied, choose a concise, progressive title based on the subject and study continuity
+- When an explicit topic title is supplied, return that exact title
 - sections: 3 to 5 items (introduction, key concepts, code examples, when to use, common pitfalls)
 - quiz: exactly 5 questions with 4 options each
 - flashcards: exactly 5 flashcards covering key concepts
 - Every flashcard front must be phrased as a technical interview question
 - Flashcards must test concepts taught in sections from this same JSON response
 - Every flashcard must contain a nonblank code_example
-- Reuse relevant code: for every flashcard, copy the exact code_example from one of the sections (an exact excerpt is allowed)
+- Reuse relevant code: copy the exact code_example excerpt from one of the sections for every flashcard
+- A flashcard code_example must contain at least 4 non-whitespace characters including a letter or number
 - Prefer reasoning, trade-offs, debugging, common pitfalls, and practical application over definitions
 - All explanatory text in Portuguese (Brazil); code and technical identifiers stay in English
 - code_example uses the programming language of the subject
@@ -426,7 +430,9 @@ def _normalized_code(value: object) -> str:
     return "".join(str(value or "").split())
 
 
-def validate_initial_topic_content(value: object) -> TopicAIContentSchema:
+def validate_initial_topic_content(
+    value: object, *, require_title: bool = False
+) -> TopicAIContentSchema:
     """Validate the strict, single-response lesson contract used for new AI topics."""
     try:
         if isinstance(value, TopicAIContentSchema):
@@ -436,15 +442,22 @@ def validate_initial_topic_content(value: object) -> TopicAIContentSchema:
     except ValidationError as exc:
         raise ValueError("AI topic content does not match the required schema") from exc
 
+    title = str(content.title or "").strip()
+    if require_title and not title:
+        raise ValueError("AI topic content must contain a suggested title")
+    if len(title) > 200:
+        raise ValueError("AI topic title must contain at most 200 characters")
+    content.title = title or None
+
     if not 3 <= len(content.sections) <= 5:
         raise ValueError("AI topic content must contain 3 to 5 sections")
     section_codes: list[str] = []
     for section in content.sections:
         if not section.title.strip() or not section.body.strip():
             raise ValueError("AI topic sections must have nonblank titles and bodies")
-        normalized = _normalized_code(section.code_example)
-        if normalized:
-            section_codes.append(normalized)
+        section_code = str(section.code_example or "").strip()
+        if section_code:
+            section_codes.append(section_code)
 
     if len(content.quiz) != 5:
         raise ValueError("AI topic content must contain exactly five quiz questions")
@@ -464,6 +477,8 @@ def validate_initial_topic_content(value: object) -> TopicAIContentSchema:
         back = flashcard.back.strip()
         if not front or not back:
             raise ValueError("AI flashcard fronts and backs must not be blank")
+        if len(front) > 500:
+            raise ValueError("AI flashcard fronts must contain at most 500 characters")
         if not front.endswith("?"):
             raise ValueError("Every AI flashcard front must be phrased as a question")
         normalized_front = normalize_front(front)
@@ -471,11 +486,18 @@ def validate_initial_topic_content(value: object) -> TopicAIContentSchema:
             raise ValueError("AI flashcard fronts must be unique")
         known_fronts.add(normalized_front)
 
-        code = _normalized_code(flashcard.code_example)
-        if not code:
-            raise ValueError("Every AI flashcard must include a nonblank code example")
-        if not any(code in lesson_code or lesson_code in code for lesson_code in section_codes):
+        stored_code = str(flashcard.code_example or "").strip()
+        code = _normalized_code(stored_code)
+        if len(code) < 4 or not any(character.isalnum() for character in code):
+            raise ValueError("Every AI flashcard must include a meaningful code example")
+        if not any(stored_code in lesson_code for lesson_code in section_codes):
             raise ValueError("Every AI flashcard code example must come from the lesson sections")
+
+        # Persist exactly the values whose length, question form, uniqueness, and
+        # lesson relationship were validated above.
+        flashcard.front = front
+        flashcard.back = back
+        flashcard.code_example = stored_code
 
     return content
 
@@ -535,6 +557,13 @@ def generate_topic_ai_content(
     previous_context: str = "",
     user_context: str = "",
 ) -> TopicAIContentSchema:
+    requested_title = " ".join(str(topic_title or "").split())
+    needs_suggested_title = not requested_title
+    topic_request = (
+        f'Use this exact title: "{requested_title}"'
+        if requested_title
+        else "No explicit title was supplied; suggest the next progressive topic"
+    )
     context_block = ""
     if previous_context.strip():
         context_block = (
@@ -552,7 +581,7 @@ def generate_topic_ai_content(
         )
     prompt = _TOPIC_PROMPT_TEMPLATE.format(
         subject_name=subject_name,
-        topic_title=topic_title,
+        topic_request=topic_request,
         previous_context=context_block,
     )
     raw = _phrase_service.generate_json_text(
@@ -566,7 +595,7 @@ def generate_topic_ai_content(
     except json.JSONDecodeError as exc:
         raise RuntimeError("IA retornou JSON inválido para o conteúdo do tópico.") from exc
     try:
-        return validate_initial_topic_content(data)
+        return validate_initial_topic_content(data, require_title=needs_suggested_title)
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
