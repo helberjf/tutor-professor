@@ -9,6 +9,7 @@ import os
 import sys
 import asyncio
 import tempfile
+import threading
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -529,6 +530,252 @@ async def run() -> None:
         assert_status(stored_ai_response, 200, "stored ai settings")
         if "test-ai-key" in stored_ai_response.text:
             raise AssertionError("raw AI key leaked in settings response")
+
+        with Session(main.engine) as session:
+            french_child = session.get(main.ChildProfile, child_id)
+            if french_child is None:
+                raise AssertionError("expected registered child for French question tests")
+            french_child.target_language = "French"
+            french_child.base_language = "Portuguese"
+            session.add(french_child)
+            french_lesson = main.Lesson(
+                title="Les salutations",
+                theme="Rencontres",
+                objective="Se presenter poliment",
+                target_language="French",
+                content={
+                    "phrase_breakdowns": [
+                        {
+                            "phrase_en": "Je m'appelle Lia",
+                            "phrase_pt": "Eu me chamo Lia",
+                            "word_by_word": [{"en": "Je", "pt": "Eu"}],
+                        }
+                    ]
+                },
+            )
+            session.add(french_lesson)
+            session.flush()
+            french_lesson_id = french_lesson.id or 0
+            session.add(
+                main.LessonItem(
+                    word_en="Bonjour",
+                    word_pt="Ola",
+                    example_sentence_en="Bonjour, Marie !",
+                    example_sentence_pt="Ola, Marie!",
+                    lesson_id=french_lesson_id,
+                )
+            )
+            session.commit()
+            other_child = session.exec(
+                main.select(main.ChildProfile).where(main.ChildProfile.name == "Noah")
+            ).first()
+            if other_child is None or other_child.id is None:
+                raise AssertionError("expected second child for lesson access test")
+            other_child_id = other_child.id
+
+        inaccessible_french_lesson_response = await client.post(
+            f"/api/lessons/{french_lesson_id}/questions/generate",
+            headers={"X-Child-ID": str(other_child_id)},
+            json={},
+        )
+        assert_status(
+            inaccessible_french_lesson_response,
+            404,
+            "reject French lesson generation for child without access",
+        )
+
+        french_ai_calls = 0
+        captured_french_prompt = ""
+        original_language_generate_json = main.phrase_generation_service.generate_json_text
+
+        def mock_french_questions_json(**kwargs):
+            nonlocal french_ai_calls, captured_french_prompt
+            french_ai_calls += 1
+            captured_french_prompt = kwargs["prompt"]
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": "Traduisez bom dia en francais.",
+                            "back": "Bonjour.",
+                            "question_type": "translation",
+                            "supporting_example": "Bonjour, Marie !",
+                        },
+                        {
+                            "front": "Completez : Je ___ Lia.",
+                            "back": "m'appelle",
+                            "question_type": "sentence_completion",
+                        },
+                        {
+                            "front": "Quel pronom signifie eu ?",
+                            "back": "Je.",
+                            "question_type": "grammar",
+                        },
+                        {
+                            "front": "Que signifie bonjour ?",
+                            "back": "Ola.",
+                            "question_type": "vocabulary",
+                        },
+                        {
+                            "front": "Lisez Bonjour, Marie. Qui est saluee ?",
+                            "back": "Marie.",
+                            "question_type": "comprehension",
+                        },
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_french_questions_json
+            french_questions_response = await client.post(
+                f"/api/lessons/{french_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={"context": "  pratique   pour entrevista oral  "},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(french_questions_response, 200, "generate five French lesson questions")
+        french_questions = french_questions_response.json()
+        if french_ai_calls != 1 or len(french_questions) != 5:
+            raise AssertionError(
+                f"expected five French questions from one AI call, got calls={french_ai_calls}, "
+                f"questions={french_questions}"
+            )
+        if {question["target_language"] for question in french_questions} != {"French"}:
+            raise AssertionError(f"questions did not use the child's French language: {french_questions}")
+        if len({question["question_type"] for question in french_questions}) < 3:
+            raise AssertionError(f"French batch lacks question variety: {french_questions}")
+        for expected_prompt_part in (
+            "French",
+            "Portuguese",
+            "Les salutations",
+            "Bonjour",
+            "Je m'appelle Lia",
+            "pratique pour entrevista oral",
+        ):
+            if expected_prompt_part not in captured_french_prompt:
+                raise AssertionError(
+                    f"expected {expected_prompt_part!r} in French prompt: {captured_french_prompt}"
+                )
+
+        canonical_french_lesson_response = await client.get(
+            f"/api/lesson/{french_lesson_id}", headers=child_headers
+        )
+        assert_status(canonical_french_lesson_response, 200, "reload French lesson questions")
+        canonical_french_questions = canonical_french_lesson_response.json()["questions"]
+        if [item["id"] for item in canonical_french_questions] != [item["id"] for item in french_questions]:
+            raise AssertionError("GET lesson did not return the same canonical French question IDs")
+        if [item["front"] for item in canonical_french_questions] != [item["front"] for item in french_questions]:
+            raise AssertionError("GET lesson did not return the same canonical French question fronts")
+
+        def mock_malformed_language_json(**_kwargs):
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {"front": f"Incomplete {index}?", "back": "Answer", "question_type": "grammar"}
+                        for index in range(1, 5)
+                    ]
+                }
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_malformed_language_json
+            malformed_language_response = await client.post(
+                f"/api/lessons/{french_lesson_id}/questions/generate",
+                headers=child_headers,
+                json={},
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(malformed_language_response, 502, "reject partial French question batch")
+        with Session(main.engine) as session:
+            after_malformed = session.exec(
+                main.select(main.LessonQuestion).where(
+                    main.LessonQuestion.child_id == child_id,
+                    main.LessonQuestion.lesson_id == french_lesson_id,
+                )
+            ).all()
+        if len(after_malformed) != 5:
+            raise AssertionError("malformed language batch partially mutated canonical questions")
+
+        language_barrier = threading.Barrier(2)
+        concurrent_language_ai_calls = 0
+
+        def mock_concurrent_language_json(**_kwargs):
+            nonlocal concurrent_language_ai_calls
+            concurrent_language_ai_calls += 1
+            language_barrier.wait(timeout=10)
+            return main.json.dumps(
+                {
+                    "questions": [
+                        {
+                            "front": f"Question concurrente {index} ?",
+                            "back": f"Reponse {index}.",
+                            "question_type": ["grammar", "translation", "vocabulary"][index % 3],
+                        }
+                        for index in range(1, 6)
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
+        try:
+            main.phrase_generation_service.generate_json_text = mock_concurrent_language_json
+            concurrent_language_responses = await asyncio.gather(
+                client.post(
+                    f"/api/lessons/{french_lesson_id}/questions/generate",
+                    headers=child_headers,
+                    json={},
+                ),
+                client.post(
+                    f"/api/lessons/{french_lesson_id}/questions/generate",
+                    headers=child_headers,
+                    json={},
+                ),
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        concurrent_statuses = sorted(response.status_code for response in concurrent_language_responses)
+        if concurrent_statuses != [200, 502] or concurrent_language_ai_calls != 2:
+            raise AssertionError(
+                "concurrent identical language batches must append once without duplicates: "
+                f"statuses={concurrent_statuses}, calls={concurrent_language_ai_calls}"
+            )
+        with Session(main.engine) as session:
+            after_concurrent = session.exec(
+                main.select(main.LessonQuestion).where(
+                    main.LessonQuestion.child_id == child_id,
+                    main.LessonQuestion.lesson_id == french_lesson_id,
+                )
+            ).all()
+        if len(after_concurrent) != 10 or len({item.front for item in after_concurrent}) != 10:
+            raise AssertionError("concurrent language generation created duplicates or a partial batch")
+
+        def forbid_ai_during_completion(**_kwargs):
+            raise AssertionError("lesson completion must not call AI question generation")
+
+        try:
+            main.phrase_generation_service.generate_json_text = forbid_ai_during_completion
+            deterministic_completion_response = await client.post(
+                f"/api/lesson/complete?lesson_id={french_lesson_id}",
+                headers=child_headers,
+            )
+        finally:
+            main.phrase_generation_service.generate_json_text = original_language_generate_json
+        assert_status(
+            deterministic_completion_response,
+            200,
+            "French lesson completion stays deterministic",
+        )
+
+        with Session(main.engine) as session:
+            restored_child = session.get(main.ChildProfile, child_id)
+            if restored_child is None:
+                raise AssertionError("expected child while restoring language")
+            restored_child.target_language = "English"
+            session.add(restored_child)
+            session.commit()
 
         def capacity_subject(topic_count: int, linked_count: int, label: str) -> dict:
             topics = [
