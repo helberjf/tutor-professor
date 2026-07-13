@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import {
   buildMissingRuntimeBackendConfig,
   buildRuntimeBackendConfig,
+  buildRuntimeBackendHealthCheckWarning,
   chooseFreshestRuntimeBackendConfig,
   fetchGitHubRuntimeBackendConfig,
   normalizeRuntimeBackendBaseUrl,
@@ -331,12 +332,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const isHealthy = await verifyBackendHealth(baseUrl);
-  if (!isHealthy) {
-    return NextResponse.json(
-      { detail: 'Nao foi possivel acessar /health nessa URL do backend.' },
-      { status: 400 },
-    );
+  const healthWarning = buildRuntimeBackendHealthCheckWarning(await verifyBackendHealth(baseUrl));
+  if (healthWarning) {
+    console.warn(`Runtime backend health check warning for ${baseUrl}: ${healthWarning}`);
   }
 
   try {
@@ -344,7 +342,7 @@ export async function POST(request: Request) {
       ...payload,
       baseUrl,
     });
-    return NextResponse.json(record);
+    return NextResponse.json(healthWarning ? { ...record, warning: healthWarning } : record);
   } catch (error) {
     console.error('Runtime backend POST failed:', error);
     return NextResponse.json(

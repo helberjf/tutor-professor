@@ -16,8 +16,13 @@ const compiled = ts.transpileModule(source, {
 const module = { exports: {} };
 new Function('exports', 'module', compiled)(module.exports, module);
 
-const { chooseFreshestRuntimeBackendConfig, fetchGitHubRuntimeBackendConfig } = module.exports;
+const {
+  buildRuntimeBackendHealthCheckWarning,
+  chooseFreshestRuntimeBackendConfig,
+  fetchGitHubRuntimeBackendConfig,
+} = module.exports;
 
+assert.equal(typeof buildRuntimeBackendHealthCheckWarning, 'function');
 assert.equal(typeof chooseFreshestRuntimeBackendConfig, 'function');
 assert.equal(typeof fetchGitHubRuntimeBackendConfig, 'function');
 
@@ -104,5 +109,16 @@ assert.deepEqual(
   'GitHub Contents API state should win over stale raw.githubusercontent.com state',
 );
 assert.equal(calls.length, 1, 'fresh GitHub Contents API state should avoid raw fallback');
+
+assert.equal(
+  buildRuntimeBackendHealthCheckWarning(true),
+  null,
+  'healthy backend registrations should not include a warning',
+);
+assert.match(
+  buildRuntimeBackendHealthCheckWarning(false) || '',
+  /health check/i,
+  'failed server-side health checks should warn instead of blocking registration',
+);
 
 console.log('Runtime backend state checks passed.');
