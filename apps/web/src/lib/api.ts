@@ -4,7 +4,7 @@ import {
   resolveApiBaseUrl,
   resolveApiBaseUrlAfterOfflineFailure,
 } from '@/lib/api-config';
-import { getStoredActiveChildId } from '@/lib/active-child';
+import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Autenticação por token (resolve o login em celular/iPhone)
@@ -20,6 +20,8 @@ import { getStoredActiveChildId } from '@/lib/active-child';
 const USE_TOKEN_AUTH = true;
 
 const SESSION_TOKEN_STORAGE_KEY = 'english-kids-tutor.session-token';
+let preferredChildSyncPromise: Promise<void> | null = null;
+let preferredChildSyncKey: string | null = null;
 
 function getSessionToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -34,6 +36,77 @@ function setSessionToken(token: string) {
 function clearSessionToken() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+}
+
+function shouldSyncPreferredChild(endpoint: string, options: RequestInit) {
+  if (typeof window === 'undefined') return false;
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD') return false;
+
+  return (
+    !endpoint.startsWith('/api/auth/') &&
+    !endpoint.startsWith('/api/parent/') &&
+    endpoint !== '/api/health' &&
+    endpoint !== '/health'
+  );
+}
+
+async function syncPreferredChild(apiBaseUrl: string) {
+  const sessionToken = USE_TOKEN_AUTH ? getSessionToken() : null;
+  const syncKey = `${apiBaseUrl}|${sessionToken || 'cookie'}|${getStoredActiveChildId() ?? 'none'}`;
+  if (preferredChildSyncKey === syncKey) {
+    return;
+  }
+  if (preferredChildSyncPromise) {
+    await preferredChildSyncPromise;
+    return;
+  }
+
+  preferredChildSyncPromise = (async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+    };
+    const [childrenResponse, progressResponse] = await Promise.all([
+      fetch(`${apiBaseUrl}/api/parent/children`, {
+        credentials: 'include',
+        headers,
+        cache: 'no-store',
+      }),
+      fetch(`${apiBaseUrl}/api/parent/progress`, {
+        credentials: 'include',
+        headers,
+        cache: 'no-store',
+      }),
+    ]);
+
+    if (!childrenResponse.ok || !progressResponse.ok) {
+      return;
+    }
+
+    const [children, progressSummaries] = await Promise.all([
+      childrenResponse.json() as Promise<ChildProfile[]>,
+      progressResponse.json() as Promise<ChildProgressSummary[]>,
+    ]);
+    const preferredChildId = choosePreferredActiveChildId({
+      storedActiveChildId: getStoredActiveChildId(),
+      children,
+      progressSummaries,
+      fallbackChildId: children[0]?.id ?? null,
+    });
+
+    if (preferredChildId) {
+      saveActiveChildId(preferredChildId);
+    } else {
+      clearActiveChildId();
+    }
+    preferredChildSyncKey = `${apiBaseUrl}|${sessionToken || 'cookie'}|${getStoredActiveChildId() ?? 'none'}`;
+  })().finally(() => {
+    preferredChildSyncPromise = null;
+  });
+
+  await preferredChildSyncPromise;
 }
 
 export interface LessonItem {
@@ -835,6 +908,9 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
       code: 'unconfigured',
     });
   }
+  if (shouldSyncPreferredChild(endpoint, options)) {
+    await syncPreferredChild(apiBaseUrl);
+  }
 
   let response: Response;
   try {
@@ -845,6 +921,9 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
       const fallbackBaseUrl = await resolveApiBaseUrlAfterOfflineFailure(apiBaseUrl);
       if (fallbackBaseUrl) {
         try {
+          if (shouldSyncPreferredChild(endpoint, options)) {
+            await syncPreferredChild(fallbackBaseUrl);
+          }
           response = await performApiFetch(`${fallbackBaseUrl}${endpoint}`, options);
           clearSavedApiBaseUrl();
         } catch (fallbackError) {

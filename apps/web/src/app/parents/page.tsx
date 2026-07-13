@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
+import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
 import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
 import { ApiError, api, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
@@ -97,20 +97,25 @@ export default function ParentsPage() {
         model: userAiSettings.model || 'gemini-2.5-flash',
         base_url: userAiSettings.base_url ?? '',
       });
-      const storedActiveChildId = getStoredActiveChildId();
-      const hasStoredChild = storedActiveChildId && childList.some((child) => child.id === storedActiveChildId);
-      if (!hasStoredChild) {
-        saveActiveChildId(settings.id);
-        setActiveChildId(settings.id);
+      const preferredActiveChildId = choosePreferredActiveChildId({
+        storedActiveChildId: getStoredActiveChildId(),
+        children: childList,
+        progressSummaries: progressList,
+        fallbackChildId: settings.id,
+      });
+      const activeSettings = childList.find((child) => child.id === preferredActiveChildId) ?? settings;
+      if (preferredActiveChildId) {
+        saveActiveChildId(preferredActiveChildId);
       } else {
-        setActiveChildId(storedActiveChildId);
+        clearActiveChildId();
       }
+      setActiveChildId(preferredActiveChildId);
       setForm({
-        child_name: settings.name,
-        age_group: settings.age_group,
-        voice_preference: settings.voice_preference,
-        auto_audio: settings.auto_audio,
-        target_language: settings.target_language ?? 'English',
+        child_name: activeSettings.name,
+        age_group: activeSettings.age_group,
+        voice_preference: activeSettings.voice_preference,
+        auto_audio: activeSettings.auto_audio,
+        target_language: activeSettings.target_language ?? 'English',
       });
       setIsLoggedIn(true);
       setError(null);
