@@ -15,6 +15,18 @@ export interface RuntimeBackendSyncPayload {
   machineName?: string | null;
 }
 
+export interface GitHubRuntimeBackendConfigOptions {
+  owner: string;
+  repo: string;
+  branch: string;
+  branchFilePath: string;
+  branchRawUrl: string;
+  tagRawUrl: string;
+  explicitRawUrl?: string | null;
+  token?: string | null;
+  fetchImpl?: typeof fetch;
+}
+
 export function normalizeRuntimeBackendBaseUrl(
   rawValue: string,
   options: { requireHttps?: boolean } = {},
@@ -106,4 +118,106 @@ export function chooseFreshestRuntimeBackendConfig(
       ? config
       : freshest;
   }, null);
+}
+
+function runtimeBackendConfigFromUnknown(value: unknown): RuntimeBackendConfig | null {
+  const parsed = value as Partial<RuntimeBackendConfig> | null;
+  const baseUrl = normalizeRuntimeBackendBaseUrl(parsed?.baseUrl || '', { requireHttps: true });
+  if (!baseUrl) {
+    return null;
+  }
+
+  return buildRuntimeBackendConfig(baseUrl, {
+    updatedAt: parsed?.updatedAt || null,
+    activatedAt: parsed?.activatedAt || null,
+    machineName: parsed?.machineName || null,
+  });
+}
+
+function decodeBase64Json(content: string) {
+  const normalized = content.replace(/\s/g, '');
+  const decoded = globalThis.atob
+    ? globalThis.atob(normalized)
+    : Buffer.from(normalized, 'base64').toString('utf8');
+  return JSON.parse(decoded) as unknown;
+}
+
+async function fetchRuntimeBackendConfigFromJsonUrl(
+  rawUrl: string,
+  fetchImpl: typeof fetch,
+): Promise<RuntimeBackendConfig | null> {
+  try {
+    const response = await fetchImpl(`${rawUrl}?ts=${Date.now()}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    return runtimeBackendConfigFromUnknown(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+async function fetchRuntimeBackendConfigFromGitHubContentsApi(
+  options: GitHubRuntimeBackendConfigOptions,
+  fetchImpl: typeof fetch,
+): Promise<RuntimeBackendConfig | null> {
+  const token = options.token?.trim();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const filePath = options.branchFilePath
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    const endpoint = `https://api.github.com/repos/${encodeURIComponent(options.owner)}/${encodeURIComponent(options.repo)}/contents/${filePath}?ref=${encodeURIComponent(options.branch)}`;
+    const response = await fetchImpl(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'english-kids-tutor-vercel',
+      },
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as { content?: string; encoding?: string };
+    if (data.encoding !== 'base64' || !data.content) {
+      return null;
+    }
+
+    return runtimeBackendConfigFromUnknown(decodeBase64Json(data.content));
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGitHubRuntimeBackendConfig(
+  options: GitHubRuntimeBackendConfigOptions,
+): Promise<RuntimeBackendConfig | null> {
+  const fetchImpl = options.fetchImpl || fetch;
+  const apiConfig = await fetchRuntimeBackendConfigFromGitHubContentsApi(options, fetchImpl);
+  if (apiConfig) {
+    return apiConfig;
+  }
+
+  const branchConfig = await fetchRuntimeBackendConfigFromJsonUrl(options.branchRawUrl, fetchImpl);
+  if (branchConfig) {
+    return branchConfig;
+  }
+
+  const tagConfig = await fetchRuntimeBackendConfigFromJsonUrl(
+    options.explicitRawUrl || options.tagRawUrl,
+    fetchImpl,
+  );
+  return tagConfig;
 }

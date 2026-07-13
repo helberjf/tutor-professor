@@ -4,6 +4,7 @@ import {
   buildMissingRuntimeBackendConfig,
   buildRuntimeBackendConfig,
   chooseFreshestRuntimeBackendConfig,
+  fetchGitHubRuntimeBackendConfig,
   normalizeRuntimeBackendBaseUrl,
   type RuntimeBackendConfig,
   type RuntimeBackendSyncPayload,
@@ -112,41 +113,18 @@ async function getStoredRuntimeBackendConfig(): Promise<RuntimeBackendConfig | n
   }
 }
 
-async function fetchGitHubRawConfig(rawUrl: string): Promise<RuntimeBackendConfig | null> {
-  try {
-    const response = await fetch(`${rawUrl}?ts=${Date.now()}`, {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (!response.ok) {
-      return null;
-    }
-
-    const parsed = (await response.json()) as RuntimeBackendConfig;
-    const baseUrl = normalizeRuntimeBackendBaseUrl(parsed.baseUrl || '', { requireHttps: true });
-    if (!baseUrl) {
-      return null;
-    }
-
-    return buildRuntimeBackendConfig(baseUrl, {
-      updatedAt: parsed.updatedAt || null,
-      activatedAt: parsed.activatedAt || null,
-      machineName: parsed.machineName || null,
-    });
-  } catch {
-    return null;
-  }
-}
-
 async function getGitHubRuntimeBackendConfig(): Promise<RuntimeBackendConfig | null> {
-  // Try the branch-based URL first (written by the Vercel POST endpoint)
-  const branchConfig = await fetchGitHubRawConfig(getGitHubBranchStateUrl());
-  if (branchConfig) {
-    return branchConfig;
-  }
-
-  // Fall back to the tag-based URL (written by the git-push script)
-  return fetchGitHubRawConfig(getGitHubRuntimeBackendStateUrl());
+  const { owner, repo } = getGitHubRepoInfo();
+  return fetchGitHubRuntimeBackendConfig({
+    owner,
+    repo,
+    branch: RUNTIME_BACKEND_GITHUB_BRANCH,
+    branchFilePath: RUNTIME_BACKEND_GITHUB_BRANCH_FILE,
+    branchRawUrl: getGitHubBranchStateUrl(),
+    tagRawUrl: getGitHubRuntimeBackendStateUrl(),
+    explicitRawUrl: process.env.RUNTIME_BACKEND_STATE_URL?.trim() || null,
+    token: getGitHubToken(),
+  });
 }
 
 async function saveRuntimeBackendConfigViaKV(record: RuntimeBackendConfig) {
