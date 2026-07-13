@@ -21,7 +21,7 @@ export const maxDuration = 60;
 
 function getGitHubRepoInfo() {
   const owner = process.env.VERCEL_GIT_REPO_OWNER?.trim() || 'helberjf';
-  const repo = process.env.VERCEL_GIT_REPO_SLUG?.trim() || 'english-tutor-kid';
+  const repo = process.env.VERCEL_GIT_REPO_SLUG?.trim() || 'tutor-professor';
   return { owner, repo };
 }
 

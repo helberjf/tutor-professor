@@ -8,7 +8,7 @@ $TunnelStderrFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stderr.log'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
-  'https://tuturprofessor.vercel.app/connect'
+  'https://tutorprofessor.vercel.app/connect'
 }
 $TunnelName = $env:CLOUDFLARE_TUNNEL_NAME
 $TunnelId = $env:CLOUDFLARE_TUNNEL_ID

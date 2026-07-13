@@ -28,12 +28,12 @@ $TunnelLogFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel.stderr.log'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
-  'https://tuturprofessor.vercel.app/connect'
+  'https://tutorprofessor.vercel.app/connect'
 }
 $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
 } else {
-  'https://tuturprofessor.vercel.app/api/runtime-backend'
+  'https://tutorprofessor.vercel.app/api/runtime-backend'
 }
 $RuntimeBackendSyncToken = $env:ENGLISH_TUTOR_VERCEL_SYNC_TOKEN
 $KokoroLocalRepo = if ($env:KOKORO_LOCAL_REPO) {
@@ -129,7 +129,7 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds = 25) {
         $connectLink = "$ConnectPageUrl?apiUrl=$([System.Uri]::EscapeDataString($url))&auto=1"
         Write-Host ''
         Write-Host "[Cloudflare URL] $url" -ForegroundColor Green
-        Write-Host 'Use this URL in https://tuturprofessor.vercel.app/connect' -ForegroundColor Green
+        Write-Host 'Use this URL in https://tutorprofessor.vercel.app/connect' -ForegroundColor Green
         Write-Host "[Auto-connect link] $connectLink" -ForegroundColor Green
         Write-Host ''
         return $url

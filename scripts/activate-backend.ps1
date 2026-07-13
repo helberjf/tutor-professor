@@ -19,7 +19,7 @@ $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
 } else {
-  'https://tuturprofessor.vercel.app/api/runtime-backend'
+  'https://tutorprofessor.vercel.app/api/runtime-backend'
 }
 
 $ProgressActivity = 'Ativando backend global'
@@ -227,7 +227,7 @@ for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
     }
     Write-Host ''
     $encoded = [System.Uri]::EscapeDataString($tunnelUrl)
-    Write-Host "Alternativa manual: https://tuturprofessor.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
+    Write-Host "Alternativa manual: https://tutorprofessor.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
     Write-Host ''
     exit 1
   }
@@ -254,7 +254,7 @@ Write-Host "  URL:        $($response.baseUrl)" -ForegroundColor Green
 Write-Host "  Atualizado: $($response.updatedAt)" -ForegroundColor Green
 Write-Host ''
 Write-Host 'Seu filho pode acessar:' -ForegroundColor Cyan
-Write-Host '  https://tuturprofessor.vercel.app' -ForegroundColor White
+Write-Host '  https://tutorprofessor.vercel.app' -ForegroundColor White
 Write-Host ''
 Write-Host 'IMPORTANTE: a janela do Cloudflare Tunnel precisa ficar aberta.' -ForegroundColor Yellow
 Write-Host '            Fechar essa janela desconecta o site.' -ForegroundColor Yellow

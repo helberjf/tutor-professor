@@ -20,11 +20,14 @@ const files = [
 
 for (const file of files) {
   const source = readFileSync(resolve(repoRoot, file), 'utf8');
-  assert.match(source, /tuturprofessor\.vercel\.app|Tutor and Professor/, `${file} should reference the new brand or Vercel domain`);
+  assert.match(source, /tutorprofessor\.vercel\.app|Tutor and Professor/, `${file} should reference the canonical brand or Vercel domain`);
 }
 
 const apiEnvExample = readFileSync(resolve(repoRoot, 'apps/api/.env.example'), 'utf8');
-assert.match(apiEnvExample, /https:\/\/tuturprofessor\.vercel\.app/, 'API CORS example should include the new Vercel domain');
+assert.match(apiEnvExample, /https:\/\/tutorprofessor\.vercel\.app/, 'API CORS example should include the canonical Vercel domain');
 assert.match(apiEnvExample, /https:\/\/english-tutor-kid\.vercel\.app/, 'API CORS example should keep the old Vercel domain during transition');
+
+const runtimeRoute = readFileSync(resolve(repoRoot, 'apps/web/src/app/api/runtime-backend/route.ts'), 'utf8');
+assert.match(runtimeRoute, /tutor-professor/, 'runtime backend GitHub fallback should use the renamed repository');
 
 console.log('branding and domain checks passed');
