@@ -84,3 +84,26 @@ export function buildRuntimeBackendConfig(
     machineName: options.machineName ?? null,
   };
 }
+
+function runtimeBackendUpdatedAtMs(config: RuntimeBackendConfig | null) {
+  const timestamp = Date.parse(config?.updatedAt || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+export function chooseFreshestRuntimeBackendConfig(
+  ...configs: Array<RuntimeBackendConfig | null>
+) {
+  return configs.reduce<RuntimeBackendConfig | null>((freshest, config) => {
+    if (!config?.baseUrl) {
+      return freshest;
+    }
+
+    if (!freshest) {
+      return config;
+    }
+
+    return runtimeBackendUpdatedAtMs(config) > runtimeBackendUpdatedAtMs(freshest)
+      ? config
+      : freshest;
+  }, null);
+}

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import {
   buildMissingRuntimeBackendConfig,
   buildRuntimeBackendConfig,
+  chooseFreshestRuntimeBackendConfig,
   normalizeRuntimeBackendBaseUrl,
   type RuntimeBackendConfig,
   type RuntimeBackendSyncPayload,
@@ -295,8 +296,12 @@ async function verifyBackendHealth(baseUrl: string) {
 
 export async function GET() {
   try {
-    const storedConfig = (await getStoredRuntimeBackendConfig()) || (await getGitHubRuntimeBackendConfig());
-    return NextResponse.json(storedConfig || buildMissingRuntimeBackendConfig(), {
+    const [storedConfig, githubConfig] = await Promise.all([
+      getStoredRuntimeBackendConfig(),
+      getGitHubRuntimeBackendConfig(),
+    ]);
+    const runtimeConfig = chooseFreshestRuntimeBackendConfig(storedConfig, githubConfig);
+    return NextResponse.json(runtimeConfig || buildMissingRuntimeBackendConfig(), {
       headers: {
         'Cache-Control': 'no-store',
       },
