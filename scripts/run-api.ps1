@@ -1,13 +1,18 @@
 [CmdletBinding()]
 param(
   [string]$TunnelUrlFile = '',
-  [int]$WaitForTunnelUrlSeconds = 0
+  [int]$WaitForTunnelUrlSeconds = 0,
+  [string]$EnvFile = '',
+  [string]$LocalSecretsFile = '',
+  [switch]$CheckEnvOnly
 )
 
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ApiDir = Join-Path $RepoRoot 'apps\api'
+$DefaultEnvFile = Join-Path $ApiDir '.env'
+$DefaultLocalSecretsFile = Join-Path $RepoRoot 'local.secrets'
 $PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
@@ -58,6 +63,41 @@ function Wait-ForTunnelUrl([string]$FilePath, [int]$TimeoutSeconds) {
   }
 
   return $null
+}
+
+function Import-EnvFile([string]$Path) {
+  if (-not $Path -or -not (Test-Path $Path)) {
+    return
+  }
+
+  Get-Content $Path | ForEach-Object {
+    $line = $_.Trim()
+    if (-not $line -or $line.StartsWith('#')) {
+      return
+    }
+
+    if ($line -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+      $key = $Matches[1]
+      $value = $Matches[2].Trim()
+      Set-Item -Path "env:$key" -Value $value
+    }
+  }
+}
+
+if (-not $EnvFile) {
+  $EnvFile = $DefaultEnvFile
+}
+if (-not $LocalSecretsFile) {
+  $LocalSecretsFile = $DefaultLocalSecretsFile
+}
+
+Import-EnvFile -Path $EnvFile
+Import-EnvFile -Path $LocalSecretsFile
+
+if ($CheckEnvOnly) {
+  Write-Host "CORS_ALLOWED_ORIGINS=$env:CORS_ALLOWED_ORIGINS"
+  Write-Host "FRONTEND_BASE_URL=$env:FRONTEND_BASE_URL"
+  exit 0
 }
 
 $tunnelUrl = Wait-ForTunnelUrl -FilePath $TunnelUrlFile -TimeoutSeconds $WaitForTunnelUrlSeconds
