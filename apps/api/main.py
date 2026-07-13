@@ -230,7 +230,7 @@ def _lesson_question_lock(child_id: int, lesson_id: int) -> Iterator[None]:
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
-app = FastAPI(title="Language&Tutor API", version="1.0.0")
+app = FastAPI(title="Tutor and Professor API", version="1.0.0")
 
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]

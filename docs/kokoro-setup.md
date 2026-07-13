@@ -1,6 +1,6 @@
 # Kokoro TTS Setup
 
-This document provides instructions on how to set up and integrate Kokoro Text-to-Speech (TTS) with the English Kids Tutor backend. Kokoro is used to generate natural-sounding audio for words and phrases, enhancing the learning experience for children.
+This document provides instructions on how to set up and integrate Kokoro Text-to-Speech (TTS) with the Tutor and Professor backend. Kokoro is used to generate natural-sounding audio for words and phrases, enhancing the learning experience for children.
 
 ## What is Kokoro TTS?
 
@@ -24,7 +24,7 @@ Since Kokoro is a separate project, you will need to follow its official install
 *   **API Endpoint**: Ensure the Kokoro server is configured to run on a specific port (the current default is `8880`) and is accessible from your FastAPI backend.
 *   **Voice Models**: Download the voice models you intend to use. The `af_bella` voice is used as a default in this project.
 
-## Configuring the English Kids Tutor Backend for Kokoro
+## Configuring the Tutor and Professor Backend for Kokoro
 
 Once your Kokoro TTS server is running, you need to configure the FastAPI backend to communicate with it.
 

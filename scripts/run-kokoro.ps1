@@ -80,7 +80,7 @@ function Start-LocalKokoroRepo([string]$RepoPath) {
   }
 
   Write-Host ''
-  Write-Host 'English Kids Tutor Kokoro TTS' -ForegroundColor Cyan
+  Write-Host 'Tutor and Professor Kokoro TTS' -ForegroundColor Cyan
   Write-Host "Mode: local repository" -ForegroundColor Green
   Write-Host "Repository: $RepoPath"
   Write-Host "Script: $startScriptPath"
@@ -106,7 +106,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ''
-Write-Host 'English Kids Tutor Kokoro TTS'
+Write-Host 'Tutor and Professor Kokoro TTS'
 Write-Host 'Mode: docker fallback' -ForegroundColor Yellow
 Write-Host "Image: $Image"
 Write-Host "URL: http://127.0.0.1:$HostPort/v1/audio/speech"

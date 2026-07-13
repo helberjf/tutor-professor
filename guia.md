@@ -1,6 +1,6 @@
 # Guia: frontend na Vercel e backend no seu computador com URL configuravel
 
-Este guia mostra o fluxo pratico para deixar o frontend do English Kids Tutor publicado na Vercel enquanto o backend continua rodando no seu computador, exposto por uma URL HTTPS temporaria do Cloudflare Tunnel.
+Este guia mostra o fluxo pratico para deixar o frontend do Tutor and Professor publicado na Vercel enquanto o backend continua rodando no seu computador, exposto por uma URL HTTPS temporaria do Cloudflare Tunnel.
 
 O frontend agora tem uma pagina publica em `/connect` para salvar a URL atual do backend no navegador do aparelho que vai usar o site.
 

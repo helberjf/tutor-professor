@@ -8,7 +8,7 @@ $TunnelStderrFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stderr.log'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
-  'https://english-tutor-kid.vercel.app/connect'
+  'https://tuturprofessor.vercel.app/connect'
 }
 $TunnelName = $env:CLOUDFLARE_TUNNEL_NAME
 $TunnelId = $env:CLOUDFLARE_TUNNEL_ID
@@ -112,7 +112,7 @@ Set-Location $RepoRoot
 Reset-RuntimeFiles
 
 Write-Host ''
-Write-Host 'English Kids Tutor Tunnel'
+Write-Host 'Tutor and Professor Tunnel'
 Write-Host 'Forwarding: http://127.0.0.1:8001'
 Write-Host 'Note: this tunnel exposes the backend API. It should not point to the frontend on http://localhost:3000.'
 Write-Host "Tunnel URL file: $TunnelUrlFile"

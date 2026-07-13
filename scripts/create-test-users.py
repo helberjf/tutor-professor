@@ -1,5 +1,5 @@
 """
-Cria contas de teste no banco de dados local do English Kids Tutor.
+Cria contas de teste no banco de dados local do Tutor and Professor.
 Execute: python scripts/create-test-users.py
 """
 import hashlib

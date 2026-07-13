@@ -41,7 +41,7 @@ export function Navbar() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">Tutor pessoal</p>
-              <p className="truncate text-base font-black text-slate-800 md:text-lg">Language&Tutor</p>
+              <p className="truncate text-sm font-black text-slate-800 md:text-lg">Tutor and Professor</p>
             </div>
           </Link>
 

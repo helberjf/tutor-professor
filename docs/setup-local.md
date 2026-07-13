@@ -1,6 +1,6 @@
 # Local Development Setup
 
-This document provides detailed instructions on how to set up and run the English Kids Tutor project on your local machine for development purposes.
+This document provides detailed instructions on how to set up and run the Tutor and Professor project on your local machine for development purposes.
 
 ## Prerequisites
 
@@ -72,7 +72,7 @@ APP_HOST=0.0.0.0
 APP_PORT=8001
 DATABASE_URL=sqlite:///./kids_tutor.sqlite
 PARENT_PASSWORD=tutor123
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://english-kids-tutor.vercel.app
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tuturprofessor.vercel.app,https://english-tutor-kid.vercel.app
 TTS_PROVIDER=kokoro
 KOKORO_DEFAULT_VOICE=af_bella
 AUDIO_CACHE_DIR=./audio_cache

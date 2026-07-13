@@ -1,6 +1,6 @@
 # Deploying the Frontend to Vercel
 
-This guide explains how to deploy the Next.js frontend application of the English Kids Tutor project to Vercel.
+This guide explains how to deploy the Next.js frontend application of the Tutor and Professor project to Vercel.
 
 Vercel is a cloud platform for frontend frameworks and static sites, ideal for Next.js applications due to its seamless integration and performance optimizations.
 
@@ -54,4 +54,4 @@ This is a crucial step to ensure your frontend can communicate with your backend
 *   **Continuous Deployment**: Vercel automatically deploys new changes every time you push to your connected Git branch (e.g., `main`).
 *   **Troubleshooting**: If you encounter any issues, check the deployment logs in your Vercel dashboard for error messages.
 
-By following these steps, your English Kids Tutor frontend will be live and accessible to users!
+By following these steps, your Tutor and Professor frontend will be live and accessible to users!

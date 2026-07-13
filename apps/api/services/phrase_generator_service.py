@@ -299,7 +299,7 @@ class PhraseGenerationService:
             "Content-Type": "application/json",
         }
         if config.provider == "openrouter":
-            headers["X-Title"] = "Language&Tutor"
+            headers["X-Title"] = "Tutor and Professor"
 
         try:
             response = requests.post(

@@ -1,6 +1,6 @@
 # Project Architecture
 
-This document outlines the overall architecture of the English Kids Tutor project, detailing its components, their interactions, and the technologies used.
+This document outlines the overall architecture of the Tutor and Professor project, detailing its components, their interactions, and the technologies used.
 
 ## Monorepo Structure
 
@@ -107,4 +107,4 @@ The backend exposes a set of RESTful API endpoints for managing child profiles, 
 5.  **Parents** access a protected area in the frontend to manage child settings, authenticating against the backend.
 6.  **Cloudflare Tunnel** (when configured) securely routes external requests from the Vercel frontend to the local FastAPI backend.
 
-This architecture provides a robust, maintainable, and extensible foundation for the English Kids Tutor application.
+This architecture provides a robust, maintainable, and extensible foundation for the Tutor and Professor application.

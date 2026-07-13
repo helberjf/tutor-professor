@@ -31,7 +31,7 @@ if (-not $SyncUrl) {
   $SyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
     $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
   } else {
-    'https://english-tutor-kid.vercel.app/api/runtime-backend'
+    'https://tuturprofessor.vercel.app/api/runtime-backend'
   }
 }
 

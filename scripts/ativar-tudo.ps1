@@ -21,7 +21,7 @@ $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
   $env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL
 } else {
-  'https://english-tutor-kid.vercel.app/api/runtime-backend'
+  'https://tuturprofessor.vercel.app/api/runtime-backend'
 }
 
 $ProgressActivity = 'Ativando backend completo'
@@ -118,7 +118,7 @@ function Stop-OldProcesses() {
 
 Write-Host ''
 Write-Host '====================================================' -ForegroundColor Green
-Write-Host '  English Kids Tutor - Ativar Backend Completo' -ForegroundColor Green
+Write-Host '  Tutor and Professor - Ativar Backend Completo' -ForegroundColor Green
 Write-Host '====================================================' -ForegroundColor Green
 Write-Host ''
 Write-Host 'Este script vai:' -ForegroundColor Cyan
@@ -305,7 +305,7 @@ for ($attempt = 1; $attempt -le $postMaxRetries; $attempt++) {
     Write-Host ''
     Write-Host 'Backend e tunnel continuam rodando. Tente novamente em 1 minuto.' -ForegroundColor Cyan
     $encoded = [System.Uri]::EscapeDataString($tunnelUrl)
-    Write-Host "Ou acesse manualmente: https://english-tutor-kid.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
+    Write-Host "Ou acesse manualmente: https://tuturprofessor.vercel.app/connect?apiUrl=$encoded&auto=1" -ForegroundColor Cyan
     Write-Host ''
     exit 1
   }
@@ -333,7 +333,7 @@ Write-Host "  URL:        $($response.baseUrl)" -ForegroundColor Green
 Write-Host "  Atualizado: $($response.updatedAt)" -ForegroundColor Green
 Write-Host ''
 Write-Host 'Seu filho pode acessar agora:' -ForegroundColor Cyan
-Write-Host '  https://english-tutor-kid.vercel.app' -ForegroundColor White
+Write-Host '  https://tuturprofessor.vercel.app' -ForegroundColor White
 Write-Host ''
 Write-Host '====================================================' -ForegroundColor Yellow
 Write-Host '  IMPORTANTE: Mantenha as janelas abertas!' -ForegroundColor Yellow
