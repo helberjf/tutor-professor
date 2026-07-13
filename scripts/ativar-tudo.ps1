@@ -14,6 +14,7 @@ $TunnelUrlFile = Join-Path $RuntimeDir 'cloudflare-tunnel-url.txt'
 $TunnelStderrFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stderr.log'
 $TunnelStdoutFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stdout.log'
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
+$PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 
@@ -163,6 +164,10 @@ if (-not (Get-Command cloudflared -ErrorAction SilentlyContinue)) {
   exit 1
 }
 Write-Host 'cloudflared encontrado.' -ForegroundColor Green
+
+Write-Step 'Garantindo PostgreSQL local'
+Write-Progress -Activity $ProgressActivity -Status 'Checando PostgreSQL...' -PercentComplete 12
+& $PostgresEnsurer
 
 # ── 3. Estado limpo ───────────────────────────────────────────────────────────
 Write-Step 'Preparando ambiente limpo'

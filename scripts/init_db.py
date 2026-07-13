@@ -3,16 +3,21 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
 from sqlmodel import SQLModel, Session, create_engine, select
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+API_DIR = REPO_ROOT / "apps" / "api"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+if str(API_DIR) not in sys.path:
+    sys.path.insert(0, str(API_DIR))
 
-from apps.api.models.database import ChildProfile, Lesson, LessonItem
-from apps.api.database_bootstrap import bootstrap_database
+from database_bootstrap import bootstrap_database
+from models.database import ChildProfile, Lesson, LessonItem
 
 # Database setup
+load_dotenv(API_DIR / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./apps/api/kids_tutor.sqlite")
 engine = create_engine(DATABASE_URL)
 

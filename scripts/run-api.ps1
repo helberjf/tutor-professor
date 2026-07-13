@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ApiDir = Join-Path $RepoRoot 'apps\api'
+$PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
@@ -83,6 +84,8 @@ if ($tunnelUrl) {
   Write-Host "Cloudflare URL: waiting or unavailable. Check $TunnelUrlFile" -ForegroundColor Yellow
 }
 Write-Host ''
+
+& $PostgresEnsurer
 
 python database_bootstrap.py
 if ($LASTEXITCODE -ne 0) {
