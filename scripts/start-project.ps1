@@ -20,6 +20,7 @@ $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $WebRunner = Join-Path $PSScriptRoot 'run-web.ps1'
 $KokoroRunner = Join-Path $PSScriptRoot 'run-kokoro.ps1'
+$PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $RuntimeBackendPublisher = Join-Path $PSScriptRoot 'publish-runtime-backend-state.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
 $TunnelUrlFile = Join-Path $RepoRoot 'tmp\cloudflare-tunnel-url.txt'
@@ -248,9 +249,15 @@ if ($ForceInstall -or -not (Test-Path (Join-Path $WebDir 'node_modules'))) {
   Write-Host 'Node dependencies already installed.'
 }
 
+Write-Step 'Ensuring local PostgreSQL is running'
+& $PostgresEnsurer
+
 Write-Step 'Initializing database'
 Set-Location $RepoRoot
 python scripts\init_db.py
+if ($LASTEXITCODE -ne 0) {
+  throw "Database initialization failed with exit code $LASTEXITCODE."
+}
 
 if ($CheckOnly) {
   Write-Host ''

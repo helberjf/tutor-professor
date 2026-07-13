@@ -131,6 +131,7 @@ For the deployed Vercel frontend plus local backend flow, use:
 ```
 
 That script starts FastAPI, opens a Cloudflare Tunnel, and publishes the current backend URL so the Vercel frontend can find it.
+The Windows launchers also ensure the local PostgreSQL container is running before the API starts.
 
 ### Backend Manually
 
