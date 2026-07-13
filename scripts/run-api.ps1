@@ -12,7 +12,7 @@ $PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $ConnectPageUrl = if ($env:ENGLISH_TUTOR_CONNECT_URL) {
   $env:ENGLISH_TUTOR_CONNECT_URL
 } else {
-  'https://tuturprofessor.vercel.app/connect'
+  'https://tutorprofessor.vercel.app/connect'
 }
 
 function Get-ConnectLink([string]$TunnelUrl) {
@@ -76,7 +76,7 @@ Write-Host 'URL: http://localhost:8001'
 Write-Host "Kokoro URL: $kokoroUrl"
 if ($tunnelUrl) {
   Write-Host "Cloudflare URL: $tunnelUrl" -ForegroundColor Green
-  Write-Host 'Use this URL in https://tuturprofessor.vercel.app/connect' -ForegroundColor Green
+  Write-Host 'Use this URL in https://tutorprofessor.vercel.app/connect' -ForegroundColor Green
   if ($connectLink) {
     Write-Host "Auto-connect link: $connectLink" -ForegroundColor Green
   }

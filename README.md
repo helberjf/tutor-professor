@@ -6,7 +6,7 @@ The project was built as a practical engineering exercise: a real product surfac
 
 ## Live Demo
 
-- Frontend: https://tuturprofessor.vercel.app
+- Frontend: https://tutorprofessor.vercel.app
 - Backend model: the public frontend talks to a local FastAPI backend exposed through Cloudflare Tunnel.
 
 Important: the Vercel demo only works when the local backend and Cloudflare Tunnel are running. This is intentional for the current architecture: the frontend is public, while the backend and database remain local.
@@ -187,7 +187,7 @@ The deployed frontend needs a reachable backend URL. There are two supported pat
 Example:
 
 ```text
-https://tuturprofessor.vercel.app/connect
+https://tutorprofessor.vercel.app/connect
 ```
 
 The app stores the backend URL per browser and can also read a shared runtime state from the Vercel API. This avoids redeploying the frontend every time a temporary Cloudflare URL changes.
@@ -202,7 +202,7 @@ Create `apps/api/.env` or use the local secret flow documented in `local.secrets
 APP_HOST=0.0.0.0
 APP_PORT=8001
 DATABASE_URL=postgresql://kids_tutor:kids_tutor_secret@127.0.0.1:5433/kids_tutor
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tuturprofessor.vercel.app,https://english-tutor-kid.vercel.app
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tutorprofessor.vercel.app,https://english-tutor-kid.vercel.app
 SESSION_SECRET=change-me
 
 GEMINI_API_KEY=your-key
