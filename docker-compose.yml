@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -9,9 +7,10 @@ services:
       POSTGRES_USER: kids_tutor
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kids_tutor_secret}
     ports:
-      - "5432:5432"
+      # Keep host port 5432 free for other local PostgreSQL projects.
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - english_kids_tutor_postgres_data:/var/lib/postgresql/data
     networks:
       - kids-tutor-net
     healthcheck:
@@ -63,7 +62,7 @@ services:
   #     - kids-tutor-net
 
 volumes:
-  postgres_data:
+  english_kids_tutor_postgres_data:
 
 networks:
   kids-tutor-net:
