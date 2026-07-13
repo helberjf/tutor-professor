@@ -120,6 +120,14 @@ export function chooseFreshestRuntimeBackendConfig(
   }, null);
 }
 
+export function buildRuntimeBackendHealthCheckWarning(isHealthy: boolean) {
+  if (isHealthy) {
+    return null;
+  }
+
+  return 'Server-side health check failed; backend URL was saved because Cloudflare quick tunnels can be reachable from browsers before Vercel can reach them.';
+}
+
 function runtimeBackendConfigFromUnknown(value: unknown): RuntimeBackendConfig | null {
   const parsed = value as Partial<RuntimeBackendConfig> | null;
   const baseUrl = normalizeRuntimeBackendBaseUrl(parsed?.baseUrl || '', { requireHttps: true });
