@@ -218,7 +218,7 @@ def verify_counts(destination_engine: Engine, expected_counts: dict[str, int]) -
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Safely migrate the English Kids Tutor SQLite database to PostgreSQL."
+        description="Safely migrate the Tutor and Professor SQLite database to PostgreSQL."
     )
     parser.add_argument(
         "--sqlite-path",

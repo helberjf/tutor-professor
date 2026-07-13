@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
-  title: 'Tutor Pessoal',
-  description: 'Um tutor pessoal seguro, leve e acolhedor.',
+  title: 'Tutor and Professor',
+  description: 'Tutor and Professor: aulas, revisoes e estudos guiados em um app seguro e acolhedor.',
 };
 
 export const viewport: Viewport = {

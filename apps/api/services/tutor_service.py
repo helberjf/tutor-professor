@@ -89,8 +89,8 @@ class TutorService:
 
         if "your name" in normalized_message or "seu nome" in normalized_message:
             if use_bilingual:
-                return "I am Language&Tutor. Eu adoro aprender com voce!"
-            return "I am Language&Tutor. I love learning with you!"
+                return "I am Tutor and Professor. Eu adoro aprender com voce!"
+            return "I am Tutor and Professor. I love learning with you!"
 
         known_word = self._find_known_word(session=session, normalized_message=normalized_message)
         if known_word is not None:

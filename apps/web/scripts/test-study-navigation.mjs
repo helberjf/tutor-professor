@@ -18,10 +18,10 @@ const flashcardDeck = readFileSync(resolve(root, 'src/components/coding/Flashcar
 const leetCodeTrainer = readFileSync(resolve(root, 'src/components/coding/LeetCodeTrainer.tsx'), 'utf8');
 const globals = readFileSync(resolve(root, 'src/app/globals.css'), 'utf8');
 
-assert.match(navbar, /Tutor pessoal/, 'navbar should rename the app eyebrow to Tutor pessoal');
+assert.match(navbar, /Tutor and Professor/, 'navbar should show the new app name');
 assert.doesNotMatch(navbar, /Tutor de idiomas/, 'navbar should not keep the old Tutor de idiomas label');
-assert.match(layout, /title: 'Tutor Pessoal'/, 'browser metadata should use Tutor Pessoal as the app title');
-assert.match(layout, /description: 'Um tutor pessoal/, 'browser metadata should describe the app as a personal tutor');
+assert.match(layout, /title: 'Tutor and Professor'/, 'browser metadata should use Tutor and Professor as the app title');
+assert.match(layout, /description: 'Tutor and Professor/, 'browser metadata should describe the new brand');
 
 assert.match(
   homePage,
