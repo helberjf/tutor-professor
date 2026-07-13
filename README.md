@@ -1,129 +1,288 @@
 # English Kids Tutor
 
-A monorepo with a **Next.js** frontend and a **FastAPI** backend for short English lessons for kids — featuring quizzes, spaced-repetition review, guided chat and audio.
+English Kids Tutor is a full-stack personal tutoring app for children. It combines short language lessons, quizzes, spaced repetition, AI-generated practice, text-to-speech, parent controls, and study tools for broader subjects such as programming.
 
-**Live demo:** https://english-tutor-kid.vercel.app
+The project was built as a practical engineering exercise: a real product surface, a typed frontend, a Python API, persistent data, AI integration, runtime backend routing, auth, tests, and deployment constraints.
 
-## Tech stack
+## Live Demo
 
-- **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend:** FastAPI, SQLModel, SQLite, Pydantic
-- **Audio:** local Kokoro TTS with fallback
-- **AI:** Google Gemini (lesson generation)
-- **Infra:** Vercel (frontend) + Cloudflare Tunnel (to expose the local backend)
+- Frontend: https://english-tutor-kid.vercel.app
+- Backend model: the public frontend talks to a local FastAPI backend exposed through Cloudflare Tunnel.
 
-## Features
+Important: the Vercel demo only works when the local backend and Cloudflare Tunnel are running. This is intentional for the current architecture: the frontend is public, while the backend and database remain local.
 
-- Lesson of the day with a mini-activity
-- Quiz with scoring and kid-friendly feedback
-- Review of hard words saved in the database (spaced repetition)
-- Simple guided chat with a tutor system prompt
-- Parents area with basic settings
-- Parents area can generate new lessons via Gemini
-- Friendly loading / empty / backend-offline states
+## What This Project Demonstrates
 
-## Project structure
+- Full-stack product thinking: child-facing lessons plus parent/admin workflows.
+- Typed React/Next.js frontend with reusable API client and runtime connection handling.
+- FastAPI backend with SQLModel models, Pydantic schemas, auth, and domain services.
+- AI workflows with validation, retry-safe behavior, and safeguards against malformed generated content.
+- Spaced repetition and review flows for vocabulary, lesson questions, coding flashcards, and study topics.
+- Local-first deployment using Vercel plus Cloudflare Tunnel, including recovery from stale tunnel URLs.
+- Automated tests for backend services, AI output validation, UI state helpers, and deployment edge cases.
 
+## Core Features
+
+### Child Learning
+
+- Daily lessons with target-language vocabulary, examples, and mini activities.
+- Quizzes with scoring and friendly feedback.
+- Mixed review sessions combining vocabulary and lesson-generated questions.
+- Audio playback through a local TTS provider with browser speech fallback.
+- Progress tracking, streaks, level analysis, and daily activity logs.
+
+### Parent Area
+
+- Account registration and login.
+- Parent dashboard for children, progress, settings, and AI provider configuration.
+- Child profile management, including target language and audio preferences.
+- AI-powered lesson, question, book, and flashcard generation.
+
+### Study Modes
+
+- General study dashboard with planning, notes, distractions, and pomodoro count.
+- Diverse subject study mode for custom topics and AI-generated questions.
+- Programming curriculum with subjects, topics, generated explanations, quizzes, and flashcards.
+- Coding review and deck-style flashcard study with scheduling state.
+- LeetCode-style method trainer.
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js 14, React, TypeScript, Tailwind CSS |
+| Backend | FastAPI, SQLModel, Pydantic, SQLAlchemy |
+| Database | PostgreSQL locally on port 5433, with SQLite migration support |
+| Migrations | Alembic plus startup bootstrap for legacy local databases |
+| AI | Configurable provider layer, Gemini as the default path |
+| TTS | Kokoro-compatible local service plus browser fallback |
+| Deployment | Vercel frontend, Cloudflare Tunnel for local backend exposure |
+| Tests | Python unittest-style scripts, Node assertion scripts, TypeScript check |
+
+## Architecture
+
+```text
+Browser
+  |
+  | Next.js app on Vercel
+  v
+Runtime backend resolver
+  |
+  | Finds the freshest backend URL from Vercel/KV/GitHub runtime state
+  v
+Cloudflare Tunnel
+  |
+  v
+FastAPI backend on the developer machine
+  |
+  +-- SQLModel database
+  +-- AI generation services
+  +-- TTS service
+  +-- Review and study scheduling services
 ```
+
+### Key Design Decisions
+
+- Public frontend, local backend: keeps local data and experiments on the developer machine while still allowing a public demo URL.
+- Runtime backend state: the frontend can discover the current tunnel URL without redeploying every time Cloudflare creates a new quick tunnel.
+- Safe connection fallback: read-only API calls can recover from stale saved backend URLs by refreshing the global runtime backend state.
+- Token plus cookie auth: cookies support same-site local flows, while bearer tokens support cross-domain mobile usage.
+- Validated AI writes: generated lessons, questions, topics, and flashcards are checked before being persisted so invalid or partial AI output does not corrupt study state.
+- Bootstrap before serving: the backend validates and upgrades legacy database schemas before accepting traffic.
+
+## Repository Layout
+
+```text
 english-kids-tutor/
   apps/
-    api/      # FastAPI backend
-    web/      # Next.js frontend
+    api/                  FastAPI backend
+    web/                  Next.js frontend
   content/
-    lessons/  # lesson content
-    quizzes/  # quiz content
-    stories/  # stories
-  docs/                 # additional documentation
-  infra/cloudflare/     # tunnel config example
-  scripts/init_db.py    # initial DB seed
+    lessons/              Seed lesson JSON
+    quizzes/              Seed quiz JSON
+    stories/              Story content
+    admin-learn/          Admin learning modules
+  docs/                   Architecture, setup, deployment notes
+  infra/cloudflare/       Cloudflare Tunnel config example
+  scripts/                Local automation and test scripts
+  docker-compose.yml      Optional containerized services
 ```
 
-## Running locally
+## Running Locally
 
-### 1. Backend
+### Fast Path on Windows
 
-```bash
-# create the env file
-cp apps/api/.env.example apps/api/.env
-# install dependencies
-python -m pip install -r apps/api/requirements.txt
-# initialize the database
-python scripts/init_db.py
-# run the API
+From the repository root:
+
+```powershell
+.\start-project.cmd
+```
+
+To start backend, frontend, and Cloudflare Tunnel together:
+
+```powershell
+.\start-project.cmd -WithTunnel
+```
+
+For the deployed Vercel frontend plus local backend flow, use:
+
+```powershell
+.\ativar-tudo.cmd
+```
+
+That script starts FastAPI, opens a Cloudflare Tunnel, and publishes the current backend URL so the Vercel frontend can find it.
+
+### Backend Manually
+
+```powershell
 cd apps/api
+python -m pip install -r requirements.txt
 python database_bootstrap.py
-uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-`database_bootstrap.py` safely detects verified legacy schemas, stamps the matching
-Alembic revision, and upgrades to `head`. It is idempotent, is also run by the API
-startup as a safety net, and must complete before the server begins accepting requests.
+Backend health check:
 
-### 2. Frontend
+```powershell
+Invoke-WebRequest http://127.0.0.1:8001/health
+```
 
-```bash
-cp apps/web/.env.example apps/web/.env.local
+### Frontend Manually
+
+```powershell
 cd apps/web
 pnpm install
 pnpm dev
 ```
 
+Local URLs:
+
 - Frontend: http://localhost:3000
 - Backend: http://localhost:8001
+- PostgreSQL: `127.0.0.1:5433` (keeps the default `5432` free for other local projects)
 
-### Windows shortcut
+### Local PostgreSQL
 
-Run the whole project with a single command:
+This project uses a dedicated local PostgreSQL instance on host port `5433`.
+That avoids collisions with another PostgreSQL server that may already be
+running on the default `5432` port.
 
+```powershell
+docker compose up db -d
+python scripts/migrate_sqlite_to_postgres.py --postgres-url "postgresql://kids_tutor:kids_tutor_secret@127.0.0.1:5433/kids_tutor"
 ```
-.\start-project.cmd          # starts backend + frontend
-.\start-project.cmd -WithTunnel   # also opens the backend tunnel
+
+The migration script backs up `apps/api/kids_tutor.sqlite`, migrates from a
+working copy, refuses to copy into a non-empty PostgreSQL database by default,
+and verifies row counts before reporting success.
+
+## Runtime Backend Connection
+
+The deployed frontend needs a reachable backend URL. There are two supported paths:
+
+1. Automatic: run `.\ativar-tudo.cmd`, which publishes the current tunnel URL.
+2. Manual: open `/connect` in the deployed frontend and paste the Cloudflare Tunnel URL.
+
+Example:
+
+```text
+https://english-tutor-kid.vercel.app/connect
 ```
 
-The tunnel runner first tries a named Cloudflare tunnel (via env vars `CLOUDFLARE_TUNNEL_NAME`, `CLOUDFLARE_TUNNEL_ID`, optional `CLOUDFLARE_TUNNEL_CREDENTIALS_FILE`) and falls back to a temporary quick tunnel.
+The app stores the backend URL per browser and can also read a shared runtime state from the Vercel API. This avoids redeploying the frontend every time a temporary Cloudflare URL changes.
 
-## Key environment variables
+## Environment Variables
 
-**Backend (`apps/api/.env`)**
+### Backend
 
-```
+Create `apps/api/.env` or use the local secret flow documented in `local.secrets.example`.
+
+```env
 APP_HOST=0.0.0.0
 APP_PORT=8001
-DATABASE_URL=sqlite:///./kids_tutor.sqlite
-PARENT_PASSWORD=tutor123
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://your-project.vercel.app
-TTS_PROVIDER=kokoro
-KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
+DATABASE_URL=postgresql://kids_tutor:kids_tutor_secret@127.0.0.1:5433/kids_tutor
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://english-tutor-kid.vercel.app
+SESSION_SECRET=change-me
+
 GEMINI_API_KEY=your-key
 GEMINI_MODEL=gemini-2.5-flash
-SESSION_SECRET=change-me
+
+TTS_PROVIDER=kokoro
+KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
+
 PARENT_COOKIE_SECURE=true
 PARENT_COOKIE_SAMESITE=none
 ```
 
-**Frontend (`apps/web/.env.local`)**
+### Frontend
 
-```
+For local development:
+
+```env
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 ```
 
-## Recommended deploy flow (Vercel frontend + local backend)
+For the deployed flow, the runtime backend route can resolve the tunnel URL dynamically.
 
-1. Run the API locally.
-2. Expose it: `cloudflared tunnel --url http://localhost:8001`.
-3. Open `https://your-project.vercel.app/connect` on the device that will use the app.
-4. Paste the current HTTPS tunnel URL and save the connection.
-5. Set `CORS_ALLOWED_ORIGINS` on the backend to the exact frontend URL.
-6. For the parents area across domains, use HTTPS on the public backend and `PARENT_COOKIE_SECURE=true` / `PARENT_COOKIE_SAMESITE=none`.
+## Testing and Verification
 
-> The published frontend can store the current API URL per browser at `/connect`, so you don't need to redeploy when the tunnel URL changes.
+Useful checks:
 
-## Notes
+```powershell
+cd apps/web
+pnpm exec tsc --noEmit
+```
 
-- The backend uses a local SQLite database at `apps/api/kids_tutor.sqlite`.
-- The frontend uses `fetch` with `credentials: include`, so CORS and cookies must be configured when frontend and backend are on different domains.
-- In the parents area, **Generate More Phrases** calls Gemini, creates the next day with 3 phrases and saves the new lesson directly to the database.
-- If Kokoro is not running, the app keeps working with an audio fallback.
+```powershell
+python scripts/test_language_ai_questions.py
+python scripts/test_programming_ai_flashcards.py
+python scripts/test_ai_flashcard_service.py
+```
+
+```powershell
+node apps/web/scripts/test-api-offline-fallback.mjs
+node apps/web/scripts/test-runtime-backend-state.mjs
+node apps/web/scripts/test-lesson-question-state.mjs
+node apps/web/scripts/test-diverse-question-state.mjs
+```
+
+The test suite is a mix of service-level tests, API behavior checks, and lightweight frontend state tests. It focuses on high-risk areas: AI output validation, concurrent/stale generation flows, runtime backend selection, and review state consistency.
+
+## Engineering Highlights
+
+- Runtime backend freshness: the app chooses the newest backend state when multiple storage sources disagree.
+- Stale tunnel recovery: safe read-only frontend requests can retry against the latest global backend URL.
+- Cross-domain auth support: token auth complements cookies for Vercel-to-tunnel and mobile browser scenarios.
+- AI validation before persistence: generated batches are checked for count, identity, ownership, and schema before database writes.
+- Atomic generation paths: invalid AI output should fail without partial database rows.
+- Local database resilience: startup bootstrap handles legacy local schemas before serving requests.
+- Child-safe UX states: loading, empty, offline, retry, and recovery states are part of the product flow.
+
+## Trade-offs and Current Limitations
+
+- The backend currently runs locally, so the public demo depends on the developer machine and Cloudflare Tunnel being active.
+- Temporary Cloudflare quick tunnels can expire; a named tunnel is the better long-term setup.
+- PostgreSQL is the intended local and production database. SQLite is retained as a migration source for existing local data.
+- Some tests are script-based rather than a single unified test runner.
+- The app has grown beyond the original English-only scope into a broader personal tutor, so naming and documentation are being updated accordingly.
+
+## Suggested Interview Walkthrough
+
+If you are reviewing the project, start here:
+
+1. Open the live frontend and note the local-backend requirement.
+2. Read `apps/web/src/lib/api-config.ts` and `apps/web/src/lib/runtime-backend.ts` for runtime backend resolution.
+3. Read `apps/api/main.py` around auth, lessons, review, and AI generation routes.
+4. Inspect service modules under `apps/api/services/` for validation and domain logic.
+5. Run `pnpm exec tsc --noEmit` and one or two scripts under `scripts/` or `apps/web/scripts/`.
+
+## Documentation
+
+- `docs/architecture.md`: broader architecture notes.
+- `docs/setup-local.md`: local setup details.
+- `docs/cloudflare-tunnel.md`: named tunnel setup.
+- `docs/vercel-deploy.md`: Vercel deployment notes.
+- `guia.md`: Portuguese guide for running Vercel frontend with local backend.
 
 ## License
 
