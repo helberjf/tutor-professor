@@ -52,7 +52,7 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 | --- | --- |
 | Frontend | Next.js 14, React, TypeScript, Tailwind CSS |
 | Backend | FastAPI, SQLModel, Pydantic, SQLAlchemy |
-| Database | PostgreSQL locally on port 5433, with SQLite migration support |
+| Database | PostgreSQL locally on port 5433 |
 | Migrations | Alembic plus startup bootstrap for legacy local databases |
 | AI | Configurable provider layer, Gemini as the default path |
 | TTS | Kokoro-compatible local service plus browser fallback |
@@ -263,7 +263,7 @@ The test suite is a mix of service-level tests, API behavior checks, and lightwe
 
 - The backend currently runs locally, so the public demo depends on the developer machine and Cloudflare Tunnel being active.
 - Temporary Cloudflare quick tunnels can expire; a named tunnel is the better long-term setup.
-- PostgreSQL is the intended local and production database. SQLite is retained as a migration source for existing local data.
+- PostgreSQL is the intended local and production database.
 - Some tests are script-based rather than a single unified test runner.
 - The app has grown beyond the original English-only scope into a broader personal tutor, so naming and documentation are being updated accordingly.
 
