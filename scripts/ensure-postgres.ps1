@@ -55,6 +55,10 @@ function Test-DockerDaemon() {
 }
 
 function Start-DockerDesktopIfInstalled() {
+  if ($env:ENGLISH_TUTOR_SKIP_DOCKER_DESKTOP_START -eq '1') {
+    return $false
+  }
+
   $paths = @(
     "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
     "$env:LOCALAPPDATA\Docker\Docker Desktop.exe"
