@@ -193,6 +193,8 @@ AI_PROVIDER_OPTIONS: list[dict[str, str | bool]] = [
     {"id": "mistral", "label": "Mistral", "default_model": AI_PROVIDER_DEFAULT_MODELS["mistral"], "requires_base_url": False, "is_default": False},
 ]
 AI_PROVIDER_IDS = {str(provider["id"]) for provider in AI_PROVIDER_OPTIONS}
+LEGACY_FLASHCARDS_SUBJECT_OWNER_EMAIL = "helberjf@gmail.com"
+LEGACY_FLASHCARDS_SUBJECT_NAME = "flashcards antigos"
 
 _topic_flashcard_locks_guard = threading.Lock()
 _topic_flashcard_locks: dict[int, threading.Lock] = {}
@@ -426,12 +428,52 @@ def normalize_existing_child_profiles() -> None:
             session.commit()
 
 
+def cleanup_legacy_flashcards_subject() -> None:
+    with Session(engine) as session:
+        owner = session.exec(
+            select(User).where(User.email == LEGACY_FLASHCARDS_SUBJECT_OWNER_EMAIL)
+        ).first()
+        if owner is None or owner.id is None:
+            return
+
+        children = session.exec(
+            select(ChildProfile).where(ChildProfile.user_id == owner.id)
+        ).all()
+        child_ids = [child.id for child in children if child.id is not None]
+        if not child_ids:
+            return
+
+        records = session.exec(
+            select(DiverseDay).where(DiverseDay.child_id.in_(child_ids))
+        ).all()
+
+        updated = False
+        for record in records:
+            subjects = normalize_subjects(record.custom_subjects or [])
+            filtered_subjects = [
+                subject
+                for subject in subjects
+                if str(subject.get("name") or "").strip().lower() != LEGACY_FLASHCARDS_SUBJECT_NAME
+            ]
+            if len(filtered_subjects) == len(subjects):
+                continue
+
+            record.custom_subjects = filtered_subjects
+            record.updated_at = datetime.utcnow()
+            session.add(record)
+            updated = True
+
+        if updated:
+            session.commit()
+
+
 @app.on_event("startup")
 def on_startup() -> None:
     bootstrap_database(DATABASE_URL)
     create_db_and_tables()
     _run_schema_migrations()
     normalize_existing_child_profiles()
+    cleanup_legacy_flashcards_subject()
 
 
 def hash_session_token(token: str) -> str:
