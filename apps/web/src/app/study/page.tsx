@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Code2, Copy,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
@@ -272,7 +273,8 @@ export default function StudyPage() {
       setSelectedDiverseSubjectSlug(null);
     } else if (tab) {
       setActiveTab('diverse');
-      setSelectedDiverseSubjectSlug(tab);
+      // Keep a single "Dashboard Matérias" entrypoint on mobile; subjects are selected via dropdown.
+      setSelectedDiverseSubjectSlug(null);
     }
   }, []);
 
@@ -1248,7 +1250,7 @@ export default function StudyPage() {
           <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" mobileLabel="Inglês" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" mobileLabel="Prog." />
-          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" mobileLabel="Outras" />
+          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Dashboard Matérias" mobileLabel="Matérias" />
         </div>
 
         {activeTab === 'english' && (
@@ -1783,15 +1785,15 @@ function DiverseTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="kid-surface border-primary/30 p-3 md:p-8">
+      <section className="kid-surface border-primary/30 p-2.5 md:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
-        <h1 className="mt-1 text-xl font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
+        <h1 className="mt-1 text-lg font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-          <MetricCard compact icon={<Layers size={18} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
-          <MetricCard compact icon={<CheckCircle2 size={18} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
-          <MetricCard icon={<Flame size={22} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Em progresso'}
-            helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} compact />
+        <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-5 sm:gap-3 sm:grid-cols-3">
+          <MetricCard compact icon={<Layers size={16} />} label="Materias" value={`${subjects.length}`} helper="Criadas hoje" tone="sky" />
+          <MetricCard compact icon={<CheckCircle2 size={16} />} label="Feitos" value={`${totalDone}/${totalTopics}`} helper="No total" tone="green" />
+          <MetricCard compact icon={<Flame size={16} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Progresso'}
+            helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
         </div>
       </section>
 
@@ -2308,14 +2310,23 @@ function SubjectTopicsStudyModal({
   topics: CodingTopic[];
   onClose: () => void;
 }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="subject-study-modal-title"
-      className="fixed inset-0 z-50 flex min-h-[100dvh] items-end justify-center bg-slate-950/70 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[120] flex min-h-[100dvh] items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-6"
     >
-      <div className="flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] bg-white text-slate-900 shadow-2xl sm:rounded-3xl">
+      <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[1.6rem] bg-white text-slate-900 shadow-2xl sm:rounded-3xl">
         <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -2372,7 +2383,8 @@ function SubjectTopicsStudyModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -3177,11 +3189,11 @@ function MetricCard({ icon, label, value, helper, tone, compact = false }: {
 }) {
   const toneStyles = { orange: 'bg-orange-100 text-orange-700', green: 'bg-emerald-100 text-emerald-700', rose: 'bg-rose-100 text-rose-700', sky: 'bg-sky-100 text-sky-700' }[tone];
   return (
-    <div className={`rounded-[1.1rem] border-2 border-white/80 bg-white/85 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ${compact ? 'p-2.5 sm:p-4' : 'p-3 sm:p-4'}`}>
-      <div className={`inline-flex items-center justify-center ${compact ? 'h-8 w-8 rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl' : 'h-9 w-9 rounded-2xl sm:h-11 sm:w-11'} ${toneStyles}`}>{icon}</div>
-      <p className={`font-bold uppercase tracking-[0.12em] text-slate-400 ${compact ? 'mt-2 text-[9px] sm:mt-3 sm:text-xs' : 'mt-2 text-[10px] sm:mt-3 sm:text-xs'}`}>{label}</p>
-      <p className={`mt-1 break-words font-black text-slate-800 ${compact ? 'text-lg leading-6 sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
-      <p className={`mt-1 font-semibold text-slate-500 ${compact ? 'text-[11px] leading-4 sm:text-sm sm:leading-5' : 'text-xs leading-5 sm:text-sm'}`}>{helper}</p>
+    <div className={`rounded-[1.1rem] border-2 border-white/80 bg-white/85 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ${compact ? 'p-2 sm:p-4' : 'p-3 sm:p-4'}`}>
+      <div className={`inline-flex items-center justify-center ${compact ? 'h-7 w-7 rounded-lg sm:h-11 sm:w-11 sm:rounded-2xl' : 'h-9 w-9 rounded-2xl sm:h-11 sm:w-11'} ${toneStyles}`}>{icon}</div>
+      <p className={`font-bold uppercase tracking-[0.1em] text-slate-400 ${compact ? 'mt-1.5 text-[8px] sm:mt-3 sm:text-xs' : 'mt-2 text-[10px] sm:mt-3 sm:text-xs'}`}>{label}</p>
+      <p className={`mt-0.5 break-words font-black text-slate-800 ${compact ? 'text-base leading-5 sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
+      <p className={`mt-0.5 font-semibold text-slate-500 ${compact ? 'hidden sm:block sm:text-sm sm:leading-5' : 'text-xs leading-5 sm:text-sm'}`}>{helper}</p>
     </div>
   );
 }
