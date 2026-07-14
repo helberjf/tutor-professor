@@ -12,7 +12,9 @@ assert.match(schemas, /use_global_key: bool = False/);
 assert.match(schemas, /use_global_key: Optional\[bool\] = None/);
 
 assert.match(apiMain, /ALTER TABLE useraisettings ADD COLUMN IF NOT EXISTS use_global_key BOOLEAN NOT NULL DEFAULT FALSE/);
-assert.match(apiMain, /if record\.use_global_key:\s+return None/s);
+assert.match(apiMain, /def _get_global_ai_config\(record: UserAISettings \| None = None\) -> AIProviderConfig \| None:/);
+assert.match(apiMain, /api_key = \(os\.getenv\("GEMINI_API_KEY"\) or phrase_generation_service\.api_key or ""\)\.strip\(\)/);
+assert.match(apiMain, /if record\.use_global_key:\s+return _get_global_ai_config\(record\)/s);
 assert.match(apiMain, /use_global_key = bool\(payload\.use_global_key\)/);
 assert.match(apiMain, /if not api_key and not use_global_key:/);
 assert.doesNotMatch(apiMain, /__GLOBAL_SERVER_AI_KEY__/);

@@ -106,11 +106,51 @@ function Wait-ForTunnelUrl([string]$FilePath, [string]$StderrLog = '', [string]$
 }
 
 function Stop-OldProcesses() {
-  $cf = Get-Process -Name cloudflared -ErrorAction SilentlyContinue
-  if ($cf) {
-    Write-Host "Encerrando $($cf.Count) processo(s) cloudflared antigo(s)..." -ForegroundColor Yellow
-    $cf | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 800
+  $repoPattern = [regex]::Escape($RepoRoot)
+  $processes = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+  $targets = @(
+    $processes | Where-Object {
+      $_.ProcessId -ne $PID -and (
+        (
+          $_.CommandLine -match $repoPattern -and (
+            $_.CommandLine -match 'scripts\\run-api\.ps1' -or
+            $_.CommandLine -match 'scripts\\run-tunnel\.ps1' -or
+            $_.CommandLine -match '-m uvicorn main:app'
+          )
+        ) -or (
+          $_.Name -eq 'cloudflared.exe' -and
+          $_.CommandLine -match '--url http://127\.0\.0\.1:8001'
+        )
+      )
+    }
+  )
+
+  $targetIds = @{}
+  foreach ($target in $targets) {
+    $targetIds[[int]$target.ProcessId] = $true
+  }
+
+  do {
+    $added = $false
+    foreach ($process in $processes) {
+      if (
+        $process.ProcessId -ne $PID -and
+        $process.ParentProcessId -and
+        $targetIds.ContainsKey([int]$process.ParentProcessId) -and
+        -not $targetIds.ContainsKey([int]$process.ProcessId)
+      ) {
+        $targetIds[[int]$process.ProcessId] = $true
+        $added = $true
+      }
+    }
+  } while ($added)
+
+  if ($targetIds.Count -gt 0) {
+    Write-Host "Encerrando $($targetIds.Count) processo(s) antigo(s) deste projeto..." -ForegroundColor Yellow
+    foreach ($processId in $targetIds.Keys) {
+      Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 1000
   }
 }
 
