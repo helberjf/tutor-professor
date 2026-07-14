@@ -2265,7 +2265,19 @@ def get_diverse_day(
         select(DiverseDay).where(DiverseDay.child_id == child.id, DiverseDay.study_date == study_date)
     ).first()
     if record is None:
-        return DiverseDaySchema(study_date=study_date, custom_subjects=[])
+        latest_record = session.exec(
+            select(DiverseDay)
+            .where(DiverseDay.child_id == child.id)
+            .order_by(DiverseDay.study_date.desc(), DiverseDay.id.desc())
+        ).first()
+        latest_subjects = normalize_subjects(latest_record.custom_subjects or []) if latest_record else []
+        return DiverseDaySchema(
+            study_date=study_date,
+            custom_subjects=[
+                _build_diverse_subject_schema(subject)
+                for subject in latest_subjects
+            ],
+        )
     return DiverseDaySchema(
         id=record.id,
         study_date=record.study_date,
