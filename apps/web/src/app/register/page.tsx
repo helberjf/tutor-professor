@@ -22,7 +22,7 @@ const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fr
 );
 
 const AI_PROVIDERS = [
-  { id: 'gemini', label: 'Gemini', defaultModel: 'gemini-2.5-flash' },
+  { id: 'gemini', label: 'Gemini', defaultModel: 'gemini-3.1-flash-lite' },
   { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
   { id: 'anthropic', label: 'Anthropic', defaultModel: 'claude-3-5-haiku-latest' },
   { id: 'openrouter', label: 'OpenRouter', defaultModel: 'openrouter/auto' },
@@ -96,7 +96,7 @@ export default function RegisterPage() {
     confirm: '',
     ai_provider: 'gemini',
     ai_api_key: '',
-    ai_model: 'gemini-2.5-flash',
+    ai_model: 'gemini-3.1-flash-lite',
     ai_base_url: '',
   });
   const [targetLanguage, setTargetLanguage] = useState('English');
@@ -359,7 +359,7 @@ export default function RegisterPage() {
                   id="ai_model"
                   type="text"
                   autoComplete="off"
-                  placeholder="gemini-2.5-flash"
+                  placeholder="gemini-3.1-flash-lite"
                   value={form.ai_model}
                   onChange={(e) => set('ai_model', e.target.value)}
                   className={inputCls}

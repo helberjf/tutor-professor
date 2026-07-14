@@ -206,7 +206,7 @@ CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tutorprofessor.vercel.app,htt
 SESSION_SECRET=change-me
 
 GEMINI_API_KEY=your-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 
 TTS_PROVIDER=kokoro
 KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech

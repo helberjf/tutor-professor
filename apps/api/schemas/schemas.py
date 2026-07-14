@@ -821,7 +821,7 @@ class AIProviderSchema(BaseModel):
 
 class UserAISettingsSchema(BaseModel):
     provider: str = "gemini"
-    model: str = "gemini-2.5-flash"
+    model: str = "gemini-3.1-flash-lite"
     base_url: Optional[str] = None
     has_api_key: bool = False
     api_key_preview: Optional[str] = None

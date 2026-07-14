@@ -65,7 +65,7 @@ export default function ParentsPage() {
   const [aiForm, setAiForm] = useState({
     provider: 'gemini',
     api_key: '',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     base_url: '',
   });
   const [aiSaving, setAiSaving] = useState(false);
@@ -94,7 +94,7 @@ export default function ParentsPage() {
       setAiForm({
         provider: userAiSettings.provider || 'gemini',
         api_key: '',
-        model: userAiSettings.model || 'gemini-2.5-flash',
+        model: userAiSettings.model || 'gemini-3.1-flash-lite',
         base_url: userAiSettings.base_url ?? '',
       });
       const preferredActiveChildId = choosePreferredActiveChildId({
@@ -220,7 +220,7 @@ export default function ParentsPage() {
       setGeneratedLesson(null);
       setGeneratorTone('idle');
       setAiSettings(null);
-      setAiForm({ provider: 'gemini', api_key: '', model: 'gemini-2.5-flash', base_url: '' });
+      setAiForm({ provider: 'gemini', api_key: '', model: 'gemini-3.1-flash-lite', base_url: '' });
       setAiMessage('');
       setError(null);
     } catch (err) {
@@ -363,7 +363,7 @@ export default function ParentsPage() {
   const availableAIProviders =
     aiProviders.length > 0
       ? aiProviders
-      : [{ id: 'gemini', label: 'Gemini', default_model: 'gemini-2.5-flash', requires_base_url: false, is_default: true }];
+      : [{ id: 'gemini', label: 'Gemini', default_model: 'gemini-3.1-flash-lite', requires_base_url: false, is_default: true }];
 
   return (
     <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
@@ -667,7 +667,7 @@ export default function ParentsPage() {
                       value={aiForm.model}
                       onChange={(event) => setAiForm((current) => ({ ...current, model: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
-                      placeholder="gemini-2.5-flash"
+                      placeholder="gemini-3.1-flash-lite"
                     />
                   </div>
                 </div>
