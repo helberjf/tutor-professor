@@ -277,6 +277,28 @@ class InitialLanguageLessonGenerationTests(unittest.TestCase):
         self.assertEqual(self.session.exec(select(LessonItem)).all(), [])
         self.assertEqual(self.session.exec(select(LessonQuestion)).all(), [])
 
+    def test_provider_question_fronts_without_question_marks_are_normalized(self) -> None:
+        def provider(**_kwargs) -> str:
+            return combined_lesson_payload().replace(
+                '"Comment dit-on bonjour en portugais ?"',
+                '"Translate: Bonjour"',
+            )
+
+        patches = self._common_patches(provider)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            response = main.generate_parent_lesson(
+                object(), GenerateLessonRequestSchema(topic="Salutations", quantity=1), self.session
+            )
+
+        self.assertEqual(response.lesson.questions[0].front, "Translate: Bonjour?")
+        persisted = self.session.exec(
+            select(LessonQuestion).where(
+                LessonQuestion.child_id == (self.child.id or 0),
+                LessonQuestion.lesson_id == response.lesson.id,
+            )
+        ).all()
+        self.assertTrue(all(question.front.endswith("?") for question in persisted))
+
 
 if __name__ == "__main__":
     unittest.main()

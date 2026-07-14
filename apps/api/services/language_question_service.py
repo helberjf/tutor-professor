@@ -26,6 +26,7 @@ MAX_EXISTING_FRONTS_IN_PROMPT = 100
 MAX_LANGUAGE_QUESTION_PROMPT_CHARS = 40_000
 _MAX_ITEM_SECTION_CHARS = 6_000
 _MAX_BREAKDOWN_SECTION_CHARS = 8_000
+_QUESTION_MARKS = ("?", "？")
 
 
 @dataclass(frozen=True)
@@ -125,6 +126,19 @@ def _raw_text(raw: Mapping[str, Any], primary: str, fallback: str | None = None)
     return str(value or "").strip()
 
 
+def _question_front(raw_front: str) -> str:
+    front = " ".join(str(raw_front or "").split())
+    if not front:
+        return ""
+    if front.endswith(_QUESTION_MARKS):
+        return front[:500].rstrip()
+
+    front = front.rstrip(" .!;:")
+    if len(front) >= 500:
+        front = front[:499].rstrip()
+    return f"{front}?"
+
+
 def validate_language_question_batch(
     raw_questions: Iterable[object], existing_fronts: Iterable[str]
 ) -> list[ValidatedLanguageQuestion]:
@@ -140,12 +154,12 @@ def validate_language_question_batch(
             raw.get("supporting_example"), str
         ):
             raise ValueError("supporting_example must be a string or null")
-        front = _raw_text(raw, "front")
+        front = _question_front(_raw_text(raw, "front"))
         back = _raw_text(raw, "back")
         question_type = _raw_text(raw, "question_type")
         example = _raw_text(raw, "supporting_example")
-        if len(front) > 500:
-            raise ValueError("Question front must have at most 500 characters")
+        if not front:
+            raise ValueError("Question front must not be empty")
         if len(back) > 2000:
             raise ValueError("Question back must have at most 2000 characters")
         if len(question_type) > 40:
@@ -157,7 +171,12 @@ def validate_language_question_batch(
         if not front.endswith(("?", "？")):
             raise ValueError("Each item must be written as a question")
 
-    validated_cards = validate_card_batch(questions, existing_fronts)
+    normalized_questions = [
+        {**raw, "front": _question_front(_raw_text(raw, "front"))}
+        for raw in questions
+        if isinstance(raw, Mapping)
+    ]
+    validated_cards = validate_card_batch(normalized_questions, existing_fronts)
     question_types = {card.question_type for card in validated_cards}
     if len(question_types) < 3:
         raise ValueError("Language question batches require at least three distinct types")
@@ -173,7 +192,7 @@ def validate_language_question_batch(
                 else None
             ),
         )
-        for raw, card in zip(questions, validated_cards)
+        for raw, card in zip(normalized_questions, validated_cards)
     ]
 
 
