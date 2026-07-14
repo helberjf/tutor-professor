@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
@@ -15,6 +15,11 @@ interface Props {
 
 type QuizState = { answered: boolean; selected: string; correct: boolean }[];
 type FlashcardDraft = { front: string; back: string; code_example?: string };
+type TopicAIContent = NonNullable<ProgrammingTopic['ai_content']>;
+type ReadingSection = TopicAIContent['sections'][number];
+type ReadingStudyStep =
+  | { type: 'section'; section: ReadingSection; sectionIndex: number }
+  | { type: 'quiz'; question: AIQuizQuestion; quizIndex: number };
 
 function pickTextField(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
@@ -107,6 +112,24 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [generatingAdditionalFlashcards, setGeneratingAdditionalFlashcards] = useState(false);
   const [additionalFlashcardError, setAdditionalFlashcardError] = useState('');
   const [additionalFlashcardSuccess, setAdditionalFlashcardSuccess] = useState('');
+  const [showReadingStudy, setShowReadingStudy] = useState(false);
+  const [readingStepIndex, setReadingStepIndex] = useState(0);
+
+  const readingStudySteps = useMemo<ReadingStudyStep[]>(() => {
+    if (!topic.ai_content) return [];
+    return [
+      ...topic.ai_content.sections.map((section, sectionIndex) => ({
+        type: 'section' as const,
+        section,
+        sectionIndex,
+      })),
+      ...topic.ai_content.quiz.map((question, quizIndex) => ({
+        type: 'quiz' as const,
+        question,
+        quizIndex,
+      })),
+    ];
+  }, [topic.ai_content]);
 
   const loadTopicFlashcards = useCallback(async (topicId: number): Promise<boolean> => {
     const requestId = ++flashcardLoadRequestId.current;
@@ -148,6 +171,11 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       setQuizState(topic.ai_content.quiz.map(() => ({ answered: false, selected: '', correct: false })));
     }
   }, [topic.ai_content]);
+
+  useEffect(() => {
+    setReadingStepIndex(0);
+    setShowReadingStudy(false);
+  }, [topic.id]);
 
   async function handleGenerate(context?: string) {
     if (generating || generatingAdditionalFlashcards) return;
@@ -304,6 +332,19 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     );
   }
 
+  function handleStartReadingStudy() {
+    if (!topic.ai_content || readingStudySteps.length === 0) return;
+    setReadingStepIndex(0);
+    setShowReadingStudy(true);
+  }
+
+  function handleFinishReadingStudy() {
+    setShowReadingStudy(false);
+    if (topic.status === 'not_started') {
+      void handleSetStatus('studied');
+    }
+  }
+
   const statusLabel =
     topic.status === 'mastered' ? '⭐ Dominado' : topic.status === 'studied' ? '✅ Estudado' : '🔘 Não iniciado';
   const flashcardCountLabel = loadingFc ? '...' : loadedFlashcardTopicId === topic.id ? flashcards.length : 'erro';
@@ -324,17 +365,27 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
         >
           <ArrowLeft size={16} /> {subjectName}
         </button>
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">{statusLabel}</span>
             <h1 className="mt-2 text-2xl font-black text-slate-800">{topic.title}</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {topic.ai_content && readingStudySteps.length > 0 && (
+              <button
+                type="button"
+                onClick={handleStartReadingStudy}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
+              >
+                <BookOpen size={16} />
+                Iniciar estudo
+              </button>
+            )}
             {topic.status !== 'mastered' && (
               <button
                 type="button"
                 onClick={() => handleSetStatus(topic.status === 'studied' ? 'mastered' : 'studied')}
-                className="flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white hover:bg-emerald-600"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white hover:bg-emerald-600 sm:w-auto"
               >
                 {topic.status === 'studied' ? <><Star size={14} /> Dominar</> : <><CheckCircle2 size={14} /> Estudado</>}
               </button>
@@ -673,6 +724,197 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           </div>
         )}
       </div>
+
+      {showReadingStudy && topic.ai_content && (
+        <ReadingStudyModal
+          subjectName={subjectName}
+          topicTitle={topic.title}
+          steps={readingStudySteps}
+          currentIndex={readingStepIndex}
+          quizState={quizState}
+          onStepChange={setReadingStepIndex}
+          onQuizAnswer={handleQuizAnswer}
+          onClose={() => setShowReadingStudy(false)}
+          onFinish={handleFinishReadingStudy}
+        />
+      )}
     </div>
+  );
+}
+
+function ReadingStudyModal({
+  subjectName,
+  topicTitle,
+  steps,
+  currentIndex,
+  quizState,
+  onStepChange,
+  onQuizAnswer,
+  onClose,
+  onFinish,
+}: {
+  subjectName: string;
+  topicTitle: string;
+  steps: ReadingStudyStep[];
+  currentIndex: number;
+  quizState: QuizState;
+  onStepChange: (index: number) => void;
+  onQuizAnswer: (qIdx: number, option: string, question: AIQuizQuestion) => void;
+  onClose: () => void;
+  onFinish: () => void;
+}) {
+  const total = steps.length;
+  const safeIndex = Math.min(Math.max(currentIndex, 0), Math.max(total - 1, 0));
+  const step = steps[safeIndex];
+  const progress = total > 0 ? ((safeIndex + 1) / total) * 100 : 0;
+  const isFirst = safeIndex === 0;
+  const isLast = safeIndex + 1 >= total;
+
+  if (!step) return null;
+
+  function goPrevious() {
+    if (!isFirst) onStepChange(safeIndex - 1);
+  }
+
+  function goNext() {
+    if (isLast) onFinish();
+    else onStepChange(safeIndex + 1);
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reading-study-title"
+      className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
+    >
+      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[90dvh] sm:rounded-3xl">
+        <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-widest text-primary">{subjectName}</p>
+              <h2 id="reading-study-title" className="mt-1 text-xl font-black leading-tight text-slate-950 sm:text-2xl">
+                {topicTitle}
+              </h2>
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questao'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar estudo"
+              className="shrink-0 rounded-2xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+          {step.type === 'section' ? (
+            <article className="mx-auto max-w-2xl">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                Parte {step.sectionIndex + 1}
+              </p>
+              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">
+                {step.section.title}
+              </h3>
+              <p className="mt-5 whitespace-pre-wrap text-base font-medium leading-8 text-slate-700 sm:text-lg sm:leading-9">
+                {step.section.body}
+              </p>
+              {step.section.code_example && (
+                <div className="mt-6 overflow-hidden rounded-2xl">
+                  <SyntaxCodeBlock code={step.section.code_example} language={subjectName} className="text-[11px] sm:text-xs" />
+                </div>
+              )}
+            </article>
+          ) : (
+            <ReadingQuizStep
+              question={step.question}
+              quizIndex={step.quizIndex}
+              state={quizState[step.quizIndex]}
+              onQuizAnswer={onQuizAnswer}
+            />
+          )}
+        </main>
+
+        <footer className="border-t border-slate-200 bg-white px-5 py-4 sm:rounded-b-3xl sm:px-7">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={goPrevious}
+              disabled={isFirst}
+              aria-label="Etapa anterior do estudo"
+              className="flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={17} />
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Proxima etapa do estudo"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white hover:bg-primary-dark"
+            >
+              {isLast ? 'Concluir' : 'Proximo'}
+              {!isLast && <ChevronRight size={17} />}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function ReadingQuizStep({
+  question,
+  quizIndex,
+  state,
+  onQuizAnswer,
+}: {
+  question: AIQuizQuestion;
+  quizIndex: number;
+  state?: { answered: boolean; selected: string; correct: boolean };
+  onQuizAnswer: (qIdx: number, option: string, question: AIQuizQuestion) => void;
+}) {
+  return (
+    <section className="mx-auto max-w-2xl">
+      <p className="text-xs font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
+      <h3 className="mt-3 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{question.question}</h3>
+      <div className="mt-6 space-y-3">
+        {question.options.map((option) => {
+          const answered = Boolean(state?.answered);
+          const selected = state?.selected === option;
+          const correct = question.correct_option === option;
+          let className = 'w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition sm:text-base ';
+          if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-primary hover:bg-sky-50';
+          else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
+          else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';
+          else className += 'border-slate-100 bg-slate-50 text-slate-400';
+
+          return (
+            <button
+              key={option}
+              type="button"
+              disabled={answered}
+              onClick={() => onQuizAnswer(quizIndex, option, question)}
+              className={className}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+      {state?.answered && (
+        <div className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
+          {state.correct ? 'Correto. ' : 'Ainda nao. '}
+          {question.explanation}
+        </div>
+      )}
+    </section>
   );
 }
