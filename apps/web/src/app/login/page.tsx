@@ -9,8 +9,8 @@ import { ApiError, api } from '@/lib/api';
 
 function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get('next') || '/parents';
+  useSearchParams();
+  const next = '/study';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,10 +28,7 @@ function LoginForm() {
 
     try {
       await api.userLogin(email.trim(), password);
-      const adminResult = await api.adminCheck().catch(() => ({ is_admin: false, email: '' }));
-      const isDefaultLogin = next === '/parents' || next === '/dashboard';
-      const isAdminDefaultLogin = adminResult.is_admin && isDefaultLogin;
-      router.push(isAdminDefaultLogin ? '/admin' : next);
+      router.push(next);
       router.refresh();
     } catch (err) {
       const message =
