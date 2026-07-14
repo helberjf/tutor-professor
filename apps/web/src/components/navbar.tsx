@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, LogOut, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { api } from '@/lib/api';
 
 const primaryLinks = [
   { href: '/', label: 'Início', icon: Home },
@@ -23,13 +24,44 @@ const authLinks = [
   { href: '/register', label: 'Cadastrar', icon: UserPlus },
 ];
 
+type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+
 export function Navbar() {
+  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api.getUserMe()
+      .then(() => {
+        if (!cancelled) setAuthStatus('authenticated');
+      })
+      .catch(() => {
+        if (!cancelled) setAuthStatus('unauthenticated');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  async function handleLogout() {
+    setAuthStatus('unauthenticated');
+    setOpen(false);
+    try {
+      await api.userLogout();
+    } finally {
+      router.replace('/login');
+      router.refresh();
+    }
+  }
 
   return (
     <>
@@ -118,7 +150,20 @@ export function Navbar() {
             <div className="mt-6">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Conta</p>
               <ul className="mt-4 space-y-2">
-                {authLinks.map((item) => {
+                {authStatus === 'authenticated' ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => void handleLogout()}
+                      className="flex w-full items-center gap-3 rounded-[1.35rem] px-4 py-3 text-left text-base font-bold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      <LogOut size={19} />
+                      Sair
+                    </button>
+                  </li>
+                ) : null}
+
+                {authStatus === 'unauthenticated' ? authLinks.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
                   const isRegister = item.href === '/register';
@@ -140,7 +185,7 @@ export function Navbar() {
                       </Link>
                     </li>
                   );
-                })}
+                }) : null}
               </ul>
             </div>
 
