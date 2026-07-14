@@ -33,13 +33,25 @@ function Test-TcpPort([string]$HostName, [int]$Port) {
 function Wait-ForDockerDaemon([int]$TimeoutSeconds) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   while ((Get-Date) -lt $deadline) {
-    docker info *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-DockerDaemon) {
       return $true
     }
     Start-Sleep -Seconds 3
   }
   return $false
+}
+
+function Test-DockerDaemon() {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    docker info *> $null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
 }
 
 function Start-DockerDesktopIfInstalled() {
@@ -94,8 +106,7 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
   throw "Docker was not found, and PostgreSQL is not responding on ${hostName}:${port}."
 }
 
-docker info *> $null
-if ($LASTEXITCODE -ne 0) {
+if (-not (Test-DockerDaemon)) {
   Write-Host 'Docker Desktop is not ready. Starting Docker Desktop...' -ForegroundColor Yellow
   if (-not (Start-DockerDesktopIfInstalled)) {
     throw 'Docker Desktop was not found. Start PostgreSQL manually and try again.'
