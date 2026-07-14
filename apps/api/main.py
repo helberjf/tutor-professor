@@ -378,6 +378,15 @@ def _run_schema_migrations() -> None:
                     conn.execute(text(f"ALTER TABLE codingdeckconfig ADD COLUMN {col} {ddl}"))
                 except Exception:
                     pass
+        # Allow admins to authorize a user to use the server-wide AI key
+        # without storing that key on the user record.
+        try:
+            conn.execute(text("ALTER TABLE useraisettings ADD COLUMN IF NOT EXISTS use_global_key BOOLEAN NOT NULL DEFAULT FALSE"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE useraisettings ADD COLUMN use_global_key BOOLEAN NOT NULL DEFAULT FALSE"))
+            except Exception:
+                pass
         # admin_flashcard table: created by SQLModel.create_all on first run
         conn.commit()
 
@@ -2845,6 +2854,15 @@ def build_ai_settings_schema(record: UserAISettings | None) -> UserAISettingsSch
             provider="gemini",
             model=AI_PROVIDER_DEFAULT_MODELS["gemini"],
             has_api_key=False,
+            use_global_key=False,
+        )
+    if record.use_global_key:
+        return UserAISettingsSchema(
+            provider=record.provider,
+            model=record.model,
+            base_url=record.base_url,
+            has_api_key=False,
+            use_global_key=True,
         )
     preview = "****"
     try:
@@ -2859,6 +2877,7 @@ def build_ai_settings_schema(record: UserAISettings | None) -> UserAISettingsSch
         base_url=record.base_url,
         has_api_key=True,
         api_key_preview=preview,
+        use_global_key=False,
     )
 
 
@@ -2875,17 +2894,19 @@ def save_ai_settings_for_user(
     provider = validate_ai_provider(payload.provider)
     model = (payload.model or "").strip() or default_model_for_provider(provider)
     api_key = (payload.api_key or "").strip()
+    use_global_key = bool(payload.use_global_key)
     base_url = (payload.base_url or "").strip() or None
     now = datetime.utcnow()
 
     record = get_user_ai_settings_record(user_id, session)
     if record is None:
-        if not api_key:
+        if not api_key and not use_global_key:
             raise HTTPException(status_code=422, detail="Chave de API obrigatoria para salvar as configuracoes.")
         record = UserAISettings(
             user_id=user_id,
             provider=provider,
-            api_key_encrypted=encrypt_api_key(api_key),
+            api_key_encrypted=encrypt_api_key(api_key or "__GLOBAL_SERVER_AI_KEY__"),
+            use_global_key=use_global_key,
             model=model,
             base_url=base_url,
             created_at=now,
@@ -2893,8 +2914,13 @@ def save_ai_settings_for_user(
         )
     else:
         record.provider = provider
-        if api_key:
+        if use_global_key:
+            record.api_key_encrypted = encrypt_api_key(api_key or "__GLOBAL_SERVER_AI_KEY__")
+        elif api_key:
             record.api_key_encrypted = encrypt_api_key(api_key)
+        elif not record.api_key_encrypted:
+            raise HTTPException(status_code=422, detail="Chave de API obrigatoria para salvar as configuracoes.")
+        record.use_global_key = use_global_key
         record.model = model
         record.base_url = base_url
         record.updated_at = now
@@ -2910,6 +2936,8 @@ def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AI
         return None
     record = get_user_ai_settings_record(user_id, session)
     if record is None:
+        return None
+    if record.use_global_key:
         return None
     try:
         api_key = decrypt_api_key(record.api_key_encrypted)

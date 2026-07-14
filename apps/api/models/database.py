@@ -24,6 +24,7 @@ class UserAISettings(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     provider: str = Field(default="gemini", max_length=40)
     api_key_encrypted: str
+    use_global_key: bool = Field(default=False)
     model: str = Field(default="gemini-3.1-flash-lite", max_length=120)
     base_url: Optional[str] = Field(default=None, max_length=300)
     created_at: datetime = Field(default_factory=datetime.utcnow)
