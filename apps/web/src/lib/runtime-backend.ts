@@ -219,13 +219,9 @@ export async function fetchGitHubRuntimeBackendConfig(
   }
 
   const branchConfig = await fetchRuntimeBackendConfigFromJsonUrl(options.branchRawUrl, fetchImpl);
-  if (branchConfig) {
-    return branchConfig;
-  }
-
-  const tagConfig = await fetchRuntimeBackendConfigFromJsonUrl(
-    options.explicitRawUrl || options.tagRawUrl,
-    fetchImpl,
-  );
-  return tagConfig;
+  const explicitConfig = options.explicitRawUrl
+    ? await fetchRuntimeBackendConfigFromJsonUrl(options.explicitRawUrl, fetchImpl)
+    : null;
+  const tagConfig = await fetchRuntimeBackendConfigFromJsonUrl(options.tagRawUrl, fetchImpl);
+  return chooseFreshestRuntimeBackendConfig(branchConfig, explicitConfig, tagConfig);
 }

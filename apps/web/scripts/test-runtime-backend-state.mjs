@@ -110,6 +110,46 @@ assert.deepEqual(
 );
 assert.equal(calls.length, 1, 'fresh GitHub Contents API state should avoid raw fallback');
 
+const staleBranch = {
+  baseUrl: 'https://stale-branch.trycloudflare.com',
+  host: 'stale-branch.trycloudflare.com',
+  updatedAt: '2026-07-14T04:24:56.267Z',
+  source: 'global',
+};
+const freshExplicit = {
+  baseUrl: 'https://fresh-explicit.trycloudflare.com',
+  host: 'fresh-explicit.trycloudflare.com',
+  updatedAt: '2026-07-14T04:51:17.288Z',
+  source: 'global',
+  activatedAt: null,
+  machineName: null,
+};
+const explicitCalls = [];
+const fakeExplicitFetch = async (url) => {
+  explicitCalls.push(String(url));
+  if (String(url).startsWith('https://raw.githubusercontent.com/explicit/runtime-backend.json')) {
+    return { ok: true, json: async () => freshExplicit };
+  }
+  return { ok: true, json: async () => staleBranch };
+};
+
+assert.deepEqual(
+  await fetchGitHubRuntimeBackendConfig({
+    owner: 'wrong-owner',
+    repo: 'wrong-repo',
+    branch: 'runtime-state',
+    branchFilePath: 'runtime-backend.json',
+    branchRawUrl: 'https://raw.githubusercontent.com/wrong-owner/wrong-repo/runtime-state/runtime-backend.json',
+    tagRawUrl: 'https://raw.githubusercontent.com/wrong-owner/wrong-repo/runtime-backend-state/runtime/runtime-backend.json',
+    explicitRawUrl: 'https://raw.githubusercontent.com/explicit/runtime-backend.json',
+    token: null,
+    fetchImpl: fakeExplicitFetch,
+  }),
+  freshExplicit,
+  'explicit runtime backend URL should override an older inferred branch state',
+);
+assert.ok(explicitCalls.some((url) => url.startsWith('https://raw.githubusercontent.com/explicit/runtime-backend.json')));
+
 assert.equal(
   buildRuntimeBackendHealthCheckWarning(true),
   null,
