@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Code2, Copy,
+  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Copy,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
 } from 'lucide-react';
 
@@ -273,7 +273,7 @@ export default function StudyPage() {
       setSelectedDiverseSubjectSlug(null);
     } else if (tab) {
       setActiveTab('diverse');
-      // Keep a single "Dashboard Matérias" entrypoint on mobile; subjects are selected via dropdown.
+      // Keep a single "Outras matérias" entrypoint; subjects are selected via dropdown.
       setSelectedDiverseSubjectSlug(null);
     }
   }, []);
@@ -1198,6 +1198,7 @@ export default function StudyPage() {
     if (!codingDay) return 0;
     return Object.values(codingDay.subjects).flat().length;
   }, [codingDay]);
+  const selectedOtherMatterValue = activeTab === 'coding' ? '__coding__' : selectedDiverseSubjectSlug ?? '';
 
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
@@ -1248,9 +1249,14 @@ export default function StudyPage() {
         {/* Tab switcher */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
           <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
-          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" mobileLabel="Inglês" />
-          <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" mobileLabel="Prog." />
-          <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Dashboard Matérias" mobileLabel="Matérias" />
+          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="English" mobileLabel="English" />
+          <TabButton
+            active={activeTab === 'diverse' || activeTab === 'coding'}
+            onClick={selectDiverseOverview}
+            icon={<Layers size={17} />}
+            label="Outras Matérias"
+            mobileLabel="Matérias"
+          />
         </div>
 
         {activeTab === 'english' && (
@@ -1314,8 +1320,10 @@ export default function StudyPage() {
             lastAIAction={lastAIAction}
             aiError={aiError}
             selectedSubjectSlug={selectedDiverseSubjectSlug}
+            selectedOtherMatterValue={selectedOtherMatterValue}
             onSelectSubjectTab={selectDiverseSubjectTab}
             onSelectOverview={selectDiverseOverview}
+            onSelectCoding={() => selectStudyTab('coding')}
             onRemoveSubject={removeDiverseSubject}
             onToggleTopic={toggleDiverseTopic}
             onUpdateTopicText={updateDiverseTopicText}
@@ -1719,7 +1727,7 @@ function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
-  selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
+  selectedSubjectSlug, selectedOtherMatterValue, onSelectSubjectTab, onSelectOverview, onSelectCoding,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onRegenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
   onGenerateMoreQuestions, generatingDiverseQuestions,
@@ -1743,8 +1751,10 @@ function DiverseTab({
   lastAIAction: DiverseAIAction | null;
   aiError: string;
   selectedSubjectSlug: string | null;
+  selectedOtherMatterValue: string;
   onSelectSubjectTab: (slug: string) => void;
   onSelectOverview: () => void;
+  onSelectCoding: () => void;
   onRemoveSubject: (i: number) => void | Promise<void>;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
@@ -1797,31 +1807,31 @@ function DiverseTab({
         </div>
       </section>
 
-      {subjectTabs.length > 0 && (
-        <div className="rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
-          <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-            Abrir matéria
-          </label>
-          <div className="relative">
-            <select
-              aria-label="Selecionar matéria"
-              value={selectedSubjectSlug ?? ''}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (!value) onSelectOverview();
-                else onSelectSubjectTab(value);
-              }}
-              className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
-            >
-              <option value="">Todas as matérias</option>
-              {subjectTabs.map((item) => (
-                <option key={item.slug} value={item.slug}>{item.subject.name}</option>
-              ))}
-            </select>
-            <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          </div>
+      <div className="rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
+        <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+          Abrir matéria
+        </label>
+        <div className="relative">
+          <select
+            aria-label="Selecionar matéria"
+            value={selectedOtherMatterValue}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (!value) onSelectOverview();
+              else if (value === '__coding__') onSelectCoding();
+              else onSelectSubjectTab(value);
+            }}
+            className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
+          >
+            <option value="">Todas as matérias</option>
+            <option value="__coding__">Programação</option>
+            {subjectTabs.map((item) => (
+              <option key={item.slug} value={item.slug}>{item.subject.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>
-      )}
+      </div>
 
       {selectedSubject ? (
         <DiverseSubjectDashboard
