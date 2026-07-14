@@ -31,11 +31,13 @@ function getSessionToken(): string | null {
 function setSessionToken(token: string) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+  preferredChildSyncKey = null;
 }
 
 function clearSessionToken() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+  preferredChildSyncKey = null;
 }
 
 function shouldSyncPreferredChild(endpoint: string, options: RequestInit) {
@@ -1064,6 +1066,11 @@ export const api = {
     );
     if (USE_TOKEN_AUTH && result.token) {
       setSessionToken(result.token);
+      clearActiveChildId();
+      const apiBaseUrl = await resolveApiBaseUrl();
+      if (apiBaseUrl) {
+        await syncPreferredChild(apiBaseUrl);
+      }
     }
     return result;
   },
