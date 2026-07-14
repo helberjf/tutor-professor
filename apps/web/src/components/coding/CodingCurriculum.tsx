@@ -139,16 +139,16 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   if (view.type === 'subjects') {
     return (
       <div className="space-y-6">
-        <section className="kid-surface border-primary/30 p-6">
+        <section className="kid-surface border-primary/30 p-3 md:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800">Minhas Matérias</h1>
-          <p className="mt-2 text-sm font-bold text-slate-500">
+          <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">Minhas Matérias</h1>
+          <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
             {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma matéria para treinar.' : 'Modo leitura: escolha uma matéria para estudar.'}
           </p>
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <MetricChip icon={<BookOpen size={20} />} label="Matérias" value={subjects.length} tone="sky" />
-            <MetricChip icon={<CheckCircle2 size={20} />} label="Tópicos estudados" value={subjects.reduce((a, s) => a + s.studied_count, 0)} tone="green" />
-            <MetricChip icon={<Flame size={20} />} label="Para revisar" value={subjects.reduce((a, s) => a + s.due_review_count, 0)} tone="orange" />
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
+            <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label="Matérias" value={subjects.length} tone="sky" />
+            <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label="Tópicos estudados" value={subjects.reduce((a, s) => a + s.studied_count, 0)} tone="green" />
+            <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label="Para revisar" value={subjects.reduce((a, s) => a + s.due_review_count, 0)} tone="orange" />
           </div>
         </section>
 
@@ -444,11 +444,11 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
 function MetricChip({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: 'sky' | 'green' | 'orange' }) {
   const colors = { sky: 'bg-sky-50 text-sky-700', green: 'bg-emerald-50 text-emerald-700', orange: 'bg-amber-50 text-amber-700' };
   return (
-    <div className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${colors[tone]}`}>
+    <div className={`flex items-center gap-2 rounded-xl px-3 py-2 ${colors[tone]} sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3`}>
       {icon}
       <div>
-        <p className="text-xl font-black">{value}</p>
-        <p className="text-xs font-semibold opacity-75">{label}</p>
+        <p className="text-lg font-black sm:text-xl">{value}</p>
+        <p className="text-[11px] font-semibold leading-4 opacity-75 sm:text-xs">{label}</p>
       </div>
     </div>
   );
