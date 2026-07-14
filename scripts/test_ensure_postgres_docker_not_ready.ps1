@@ -26,12 +26,12 @@ exit /b 1
 
 $previousPath = $env:PATH
 $previousProgramFiles = $env:ProgramFiles
-$previousLocalAppData = $env:LOCALAPPDATA
+$previousSkipDockerDesktopStart = $env:ENGLISH_TUTOR_SKIP_DOCKER_DESKTOP_START
 
 try {
   $env:PATH = "$FakeBin;$previousPath"
   $env:ProgramFiles = $FakeProgramFiles
-  $env:LOCALAPPDATA = Join-Path $TempRoot 'LocalAppData'
+  $env:ENGLISH_TUTOR_SKIP_DOCKER_DESKTOP_START = '1'
 
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
@@ -63,7 +63,11 @@ try {
 } finally {
   $env:PATH = $previousPath
   $env:ProgramFiles = $previousProgramFiles
-  $env:LOCALAPPDATA = $previousLocalAppData
+  if ($null -eq $previousSkipDockerDesktopStart) {
+    Remove-Item env:ENGLISH_TUTOR_SKIP_DOCKER_DESKTOP_START -ErrorAction SilentlyContinue
+  } else {
+    $env:ENGLISH_TUTOR_SKIP_DOCKER_DESKTOP_START = $previousSkipDockerDesktopStart
+  }
   if (Test-Path $TempRoot) {
     Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
   }
