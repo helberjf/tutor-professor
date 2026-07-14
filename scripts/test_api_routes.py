@@ -326,7 +326,7 @@ async def run() -> None:
         assert_status(await client.post("/api/chat", headers=child_headers, json={"message": "hello", "history": []}), 200, "chat")
         assert_status(await client.post("/api/audio/speak", headers=child_headers, json={"text": "Hello"}), 200, "audio speak")
         missing_ai_response = await client.post("/api/parent/generate-lesson", headers=child_headers, json={})
-        assert_status(missing_ai_response, 403, "generate lesson requires user ai settings")
+        assert_status(missing_ai_response, 503, "generate lesson requires an available AI key")
         if "chave" not in missing_ai_response.text.lower() and "api" not in missing_ai_response.text.lower():
             raise AssertionError(f"expected missing AI key message, got {missing_ai_response.text}")
         missing_flashcards_response = await client.post(

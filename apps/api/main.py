@@ -2881,6 +2881,30 @@ def get_user_ai_settings_record(user_id: int, session: Session) -> UserAISetting
     return session.exec(select(UserAISettings).where(UserAISettings.user_id == user_id)).first()
 
 
+def _get_global_ai_config(record: UserAISettings | None = None) -> AIProviderConfig | None:
+    api_key = (os.getenv("GEMINI_API_KEY") or phrase_generation_service.api_key or "").strip()
+    if not api_key:
+        return None
+    model = (
+        (record.model if record else None)
+        or os.getenv("GEMINI_MODEL")
+        or phrase_generation_service.model
+        or AI_PROVIDER_DEFAULT_MODELS["gemini"]
+    ).strip()
+    base_url = (
+        (record.base_url if record else None)
+        or os.getenv("GEMINI_API_BASE_URL")
+        or phrase_generation_service.api_base_url
+        or None
+    )
+    return AIProviderConfig(
+        provider="gemini",
+        api_key=api_key,
+        model=model or AI_PROVIDER_DEFAULT_MODELS["gemini"],
+        base_url=base_url.rstrip("/") if base_url else None,
+    )
+
+
 def save_ai_settings_for_user(
     *,
     user_id: int,
@@ -2934,7 +2958,7 @@ def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AI
     if record is None:
         return None
     if record.use_global_key:
-        return None
+        return _get_global_ai_config(record)
     try:
         api_key = decrypt_api_key(record.api_key_encrypted)
     except Exception:
