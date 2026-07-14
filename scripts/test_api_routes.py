@@ -393,6 +393,21 @@ async def run() -> None:
                 f"subject identity was not persisted canonically: stored={stored_subject_id}, response={saved_subject}"
             )
 
+        tomorrow = today + timedelta(days=1)
+        empty_next_day_response = await client.get(
+            f"/api/study/diverse/{tomorrow.isoformat()}",
+            headers=child_headers,
+        )
+        assert_status(empty_next_day_response, 200, "empty diverse day reuses latest subjects")
+        empty_next_day_payload = empty_next_day_response.json()
+        if empty_next_day_payload["study_date"] != tomorrow.isoformat():
+            raise AssertionError(f"expected requested study date for reused diverse subjects, got {empty_next_day_payload}")
+        if empty_next_day_payload.get("id") is not None:
+            raise AssertionError(f"reused diverse subjects must not expose the previous day id, got {empty_next_day_payload}")
+        reused_subjects = empty_next_day_payload["custom_subjects"]
+        if len(reused_subjects) != 1 or reused_subjects[0]["name"] != "Frances":
+            raise AssertionError(f"expected latest diverse subjects on empty day, got {empty_next_day_payload}")
+
         canonical_with_new_subject = diverse_payload["custom_subjects"] + [
             {
                 "name": "Materia nova sem ID",
