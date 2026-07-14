@@ -15,7 +15,9 @@ assert.match(apiMain, /ALTER TABLE useraisettings ADD COLUMN IF NOT EXISTS use_g
 assert.match(apiMain, /if record\.use_global_key:\s+return None/s);
 assert.match(apiMain, /use_global_key = bool\(payload\.use_global_key\)/);
 assert.match(apiMain, /if not api_key and not use_global_key:/);
-assert.match(apiMain, /api_key_encrypted=encrypt_api_key\(api_key or "__GLOBAL_SERVER_AI_KEY__"\)/);
+assert.doesNotMatch(apiMain, /__GLOBAL_SERVER_AI_KEY__/);
+assert.match(apiMain, /api_key_encrypted=encrypt_api_key\(api_key\) if api_key else ""/);
+assert.match(apiMain, /if use_global_key:\s+record\.api_key_encrypted = ""/s);
 assert.match(apiMain, /record\.use_global_key = use_global_key/);
 
 assert.match(apiClient, /use_global_key: boolean;/);
