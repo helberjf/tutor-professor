@@ -487,6 +487,14 @@ def get_default_child(session: Session, user_id: int | None = None) -> ChildProf
     return normalize_child_voice_preference(child, session=session)
 
 
+def child_belongs_to_parent_session(child: ChildProfile, parent_session: UserSession | None) -> bool:
+    if parent_session is None:
+        return child.user_id is None
+    if parent_session.user_id is None:
+        return child.user_id is None
+    return child.user_id == parent_session.user_id
+
+
 def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
     parent_session = get_request_user_session(request=request, session=session)
     logged_user_id = parent_session.user_id if parent_session is not None else None
@@ -499,10 +507,9 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
                 raise HTTPException(status_code=400, detail="X-Child-ID invalido.")
             requested_child_id = int(raw_child_id)
             selected_child = session.get(ChildProfile, requested_child_id)
-            is_accessible = selected_child is not None and (
-                (parent_session is not None and logged_user_id is None)
-                or selected_child.user_id == logged_user_id
-                or (parent_session is None and selected_child.user_id is None)
+            is_accessible = selected_child is not None and child_belongs_to_parent_session(
+                selected_child,
+                parent_session,
             )
             if not is_accessible or selected_child is None or selected_child.id != requested_child_id:
                 raise HTTPException(status_code=404, detail="Crianca nao encontrada.")
@@ -4328,8 +4335,11 @@ def list_parent_children(
             .order_by(ChildProfile.created_at, ChildProfile.id)
         ).all()
     else:
-        # Legacy password-only login: see all children (backwards compat)
-        children = session.exec(select(ChildProfile).order_by(ChildProfile.created_at, ChildProfile.id)).all()
+        children = session.exec(
+            select(ChildProfile)
+            .where(ChildProfile.user_id == None)
+            .order_by(ChildProfile.created_at, ChildProfile.id)
+        ).all()
     return [ChildProfileSchema.model_validate(normalize_child_voice_preference(child, session=session)) for child in children]
 
 
