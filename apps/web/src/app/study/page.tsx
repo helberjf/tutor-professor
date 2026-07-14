@@ -690,7 +690,7 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
-  function removeDiverseSubject(index: number) {
+  async function removeDiverseSubject(index: number) {
     if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
     const removedSubject = diverseDay.custom_subjects[index];
@@ -702,6 +702,26 @@ export default function StudyPage() {
     setDiverseDay(nextDay);
     setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, removedSubject.id));
     if (selectedDiverseSubjectSlug === removedSlug) selectDiverseOverview();
+
+    diverseMutationLockRef.current = true;
+    setSavingDiverse(true);
+    setDiverseError('');
+    setDiverseSaved('');
+    try {
+      const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: subjects });
+      diverseDayRef.current = saved;
+      setDiverseDay(saved);
+      setDiverseSaved('Matéria removida com sucesso.');
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Não foi possível apagar a matéria agora.';
+      setDiverseError(message);
+      diverseDayRef.current = diverseDay;
+      setDiverseDay(diverseDay);
+      if (selectedDiverseSubjectSlug === removedSlug) selectDiverseSubjectTab(removedSlug);
+    } finally {
+      diverseMutationLockRef.current = false;
+      setSavingDiverse(false);
+    }
   }
 
   function toggleDiverseTopic(subjectIndex: number, topicIndex: number) {
@@ -890,6 +910,72 @@ export default function StudyPage() {
       setDiverseSaved('Tópico sugerido pela IA. Salve a matéria para guardar.');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : 'Não foi possível sugerir tópico com IA.';
+      setAiError(msg);
+    } finally {
+      diverseMutationLockRef.current = false;
+      setGeneratingAI(false);
+      setAiAction(null);
+    }
+  }
+
+  async function regenerateDiverseTopicWithAI(
+    subjectIndex: number,
+    topicIndex: number,
+    context?: string,
+    inlineApiKey?: string,
+  ) {
+    if (diverseMutationLockRef.current) return;
+    if (!diverseDay) return;
+    const subject = diverseDay.custom_subjects[subjectIndex];
+    const currentTopic = subject?.topics?.[topicIndex];
+    if (!subject || !currentTopic || !subject.name.trim()) return;
+
+    diverseMutationLockRef.current = true;
+    setGeneratingAI(true);
+    setAiAction('topic');
+    setLastAIAction('topic');
+    setAiError('');
+    setDiverseSaved('');
+    try {
+      const currentTopicKey = normalizeDiverseTopicText(currentTopic.topic);
+      const avoidTopics = getDiverseAvoidTopics(subject).filter((topicName) => normalizeDiverseTopicText(topicName) !== currentTopicKey);
+      const result = await api.generateStudyFlashcards({
+        subject: subject.name,
+        count: 1,
+        generation_mode: 'topic',
+        avoid_topics: avoidTopics,
+        ...(context?.trim() ? { context: context.trim() } : {}),
+        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
+      });
+      const replacement = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
+      if (!replacement) {
+        setAiError('A IA não conseguiu gerar um tópico novo para substituir este item. Tente novamente.');
+        return;
+      }
+
+      setDiverseDay((current) => {
+        if (!current) return current;
+        const subjects = current.custom_subjects.map((candidate, si) => {
+          if (si !== subjectIndex) return candidate;
+          const topics = candidate.topics.map((topic, ti) => {
+            if (ti !== topicIndex) return topic;
+            return {
+              ...topic,
+              topic: replacement.topic,
+              answer: replacement.answer,
+              code_example: replacement.code_example ?? null,
+              done: false,
+            };
+          });
+          return { ...candidate, topics };
+        });
+        const nextDay = { ...current, custom_subjects: subjects };
+        diverseDayRef.current = nextDay;
+        return nextDay;
+      });
+      setDiverseSaved('Tópico regenerado com IA. Salve a matéria para guardar.');
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Não foi possível regenerar este tópico com IA.';
       setAiError(msg);
     } finally {
       diverseMutationLockRef.current = false;
@@ -1234,6 +1320,7 @@ export default function StudyPage() {
             onUpdateTopicAnswer={updateDiverseTopicAnswer}
             onUpdateSubjectName={updateDiverseSubjectName}
             onGenerateTopicAI={(subjectId, key) => void generateDiverseTopic(subjectId, key)}
+            onRegenerateTopicAI={(subjectIndex, topicIndex, context, key) => void regenerateDiverseTopicWithAI(subjectIndex, topicIndex, context, key)}
             onGenerateLessonAI={(subjectId, key, context) => void generateDiverseLesson(subjectId, key, context)}
             onGenerateMoreQuestions={generateMoreDiverseQuestions}
             generatingDiverseQuestions={generatingDiverseQuestions}
@@ -1632,7 +1719,7 @@ function DiverseTab({
   onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
-  onUpdateSubjectName, onGenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
+  onUpdateSubjectName, onGenerateTopicAI, onRegenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
   onGenerateMoreQuestions, generatingDiverseQuestions,
   onRateTopic, onRateLessonTopic, onSessionComplete,
   onRemoveLesson, onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
@@ -1656,12 +1743,13 @@ function DiverseTab({
   selectedSubjectSlug: string | null;
   onSelectSubjectTab: (slug: string) => void;
   onSelectOverview: () => void;
-  onRemoveSubject: (i: number) => void;
+  onRemoveSubject: (i: number) => void | Promise<void>;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
   onUpdateSubjectName: (si: number, v: string) => void;
   onGenerateTopicAI: (subjectId: string, apiKey?: string) => void;
+  onRegenerateTopicAI: (subjectIndex: number, topicIndex: number, context?: string, apiKey?: string) => void | Promise<void>;
   onGenerateLessonAI: (subjectId: string, apiKey?: string, context?: string) => void;
   onGenerateMoreQuestions: (subjectId: string, lessonId: string, context?: string) => Promise<string>;
   generatingDiverseQuestions: boolean;
@@ -1738,12 +1826,13 @@ function DiverseTab({
           selectedDate={selectedDate}
           subject={selectedSubject.subject}
           onBack={onSelectOverview}
-          onRemove={() => onRemoveSubject(selectedSubject.index)}
+          onRemove={() => void onRemoveSubject(selectedSubject.index)}
           onToggleTopic={(ti) => onToggleTopic(selectedSubject.index, ti)}
           onUpdateTopicText={(ti, v) => onUpdateTopicText(selectedSubject.index, ti, v)}
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
           onUpdateSubjectName={(v) => onUpdateSubjectName(selectedSubject.index, v)}
           onGenerateTopicAI={(key) => onGenerateTopicAI(selectedSubject.subject.id, key)}
+          onRegenerateTopicAI={(topicIndex, context, key) => onRegenerateTopicAI(selectedSubject.index, topicIndex, context, key)}
           onGenerateLessonAI={(key, context) => onGenerateLessonAI(selectedSubject.subject.id, key, context)}
           onGenerateMoreQuestions={(lessonId, context) => onGenerateMoreQuestions(selectedSubject.subject.id, lessonId, context)}
           questionGenerationBusy={generatingDiverseQuestions || generatingAI || savingDiverse}
@@ -1837,7 +1926,7 @@ function DiverseTab({
                       </div>
                       <button
                         type="button"
-                        onClick={() => onRemoveSubject(item.index)}
+                        onClick={() => void onRemoveSubject(item.index)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
                         title="Apagar matéria"
                       >
@@ -1911,6 +2000,7 @@ function DiverseSubjectDashboard({
   diverseSaved, diverseError, pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
   onRequestNotifications, onGenerateTopicAI, onGenerateLessonAI, onRemoveLesson,
+  onRegenerateTopicAI,
   onGenerateMoreQuestions, questionGenerationBusy,
   onToggleLessonTopic, onUpdateLessonTitle, onUpdateLessonTopicText,
   onUpdateLessonTopicAnswer, generatingAI, aiAction, lastAIAction, aiError, onBulkAddTopics,
@@ -1926,6 +2016,7 @@ function DiverseSubjectDashboard({
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
   onGenerateTopicAI: (apiKey?: string) => void;
+  onRegenerateTopicAI: (topicIndex: number, context?: string, apiKey?: string) => void | Promise<void>;
   onGenerateLessonAI: (apiKey?: string, context?: string) => void;
   onGenerateMoreQuestions: (lessonId: string, context?: string) => Promise<string>;
   questionGenerationBusy: boolean;
@@ -2113,6 +2204,8 @@ function DiverseSubjectDashboard({
             onUpdateTopicText={onUpdateTopicText}
             onUpdateTopicAnswer={onUpdateTopicAnswer}
             onUpdateSubjectName={onUpdateSubjectName}
+            onRegenerateTopicAI={onRegenerateTopicAI}
+            aiBusy={generatingAI || questionGenerationBusy}
             onBulkAddTopics={onBulkAddTopics}
             onRateTopic={onRateTopic}
             onSessionComplete={onSessionComplete}
@@ -2432,6 +2525,7 @@ function DiverseQuestionGenerationForm({
 
 function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
+  onRegenerateTopicAI, aiBusy = false,
   defaultCollapsed, syntaxLanguage, onBulkAddTopics, onRateTopic, onSessionComplete,
   questionGenerationLessons, fixedQuestionGenerationLesson, questionGenerationButtonLabel,
   onGenerateMoreQuestions, questionGenerationBusy = false,
@@ -2442,6 +2536,8 @@ function SubjectStudyCard({
   onUpdateTopicText: (ti: number, value: string) => void;
   onUpdateTopicAnswer: (ti: number, value: string) => void;
   onUpdateSubjectName: (value: string) => void;
+  onRegenerateTopicAI?: (ti: number, context?: string, apiKey?: string) => void | Promise<void>;
+  aiBusy?: boolean;
   defaultCollapsed?: boolean;
   syntaxLanguage?: string;
   onBulkAddTopics?: (topics: CodingTopic[]) => void;
@@ -2462,6 +2558,9 @@ function SubjectStudyCard({
   const [importText, setImportText] = useState('');
   const [importPreview, setImportPreview] = useState<CodingTopic[] | null>(null);
   const [importError, setImportError] = useState('');
+  const [topicRegenerateContext, setTopicRegenerateContext] = useState<Record<number, string>>({});
+  const [topicAiKeyDraft, setTopicAiKeyDraft] = useState<Record<number, string>>({});
+  const [regeneratingTopicIndex, setRegeneratingTopicIndex] = useState<number | null>(null);
   const [copiedJson, setCopiedJson] = useState(false);
   const [studyState, setStudyState] = useState<InlineStudyState>(() => ({
     order: subject.topics.map((_, i) => i), position: 0, userAnswer: '', revealed: false, results: [], done: false,
@@ -2702,6 +2801,44 @@ function SubjectStudyCard({
                         placeholder="Explicacao / resposta (usada no modo Estudar)"
                         className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
                       />
+                      {onRegenerateTopicAI && (
+                        <div className="rounded-xl border-2 border-violet-200 bg-violet-50 p-3">
+                          <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">Regenerar tópico com IA</p>
+                          <textarea
+                            value={topicRegenerateContext[ti] ?? ''}
+                            onChange={(event) => setTopicRegenerateContext((current) => ({ ...current, [ti]: event.target.value }))}
+                            rows={2}
+                            maxLength={1000}
+                            placeholder="Contexto opcional (ex.: focar em exemplos práticos e prova da OAB)."
+                            className="mt-2 w-full resize-none rounded-xl border-2 border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-violet-400"
+                          />
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                            <input
+                              type="password"
+                              value={topicAiKeyDraft[ti] ?? ''}
+                              onChange={(event) => setTopicAiKeyDraft((current) => ({ ...current, [ti]: event.target.value }))}
+                              placeholder="Chave IA opcional"
+                              className="min-h-9 flex-1 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-violet-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const context = topicRegenerateContext[ti]?.trim() || undefined;
+                                const apiKey = topicAiKeyDraft[ti]?.trim() || undefined;
+                                setRegeneratingTopicIndex(ti);
+                                Promise.resolve(onRegenerateTopicAI(ti, context, apiKey)).finally(() => {
+                                  setRegeneratingTopicIndex((current) => (current === ti ? null : current));
+                                });
+                              }}
+                              disabled={aiBusy || regeneratingTopicIndex === ti}
+                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-xs font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {regeneratingTopicIndex === ti ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                              {regeneratingTopicIndex === ti ? 'Regenerando...' : 'Regenerar tópico'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {t.code_example && (
                         <SyntaxCodeBlock code={t.code_example} language={codeLanguage} className="mt-3 p-3" />
                       )}
