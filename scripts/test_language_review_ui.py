@@ -45,6 +45,9 @@ def main() -> None:
         'aria-controls="review-question-generator-panel"',
         'id="review-question-generator-panel"',
         'aria-live="polite"',
+        "Criar proxima licao",
+        "api.generateMorePhrases({ quantity: 1",
+        "maxLength={80}",
         "beginMixedReviewSubmission",
         "beginMixedReviewAdvancement",
         "revealMixedReviewLessonAnswer",
@@ -85,8 +88,12 @@ def main() -> None:
         "lesson-question completion validates its captured session and card",
     )
     generation = main_source.split(
-        "async function handleGenerateLessonQuestions", 1
+        "async function handleGenerateNextLesson", 1
     )[1].split("async function handleGenerationRecoveryReload", 1)[0]
+    require(
+        "generateLessonQuestions" not in main_source,
+        "main review creates a new lesson instead of appending questions to an old lesson",
+    )
     require("finally" in generation, "generation always reaches token-safe cleanup")
     require(
         "generationRequestRef.current === requestToken" in generation,
