@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { api, type StudyDashboard, ApiError } from '@/lib/api';
 import { ActivityLogSection } from '@/components/activity-log-section';
@@ -11,6 +12,7 @@ import { StatusCard } from '@/components/status-card';
 type GateState = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [gateState, setGateState] = useState<GateState>('loading');
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +23,14 @@ export default function DashboardPage() {
     let cancelled = false;
 
     api.getUserMe()
-      .then((data) => {
-        if (!cancelled) setGateState('authenticated');
+      .then(async () => {
+        const adminResult = await api.adminCheck().catch(() => ({ is_admin: false, email: '' }));
+        if (cancelled) return;
+        if (adminResult.is_admin) {
+          router.replace('/admin');
+          return;
+        }
+        setGateState('authenticated');
       })
       .catch((err) => {
         if (cancelled) return;
@@ -36,7 +44,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (gateState !== 'authenticated') return;

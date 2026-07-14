@@ -28,7 +28,10 @@ function LoginForm() {
 
     try {
       await api.userLogin(email.trim(), password);
-      router.push(next);
+      const adminResult = await api.adminCheck().catch(() => ({ is_admin: false, email: '' }));
+      const isDefaultLogin = next === '/parents' || next === '/dashboard';
+      const isAdminDefaultLogin = adminResult.is_admin && isDefaultLogin;
+      router.push(isAdminDefaultLogin ? '/admin' : next);
       router.refresh();
     } catch (err) {
       const message =
