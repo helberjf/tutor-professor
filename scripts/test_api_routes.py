@@ -2349,6 +2349,20 @@ async def run() -> None:
         assert_status(await client.post("/api/auth/logout"), 200, "google auth logout")
 
         assert_status(await client.post("/api/parent/login", json={"password": "parent-pass"}), 200, "legacy parent login")
+        legacy_children_response = await client.get("/api/parent/children")
+        assert_status(legacy_children_response, 200, "legacy parent children")
+        legacy_children = legacy_children_response.json()
+        if any(child.get("user_id") is not None for child in legacy_children):
+            raise AssertionError(f"legacy parent login must not list registered-user children: {legacy_children}")
+        legacy_registered_child_response = await client.get(
+            "/api/study/dashboard",
+            headers={"X-Child-ID": str(child_id)},
+        )
+        assert_status(
+            legacy_registered_child_response,
+            404,
+            "legacy parent login cannot access registered-user child",
+        )
         assert_status(await client.post("/api/parent/logout"), 200, "parent logout")
 
     print("API route smoke tests passed.")
