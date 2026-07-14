@@ -90,27 +90,10 @@ export function getStoredApiBaseUrl() {
   return normalizeSavedApiBaseUrl(window.localStorage.getItem(API_BASE_URL_STORAGE_KEY) || '');
 }
 
-function getStoredApiBaseUrlSavedAtMs() {
-  if (!isBrowser()) {
-    return 0;
-  }
-
-  const rawValue = window.localStorage.getItem(API_BASE_URL_SAVED_AT_STORAGE_KEY) || '';
-  const timestamp = Date.parse(rawValue);
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function getRuntimeBackendUpdatedAtMs(config: RuntimeBackendConfig) {
-  const timestamp = Date.parse(config.updatedAt || '');
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
 function getPreferredConfiguredConnection(runtimeConfig = readStoredRuntimeBackendConfig()): ApiConnectionDetails {
   const savedUrl = getStoredApiBaseUrl();
-  const savedAtMs = getStoredApiBaseUrlSavedAtMs();
-  const runtimeAtMs = getRuntimeBackendUpdatedAtMs(runtimeConfig);
 
-  if (runtimeConfig.baseUrl && (!savedUrl || runtimeAtMs >= savedAtMs)) {
+  if (runtimeConfig.baseUrl) {
     return {
       baseUrl: runtimeConfig.baseUrl,
       host: runtimeConfig.host,

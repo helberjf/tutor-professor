@@ -28,7 +28,7 @@ function describeConnection() {
     return {
       ...connection,
       title: `Conectado a ${connection.host}`,
-      detail: 'Essa URL manual vale neste aparelho ate o launcher publicar uma URL global mais nova.',
+      detail: 'Essa URL manual vale neste aparelho enquanto nao houver uma URL global publicada na Vercel.',
     };
   }
 
@@ -245,8 +245,8 @@ cloudflared tunnel --url http://127.0.0.1:8001
             </div>
             <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
             <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
-              <p>A URL manual continua funcionando neste navegador quando nao houver uma URL global mais nova. Se a crianca usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
-              <p>Quando o launcher publica uma configuracao global na Vercel, o app troca automaticamente para essa URL mais recente no proximo acesso.</p>
+              <p>A URL manual continua funcionando neste navegador quando nao houver uma URL global publicada. Se a crianca usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
+              <p>Quando o launcher publica uma configuracao global na Vercel, o app troca automaticamente para essa URL no proximo acesso.</p>
               <p>Quando a URL do tunnel mudar em outro dia, abra esta pagina de novo, cole a nova URL HTTPS e salve. Nao precisa fazer novo deploy na Vercel.</p>
               <p>Se depois voce mover o backend para uma VPS, pode continuar usando esta pagina como override de emergencia ou limpar e voltar para a URL padrao.</p>
             </div>
