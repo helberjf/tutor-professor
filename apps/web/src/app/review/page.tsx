@@ -7,7 +7,6 @@ import {
   Brain,
   CheckCircle2,
   Loader2,
-  Plus,
   RotateCcw,
   Sparkles,
   Volume2,
@@ -21,16 +20,11 @@ import {
   ApiError,
   api,
   type LessonQuestionReviewCard,
-  type LessonSummary,
   type ReviewCard,
   type ReviewSession,
   type VocabularyReviewCard,
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
-import {
-  isUncertainLessonQuestionGenerationError,
-  validateConfirmedLessonQuestionBatch,
-} from '@/lib/lesson-question-state';
 import {
   advanceMixedReview,
   beginMixedReviewAdvancement,
@@ -40,7 +34,6 @@ import {
   createMixedReviewState,
   isReviewAttemptCompletionCurrent,
   revealMixedReviewLessonAnswer,
-  runLessonQuestionGeneration,
   type ReviewConfidenceValue,
 } from '@/lib/mixed-review-state';
 
@@ -84,10 +77,6 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  const [lessons, setLessons] = useState<LessonSummary[]>([]);
-  const [lessonsLoading, setLessonsLoading] = useState(false);
-  const [lessonsError, setLessonsError] = useState<string | null>(null);
-  const [selectedLessonId, setSelectedLessonId] = useState<number | ''>('');
   const [targetLanguage, setTargetLanguage] = useState('');
   const [generationFormOpen, setGenerationFormOpen] = useState(false);
   const [generationContext, setGenerationContext] = useState('');
@@ -98,7 +87,6 @@ export default function ReviewPage() {
   const mountedRef = useRef(true);
   const reviewRequestRef = useRef(0);
   const optionsRequestRef = useRef(0);
-  const selectedLessonIdRef = useRef<number | ''>('');
   const generationRequestRef = useRef(0);
   const generationInFlightRef = useRef(false);
   const reviewTransitionRef = useRef(createMixedReviewState(0));
@@ -149,24 +137,14 @@ export default function ReviewPage() {
 
   async function loadGenerationOptions() {
     const requestToken = ++optionsRequestRef.current;
-    setLessonsLoading(true);
-    setLessonsError(null);
-    const [lessonResult, settingsResult] = await Promise.allSettled([
-      api.getAllLessons(),
-      api.getParentSettings(),
-    ]);
-    if (!mountedRef.current || optionsRequestRef.current !== requestToken) return;
-
-    if (lessonResult.status === 'fulfilled') {
-      setLessons(lessonResult.value);
-    } else {
-      setLessons([]);
-      setLessonsError('Nao foi possivel carregar as licoes disponiveis.');
+    try {
+      const settings = await api.getParentSettings();
+      if (!mountedRef.current || optionsRequestRef.current !== requestToken) return;
+      setTargetLanguage(settings.target_language);
+    } catch {
+      if (!mountedRef.current || optionsRequestRef.current !== requestToken) return;
+      setTargetLanguage('');
     }
-    if (settingsResult.status === 'fulfilled') {
-      setTargetLanguage(settingsResult.value.target_language);
-    }
-    setLessonsLoading(false);
   }
 
   useEffect(() => {
@@ -193,16 +171,12 @@ export default function ReviewPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authState.status]);
 
-  async function reloadReviewAfterGeneration(
-    requestToken: number,
-    requestLessonId: number,
-  ): Promise<boolean> {
+  async function reloadReviewAfterGeneration(requestToken: number): Promise<boolean> {
     try {
       const data = await api.getReviewSession(REVIEW_LIMIT);
       if (
         !mountedRef.current
         || generationRequestRef.current !== requestToken
-        || selectedLessonIdRef.current !== requestLessonId
       ) {
         return false;
       }
@@ -215,69 +189,39 @@ export default function ReviewPage() {
     }
   }
 
-  async function handleGenerateLessonQuestions() {
-    if (
-      generationInFlightRef.current
-      || generationNeedsReviewReload
-      || typeof selectedLessonId !== 'number'
-    ) {
-      if (typeof selectedLessonId !== 'number') {
-        setGenerationMessage({ tone: 'error', text: 'Escolha uma licao antes de gerar.' });
-      }
-      return;
-    }
+  async function handleGenerateNextLesson() {
+    if (generationInFlightRef.current || generationNeedsReviewReload) return;
 
     generationInFlightRef.current = true;
     const requestToken = ++generationRequestRef.current;
-    const requestLessonId = selectedLessonId;
-    const selectedLesson = lessons.find((lesson) => lesson.id === requestLessonId);
     setGenerating(true);
     setGenerationMessage(null);
 
     const isCurrentRequest = () => (
       mountedRef.current
       && generationRequestRef.current === requestToken
-      && selectedLessonIdRef.current === requestLessonId
     );
     try {
-      const outcome = await runLessonQuestionGeneration({
-        lessonId: requestLessonId,
-        generate: () => api.generateLessonQuestions(requestLessonId, generationContext),
-        validate: validateConfirmedLessonQuestionBatch,
-        reload: () => reloadReviewAfterGeneration(requestToken, requestLessonId),
-        isCurrent: isCurrentRequest,
-        isUncertainError: isUncertainLessonQuestionGenerationError,
-      });
+      const result = await api.generateMorePhrases({ quantity: 1, topic: generationContext.trim() || undefined });
+      if (!isCurrentRequest()) return;
 
-      if (outcome.kind === 'stale') return;
-      if (outcome.kind === 'confirmed') {
-        setGenerationContext('');
-        setGenerationMessage({
-          tone: outcome.reloaded ? 'success' : 'warning',
-          text: outcome.reloaded
-            ? `${outcome.count} novas questoes foram criadas para ${selectedLesson?.title || 'a licao'} e a revisao foi atualizada.`
-            : `${outcome.count} novas questoes foram criadas, mas a revisao nao recarregou. Recarregue antes de gerar novamente.`,
-        });
-        setGenerationNeedsReviewReload(!outcome.reloaded);
-      } else if (outcome.kind === 'uncertain') {
-        setGenerationNeedsReviewReload(!outcome.reloaded);
-        setGenerationMessage({
-          tone: 'warning',
-          text: outcome.reloaded
-            ? 'A resposta da IA ficou incerta. A revisao foi recarregada; confira as questoes antes de tentar novamente.'
-            : 'A resposta da IA ficou incerta. Recarregue a revisao antes de tentar novamente para evitar perguntas duplicadas.',
-        });
-      } else {
-        const generationError = outcome.error;
-        if (generationError instanceof ApiError && generationError.status === 409) {
-          setGenerationMessage({ tone: 'error', text: generationError.message || 'Esta licao atingiu o limite de perguntas.' });
-        } else {
-          setGenerationMessage({
-            tone: 'error',
-            text: generationError instanceof Error ? generationError.message : 'Nao foi possivel criar as questoes.',
-          });
-        }
-      }
+      const reloaded = await reloadReviewAfterGeneration(requestToken);
+      if (!isCurrentRequest()) return;
+
+      setGenerationContext('');
+      setGenerationMessage({
+        tone: reloaded ? 'success' : 'warning',
+        text: reloaded
+          ? `Nova licao criada: ${result.lesson.title}. A revisao foi atualizada com as novas perguntas.`
+          : `Nova licao criada: ${result.lesson.title}, mas a revisao nao recarregou. Recarregue antes de gerar novamente.`,
+      });
+      setGenerationNeedsReviewReload(!reloaded);
+    } catch (err) {
+      if (!isCurrentRequest()) return;
+      setGenerationMessage({
+        tone: 'error',
+        text: err instanceof Error ? err.message : 'Nao foi possivel criar a proxima licao.',
+      });
     } finally {
       if (mountedRef.current && generationRequestRef.current === requestToken) {
         generationInFlightRef.current = false;
@@ -531,9 +475,9 @@ export default function ReviewPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="kid-tag inline-flex items-center gap-1 text-xs"><Sparkles size={12} /> IA</p>
-          <h2 id="generate-review-title" className="mt-2 text-lg font-black text-slate-800">Criar mais questoes</h2>
+          <h2 id="generate-review-title" className="mt-2 text-lg font-black text-slate-800">Criar proxima licao</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Gere 5 novas questoes para uma licao de {targetLanguage || 'idioma'} sem sair da revisao.
+            A IA cria a proxima licao de {targetLanguage || 'idioma'} e adiciona novas perguntas na revisao.
           </p>
         </div>
         <button
@@ -547,56 +491,27 @@ export default function ReviewPage() {
           aria-controls="review-question-generator-panel"
           className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60"
         >
-          <Plus size={16} /> Criar mais questoes com IA
+          <Sparkles size={16} /> Criar proxima licao com IA
         </button>
       </div>
 
       {generationFormOpen && (
         <div id="review-question-generator-panel" className="mt-5 space-y-4 border-t border-violet-100 pt-5">
           <label className="block text-sm font-black text-slate-700">
-            Licao
-            <select
-              required
-              value={selectedLessonId}
-              onChange={(event) => {
-                const value = event.target.value ? Number(event.target.value) : '';
-                selectedLessonIdRef.current = value;
-                setSelectedLessonId(value);
-                setGenerationMessage(null);
-              }}
-              disabled={generating || lessonsLoading}
-              className="mt-2 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
-            >
-              <option value="">Selecione uma licao</option>
-              {lessons.map((lesson) => (
-                <option key={lesson.id} value={lesson.id}>{lesson.title} · {lesson.theme}</option>
-              ))}
-            </select>
-          </label>
-
-          {lessonsLoading && <p className="text-sm font-bold text-slate-500">Carregando licoes...</p>}
-          {lessonsError && (
-            <div className="flex flex-wrap items-center gap-3" role="alert">
-              <p className="text-sm font-bold text-rose-600">{lessonsError}</p>
-              <button type="button" onClick={() => void loadGenerationOptions()} className="text-sm font-black text-violet-700 underline">Tentar novamente</button>
-            </div>
-          )}
-
-          <label className="block text-sm font-black text-slate-700">
-            Contexto opcional
+            Tema opcional
             <textarea
               value={generationContext}
               onChange={(event) => setGenerationContext(event.target.value)}
-              maxLength={1000}
+              maxLength={80}
               disabled={generating}
-              rows={3}
-              placeholder="Ex.: foco em gramatica, compreensao ou situacoes de viagem"
+              rows={2}
+              placeholder="Ex.: frases para viagem, entrevista ou rotina"
               className="mt-2 w-full resize-y rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
             />
-            <span className="mt-1 block text-right text-xs font-bold text-slate-400">{generationContext.length}/1000</span>
+            <span className="mt-1 block text-right text-xs font-bold text-slate-400">{generationContext.length}/80</span>
           </label>
 
-          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">Serão criadas exatamente 5 novas questoes ligadas à licao selecionada.</p>
+          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">A proxima licao sera criada em sequencia, como Dia 6, Dia 7 e assim por diante.</p>
 
           <div aria-live="polite" aria-atomic="true">
             {generationMessage && (
@@ -629,12 +544,12 @@ export default function ReviewPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => void handleGenerateLessonQuestions()}
-                disabled={generating || typeof selectedLessonId !== 'number' || lessonsLoading}
+                onClick={() => void handleGenerateNextLesson()}
+                disabled={generating}
                 className="kid-button justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
               >
                 {generating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-                {generating ? 'Criando 5 questoes...' : 'Criar 5 novas questoes'}
+                {generating ? 'Criando proxima licao...' : 'Criar proxima licao'}
               </button>
             )}
           </div>
@@ -652,7 +567,7 @@ export default function ReviewPage() {
           <div className="kid-surface p-7 text-center">
             <Brain className="mx-auto text-slate-300" size={44} />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Nada pendente para revisar</h1>
-            <p className="mt-2 text-sm text-slate-500">Voce pode criar novas questoes para uma licao usando o formulario acima.</p>
+            <p className="mt-2 text-sm text-slate-500">Voce pode criar a proxima licao com IA usando o formulario acima.</p>
           </div>
         </div>
       </main>

@@ -165,40 +165,47 @@ class LanguageQuestionReviewUIContractTests(unittest.TestCase):
         self.assertIn("captureReviewAttempt", grading)
         self.assertIn("isReviewAttemptCompletionCurrent", grading)
         self.assertIn("advanceReview", grading)
-        self.assertIn("runLessonQuestionGeneration", source)
+        self.assertIn("handleGenerateNextLesson", source)
 
-    def test_review_generation_uses_dynamic_lessons_and_safe_request_recovery(self) -> None:
+    def test_review_generation_creates_next_lesson_instead_of_appending_questions(self) -> None:
         source = (
             ROOT / "apps" / "web" / "src" / "app" / "review" / "page.tsx"
         ).read_text(encoding="utf-8")
 
         for expected in (
-            "api.getAllLessons()",
             "api.getParentSettings()",
-            "selectedLessonId",
             "targetLanguage",
-            "Criar mais quest",
-            "maxLength={1000}",
-            "5 novas quest",
-            "generateLessonQuestions",
-            "validateConfirmedLessonQuestionBatch",
-            "isUncertainLessonQuestionGenerationError",
+            "Criar proxima licao",
+            "A IA cria a proxima licao",
+            "maxLength={80}",
+            "generateMorePhrases",
+            "quantity: 1",
+            "topic: generationContext.trim() || undefined",
             "generationRequestRef.current",
             "generationInFlightRef.current",
             "generationNeedsReviewReload",
             "mountedRef.current",
-            "requestLessonId",
             "reloadReviewAfterGeneration",
-            "generationError.status === 409",
         ):
             self.assertIn(expected, source)
 
-        generation = source.split("async function handleGenerateLessonQuestions", 1)[1].split(
+        for removed in (
+            "api.getAllLessons()",
+            "selectedLessonId",
+            "requestLessonId",
+            "generateLessonQuestions",
+            "runLessonQuestionGeneration",
+            "validateConfirmedLessonQuestionBatch",
+            "isUncertainLessonQuestionGenerationError",
+            "Esta licao atingiu o limite",
+        ):
+            self.assertNotIn(removed, source)
+
+        generation = source.split("async function handleGenerateNextLesson", 1)[1].split(
             "\n  async function handleGenerationRecoveryReload", 1
         )[0]
-        self.assertIn("validate: validateConfirmedLessonQuestionBatch", generation)
-        self.assertIn("reload: () => reloadReviewAfterGeneration", generation)
-        self.assertIn("selectedLessonIdRef.current === requestLessonId", generation)
+        self.assertIn("api.generateMorePhrases", generation)
+        self.assertIn("reloadReviewAfterGeneration(requestToken)", generation)
         self.assertIn("generationRequestRef.current === requestToken", generation)
         self.assertNotIn("French", generation)
         self.assertNotIn("English", generation)
