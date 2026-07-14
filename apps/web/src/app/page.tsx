@@ -96,7 +96,7 @@ export default function HomePage() {
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100">
                 <Sparkles size={15} /> Tutor leve
               </span>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-7 text-slate-600 sm:text-4xl md:text-5xl">
+            <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-slate-600 sm:text-4xl sm:leading-tight md:text-5xl">
               Vamos aprender tudo do seu jeito
             </h1>
             <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg sm:leading-8">
@@ -188,7 +188,7 @@ export default function HomePage() {
             </div>
 
             {/* Stats row */}
-            <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:divide-x sm:divide-slate-100">
               <div className="flex flex-col items-center gap-1 px-2 text-center">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100">
                   <Flame size={16} className="text-orange-600" />

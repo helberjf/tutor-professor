@@ -62,7 +62,7 @@ function LoginForm() {
     'w-full rounded-2xl border-2 border-slate-200 bg-white py-3 pl-10 pr-4 text-base text-slate-800 outline-none transition placeholder:text-slate-300 focus:border-primary disabled:opacity-60';
 
   return (
-    <div className="flex min-h-screen flex-col px-4 py-6">
+    <div className="flex min-h-screen flex-col px-3 py-5 sm:px-4 sm:py-6">
       {/* Header */}
       <div className="mx-auto w-full max-w-md">
         <Link
@@ -75,7 +75,7 @@ function LoginForm() {
       </div>
 
       {/* Card */}
-      <div className="mx-auto mt-10 w-full max-w-md">
+      <div className="mx-auto mt-6 w-full max-w-md sm:mt-10">
         {/* Icon + title */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_40px_rgba(14,165,233,0.15)]">
@@ -91,7 +91,7 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="kid-surface border-slate-200/60 p-7 md:p-9">
+        <div className="kid-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
           <button
             type="button"
             onClick={() => void handleGoogleLogin()}

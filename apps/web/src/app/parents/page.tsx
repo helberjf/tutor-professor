@@ -366,7 +366,7 @@ export default function ParentsPage() {
       : [{ id: 'gemini', label: 'Gemini', default_model: 'gemini-2.5-flash', requires_base_url: false, is_default: true }];
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+    <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
@@ -384,11 +384,11 @@ export default function ParentsPage() {
             <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">Comece a licao de hoje</h2>
             <p className="mt-1 text-sm leading-6 text-slate-500">Aluno ativo: <span className="font-black text-slate-700">{children.find((c) => c.id === activeChildId)?.name ?? '—'}</span></p>
           </div>
-          <div className="relative shrink-0">
+          <div className="relative w-full shrink-0 sm:w-auto">
             <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
             <Link
               href="/lesson"
-              className="relative inline-flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark md:px-10 md:py-5 md:text-xl"
+              className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary px-6 py-4 text-base font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto md:px-10 md:py-5 md:text-xl"
             >
               <BookOpen size={22} />
               Comecar licao
@@ -448,7 +448,7 @@ export default function ParentsPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="kid-surface border-primary/40 p-5 md:p-10">
-            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Configuracoes da area de pais</h1>
+            <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Configuracoes da area de pais</h1>
             <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
               Escolha o nome da crianca, a faixa etaria e o comportamento do audio para um aprendizado mais tranquilo.
             </p>
@@ -483,7 +483,7 @@ export default function ParentsPage() {
                   </div>
                   <div className="sm:col-span-2">
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
                       {LANGUAGES.map((lang) => (
                         <button
                           key={lang.value}
@@ -557,7 +557,7 @@ export default function ParentsPage() {
                   const isActive = child.id === activeChildId;
                   return (
                     <div key={child.id} className="rounded-[1.25rem] bg-white px-4 py-4 shadow-sm ring-1 ring-slate-100">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-lg font-black text-slate-800">{child.name}</p>
                           <p className="text-sm text-slate-500">
@@ -609,7 +609,7 @@ export default function ParentsPage() {
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {LANGUAGES.map((lang) => (
                       <button
                         key={lang.value}
