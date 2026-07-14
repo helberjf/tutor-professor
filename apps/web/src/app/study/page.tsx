@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronRight, ClipboardList, Code2, Copy,
+  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Code2, Copy,
   Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
 } from 'lucide-react';
 
@@ -1703,11 +1703,11 @@ function DiverseTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="kid-surface border-primary/30 p-6 md:p-8">
+      <section className="kid-surface border-primary/30 p-4 md:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprenda qualquer assunto</h1>
-        <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
+        <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
           <MetricCard icon={<Layers size={22} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
           <MetricCard icon={<CheckCircle2 size={22} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Em progresso'}
@@ -1716,24 +1716,28 @@ function DiverseTab({
       </section>
 
       {subjectTabs.length > 0 && (
-        <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-4">
+        <div className="rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
           <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
             Abrir matéria
           </label>
-          <select
-            value={selectedSubjectSlug ?? ''}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (!value) onSelectOverview();
-              else onSelectSubjectTab(value);
-            }}
-            className="min-h-12 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
-          >
-            <option value="">Todas as matérias</option>
-            {subjectTabs.map((item) => (
-              <option key={item.slug} value={item.slug}>{item.subject.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              aria-label="Selecionar matéria"
+              value={selectedSubjectSlug ?? ''}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (!value) onSelectOverview();
+                else onSelectSubjectTab(value);
+              }}
+              className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
+            >
+              <option value="">Todas as matérias</option>
+              {subjectTabs.map((item) => (
+                <option key={item.slug} value={item.slug}>{item.subject.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          </div>
         </div>
       )}
 
@@ -2875,53 +2879,53 @@ function PomodoroWidget({
   onRequestNotifications: () => void;
 }) {
   return (
-    <div className="kid-surface border-sky-100 p-5 md:p-6">
+    <div className="kid-surface border-sky-100 p-3 md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700"><Timer size={24} /></div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700 md:h-12 md:w-12 md:rounded-2xl"><Timer size={20} className="md:h-6 md:w-6" /></div>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Pomodoro</p>
-            <h2 className="text-xl font-black text-slate-800">{mode === 'focus' ? 'Foco' : 'Pausa'}</h2>
+            <h2 className="text-lg font-black text-slate-800 md:text-xl">{mode === 'focus' ? 'Foco' : 'Pausa'}</h2>
           </div>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-500">{mode === 'focus' ? '25 min' : '5 min'}</span>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500 md:px-3 md:py-1.5 md:text-xs">{mode === 'focus' ? '25 min' : '5 min'}</span>
       </div>
 
-      <div className="mt-5 rounded-[1.5rem] border-2 border-slate-100 bg-white p-5 text-center">
-        <p className="font-mono text-5xl font-black text-slate-800 md:text-6xl">{formatTimer(seconds)}</p>
-        <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-left">
+      <div className="mt-3 rounded-[1.25rem] border-2 border-slate-100 bg-white p-3 text-center md:mt-5 md:rounded-[1.5rem] md:p-5">
+        <p className="font-mono text-3xl font-black text-slate-800 md:text-6xl">{formatTimer(seconds)}</p>
+        <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-left md:mt-4 md:rounded-2xl md:px-4 md:py-3">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">Pomodoros hoje</p>
-          <p className="mt-1 text-2xl font-black text-emerald-700">
-            {todayCount} <span className="text-sm font-bold text-emerald-600">{todayCount === 1 ? 'feito' : 'feitos'}</span>
+          <p className="mt-1 text-lg font-black text-emerald-700 md:text-2xl">
+            {todayCount} <span className="text-xs font-bold text-emerald-600 md:text-sm">{todayCount === 1 ? 'feito' : 'feitos'}</span>
           </p>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4">
           <button type="button" onClick={() => onSwitch('focus')}
-            className={`rounded-2xl px-3 py-2 text-sm font-black transition ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            className={`rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             Foco
           </button>
           <button type="button" onClick={() => onSwitch('break')}
-            className={`rounded-2xl px-3 py-2 text-sm font-black transition ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            className={`rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             Pausa
           </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button type="button" onClick={onToggle}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-3 text-sm font-black text-white transition hover:bg-slate-700">
-            {running ? <Pause size={16} /> : <Play size={16} />}
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-2.5 text-xs font-black text-white transition hover:bg-slate-700 md:min-h-11 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
+            {running ? <Pause size={14} className="md:h-4 md:w-4" /> : <Play size={14} className="md:h-4 md:w-4" />}
             {running ? 'Pausar' : 'Iniciar'}
           </button>
           <button type="button" onClick={() => onSwitch(mode)}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary">
-            <RotateCcw size={16} /> Reiniciar
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:min-h-11 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
+            <RotateCcw size={14} className="md:h-4 md:w-4" /> Reiniciar
           </button>
         </div>
       </div>
 
       <button type="button" onClick={onRequestNotifications}
         disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60">
-        <Bell size={16} />
+        className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:min-h-11 md:gap-2 md:rounded-2xl md:text-sm">
+        <Bell size={14} className="md:h-4 md:w-4" />
         {notificationPermission === 'granted' ? 'Notificacoes ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificacoes'}
       </button>
       {message && <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">{message}</p>}
