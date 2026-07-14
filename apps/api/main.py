@@ -2901,7 +2901,7 @@ def save_ai_settings_for_user(
         record = UserAISettings(
             user_id=user_id,
             provider=provider,
-            api_key_encrypted=encrypt_api_key(api_key or "__GLOBAL_SERVER_AI_KEY__"),
+            api_key_encrypted=encrypt_api_key(api_key) if api_key else "",
             use_global_key=use_global_key,
             model=model,
             base_url=base_url,
@@ -2911,7 +2911,7 @@ def save_ai_settings_for_user(
     else:
         record.provider = provider
         if use_global_key:
-            record.api_key_encrypted = encrypt_api_key(api_key or "__GLOBAL_SERVER_AI_KEY__")
+            record.api_key_encrypted = ""
         elif api_key:
             record.api_key_encrypted = encrypt_api_key(api_key)
         elif not record.api_key_encrypted:
