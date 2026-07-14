@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -82,9 +83,28 @@ class HelberCodingCourseSeedTests(unittest.TestCase):
             self.assertGreaterEqual(len(course.topics), 8, course.name)
             for topic in course.topics:
                 content = seed.build_topic_content(course, topic)
+                serialized = json.dumps(content, ensure_ascii=False)
                 self.assertGreaterEqual(len(content["sections"]), 3, topic.title)
                 self.assertGreaterEqual(len(content["quiz"]), 3, topic.title)
                 self.assertGreaterEqual(len(content["flashcards"]), 4, topic.title)
+                self.assertNotIn("StudyNote", serialized, topic.title)
+                self.assertNotIn("qual problema este topico resolve", serialized, topic.title)
+                self.assertNotIn("Em TypeScript, transforme a decisao", serialized, topic.title)
+                self.assertNotEqual(
+                    [section["title"] for section in content["sections"][:3]],
+                    ["Ideia principal", "Como aplicar", "Erros comuns e criterio de prova"],
+                    topic.title,
+                )
+                for card in content["flashcards"]:
+                    self.assertNotIn("code_example", card, topic.title)
+
+        aws_course = next(course for course in catalog if course.name == "prova Aws cloud practitioner")
+        for topic in aws_course.topics:
+            content = seed.build_topic_content(aws_course, topic)
+            self.assertFalse(
+                any(section.get("code_example") for section in content["sections"]),
+                topic.title,
+            )
 
     def test_seed_is_idempotent_and_preserves_existing_topic_state(self) -> None:
         session, _engine = self.make_session()
@@ -102,9 +122,30 @@ class HelberCodingCourseSeedTests(unittest.TestCase):
                 title="useState e useEffect",
                 order_index=0,
                 status="studied",
+                ai_content={
+                    "sections": [
+                        {
+                            "title": "Ideia principal",
+                            "body": "Conteudo ruim",
+                            "code_example": "type StudyNote = { topic: string }",
+                        }
+                    ],
+                    "quiz": [],
+                    "flashcards": [],
+                },
                 notes="nao sobrescrever minhas notas",
             )
             session.add(existing_topic)
+            session.flush()
+            bad_flashcard = ProgrammingFlashcard(
+                topic_id=existing_topic.id or 0,
+                subject_id=react.id or 0,
+                child_id=child.id or 0,
+                front="React / useState e useEffect: qual problema este topico resolve?",
+                back="Resposta ruim",
+                code_example="type StudyNote = { topic: string }",
+            )
+            session.add(bad_flashcard)
             session.commit()
 
             first = seed.seed_courses(session, email="helberjf@gmail.com", child_name="Henrique")
@@ -142,12 +183,18 @@ class HelberCodingCourseSeedTests(unittest.TestCase):
             self.assertGreaterEqual(len(all_topics), 120)
             for topic in all_topics:
                 self.assertTrue(topic.ai_content and topic.ai_content.get("sections"), topic.title)
+                serialized = json.dumps(topic.ai_content, ensure_ascii=False)
+                self.assertNotIn("StudyNote", serialized, topic.title)
+                self.assertNotIn("qual problema este topico resolve", serialized, topic.title)
                 flashcards = session.exec(
                     select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)
                 ).all()
                 self.assertGreaterEqual(len(flashcards), 4, topic.title)
                 fronts = [card.front.casefold().strip() for card in flashcards]
                 self.assertEqual(len(fronts), len(set(fronts)), topic.title)
+                for card in flashcards:
+                    self.assertNotIn("StudyNote", card.code_example or "", topic.title)
+                    self.assertNotIn("qual problema este topico resolve", card.front, topic.title)
 
             review_items = session.exec(select(CodingReviewItem)).all()
             review_keys = [(item.child_id, item.flashcard_id) for item in review_items]
@@ -158,4 +205,3 @@ class HelberCodingCourseSeedTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

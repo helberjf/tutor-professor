@@ -19,6 +19,7 @@ sys.path.insert(0, str(API))
 import models.database  # noqa: F401  # Register SQLModel tables.
 from models.database import (
     ChildProfile,
+    CodingReviewItem,
     ProgrammingFlashcard,
     ProgrammingSubject,
     ProgrammingTopic,
@@ -57,6 +58,7 @@ class SeedResult:
     topics_updated: int = 0
     flashcards_created: int = 0
     review_items_seeded: int = 0
+    flashcards_cleaned: int = 0
 
 
 class SeedError(RuntimeError):
@@ -278,46 +280,105 @@ def get_course_catalog() -> tuple[CourseSpec, ...]:
     )
 
 
+def _clean_code_example(code: str | None) -> str | None:
+    if not code:
+        return None
+    if "StudyNote" in code:
+        return None
+    return code.strip() or None
+
+
+def _course_context(course: CourseSpec) -> tuple[str, str, str]:
+    name = normalize(course.name)
+    if "aws" in name:
+        return (
+            "Como reconhecer na prova",
+            "Leia o cenario e procure palavras de decisao: responsabilidade, custo, seguranca, disponibilidade, tipo de servico e operacao gerenciada. A prova CLF-C02 cobra reconhecer o servico ou conceito certo, nao implementar arquitetura profunda.",
+            "Pegadinha comum: confundir nomes parecidos ou escolher o servico mais tecnico quando a pergunta pede uma responsabilidade, um plano de suporte ou uma ferramenta de custo.",
+        )
+    if name in {"react", "vite", "github actions"}:
+        return (
+            "Como aplicar no projeto",
+            "Transforme o conceito em uma mudanca pequena, testavel e facil de revisar. Prefira exemplos curtos, tipados e ligados ao fluxo real do app em vez de snippets decorativos.",
+            "Pegadinha comum: memorizar sintaxe e esquecer comportamento, ciclo de vida, seguranca ou impacto no build/deploy.",
+        )
+    if "cybersecurity" in name:
+        return (
+            "Como aplicar em SaaS",
+            "Comece pelo limite de tenant, valide identidade e permissao no servidor, registre auditoria util e teste tentativas de acesso cruzado. Seguranca boa precisa aparecer no codigo, no banco, no CI/CD e na operacao.",
+            "Pegadinha comum: confiar em tenant enviado pelo cliente, logar dados sensiveis ou tratar autenticacao como se fosse autorizacao.",
+        )
+    if "system design" in name or "load balancer" in name or "microservices" in name or "mensageira" in name:
+        return (
+            "Como usar em desenho de sistema",
+            "Explique requisitos, volume, gargalos e trade-offs antes de escolher tecnologia. Mostre como o sistema falha, como se recupera e quais metricas provam que a decisao funcionou.",
+            "Pegadinha comum: desenhar componentes demais sem justificar custo operacional, consistencia, latencia e observabilidade.",
+        )
+    return (
+        "Como responder em entrevista",
+        "Use uma resposta objetiva: defina o conceito, cite um exemplo real, compare uma alternativa e feche com o risco principal.",
+        "Pegadinha comum: responder com buzzwords sem conectar a uma experiencia concreta.",
+    )
+
+
+def _section(title: str, body: str, code_example: str | None = None) -> dict:
+    section = {"title": title, "body": body}
+    if code_example:
+        section["code_example"] = code_example
+    return section
+
+
 def build_topic_content(course: CourseSpec, topic: TopicSpec) -> dict:
     concepts = list(topic.concepts)
-    code_example = topic.code or _ts_note(topic.title, concepts, "study")
+    code_example = _clean_code_example(topic.code)
     exam_sentence = topic.exam_focus or "Em entrevista, conecte o conceito a um problema real, trade-offs e uma decisao concreta."
     interview_sentence = topic.interview or "Boa resposta: explique o problema, compare alternativas, cite riscos e feche com uma decisao."
+    application_title, application_body, pitfall = _course_context(course)
+    concept_list = ", ".join(concepts[:6])
+
+    sections = [
+        _section(
+            "O que precisa ficar claro",
+            (
+                f"{topic.objective}\n\n"
+                f"Conceitos-chave: {concept_list}.\n\n"
+                f"Explique com suas palavras: o que muda quando voce entende {concepts[0]} e "
+                "qual decisao fica mais facil de tomar."
+            ),
+        ),
+        _section(
+            application_title,
+            (
+                f"{application_body}\n\n"
+                f"Neste topico, use {concepts[0]} como pista principal e compare com "
+                f"{concepts[1] if len(concepts) > 1 else 'a alternativa mais proxima'} antes de responder."
+            ),
+        ),
+        _section(
+            "Armadilhas e revisao",
+            (
+                f"{exam_sentence}\n\n"
+                f"{pitfall}\n\n"
+                f"{interview_sentence} Revise tentando criar um exemplo de uma frase, nao copiando uma definicao."
+            ),
+        ),
+    ]
+    if code_example:
+        sections.append(
+            _section(
+                "Exemplo pratico",
+                "Use este exemplo como apoio, nao como decoracao. Leia o comportamento, depois tente reescrever de memoria.",
+                code_example,
+            )
+        )
 
     content = {
         "title": topic.title,
-        "sections": [
-            {
-                "title": "Ideia principal",
-                "body": (
-                    f"{topic.objective} Em {course.name}, este topico deve ser estudado a partir de "
-                    f"{', '.join(concepts[:4])}. Foque no que o conceito resolve, qual problema evita e "
-                    "como voce explicaria em linguagem simples."
-                ),
-                "code_example": code_example,
-            },
-            {
-                "title": "Como aplicar",
-                "body": (
-                    f"Use {concepts[0]} como ponto de partida e valide os requisitos antes de escolher a solucao. "
-                    "Em TypeScript, transforme a decisao em tipos, funcoes pequenas e casos de teste claros. "
-                    "Em AWS ou system design, traduza a decisao em servico, custo, seguranca e operacao."
-                ),
-                "code_example": code_example,
-            },
-            {
-                "title": "Erros comuns e criterio de prova",
-                "body": (
-                    f"{exam_sentence} Um erro comum e decorar nomes sem entender o cenario. "
-                    f"{interview_sentence} Sempre mencione limites, sinais de alerta e como medir se funcionou."
-                ),
-                "code_example": code_example,
-            },
-        ],
+        "sections": sections,
         "quiz": [
             {
                 "id": 1,
-                "question": f"Qual e a melhor descricao para {topic.title}?",
+                "question": f"Qual frase resume melhor {topic.title}?",
                 "options": [
                     topic.objective,
                     "Uma tecnica que deve ser aplicada em todos os casos sem analisar requisitos.",
@@ -329,7 +390,7 @@ def build_topic_content(course: CourseSpec, topic: TopicSpec) -> dict:
             },
             {
                 "id": 2,
-                "question": f"Qual ponto deve aparecer numa boa resposta sobre {topic.title}?",
+                "question": f"O que torna uma resposta sobre {topic.title} mais forte?",
                 "options": [
                     f"Relacionar {concepts[0]} com trade-offs, riscos e criterio de escolha.",
                     "Escolher a ferramenta mais famosa sem explicar o motivo.",
@@ -354,24 +415,20 @@ def build_topic_content(course: CourseSpec, topic: TopicSpec) -> dict:
         ],
         "flashcards": [
             {
-                "front": f"{course.name} / {topic.title}: qual problema este topico resolve?",
+                "front": f"O que lembrar sobre {topic.title}?",
                 "back": topic.objective,
-                "code_example": code_example,
             },
             {
-                "front": f"{course.name} / {topic.title}: cite os conceitos-chave.",
+                "front": f"Quais conceitos-chave sustentam {topic.title}?",
                 "back": ", ".join(concepts),
-                "code_example": code_example,
             },
             {
-                "front": f"{course.name} / {topic.title}: qual trade-off voce deve mencionar?",
+                "front": f"Qual pegadinha ou trade-off revisar em {topic.title}?",
                 "back": exam_sentence,
-                "code_example": code_example,
             },
             {
-                "front": f"{course.name} / {topic.title}: como responder em entrevista?",
+                "front": f"Como explicar {topic.title} em uma entrevista?",
                 "back": interview_sentence,
-                "code_example": code_example,
             },
         ],
     }
@@ -409,6 +466,73 @@ def _find_child(session: Session, email: str, child_name: str) -> ChildProfile:
         if normalize(child.name) == target:
             return child
     raise SeedError(f"Child not found for {email}: {child_name}")
+
+
+def _is_bad_seed_flashcard(card: ProgrammingFlashcard, course: CourseSpec, topic: TopicSpec) -> bool:
+    front = normalize(card.front)
+    old_prefix = normalize(f"{course.name} / {topic.title}:")
+    return (
+        front.startswith(old_prefix)
+        or "qual problema este topico resolve" in front
+        or "cite os conceitos-chave" in front
+        or "StudyNote" in (card.code_example or "")
+    )
+
+
+def _delete_flashcard_with_review_items(session: Session, card: ProgrammingFlashcard) -> None:
+    review_items = session.exec(
+        select(CodingReviewItem).where(CodingReviewItem.flashcard_id == card.id)
+    ).all()
+    for item in review_items:
+        session.delete(item)
+    session.delete(card)
+
+
+def _clean_existing_seed_flashcards(
+    session: Session,
+    *,
+    existing_flashcards: list[ProgrammingFlashcard],
+    content: dict,
+    course: CourseSpec,
+    topic: TopicSpec,
+    result: SeedResult,
+) -> list[ProgrammingFlashcard]:
+    drafts = [
+        draft
+        for draft in content.get("flashcards", [])
+        if str(draft.get("front") or "").strip() and str(draft.get("back") or "").strip()
+    ]
+    bad_cards = [
+        card for card in existing_flashcards if _is_bad_seed_flashcard(card, course, topic)
+    ]
+    if not bad_cards:
+        return existing_flashcards
+
+    bad_object_ids = {id(card) for card in bad_cards}
+    kept_cards = [card for card in existing_flashcards if id(card) not in bad_object_ids]
+    kept_fronts = {normalize(card.front) for card in kept_cards}
+
+    for draft, card in zip(drafts, bad_cards):
+        front = str(draft.get("front") or "").strip()[:500]
+        back = str(draft.get("back") or "").strip()[:2000]
+        if normalize(front) in kept_fronts:
+            _delete_flashcard_with_review_items(session, card)
+            result.flashcards_cleaned += 1
+            continue
+        card.front = front
+        card.back = back
+        card.code_example = None
+        session.add(card)
+        kept_cards.append(card)
+        kept_fronts.add(normalize(front))
+        result.flashcards_cleaned += 1
+
+    for card in bad_cards[len(drafts):]:
+        _delete_flashcard_with_review_items(session, card)
+        result.flashcards_cleaned += 1
+
+    session.flush()
+    return kept_cards
 
 
 def seed_courses(
@@ -491,6 +615,14 @@ def seed_courses(
             existing_flashcards = session.exec(
                 select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)
             ).all()
+            existing_flashcards = _clean_existing_seed_flashcards(
+                session,
+                existing_flashcards=existing_flashcards,
+                content=content,
+                course=course,
+                topic=topic_spec,
+                result=result,
+            )
             existing_fronts = {normalize(card.front) for card in existing_flashcards}
 
             for draft in content.get("flashcards", []):
@@ -536,10 +668,10 @@ def main() -> None:
         f"topics_created={result.topics_created} "
         f"topics_updated={result.topics_updated} "
         f"flashcards_created={result.flashcards_created} "
-        f"review_items_seeded={result.review_items_seeded}"
+        f"review_items_seeded={result.review_items_seeded} "
+        f"flashcards_cleaned={result.flashcards_cleaned}"
     )
 
 
 if __name__ == "__main__":
     main()
-
