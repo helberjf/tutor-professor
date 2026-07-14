@@ -651,6 +651,16 @@ export interface UserAISettingsPayload {
   base_url?: string;
 }
 
+export interface AdminUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  auth_provider: string;
+  created_at: string;
+  ai_settings: UserAISettings;
+}
+
 // ── Coding Curriculum ──────────────────────────────────────────────────────
 
 export interface ProgrammingSubject {
@@ -1144,6 +1154,12 @@ export const api = {
   },
   // Admin Learn
   adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
+  adminListUsers: () => fetchAPI<AdminUser[]>('/api/admin/users'),
+  adminSaveUserAISettings: (userId: number, payload: UserAISettingsPayload) =>
+    fetchAPI<UserAISettings>(`/api/admin/users/${userId}/ai-settings`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   adminListModules: () => fetchAPI<AdminModule[]>('/api/admin/learn/modules'),
   adminGetModule: (slug: string) => fetchAPI<AdminModuleDetail>(`/api/admin/learn/modules/${slug}`),
   adminListFlashcards: () => fetchAPI<AdminFlashcard[]>('/api/admin/learn/flashcards'),

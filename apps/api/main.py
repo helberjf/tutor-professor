@@ -4349,11 +4349,6 @@ def generate_parent_lesson(
     session_record = require_parent_session(request, session)
     ai_config = _get_user_ai_config(session_record, session)
 
-    if session_record.user_id is not None and ai_config is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Configure uma chave de API de IA na sua conta antes de gerar licoes.",
-        )
     if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
@@ -5053,6 +5048,54 @@ def admin_check(
         return {"is_admin": False}
     is_admin = bool(ADMIN_EMAIL) and user.email.lower() == ADMIN_EMAIL
     return {"is_admin": is_admin, "email": user.email if is_admin else ""}
+
+
+def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> dict:
+    return {
+        "id": user.id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "auth_provider": user.auth_provider,
+        "created_at": user.created_at.isoformat(),
+        "ai_settings": build_ai_settings_schema(ai_settings).model_dump(mode="json"),
+    }
+
+
+@app.get("/api/admin/users")
+def admin_list_users(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    _require_admin(request, session)
+    users = session.exec(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
+    settings_by_user_id = {
+        settings.user_id: settings
+        for settings in session.exec(select(UserAISettings)).all()
+    }
+    return [
+        _build_admin_user_schema(user, settings_by_user_id.get(user.id or 0))
+        for user in users
+    ]
+
+
+@app.put("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)
+def admin_save_user_ai_settings(
+    user_id: int,
+    payload: UserAISettingsUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> UserAISettingsSchema:
+    _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+    record = save_ai_settings_for_user(
+        user_id=user_id,
+        payload=payload,
+        session=session,
+    )
+    return build_ai_settings_schema(record)
 
 
 @app.get("/api/admin/learn/modules")
