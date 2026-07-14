@@ -1934,6 +1934,93 @@ _DEFAULT_CODING_SUBJECTS: dict[str, list[dict]] = {
 }
 
 
+def _legacy_coding_subject_name(subject_key: str) -> str:
+    mapped_names = {
+        "react": "React",
+        "leetcode": "LeetCode",
+        "typescript": "TypeScript",
+        "nextjs": "Next.js",
+        "python": "Python",
+    }
+    key = str(subject_key or "").strip()
+    if not key:
+        return "Programacao"
+    normalized_key = key.lower().replace(" ", "").replace("-", "")
+    return mapped_names.get(normalized_key, key[:100])
+
+
+def _legacy_coding_topic_title(topic: object) -> str:
+    if isinstance(topic, dict):
+        value = topic.get("topic") or topic.get("title") or topic.get("name") or ""
+    else:
+        value = topic
+    return str(value or "").strip()[:200]
+
+
+def _legacy_coding_topic_done(topic: object) -> bool:
+    if not isinstance(topic, dict):
+        return False
+    return bool(topic.get("done") or topic.get("completed") or topic.get("is_completed"))
+
+
+def _legacy_coding_subjects_for_child(session: Session, child_id: int) -> dict:
+    legacy_day = session.exec(
+        select(CodingDay)
+        .where(CodingDay.child_id == child_id)
+        .order_by(CodingDay.study_date.desc(), CodingDay.updated_at.desc())
+    ).first()
+    if legacy_day is not None and legacy_day.subjects:
+        return legacy_day.subjects
+    return _DEFAULT_CODING_SUBJECTS
+
+
+def _materialize_legacy_coding_curriculum(session: Session, child_id: int) -> list[ProgrammingSubject]:
+    existing_subjects = session.exec(
+        select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id).order_by(ProgrammingSubject.id)
+    ).all()
+    if existing_subjects:
+        return existing_subjects
+
+    legacy_subjects = _legacy_coding_subjects_for_child(session, child_id)
+    if not isinstance(legacy_subjects, dict) or not legacy_subjects:
+        return []
+
+    now = datetime.utcnow()
+    for subject_key, raw_topics in legacy_subjects.items():
+        subject_name = _legacy_coding_subject_name(str(subject_key))
+        if not subject_name:
+            continue
+        subject = ProgrammingSubject(
+            child_id=child_id,
+            name=subject_name,
+            description="Migrada do modo coding antigo.",
+            created_at=now,
+        )
+        session.add(subject)
+        session.flush()
+
+        topics = raw_topics if isinstance(raw_topics, list) else []
+        for index, raw_topic in enumerate(topics):
+            topic_title = _legacy_coding_topic_title(raw_topic)
+            if not topic_title:
+                continue
+            session.add(
+                ProgrammingTopic(
+                    subject_id=subject.id or 0,
+                    title=topic_title,
+                    order_index=index,
+                    status="studied" if _legacy_coding_topic_done(raw_topic) else "not_started",
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+    session.commit()
+    return session.exec(
+        select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id).order_by(ProgrammingSubject.id)
+    ).all()
+
+
 def _build_coding_schema(record: CodingDay | None, study_date: date) -> CodingDaySchema:
     if record is None:
         return CodingDaySchema(
@@ -3052,7 +3139,12 @@ def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> Prog
 def list_coding_subjects(request: Request, session: Session = Depends(get_session)) -> list[ProgrammingSubjectSchema]:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    subjects = session.exec(select(ProgrammingSubject).where(ProgrammingSubject.child_id == child.id)).all()
+    child_id = child.id or 0
+    subjects = session.exec(
+        select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id).order_by(ProgrammingSubject.id)
+    ).all()
+    if not subjects:
+        subjects = _materialize_legacy_coding_curriculum(session, child_id)
     result = []
     for s in subjects:
         topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == s.id)).all()
@@ -3062,7 +3154,7 @@ def list_coding_subjects(request: Request, session: Session = Depends(get_sessio
             created_at=s.created_at,
             topic_count=len(topics),
             studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
-            due_review_count=count_due_coding_items(session, child.id or 0, subject_id=s.id),
+            due_review_count=count_due_coding_items(session, child_id, subject_id=s.id),
         ))
     return result
 

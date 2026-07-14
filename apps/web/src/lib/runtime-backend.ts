@@ -174,9 +174,6 @@ async function fetchRuntimeBackendConfigFromGitHubContentsApi(
   fetchImpl: typeof fetch,
 ): Promise<RuntimeBackendConfig | null> {
   const token = options.token?.trim();
-  if (!token) {
-    return null;
-  }
 
   try {
     const filePath = options.branchFilePath
@@ -184,13 +181,16 @@ async function fetchRuntimeBackendConfigFromGitHubContentsApi(
       .map((segment) => encodeURIComponent(segment))
       .join('/');
     const endpoint = `https://api.github.com/repos/${encodeURIComponent(options.owner)}/${encodeURIComponent(options.repo)}/contents/${filePath}?ref=${encodeURIComponent(options.branch)}`;
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'english-kids-tutor-vercel',
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
     const response = await fetchImpl(endpoint, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'english-kids-tutor-vercel',
-      },
+      headers,
       cache: 'no-store',
     });
 

@@ -206,11 +206,57 @@ async def run() -> None:
             200,
             "parent settings update",
         )
-        assert_status(
-            await client.post("/api/parent/children", json={"name": "Noah", "age_group": "4-6"}),
-            200,
-            "create child",
+        today = date.today()
+        starter_child_response = await client.post(
+            "/api/parent/children",
+            json={"name": "Starter", "age_group": "7-9"},
         )
+        assert_status(starter_child_response, 200, "create starter child")
+        starter_headers = {"X-Child-ID": str(starter_child_response.json()["id"])}
+        starter_subjects_response = await client.get("/api/coding/subjects", headers=starter_headers)
+        assert_status(starter_subjects_response, 200, "seed coding defaults for empty curriculum")
+        starter_subject_names = [subject["name"] for subject in starter_subjects_response.json()]
+        if starter_subject_names != ["React", "LeetCode", "TypeScript", "Next.js"]:
+            raise AssertionError(f"expected default coding curriculum, got {starter_subject_names}")
+
+        noah_response = await client.post("/api/parent/children", json={"name": "Noah", "age_group": "4-6"})
+        assert_status(noah_response, 200, "create child")
+        noah_id = noah_response.json()["id"]
+        noah_headers = {"X-Child-ID": str(noah_id)}
+        with Session(main.engine) as session:
+            session.add(
+                main.CodingDay(
+                    child_id=noah_id,
+                    study_date=today - timedelta(days=3),
+                    subjects={
+                        "python": [
+                            {"topic": "List comprehensions", "done": True},
+                            {"topic": "AsyncIO basico", "done": False},
+                        ],
+                        "react": [
+                            {"topic": "Hooks customizados", "done": False},
+                        ],
+                    },
+                )
+            )
+            session.commit()
+        legacy_subjects_response = await client.get("/api/coding/subjects", headers=noah_headers)
+        assert_status(legacy_subjects_response, 200, "seed coding subjects from legacy day")
+        legacy_subjects = legacy_subjects_response.json()
+        legacy_names = [subject["name"] for subject in legacy_subjects]
+        if legacy_names != ["Python", "React"]:
+            raise AssertionError(f"expected legacy coding subjects to migrate, got {legacy_subjects}")
+        python_subject = next(subject for subject in legacy_subjects if subject["name"] == "Python")
+        python_topics_response = await client.get(
+            f"/api/coding/subjects/{python_subject['id']}/topics",
+            headers=noah_headers,
+        )
+        assert_status(python_topics_response, 200, "list migrated legacy coding topics")
+        python_topics = python_topics_response.json()
+        if [topic["title"] for topic in python_topics] != ["List comprehensions", "AsyncIO basico"]:
+            raise AssertionError(f"expected legacy topic titles to migrate, got {python_topics}")
+        if python_topics[0]["status"] != "studied" or python_topics[1]["status"] != "not_started":
+            raise AssertionError(f"expected legacy done state to migrate, got {python_topics}")
 
         assert_status(await client.get("/api/lessons", headers=child_headers), 200, "lessons")
         assert_status(await client.get("/api/lesson/today", headers=child_headers), 200, "today lesson")
@@ -263,7 +309,6 @@ async def run() -> None:
         if coding_topic["status"] != "not_started":
             raise AssertionError(f"expected new coding topic to be not_started, got {coding_topic['status']}")
 
-        today = date.today()
         yesterday = today - timedelta(days=1)
         coding_day_response = await client.put(
             f"/api/study/coding/{today.isoformat()}",
