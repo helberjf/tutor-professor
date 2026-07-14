@@ -127,7 +127,7 @@ interface GenerateFormProps {
 function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormProps) {
   const [level, setLevel] = useState(0);
   const [numPages, setNumPages] = useState(5);
-  const [theme, setTheme] = useState('');
+  const [bookContext, setBookContext] = useState('');
 
   const [step, setStep] = useState<FormStep>('form');
   const [error, setError] = useState<string | null>(null);
@@ -142,12 +142,16 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
   async function handleCreateOutline(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!bookContext.trim()) {
+      setError('Conte o contexto do livro antes de gerar.');
+      return;
+    }
     setStep('generating-outline');
     try {
       const result = await api.generateBookOutline({
         level: level || 0,
         num_pages: numPages,
-        theme: theme || undefined,
+        theme: bookContext.trim(),
       });
       setOutline(result);
       setStep('outline');
@@ -265,27 +269,30 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 Paginas: <span className="font-normal text-slate-500">{numPages}</span>
               </label>
               <input
-                type="range" min={3} max={10} value={numPages}
+                type="range" min={1} max={5} value={numPages}
                 onChange={(e) => setNumPages(Number(e.target.value))}
                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary"
               />
               <div className="mt-1 flex justify-between text-xs text-slate-400">
-                <span>3</span><span>10</span>
+                <span>1</span><span>5</span>
               </div>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-black text-slate-700">
-                Tema <span className="font-normal text-slate-400">(opcional)</span>
+                Contexto do livro
               </label>
-              <input
-                type="text"
-                placeholder="ex: space adventure, animals, friendship..."
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                maxLength={80}
-                className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary"
+              <textarea
+                placeholder="ex: Um menino que encontra um mapa no quintal e aprende palavras sobre natureza..."
+                value={bookContext}
+                onChange={(e) => setBookContext(e.target.value)}
+                maxLength={300}
+                rows={4}
+                className="w-full resize-none rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary"
               />
+              <p className="mt-1 text-xs font-semibold text-slate-400">
+                A IA usa esse contexto para planejar o livro e depois cria uma pagina por vez.
+              </p>
             </div>
 
             {error && (
@@ -296,7 +303,8 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
 
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+              disabled={!bookContext.trim()}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles size={20} />
               Criar roteiro com IA
