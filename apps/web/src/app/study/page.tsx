@@ -68,6 +68,11 @@ function formatDateLabel(value: string | null) {
   });
 }
 
+function formatDateBadge(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR');
+}
+
 function buildEmptyDay(studyDate: string): StudyDay {
   return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, pomodoro_count: 0, created_at: null, updated_at: null };
 }
@@ -561,12 +566,18 @@ export default function StudyPage() {
     } finally { setSavingCoding(false); }
   }
 
-  function addDiverseSubject() {
+  async function addDiverseSubject() {
     if (diverseMutationLockRef.current) return;
     const name = newSubjectName.trim();
-    if (!name) return;
+    if (!name) {
+      setDiverseError('Digite o nome da matéria para criar.');
+      return;
+    }
     const subjects = diverseDay?.custom_subjects ?? [];
-    if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
+    if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+      setDiverseError('Essa matéria já existe para esta data.');
+      return;
+    }
     const catalogEntry = catalog.find((c) => c.name.toLowerCase() === name.toLowerCase());
     const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
       ? catalogEntry.topics.map((t) => ({
@@ -594,9 +605,25 @@ export default function StudyPage() {
       created_at: diverseDay?.created_at ?? null,
       updated_at: diverseDay?.updated_at ?? null,
     };
+    const newSubjectSlug = getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects);
+    setDiverseError('');
+    setDiverseSaved('');
     setDiverseDay(newDay);
     setNewSubjectName('');
-    selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
+    selectDiverseSubjectTab(newSubjectSlug);
+
+    diverseMutationLockRef.current = true;
+    setSavingDiverse(true);
+    try {
+      const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: nextSubjects });
+      setDiverseDay(saved);
+      setDiverseSaved('Matéria criada e salva.');
+    } catch {
+      setDiverseError('A matéria foi criada na tela, mas não foi possível salvar agora. Tente novamente.');
+    } finally {
+      diverseMutationLockRef.current = false;
+      setSavingDiverse(false);
+    }
   }
 
   function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
@@ -1085,15 +1112,6 @@ export default function StudyPage() {
     return Object.values(codingDay.subjects).flat().length;
   }, [codingDay]);
 
-  const diverseSubjectTabs = useMemo(() => {
-    const subjects = diverseDay?.custom_subjects ?? [];
-    return subjects.map((subject, index) => ({
-      subject,
-      index,
-      slug: getDiverseSubjectSlug(subject, index, subjects),
-    }));
-  }, [diverseDay]);
-
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
     return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando seu cadastro..." secondaryHref="/" secondaryLabel="Voltar ao inicio" />;
@@ -1125,7 +1143,12 @@ export default function StudyPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
             <ArrowLeft size={18} /> Voltar
           </Link>
-          <span className="kid-tag w-fit text-xs">Painel de disciplina</span>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="kid-tag w-fit text-xs">Painel de disciplina</span>
+            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
+              <CalendarDays size={14} /> {formatDateBadge(selectedDate)}
+            </span>
+          </div>
         </div>
 
         {/* Tab switcher */}
@@ -1134,15 +1157,6 @@ export default function StudyPage() {
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="Inglês · 3 frases/dia" mobileLabel="Inglês" />
           <TabButton active={activeTab === 'coding'} onClick={() => selectStudyTab('coding')} icon={<Code2 size={17} />} label="Programação · 3 tópicos/matéria" mobileLabel="Prog." />
           <TabButton active={activeTab === 'diverse' && !selectedDiverseSubjectSlug} onClick={() => selectStudyTab('diverse')} icon={<Layers size={17} />} label="Outras matérias" mobileLabel="Outras" />
-          {diverseSubjectTabs.map((item) => (
-            <TabButton
-              key={item.slug}
-              active={activeTab === 'diverse' && selectedDiverseSubjectSlug === item.slug}
-              onClick={() => selectDiverseSubjectTab(item.slug)}
-              icon={<Layers size={17} />}
-              label={item.subject.name}
-            />
-          ))}
         </div>
 
         {activeTab === 'english' && (
@@ -1641,7 +1655,7 @@ function DiverseTab({
   loadingDiverse: boolean; savingDiverse: boolean;
   diverseSaved: string; diverseError: string;
   newSubjectName: string; setNewSubjectName: (v: string) => void;
-  onAddSubject: () => void;
+  onAddSubject: () => void | Promise<void>;
   onGenerateAI: (apiKey?: string) => void;
   generatingAI: boolean;
   aiAction: DiverseAIAction | null;
@@ -1702,25 +1716,24 @@ function DiverseTab({
       </section>
 
       {subjectTabs.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-1.5">
-          <button
-            type="button"
-            onClick={onSelectOverview}
-            className={`shrink-0 rounded-2xl px-4 py-3 text-sm font-black transition ${selectedSubject ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-white'}`}
+        <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/80 p-4">
+          <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+            Abrir matéria
+          </label>
+          <select
+            value={selectedSubjectSlug ?? ''}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (!value) onSelectOverview();
+              else onSelectSubjectTab(value);
+            }}
+            className="min-h-12 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
           >
-            Todas
-          </button>
-          {subjectTabs.map((item) => (
-            <button
-              key={item.slug}
-              type="button"
-              data-subject-tab={item.slug}
-              onClick={() => onSelectSubjectTab(item.slug)}
-              className={`shrink-0 rounded-2xl px-4 py-3 text-sm font-black transition ${selectedSubjectSlug === item.slug ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              {item.subject.name}
-            </button>
-          ))}
+            <option value="">Todas as matérias</option>
+            {subjectTabs.map((item) => (
+              <option key={item.slug} value={item.slug}>{item.subject.name}</option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -1780,7 +1793,12 @@ function DiverseTab({
                   list="catalog-subjects"
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onAddSubject(); } }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void onAddSubject();
+                    }
+                  }}
                   maxLength={60}
                   placeholder="Matéria: React, Python, Francês..."
                   className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
@@ -1789,7 +1807,7 @@ function DiverseTab({
                   {catalog.map((c) => <option key={c.name} value={c.name} />)}
                 </datalist>
               </>
-              <button type="button" onClick={onAddSubject} disabled={!newSubjectName.trim()}
+              <button type="button" onClick={() => void onAddSubject()} disabled={!newSubjectName.trim() || savingDiverse}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700 disabled:opacity-50">
                 <Plus size={18} /> Criar
               </button>
@@ -1821,9 +1839,14 @@ function DiverseTab({
                         <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Materia</p>
                         <h2 className="mt-1 text-xl font-black text-slate-800">{item.subject.name}</h2>
                       </div>
-                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
-                        tab={item.slug}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveSubject(item.index)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
+                        title="Apagar matéria"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       <div className="rounded-2xl bg-slate-50 p-3">
