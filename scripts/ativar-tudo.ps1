@@ -16,6 +16,8 @@ $TunnelStdoutFile = Join-Path $RuntimeDir 'cloudflare-tunnel.stdout.log'
 $ApiRunner = Join-Path $PSScriptRoot 'run-api.ps1'
 $PostgresEnsurer = Join-Path $PSScriptRoot 'ensure-postgres.ps1'
 $TunnelRunner = Join-Path $PSScriptRoot 'run-tunnel.ps1'
+$RuntimeStateBranch = 'runtime-state'
+$RuntimeStateFile = 'runtime-backend.json'
 $PowerShellExe = (Get-Command powershell -ErrorAction Stop).Source
 
 $RuntimeBackendSyncUrl = if ($env:ENGLISH_TUTOR_RUNTIME_BACKEND_URL) {
@@ -151,6 +153,61 @@ function Stop-OldProcesses() {
       Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Milliseconds 1000
+  }
+}
+
+function Publish-RuntimeStateViaGit([string]$BaseUrl) {
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    throw 'git nao encontrado no PATH para publicar o estado runtime-state.'
+  }
+
+  $normalizedBaseUrl = $BaseUrl.TrimEnd('/')
+  $hostName = ([System.Uri]$normalizedBaseUrl).Host
+  $timestamp = (Get-Date).ToUniversalTime().ToString('o')
+  $worktreePath = Join-Path $RuntimeDir "runtime-state-publish-$([guid]::NewGuid().ToString('N'))"
+  $record = [pscustomobject]@{
+    baseUrl     = $normalizedBaseUrl
+    host        = $hostName
+    updatedAt   = $timestamp
+    source      = 'global'
+    activatedAt = $timestamp
+    machineName = $env:COMPUTERNAME
+  }
+
+  try {
+    & git -C $RepoRoot fetch origin $RuntimeStateBranch | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      throw "git fetch origin $RuntimeStateBranch falhou."
+    }
+
+    & git -C $RepoRoot show-ref --verify --quiet "refs/heads/$RuntimeStateBranch"
+    if ($LASTEXITCODE -eq 0) {
+      & git -C $RepoRoot worktree add $worktreePath $RuntimeStateBranch | Out-Null
+    } else {
+      & git -C $RepoRoot worktree add -b $RuntimeStateBranch $worktreePath "origin/$RuntimeStateBranch" | Out-Null
+    }
+    if ($LASTEXITCODE -ne 0) {
+      throw 'git worktree add para runtime-state falhou.'
+    }
+
+    $statePath = Join-Path $worktreePath $RuntimeStateFile
+    $record | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
+
+    $changed = & git -C $worktreePath status --porcelain -- $RuntimeStateFile
+    if ($changed) {
+      & git -C $worktreePath add $RuntimeStateFile | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw 'git add do runtime-backend.json falhou.' }
+
+      & git -C $worktreePath commit -m 'Update runtime backend state' | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw 'git commit do runtime-state falhou.' }
+
+      & git -C $worktreePath push origin $RuntimeStateBranch | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw 'git push do runtime-state falhou.' }
+    }
+
+    return $record
+  } finally {
+    & git -C $RepoRoot worktree remove $worktreePath --force *> $null
   }
 }
 
@@ -327,6 +384,17 @@ for ($attempt = 1; $attempt -le $postMaxRetries; $attempt++) {
       Write-Host "Tentativa $attempt/$($postMaxRetries): Vercel ainda nao acessa o tunnel (DNS propagando). Aguardando $($postRetryDelay)s..." -ForegroundColor Yellow
       Start-Sleep -Seconds $postRetryDelay
       continue
+    }
+
+    if ($statusCode -eq 500 -or $statusCode -eq 503) {
+      Write-Host "Vercel nao gravou a URL (status $statusCode). Tentando fallback via branch runtime-state..." -ForegroundColor Yellow
+      try {
+        $response = Publish-RuntimeStateViaGit -BaseUrl $tunnelUrl
+        Write-Host 'Fallback runtime-state publicado no GitHub.' -ForegroundColor Green
+        break
+      } catch {
+        Write-Host "Fallback runtime-state falhou: $($_.Exception.Message)" -ForegroundColor Yellow
+      }
     }
 
     Write-Progress -Activity $ProgressActivity -Completed
