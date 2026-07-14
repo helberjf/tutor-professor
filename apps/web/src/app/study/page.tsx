@@ -569,6 +569,7 @@ export default function StudyPage() {
   async function addDiverseSubject() {
     if (diverseMutationLockRef.current) return;
     const name = newSubjectName.trim();
+    const initialTopicCount = 3;
     if (!name) {
       setDiverseError('Digite o nome da matéria para criar.');
       return;
@@ -578,51 +579,49 @@ export default function StudyPage() {
       setDiverseError('Essa matéria já existe para esta data.');
       return;
     }
-    const catalogEntry = catalog.find((c) => c.name.toLowerCase() === name.toLowerCase());
-    const defaultTopics: CodingTopic[] = catalogEntry?.topics?.length
-      ? catalogEntry.topics.map((t) => ({
-          id: t.id || createLocalQuestionId(),
-          topic: t.topic,
-          done: t.done ?? false,
-          answer: t.answer ?? '',
-          code_example: t.code_example ?? null,
-          // carry spaced-repetition history so reviews continue across days
-          last_rating: t.last_rating ?? null,
-          review_count: t.review_count ?? 0,
-          last_reviewed: t.last_reviewed ?? null,
-        }))
-      : [
-          { id: createLocalQuestionId(), topic: 'Tópico 1', done: false, answer: '' },
-          { id: createLocalQuestionId(), topic: 'Tópico 2', done: false, answer: '' },
-          { id: createLocalQuestionId(), topic: 'Tópico 3', done: false, answer: '' },
-        ];
-    const newSubject: DiverseSubject = { id: createLocalSubjectId(), name, topics: defaultTopics, lessons: [] };
-    const nextSubjects = [...subjects, newSubject];
-    const newDay: DiverseDay = {
-      id: diverseDay?.id ?? null,
-      study_date: selectedDate,
-      custom_subjects: nextSubjects,
-      created_at: diverseDay?.created_at ?? null,
-      updated_at: diverseDay?.updated_at ?? null,
-    };
-    const newSubjectSlug = getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects);
     setDiverseError('');
     setDiverseSaved('');
-    setDiverseDay(newDay);
-    setNewSubjectName('');
-    selectDiverseSubjectTab(newSubjectSlug);
+    setAiError('');
+    setGeneratingAI(true);
+    setAiAction('create-subject');
+    setLastAIAction('create-subject');
 
     diverseMutationLockRef.current = true;
     setSavingDiverse(true);
     try {
+      const result = await api.generateStudyFlashcards({
+        subject: name,
+        count: initialTopicCount,
+      });
+      const initialTopics = flashcardsToTopics(result.flashcards).slice(0, initialTopicCount);
+      if (initialTopics.length !== initialTopicCount) {
+        setDiverseError('A IA não retornou 3 tópicos iniciais para essa matéria. Tente novamente.');
+        return;
+      }
+      const newSubject: DiverseSubject = { id: createLocalSubjectId(), name, topics: initialTopics, lessons: [] };
+      const nextSubjects = [...subjects, newSubject];
+      const newDay: DiverseDay = {
+        id: diverseDay?.id ?? null,
+        study_date: selectedDate,
+        custom_subjects: nextSubjects,
+        created_at: diverseDay?.created_at ?? null,
+        updated_at: diverseDay?.updated_at ?? null,
+      };
+      const newSubjectSlug = getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects);
+      setDiverseDay(newDay);
+      setNewSubjectName('');
+      selectDiverseSubjectTab(newSubjectSlug);
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: nextSubjects });
       setDiverseDay(saved);
-      setDiverseSaved('Matéria criada e salva.');
-    } catch {
-      setDiverseError('A matéria foi criada na tela, mas não foi possível salvar agora. Tente novamente.');
+      setDiverseSaved('Matéria criada com 3 tópicos iniciais da IA.');
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : 'Não foi possível criar a matéria com 3 tópicos iniciais da IA.';
+      setDiverseError(message);
     } finally {
       diverseMutationLockRef.current = false;
       setSavingDiverse(false);
+      setGeneratingAI(false);
+      setAiAction(null);
     }
   }
 
