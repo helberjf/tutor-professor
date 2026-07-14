@@ -1933,6 +1933,255 @@ _DEFAULT_CODING_SUBJECTS: dict[str, list[dict]] = {
     ],
 }
 
+_RESTORED_CODING_SUBJECT_DESCRIPTION = "Migrada do modo coding antigo."
+_STATIC_CODING_MODULE_BY_TOPIC: dict[tuple[str, str], str] = {
+    ("react", "usestateeuseeffect"): "react-hooks",
+    ("react", "componenteseprops"): "react-componentes",
+    ("leetcode", "arrayseslidingwindow"): "leetcode-arrays-two-pointers",
+    ("leetcode", "stringsedoisponteiros"): "leetcode-arrays-two-pointers",
+    ("typescript", "typeseinterfaces"): "typescript-tipos-basicos",
+    ("typescript", "generics"): "typescript-interfaces-e-tipos",
+    ("typescript", "utilitytypespartialpickomit"): "typescript-interfaces-e-tipos",
+}
+_ADMIN_LEARN_MODULE_CACHE: dict[str, Optional[dict]] = {}
+
+
+def _coding_seed_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def _load_admin_learn_module(slug: str) -> Optional[dict]:
+    if slug in _ADMIN_LEARN_MODULE_CACHE:
+        return _ADMIN_LEARN_MODULE_CACHE[slug]
+    learn_dir = PROJECT_ROOT / "content" / "admin-learn"
+    if not learn_dir.exists():
+        _ADMIN_LEARN_MODULE_CACHE[slug] = None
+        return None
+    for module_file in learn_dir.glob("*/*.json"):
+        try:
+            data = json.loads(module_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if data.get("slug") == slug or module_file.stem == slug:
+            _ADMIN_LEARN_MODULE_CACHE[slug] = data
+            return data
+    _ADMIN_LEARN_MODULE_CACHE[slug] = None
+    return None
+
+
+def _first_section_code_example(sections: list[dict]) -> Optional[str]:
+    for section in sections:
+        code_example = str(section.get("code_example") or "").strip()
+        if code_example:
+            return code_example[:3000]
+    return None
+
+
+def _flashcards_from_seed_content(content: dict) -> list[dict]:
+    sections = [section for section in content.get("sections", []) if isinstance(section, dict)]
+    code_example = _first_section_code_example(sections)
+    flashcards: list[dict] = []
+    for question in content.get("quiz", []):
+        if not isinstance(question, dict):
+            continue
+        front = str(question.get("question") or "").strip()
+        correct = str(question.get("correct_option") or "").strip()
+        explanation = str(question.get("explanation") or "").strip()
+        if not front or not correct:
+            continue
+        back = f"{correct}\n\n{explanation}".strip()
+        flashcards.append({
+            "front": front[:500],
+            "back": back[:2000],
+            "code_example": code_example,
+        })
+    if flashcards:
+        return flashcards[:5]
+    for section in sections[:5]:
+        title = str(section.get("title") or "").strip()
+        body = str(section.get("body") or "").strip()
+        if title and body:
+            flashcards.append({
+                "front": title[:500],
+                "back": body[:2000],
+                "code_example": str(section.get("code_example") or "").strip()[:3000] or None,
+            })
+    return flashcards
+
+
+def _topic_content_from_admin_module(subject_name: str, topic_title: str) -> Optional[dict]:
+    module_slug = _STATIC_CODING_MODULE_BY_TOPIC.get(
+        (_coding_seed_key(subject_name), _coding_seed_key(topic_title))
+    )
+    if not module_slug:
+        return None
+    module = _load_admin_learn_module(module_slug)
+    if not module:
+        return None
+    sections = [
+        {
+            "title": str(section.get("title") or "").strip(),
+            "body": str(section.get("body") or "").strip(),
+            "code_example": str(section.get("code_example") or "").strip() or None,
+        }
+        for section in module.get("sections", [])
+        if isinstance(section, dict)
+    ]
+    quiz = [
+        {
+            "id": int(question.get("id") or index + 1),
+            "question": str(question.get("question") or "").strip(),
+            "options": [
+                str(option).strip()
+                for option in question.get("options", [])
+                if str(option).strip()
+            ],
+            "correct_option": str(question.get("correct_option") or "").strip(),
+            "explanation": str(question.get("explanation") or "").strip(),
+        }
+        for index, question in enumerate(module.get("quiz", []))
+        if isinstance(question, dict)
+    ]
+    content = {
+        "title": str(module.get("title") or topic_title).strip(),
+        "sections": [section for section in sections if section["title"] and section["body"]],
+        "quiz": [
+            question
+            for question in quiz
+            if question["question"] and question["options"] and question["correct_option"] in question["options"]
+        ],
+    }
+    content["flashcards"] = _flashcards_from_seed_content(content)
+    validated = TopicAIContentSchema.model_validate(content)
+    return validated.model_dump(exclude_none=True)
+
+
+def _fallback_topic_seed_content(subject_name: str, topic_title: str) -> dict:
+    title = topic_title.strip() or "Topico"
+    subject = subject_name.strip() or "Programacao"
+    code_example = (
+        "const studyChecklist = [\n"
+        f"  'Defina {title}',\n"
+        "  'Explique quando usar',\n"
+        "  'Pratique com um exemplo pequeno',\n"
+        "];"
+    )
+    content = {
+        "title": f"{subject}: {title}",
+        "sections": [
+            {
+                "title": "Visao geral",
+                "body": (
+                    f"{title} e um tema importante em {subject}. Comece entendendo qual problema "
+                    "ele resolve, em quais situacoes aparece e quais sinais mostram que esta tecnica "
+                    "deve ser usada."
+                ),
+                "code_example": code_example,
+            },
+            {
+                "title": "Como praticar",
+                "body": (
+                    "Estude em tres passos: escreva uma definicao curta, crie um exemplo minimo e "
+                    "explique em voz alta o que muda no codigo. Depois compare com um caso real do seu projeto."
+                ),
+            },
+            {
+                "title": "Armadilhas comuns",
+                "body": (
+                    "Nao decore apenas a sintaxe. Foque no motivo da tecnica existir, nos erros comuns "
+                    "e em como testar se a solucao realmente funciona."
+                ),
+            },
+        ],
+        "quiz": [
+            {
+                "id": 1,
+                "question": f"Qual deve ser o primeiro passo ao estudar {title}?",
+                "options": [
+                    "Entender qual problema o conceito resolve",
+                    "Copiar uma solucao sem testar",
+                    "Ignorar exemplos pequenos",
+                    "Usar apenas decoracao de sintaxe",
+                ],
+                "correct_option": "Entender qual problema o conceito resolve",
+                "explanation": "Entender o problema torna mais facil reconhecer quando aplicar o conceito.",
+            },
+            {
+                "id": 2,
+                "question": "Por que criar um exemplo minimo ajuda?",
+                "options": [
+                    "Porque revela a ideia central sem distracoes",
+                    "Porque substitui todos os testes",
+                    "Porque evita estudar conceitos relacionados",
+                    "Porque sempre tem a mesma resposta",
+                ],
+                "correct_option": "Porque revela a ideia central sem distracoes",
+                "explanation": "Um exemplo pequeno deixa o comportamento principal visivel antes de ir para casos maiores.",
+            },
+            {
+                "id": 3,
+                "question": "O que fazer depois de entender a teoria?",
+                "options": [
+                    "Praticar, testar e explicar com suas palavras",
+                    "Marcar como dominado sem exercicio",
+                    "Apagar as anotacoes",
+                    "Estudar outro tema sem revisar",
+                ],
+                "correct_option": "Praticar, testar e explicar com suas palavras",
+                "explanation": "A combinacao de pratica, teste e explicacao consolida o aprendizado.",
+            },
+        ],
+    }
+    content["flashcards"] = _flashcards_from_seed_content(content)
+    validated = TopicAIContentSchema.model_validate(content)
+    return validated.model_dump(exclude_none=True)
+
+
+def _seed_content_for_restored_topic(
+    session: Session,
+    *,
+    child_id: int,
+    subject: ProgrammingSubject,
+    topic: ProgrammingTopic,
+) -> bool:
+    if topic.ai_content:
+        return False
+
+    content = _topic_content_from_admin_module(subject.name, topic.title)
+    if content is None:
+        content = _fallback_topic_seed_content(subject.name, topic.title)
+
+    topic.ai_content = content
+    topic.updated_at = datetime.utcnow()
+    session.add(topic)
+    session.flush()
+
+    existing_flashcards = session.exec(
+        select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)
+    ).all()
+    if not existing_flashcards:
+        for draft in content.get("flashcards", []):
+            if not isinstance(draft, dict):
+                continue
+            front = str(draft.get("front") or "").strip()
+            back = str(draft.get("back") or "").strip()
+            if not front or not back:
+                continue
+            flashcard = ProgrammingFlashcard(
+                topic_id=topic.id or 0,
+                subject_id=subject.id or 0,
+                child_id=child_id,
+                front=front[:500],
+                back=back[:2000],
+                code_example=str(draft.get("code_example") or "").strip()[:3000] or None,
+                created_at=datetime.utcnow(),
+            )
+            session.add(flashcard)
+            session.flush()
+            seed_coding_review_item(session, child_id, flashcard.id or 0)
+
+    return True
+
 
 def _legacy_coding_subject_name(subject_key: str) -> str:
     mapped_names = {
@@ -1993,7 +2242,7 @@ def _materialize_legacy_coding_curriculum(session: Session, child_id: int) -> li
         subject = ProgrammingSubject(
             child_id=child_id,
             name=subject_name,
-            description="Migrada do modo coding antigo.",
+            description=_RESTORED_CODING_SUBJECT_DESCRIPTION,
             created_at=now,
         )
         session.add(subject)
@@ -3257,6 +3506,22 @@ def list_coding_topics(
         session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
         key=lambda t: t.order_index,
     )
+    if subject.description == _RESTORED_CODING_SUBJECT_DESCRIPTION:
+        seeded_any = False
+        child_id = child.id or 0
+        for topic in topics:
+            seeded_any = _seed_content_for_restored_topic(
+                session,
+                child_id=child_id,
+                subject=subject,
+                topic=topic,
+            ) or seeded_any
+        if seeded_any:
+            session.commit()
+            topics = sorted(
+                session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
+                key=lambda t: t.order_index,
+            )
     return [_programming_topic_schema(session, t) for t in topics]
 
 

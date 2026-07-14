@@ -218,6 +218,22 @@ async def run() -> None:
         starter_subject_names = [subject["name"] for subject in starter_subjects_response.json()]
         if starter_subject_names != ["React", "LeetCode", "TypeScript", "Next.js"]:
             raise AssertionError(f"expected default coding curriculum, got {starter_subject_names}")
+        starter_react = next(subject for subject in starter_subjects_response.json() if subject["name"] == "React")
+        starter_react_topics_response = await client.get(
+            f"/api/coding/subjects/{starter_react['id']}/topics",
+            headers=starter_headers,
+        )
+        assert_status(starter_react_topics_response, 200, "list restored default coding topics")
+        starter_react_topics = starter_react_topics_response.json()
+        if not starter_react_topics[0]["ai_content"] or not starter_react_topics[0]["ai_content"].get("sections"):
+            raise AssertionError(f"expected restored default coding topic lesson content, got {starter_react_topics[0]}")
+        starter_flashcards_response = await client.get(
+            f"/api/coding/topics/{starter_react_topics[0]['id']}/flashcards",
+            headers=starter_headers,
+        )
+        assert_status(starter_flashcards_response, 200, "list restored default coding topic flashcards")
+        if len(starter_flashcards_response.json()) == 0:
+            raise AssertionError("expected restored default coding topic flashcards")
 
         noah_response = await client.post("/api/parent/children", json={"name": "Noah", "age_group": "4-6"})
         assert_status(noah_response, 200, "create child")
@@ -257,6 +273,8 @@ async def run() -> None:
             raise AssertionError(f"expected legacy topic titles to migrate, got {python_topics}")
         if python_topics[0]["status"] != "studied" or python_topics[1]["status"] != "not_started":
             raise AssertionError(f"expected legacy done state to migrate, got {python_topics}")
+        if not python_topics[0]["ai_content"] or not python_topics[0]["ai_content"].get("sections"):
+            raise AssertionError(f"expected restored legacy coding topic lesson content, got {python_topics[0]}")
 
         assert_status(await client.get("/api/lessons", headers=child_headers), 200, "lessons")
         assert_status(await client.get("/api/lesson/today", headers=child_headers), 200, "today lesson")
