@@ -2311,6 +2311,7 @@ function SubjectTopicsStudyModal({
   onClose: () => void;
 }) {
   const [mounted, setMounted] = useState(false);
+  const [openTopicId, setOpenTopicId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -2363,9 +2364,21 @@ function SubjectTopicsStudyModal({
                       {topic.done ? 'Concluído' : 'Pendente'}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">{topic.answer?.trim() || 'Sem explicação disponível ainda.'}</p>
-                  {topic.code_example && (
-                    <SyntaxCodeBlock code={topic.code_example} language={subjectName} className="mt-3 p-3" />
+                  <button
+                    type="button"
+                    onClick={() => setOpenTopicId((current) => (current === topic.id ? null : topic.id))}
+                    className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-xl border-2 border-indigo-200 bg-white px-3 text-xs font-black text-indigo-700 transition hover:border-indigo-400 hover:bg-indigo-50"
+                  >
+                    <ChevronRight size={14} className={`transition ${openTopicId === topic.id ? 'rotate-90' : ''}`} />
+                    {openTopicId === topic.id ? 'Ocultar resposta' : 'Mostrar resposta'}
+                  </button>
+                  {openTopicId === topic.id && (
+                    <>
+                      <p className="mt-3 text-sm leading-6 text-slate-600">{topic.answer?.trim() || 'Sem explicação disponível ainda.'}</p>
+                      {topic.code_example && (
+                        <SyntaxCodeBlock code={topic.code_example} language={subjectName} className="mt-3 p-3" />
+                      )}
+                    </>
                   )}
                 </article>
               ))}
