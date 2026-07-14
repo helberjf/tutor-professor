@@ -207,26 +207,29 @@ export default function ParentsPage() {
 
   async function handleLogout() {
     setSaving(true);
+    let logoutError: ApiError | null = null;
     try {
-      await api.parentLogout();
+      await api.userLogout();
+    } catch (err) {
+      logoutError = err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.');
+    } finally {
       setIsLoggedIn(false);
       clearActiveChildId();
       setActiveChildId(null);
       setChildren([]);
       setProgressSummaries([]);
       setForm(DEFAULT_FORM);
-      setMessage('Voce saiu da area de pais.');
+      setMessage(logoutError ? 'Sessao local encerrada. Entre novamente para continuar.' : 'Voce saiu da area de pais.');
       setGeneratorMessage('');
       setGeneratedLesson(null);
       setGeneratorTone('idle');
       setAiSettings(null);
       setAiForm({ provider: 'gemini', api_key: '', model: 'gemini-3.1-flash-lite', base_url: '' });
       setAiMessage('');
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.'));
-    } finally {
+      setError(logoutError);
       setSaving(false);
+      router.replace('/login?next=/parents');
+      router.refresh();
     }
   }
 

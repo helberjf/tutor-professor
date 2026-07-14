@@ -1203,14 +1203,10 @@ def create_parent_session(
 
 
 def clear_parent_session(request: Request, response: Response, session: Session) -> None:
-    token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
-    if token:
-        session_record = session.exec(
-            select(UserSession).where(UserSession.session_token_hash == hash_session_token(token))
-        ).first()
-        if session_record is not None:
-            session.delete(session_record)
-            session.commit()
+    session_record = get_request_user_session(request=request, session=session)
+    if session_record is not None:
+        session.delete(session_record)
+        session.commit()
 
     response.delete_cookie(
         key=PARENT_SESSION_COOKIE_NAME,
