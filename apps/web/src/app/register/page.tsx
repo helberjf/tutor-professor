@@ -62,14 +62,16 @@ interface FieldProps {
   label: string;
   icon: React.ReactNode;
   error?: string;
+  required?: boolean;
   children: React.ReactNode;
 }
 
-function Field({ id, label, icon, error, children }: FieldProps) {
+function Field({ id, label, icon, error, required = false, children }: FieldProps) {
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
         {label}
+        {required ? <span aria-hidden="true" className="ml-1 text-kid-pink">*</span> : null}
       </label>
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -157,10 +159,6 @@ export default function RegisterPage() {
       next.confirm = 'As senhas não coincidem.';
     }
 
-    if (!form.ai_provider) next.ai_provider = 'Escolha o provedor.';
-    if (!form.ai_model.trim()) next.ai_model = 'Informe o modelo.';
-    if (!form.ai_api_key.trim()) next.ai_api_key = 'Informe sua chave de API.';
-
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -173,6 +171,7 @@ export default function RegisterPage() {
     setErrors({});
 
     try {
+      const aiApiKey = form.ai_api_key.trim();
       await api.userRegister({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
@@ -182,7 +181,7 @@ export default function RegisterPage() {
         child_name: form.child_name.trim(),
         target_language: targetLanguage,
         ai_provider: form.ai_provider,
-        ai_api_key: form.ai_api_key.trim(),
+        ai_api_key: aiApiKey || undefined,
         ai_model: form.ai_model.trim(),
         ai_base_url: form.ai_base_url.trim() || undefined,
       });
@@ -278,22 +277,24 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Name row */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="first_name" label="Nome" icon={<User size={16} className="text-slate-400" />} error={errors.first_name}>
+              <Field id="first_name" label="Nome" icon={<User size={16} className="text-slate-400" />} error={errors.first_name} required>
                 <input
                   id="first_name"
                   type="text"
                   autoComplete="given-name"
+                  required
                   placeholder="João"
                   value={form.first_name}
                   onChange={(e) => set('first_name', e.target.value)}
                   className={inputCls}
                 />
               </Field>
-              <Field id="last_name" label="Sobrenome" icon={<User size={16} className="text-slate-400" />} error={errors.last_name}>
+              <Field id="last_name" label="Sobrenome" icon={<User size={16} className="text-slate-400" />} error={errors.last_name} required>
                 <input
                   id="last_name"
                   type="text"
                   autoComplete="family-name"
+                  required
                   placeholder="Silva"
                   value={form.last_name}
                   onChange={(e) => set('last_name', e.target.value)}
@@ -302,11 +303,12 @@ export default function RegisterPage() {
               </Field>
             </div>
 
-            <Field id="child_name" label="Seu nome / Nome do aluno" icon={<User size={16} className="text-slate-400" />} error={errors.child_name}>
+            <Field id="child_name" label="Seu nome / Nome do aluno" icon={<User size={16} className="text-slate-400" />} error={errors.child_name} required>
               <input
                 id="child_name"
                 type="text"
                 autoComplete="off"
+                required
                 placeholder="Ana"
                 value={form.child_name}
                 onChange={(e) => set('child_name', e.target.value)}
@@ -317,7 +319,9 @@ export default function RegisterPage() {
             {/* Language picker */}
             <div className="space-y-1.5">
               <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
-                <span className="flex items-center gap-1.5"><Globe size={14} /> Idioma para aprender</span>
+                <span className="flex items-center gap-1.5">
+                  <Globe size={14} /> Idioma para aprender <span aria-hidden="true" className="text-kid-pink">*</span>
+                </span>
               </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {LANGUAGES.map((lang) => (
@@ -392,11 +396,12 @@ export default function RegisterPage() {
             </Field>
 
             {/* Email */}
-            <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email}>
+            <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email} required>
               <input
                 id="email"
                 type="email"
                 autoComplete="email"
+                required
                 placeholder="joao@email.com"
                 value={form.email}
                 onChange={(e) => set('email', e.target.value)}
@@ -405,12 +410,13 @@ export default function RegisterPage() {
             </Field>
 
             {/* CPF */}
-            <Field id="cpf" label="CPF" icon={<span className="text-xs font-black text-slate-400">CPF</span>} error={errors.cpf}>
+            <Field id="cpf" label="CPF" icon={<span className="text-xs font-black text-slate-400">CPF</span>} error={errors.cpf} required>
               <input
                 id="cpf"
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
+                required
                 placeholder="000.000.000-00"
                 value={form.cpf}
                 onChange={(e) => set('cpf', maskCPF(e.target.value))}
@@ -420,11 +426,12 @@ export default function RegisterPage() {
             </Field>
 
             {/* Password */}
-            <Field id="password" label="Senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.password}>
+            <Field id="password" label="Senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.password} required>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
+                required
                 placeholder="Mínimo 6 caracteres"
                 value={form.password}
                 onChange={(e) => set('password', e.target.value)}
@@ -441,11 +448,12 @@ export default function RegisterPage() {
             </Field>
 
             {/* Confirm */}
-            <Field id="confirm" label="Confirmar senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.confirm}>
+            <Field id="confirm" label="Confirmar senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.confirm} required>
               <input
                 id="confirm"
                 type={showConfirm ? 'text' : 'password'}
                 autoComplete="new-password"
+                required
                 placeholder="Repita a senha"
                 value={form.confirm}
                 onChange={(e) => set('confirm', e.target.value)}
