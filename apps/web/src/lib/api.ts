@@ -634,6 +634,7 @@ export interface UserAISettings {
   base_url: string | null;
   has_api_key: boolean;
   api_key_preview: string | null;
+  use_global_key: boolean;
 }
 
 export interface AIProvider {
@@ -649,6 +650,7 @@ export interface UserAISettingsPayload {
   api_key?: string;
   model?: string;
   base_url?: string;
+  use_global_key?: boolean;
 }
 
 export interface AdminUser {

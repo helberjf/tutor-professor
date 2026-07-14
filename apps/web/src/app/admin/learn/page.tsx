@@ -760,6 +760,7 @@ function UsersTab() {
         provider: form.provider,
         model: form.model,
         base_url: form.base_url.trim() || undefined,
+        use_global_key: false,
         ...(form.api_key.trim() ? { api_key: form.api_key.trim() } : {}),
       });
       setUsers((current) => current.map((item) => (
@@ -785,6 +786,45 @@ function UsersTab() {
     }
   }
 
+  async function authorizeUserWithGlobalKey(user: AdminUser) {
+    const form = forms[user.id] ?? {
+      provider: user.ai_settings.provider,
+      model: user.ai_settings.model,
+      base_url: user.ai_settings.base_url ?? '',
+      api_key: '',
+    };
+    setSavingUserId(user.id);
+    setMessage(null);
+    try {
+      const saved = await api.adminSaveUserAISettings(user.id, {
+        provider: form.provider,
+        model: form.model,
+        base_url: form.base_url.trim() || undefined,
+        use_global_key: true,
+      });
+      setUsers((current) => current.map((item) => (
+        item.id === user.id ? { ...item, ai_settings: saved } : item
+      )));
+      setForms((current) => ({
+        ...current,
+        [user.id]: {
+          provider: saved.provider,
+          model: saved.model,
+          base_url: saved.base_url ?? '',
+          api_key: '',
+        },
+      }));
+      setMessage({ tone: 'success', text: `${user.email} autorizado a usar a chave global do servidor.` });
+    } catch (error) {
+      setMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Nao foi possivel autorizar o uso da IA.',
+      });
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -800,7 +840,10 @@ function UsersTab() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-wide text-primary-dark">Usuarios</p>
-          <h2 className="text-2xl font-black text-slate-800">Chaves de IA por conta</h2>
+          <h2 className="text-2xl font-black text-slate-800">Autorizar IA por conta</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Autorize uma conta criada a usar a chave global do servidor ou salve uma chave propria para ela.
+          </p>
         </div>
         <button
           type="button"
@@ -842,10 +885,14 @@ function UsersTab() {
                 </p>
               </div>
               <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
-                user.ai_settings.has_api_key ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                user.ai_settings.has_api_key || user.ai_settings.use_global_key ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
               }`}>
                 <KeyRound size={13} />
-                {user.ai_settings.has_api_key ? `Chave ${user.ai_settings.api_key_preview ?? 'salva'}` : 'Sem chave'}
+                {user.ai_settings.use_global_key
+                  ? 'Autorizado pela chave global'
+                  : user.ai_settings.has_api_key
+                    ? `Chave ${user.ai_settings.api_key_preview ?? 'salva'}`
+                    : 'Sem autorizacao'}
               </span>
             </div>
 
@@ -897,7 +944,16 @@ function UsersTab() {
               </label>
             </div>
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => authorizeUserWithGlobalKey(user)}
+                disabled={saving}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                Autorizar IA
+              </button>
               <button
                 type="button"
                 onClick={() => saveUserSettings(user)}

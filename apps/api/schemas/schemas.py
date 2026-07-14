@@ -825,6 +825,7 @@ class UserAISettingsSchema(BaseModel):
     base_url: Optional[str] = None
     has_api_key: bool = False
     api_key_preview: Optional[str] = None
+    use_global_key: bool = False
 
 
 class UserAISettingsUpdateSchema(BaseModel):
@@ -832,6 +833,7 @@ class UserAISettingsUpdateSchema(BaseModel):
     api_key: Optional[str] = Field(default=None, max_length=500)
     model: Optional[str] = Field(default=None, max_length=120)
     base_url: Optional[str] = Field(default=None, max_length=300)
+    use_global_key: Optional[bool] = None
 
 class ParentSettingsUpdateSchema(BaseModel):
     child_name: Optional[str] = None
