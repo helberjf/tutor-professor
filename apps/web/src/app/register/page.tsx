@@ -219,8 +219,8 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-        <div className="kid-surface w-full max-w-md p-10 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center px-3 py-10 sm:px-4 sm:py-12">
+        <div className="kid-surface w-full max-w-md p-6 text-center sm:p-10">
           <CheckCircle2 size={48} className="mx-auto mb-4 text-emerald-500" />
           <h2 className="text-2xl font-black text-slate-800">Conta criada!</h2>
           <p className="mt-2 text-slate-500">Redirecionando para o login…</p>
@@ -230,7 +230,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col px-4 py-6">
+    <div className="flex min-h-screen flex-col px-3 py-5 sm:px-4 sm:py-6">
       {/* Back */}
       <div className="mx-auto w-full max-w-md">
         <Link
@@ -243,7 +243,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Card */}
-      <div className="mx-auto mt-8 w-full max-w-md">
+      <div className="mx-auto mt-6 w-full max-w-md sm:mt-8">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_40px_rgba(14,165,233,0.15)]">
             <User className="text-primary-dark" size={32} />
@@ -258,7 +258,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <div className="kid-surface border-slate-200/60 p-7 md:p-9">
+        <div className="kid-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
           <button
             type="button"
             onClick={() => void handleGoogleRegister()}
@@ -277,7 +277,7 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Name row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field id="first_name" label="Nome" icon={<User size={16} className="text-slate-400" />} error={errors.first_name}>
                 <input
                   id="first_name"
@@ -319,7 +319,7 @@ export default function RegisterPage() {
               <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
                 <span className="flex items-center gap-1.5"><Globe size={14} /> Idioma para aprender</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {LANGUAGES.map((lang) => (
                   <button
                     key={lang.value}

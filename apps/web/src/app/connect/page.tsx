@@ -157,9 +157,9 @@ export default function ConnectPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+    <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
             <ArrowLeft size={22} /> Voltar
           </Link>
@@ -171,8 +171,8 @@ export default function ConnectPage() {
             <div className="inline-flex rounded-[1.5rem] bg-primary-light p-4">
               <Link2 className="text-primary-dark" size={34} />
             </div>
-            <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">Conecte este aparelho ao seu backend</h1>
-            <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
+            <h1 className="mt-4 text-2xl font-black text-slate-800 sm:text-3xl md:mt-5 md:text-4xl">Conecte este aparelho ao seu backend</h1>
+            <p className="mt-4 text-base leading-7 text-slate-600 sm:text-lg sm:leading-8 md:text-xl md:leading-9">
               Rode o backend no seu computador, abra um Cloudflare Tunnel para a porta `8001` e depois cole aqui a URL HTTPS completa.
             </p>
 

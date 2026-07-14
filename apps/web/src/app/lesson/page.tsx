@@ -374,7 +374,7 @@ function LessonPageContent() {
 
   if (allDone) {
     return (
-      <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+      <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-2xl">
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary mb-6">
             <ArrowLeft size={18} /> Voltar
@@ -396,7 +396,7 @@ function LessonPageContent() {
                 type="button"
                 onClick={() => void generateNewLesson()}
                 disabled={generatingNew}
-                className="inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark disabled:opacity-70"
+                className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark disabled:opacity-70 sm:w-auto sm:px-10 sm:py-5 sm:text-xl"
               >
                 {generatingNew ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
                 {generatingNew ? 'Gerando...' : 'Gerar nova licao com IA'}
@@ -498,7 +498,7 @@ function LessonPageContent() {
     return (
       <>
         <CelebrationOverlay show={showCelebration} />
-        <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
+        <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-5">
 
             {/* Celebration card */}
@@ -507,18 +507,18 @@ function LessonPageContent() {
                 <PartyPopper className="text-accent-dark" size={52} />
               </div>
               <p className="kid-tag mb-3">Licao concluida!</p>
-              <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Voce terminou</h1>
+              <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Voce terminou</h1>
               <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
               <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
                 {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}. Agora pratique para fixar!
               </p>
 
               {/* Primary CTA — Revisao */}
-              <div className="relative mt-8 inline-flex">
+              <div className="relative mt-8 flex w-full sm:inline-flex sm:w-auto">
                 <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-20" />
                 <Link
                   href="/review"
-                  className="relative inline-flex items-center gap-3 rounded-full bg-emerald-500 px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(34,197,94,0.40)] transition hover:scale-105 hover:bg-emerald-600 md:text-2xl"
+                  className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-emerald-500 px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(34,197,94,0.40)] transition hover:scale-105 hover:bg-emerald-600 sm:w-auto sm:px-10 sm:py-5 sm:text-xl md:text-2xl"
                 >
                   <Brain size={24} />
                   Praticar revisao
@@ -526,10 +526,10 @@ function LessonPageContent() {
               </div>
 
               {/* Secondary CTA — Next lesson */}
-              <div className="mt-4 inline-flex">
+              <div className="mt-4 flex w-full sm:inline-flex sm:w-auto">
                 <button
                   onClick={() => void loadLesson()}
-                  className="inline-flex items-center gap-3 rounded-full bg-primary px-10 py-5 text-xl font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark md:text-2xl"
+                  className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto sm:px-10 sm:py-5 sm:text-xl md:text-2xl"
                 >
                   <Sparkles size={24} />
                   Proxima licao
@@ -538,7 +538,7 @@ function LessonPageContent() {
             </div>
 
             {/* Secondary actions */}
-            <div className="grid w-full grid-cols-2 gap-3">
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
               <Link
                 href="/quick-review"
                 className="kid-surface flex flex-col items-center gap-2 border-amber-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
@@ -569,7 +569,7 @@ function LessonPageContent() {
 
   return (
     <>
-      <main className="min-h-screen pb-32 px-4 py-6 md:px-8 md:py-10">
+      <main className="min-h-screen pb-32 px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-2xl">
 
           {/* Level banner — shown as soon as level is known (from cache or API) */}
@@ -582,7 +582,7 @@ function LessonPageContent() {
                 <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">Seu nivel</p>
                 <p className="lesson-level-title text-base font-black">Nivel {levelInfo.level} — {levelInfo.label}</p>
               </div>
-              <div className="text-right">
+              <div className="hidden text-right sm:block">
                 <p className="lesson-level-stat text-xs">{levelInfo.vocabulary_learned} palavras</p>
                 <p className="lesson-level-stat text-xs">{Math.round(levelInfo.quiz_accuracy * 100)}% quiz</p>
               </div>
@@ -590,7 +590,7 @@ function LessonPageContent() {
           )}
 
           {/* Nav row */}
-          <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
               <ArrowLeft size={20} /> Sair
             </Link>
@@ -618,7 +618,7 @@ function LessonPageContent() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="kid-tag text-xs">{lesson.title}</p>
               </div>
-              <h1 className="mt-3 text-3xl font-black leading-tight text-slate-800 md:text-4xl">{currentItem.word_en}</h1>
+              <h1 className="mt-3 break-words text-2xl font-black leading-tight text-slate-800 sm:text-3xl md:text-4xl">{currentItem.word_en}</h1>
               <p className="mt-2 text-base leading-7 text-slate-500 md:text-lg md:leading-8">
                 {lesson.content.daily_goal || lesson.objective}
               </p>

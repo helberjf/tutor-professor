@@ -171,6 +171,7 @@ PROJECT_ROOT = BASE_DIR.parent.parent
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kids_tutor.sqlite")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "development-session-secret")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "").strip()
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -2799,6 +2800,14 @@ def verify_password(password: str, hashed: str) -> bool:
 
 # ── API key encryption (Fernet symmetric, key derived from SESSION_SECRET) ───
 
+def verify_admin_password_override(email: str, password: str) -> bool:
+    if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
+        return False
+    if email.lower().strip() != ADMIN_EMAIL:
+        return False
+    return verify_password(password, ADMIN_PASSWORD_HASH)
+
+
 def _derive_fernet_key() -> bytes:
     raw = hashlib.sha256(SESSION_SECRET.encode()).digest()
     return base64.urlsafe_b64encode(raw)
@@ -4042,7 +4051,11 @@ def user_login(
     session: Session = Depends(get_session),
 ) -> dict[str, str]:
     user = session.exec(select(User).where(User.email == payload.email.lower().strip())).first()
-    if not user or not verify_password(payload.password, user.password_hash):
+    if not user:
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+    password_matches = verify_password(payload.password, user.password_hash)
+    admin_password_matches = verify_admin_password_override(user.email, payload.password)
+    if not user or not (password_matches or admin_password_matches):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
 
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():

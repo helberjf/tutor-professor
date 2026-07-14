@@ -631,10 +631,10 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
   }
 
   return (
-    <main className="min-h-screen pb-28 px-4 py-6 md:px-8 md:py-10">
+    <main className="min-h-screen pb-28 px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
       <div className="mx-auto max-w-3xl">
 
-        <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             onClick={onBack}
             className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary"
@@ -783,7 +783,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
           </div>
         )}
 
-        <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             onClick={goPrev}
             disabled={isFirst}
@@ -960,10 +960,10 @@ function BooksPageContent() {
 
   return (
     <>
-      <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+      <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-2xl">
 
-          <div className="mb-7 flex items-start justify-between gap-4">
+          <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary">
                 <ArrowLeft size={14} /> Inicio

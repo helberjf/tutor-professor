@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+      <div className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-6xl">
           <p className="text-sm font-semibold text-slate-500">Carregando dashboard...</p>
         </div>
@@ -101,7 +101,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+      <div className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-6xl rounded-[1.6rem] border-2 border-rose-200 bg-white p-6 text-rose-700">
           {error}
         </div>
@@ -110,7 +110,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
+    <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
           <ArrowLeft size={18} /> Voltar
@@ -118,7 +118,7 @@ export default function DashboardPage() {
 
         <section className="rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Resumo de estudos</h1>
+          <h1 className="mt-2 text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Resumo de estudos</h1>
           <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
             Acompanhamento do ritmo, da sequência e dos activity logs em um painel separado.
           </p>
