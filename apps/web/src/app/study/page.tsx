@@ -1142,11 +1142,18 @@ export default function StudyPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
             <ArrowLeft size={18} /> Voltar
           </Link>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <span className="kid-tag w-fit text-xs">Painel de disciplina</span>
-            <span className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
-              <CalendarDays size={14} /> {formatDateBadge(selectedDate)}
-            </span>
+            <label className="inline-flex min-h-9 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
+              <CalendarDays size={14} />
+              <span className="sr-only">Data</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-[8.5rem] bg-transparent text-xs font-black text-slate-700 outline-none"
+              />
+            </label>
           </div>
         </div>
 
@@ -1173,20 +1180,6 @@ export default function StudyPage() {
             <ChevronRight size={24} className="shrink-0 text-primary" />
           </Link>
         )}
-
-        {/* Date picker (shared) */}
-        <div className="mb-6 flex justify-end">
-          <label className="flex flex-col gap-1.5 rounded-[1.2rem] border-2 border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-600">Data</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="min-h-10 rounded-xl border-2 border-slate-300 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-primary"
-            />
-          </label>
-        </div>
-
         {activeTab === 'english' ? (
           <EnglishTab
             dashboard={dashboard}
@@ -1702,15 +1695,15 @@ function DiverseTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="kid-surface border-primary/30 p-4 md:p-8">
+      <section className="kid-surface border-primary/30 p-3 md:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
-        <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
+        <h1 className="mt-1 text-xl font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-          <MetricCard icon={<Layers size={22} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
-          <MetricCard icon={<CheckCircle2 size={22} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
+          <MetricCard compact icon={<Layers size={18} />} label="Materias" value={`${subjects.length}`} helper="Criadas para hoje" tone="sky" />
+          <MetricCard compact icon={<CheckCircle2 size={18} />} label="Tópicos feitos" value={`${totalDone}/${totalTopics}`} helper="No total hoje" tone="green" />
           <MetricCard icon={<Flame size={22} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Em progresso'}
-            helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
+            helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} compact />
         </div>
       </section>
 
@@ -1975,11 +1968,12 @@ function DiverseSubjectDashboard({
   const completed = totalTopics > 0 && doneCount === totalTopics;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
   const [lessonContext, setLessonContext] = useState('');
+  const [studyModalOpen, setStudyModalOpen] = useState(false);
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
   return (
     <div className="space-y-6">
-      <section className="kid-surface border-indigo-200 p-6 md:p-8">
+      <section className="kid-surface border-indigo-200 p-3 md:p-8">
         <button
           type="button"
           onClick={onBack}
@@ -1988,13 +1982,20 @@ function DiverseSubjectDashboard({
           <ArrowLeft size={16} /> Voltar para matérias
         </button>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da matéria</p>
-        <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{subject.name}</h1>
-        <p className="mt-1 text-base text-slate-500">{formatDateLabel(selectedDate)}</p>
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MetricCard icon={<Layers size={22} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
-          <MetricCard icon={<BookOpen size={22} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
-          <MetricCard icon={<CheckCircle2 size={22} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
-          <MetricCard icon={<Flame size={22} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
+        <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-4xl">{subject.name}</h1>
+        <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
+        <button
+          type="button"
+          onClick={() => setStudyModalOpen(true)}
+          className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white shadow-[0_12px_24px_rgba(14,165,233,0.28)] transition hover:bg-primary-dark"
+        >
+          <BookOpen size={16} /> Iniciar estudo
+        </button>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-4">
+          <MetricCard compact icon={<Layers size={18} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
+          <MetricCard compact icon={<BookOpen size={18} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
+          <MetricCard compact icon={<CheckCircle2 size={18} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
+          <MetricCard compact icon={<Flame size={18} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
         </div>
       </section>
 
@@ -2192,6 +2193,91 @@ function DiverseSubjectDashboard({
             </div>
           </div>
         </aside>
+      </div>
+
+      {studyModalOpen && (
+        <SubjectTopicsStudyModal
+          subjectName={subject.name}
+          topics={subjectTopics}
+          onClose={() => setStudyModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SubjectTopicsStudyModal({
+  subjectName,
+  topics,
+  onClose,
+}: {
+  subjectName: string;
+  topics: CodingTopic[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="subject-study-modal-title"
+      className="fixed inset-0 z-50 flex min-h-[100dvh] items-end justify-center bg-slate-950/70 sm:items-center sm:p-6"
+    >
+      <div className="flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] bg-white text-slate-900 shadow-2xl sm:rounded-3xl">
+        <div className="border-b border-slate-200 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Estudo guiado</p>
+              <h2 id="subject-study-modal-title" className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">{subjectName}</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{topics.length} tópicos para revisar</p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar estudo da matéria"
+              className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto px-5 py-4 sm:px-6">
+          {topics.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center">
+              <p className="text-sm font-black text-slate-500">Nenhum tópico disponível para estudar ainda.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topics.map((topic, index) => (
+                <article key={topic.id} className="rounded-2xl border-2 border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Tópico {index + 1}</p>
+                      <h3 className="mt-1 text-base font-black text-slate-800">{topic.topic}</h3>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${topic.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {topic.done ? 'Concluído' : 'Pendente'}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{topic.answer?.trim() || 'Sem explicação disponível ainda.'}</p>
+                  {topic.code_example && (
+                    <SyntaxCodeBlock code={topic.code_example} language={subjectName} className="mt-3 p-3" />
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-slate-200 px-5 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white transition hover:bg-primary-dark"
+          >
+            Fechar estudo
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2947,17 +3033,18 @@ function DashboardTab({ dashboard, pomodoroState }: { dashboard: StudyDashboard 
 // ═══════════════════════════════════════════════════════════════════════════════
 // METRIC CARD
 // ═══════════════════════════════════════════════════════════════════════════════
-function MetricCard({ icon, label, value, helper, tone }: {
+function MetricCard({ icon, label, value, helper, tone, compact = false }: {
   icon: ReactNode; label: string; value: string; helper: string;
   tone: 'orange' | 'green' | 'rose' | 'sky';
+  compact?: boolean;
 }) {
   const toneStyles = { orange: 'bg-orange-100 text-orange-700', green: 'bg-emerald-100 text-emerald-700', rose: 'bg-rose-100 text-rose-700', sky: 'bg-sky-100 text-sky-700' }[tone];
   return (
-    <div className="rounded-[1.25rem] border-2 border-white/80 bg-white/85 p-3 shadow-[0_12px_32px_rgba(14,165,233,0.08)] sm:p-4">
-      <div className={`inline-flex h-9 w-9 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${toneStyles}`}>{icon}</div>
-      <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:mt-3 sm:text-xs">{label}</p>
-      <p className="mt-1 break-words text-xl font-black text-slate-800 sm:text-2xl">{value}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">{helper}</p>
+    <div className={`rounded-[1.1rem] border-2 border-white/80 bg-white/85 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ${compact ? 'p-2.5 sm:p-4' : 'p-3 sm:p-4'}`}>
+      <div className={`inline-flex items-center justify-center ${compact ? 'h-8 w-8 rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl' : 'h-9 w-9 rounded-2xl sm:h-11 sm:w-11'} ${toneStyles}`}>{icon}</div>
+      <p className={`font-bold uppercase tracking-[0.12em] text-slate-400 ${compact ? 'mt-2 text-[9px] sm:mt-3 sm:text-xs' : 'mt-2 text-[10px] sm:mt-3 sm:text-xs'}`}>{label}</p>
+      <p className={`mt-1 break-words font-black text-slate-800 ${compact ? 'text-lg leading-6 sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
+      <p className={`mt-1 font-semibold text-slate-500 ${compact ? 'text-[11px] leading-4 sm:text-sm sm:leading-5' : 'text-xs leading-5 sm:text-sm'}`}>{helper}</p>
     </div>
   );
 }
