@@ -110,6 +110,45 @@ assert.deepEqual(
 );
 assert.equal(calls.length, 1, 'fresh GitHub Contents API state should avoid raw fallback');
 
+const publicCalls = [];
+const fakePublicFetch = async (url, init = {}) => {
+  publicCalls.push({ url: String(url), headers: init.headers || {} });
+  if (String(url).startsWith('https://api.github.com/repos/helberjf/tutor-professor/contents/runtime-backend.json')) {
+    return {
+      ok: true,
+      json: async () => ({
+        encoding: 'base64',
+        content: encodeBase64(JSON.stringify(freshContentsApi)),
+      }),
+    };
+  }
+  return {
+    ok: true,
+    json: async () => staleRaw,
+  };
+};
+
+assert.deepEqual(
+  await fetchGitHubRuntimeBackendConfig({
+    owner: 'helberjf',
+    repo: 'tutor-professor',
+    branch: 'runtime-state',
+    branchFilePath: 'runtime-backend.json',
+    branchRawUrl: 'https://raw.githubusercontent.com/helberjf/tutor-professor/runtime-state/runtime-backend.json',
+    tagRawUrl: 'https://raw.githubusercontent.com/helberjf/tutor-professor/runtime-backend-state/runtime/runtime-backend.json',
+    token: null,
+    fetchImpl: fakePublicFetch,
+  }),
+  freshContentsApi,
+  'public GitHub Contents API state should be used even without a token',
+);
+assert.equal(publicCalls.length, 1, 'public Contents API state should avoid raw CDN fallback');
+assert.equal(
+  Object.hasOwn(publicCalls[0].headers, 'Authorization'),
+  false,
+  'public GitHub Contents API fetch must not send an Authorization header without a token',
+);
+
 const staleBranch = {
   baseUrl: 'https://stale-branch.trycloudflare.com',
   host: 'stale-branch.trycloudflare.com',
