@@ -1,9 +1,8 @@
-﻿{
-    "baseUrl":  "https://losses-nam-tradition-headlines.trycloudflare.com",
+{
     "host":  "losses-nam-tradition-headlines.trycloudflare.com",
-    "updatedAt":  "2026-07-14T12:42:21.3392851Z",
     "source":  "global",
-    "activatedAt":  "2026-07-14T12:42:21.3419638Z",
-    "machineName":  "HELBER"
+    "machineName":  "HELBER",
+    "baseUrl":  "https://losses-nam-tradition-headlines.trycloudflare.com",
+    "activatedAt":  "2026-07-14T12:43:34.5946738Z",
+    "updatedAt":  "2026-07-14T12:43:34.5946738Z"
 }
-
