@@ -4508,7 +4508,7 @@ def generate_diverse_flashcards(
         ai_config = AIProviderConfig(
             provider=provider,
             api_key=payload.api_key.strip(),
-            model=AI_PROVIDER_DEFAULT_MODELS.get(provider, "gemini-2.5-flash"),
+            model=AI_PROVIDER_DEFAULT_MODELS.get(provider, "gemini-3.1-flash-lite"),
         )
     else:
         ai_config = _get_user_ai_config(session_record, session)
