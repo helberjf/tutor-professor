@@ -163,6 +163,12 @@ class BookGenerationService:
             if attempt > 1
             else ""
         )
+        if num_pages == 1:
+            story_structure = "page 1 = a complete tiny story with beginning and ending."
+        elif num_pages == 2:
+            story_structure = "page 1 = introduction, page 2 = resolution."
+        else:
+            story_structure = f"page 1 = introduction, pages 2-{num_pages - 1} = development, page {num_pages} = resolution."
 
         return f"""Create a children's {target_language} mini picture-book with EXACTLY {num_pages} pages.{retry_warning}
 This is a real illustrated learning book. Each page has a small illustration and just a few lines of text. Keep text short and punchy.
@@ -172,7 +178,7 @@ Difficulty: {difficulty}
 CRITICAL RULES:
 1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
 2. Each page MUST have EXACTLY {sentences_rule}. This is a picture-book page, not a paragraph.
-3. Story structure: page 1 = introduction, pages 2-{num_pages - 1} = development, page {num_pages} = resolution.
+3. Story structure: {story_structure}
 4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
 5. vocabulary: 3-5 key {target_language} words per page drawn from that page's text, no repeats across pages.
 6. Child-safe and positive content only.

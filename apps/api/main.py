@@ -4980,6 +4980,12 @@ def generate_and_add_book_page(
     book = session.get(Book, book_id)
     if book is None:
         raise HTTPException(status_code=404, detail="Livro nao encontrado.")
+    if payload.page_number > book.num_pages:
+        raise HTTPException(status_code=400, detail="Este livro ja atingiu o limite de paginas.")
+
+    existing_pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
+    if len(existing_pages) >= book.num_pages:
+        raise HTTPException(status_code=400, detail="Este livro ja esta completo.")
 
     child = get_requested_child(request=request, session=session)
 
@@ -5006,7 +5012,7 @@ def generate_and_add_book_page(
     )
     session.add(page)
     # Update num_pages to reflect actual generated count
-    existing_count = len(session.exec(select(BookPage).where(BookPage.book_id == book_id)).all())
+    existing_count = len(existing_pages)
     book.num_pages = max(book.num_pages, existing_count + 1)
     session.add(book)
     session.commit()

@@ -399,14 +399,14 @@ class BookSummarySchema(BaseModel):
 
 class GenerateBookRequestSchema(BaseModel):
     level: int = Field(default=0, ge=0, le=10)   # 0 = usa nivel atual da criança
-    num_pages: int = Field(default=5, ge=3, le=10)
-    theme: str = Field(default="", max_length=80)
+    num_pages: int = Field(default=5, ge=1, le=5)
+    theme: str = Field(min_length=1, max_length=300)
 
 
 class GenerateBookOutlineRequestSchema(BaseModel):
     level: int = Field(default=0, ge=0, le=10)
-    num_pages: int = Field(default=5, ge=3, le=10)
-    theme: str = Field(default="", max_length=80)
+    num_pages: int = Field(default=5, ge=1, le=5)
+    theme: str = Field(min_length=1, max_length=300)
 
 
 class BookOutlinePageSchema(BaseModel):
@@ -422,7 +422,7 @@ class BookOutlineSchema(BaseModel):
     characters: list[str] = Field(default_factory=list, max_length=6)
     page_outlines: list[BookOutlinePageSchema]
     level: int = Field(default=1, ge=1, le=10)
-    num_pages: int = Field(default=5, ge=3, le=10)
+    num_pages: int = Field(default=5, ge=1, le=5)
     target_language: str = Field(default="English", max_length=40)
 
 
@@ -430,7 +430,7 @@ class StartBookFromOutlineRequestSchema(BaseModel):
     title: str = Field(max_length=200)
     theme: str = Field(max_length=80)
     level: int = Field(ge=1, le=10)
-    num_pages: int = Field(ge=3, le=10)
+    num_pages: int = Field(ge=1, le=5)
     target_language: str = Field(default="English", max_length=40)
 
 
@@ -451,8 +451,8 @@ class GeneratedBookDraftSchema(BaseModel):
 
 class GenerateBookPageRequestSchema(BaseModel):
     outline: BookOutlineSchema
-    page_number: int = Field(ge=1, le=10)
-    context_pages: list[GeneratedBookPageDraftSchema] = Field(default_factory=list, max_length=10)
+    page_number: int = Field(ge=1, le=5)
+    context_pages: list[GeneratedBookPageDraftSchema] = Field(default_factory=list, max_length=5)
 
 
 class ChildProgressSummarySchema(BaseModel):

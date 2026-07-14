@@ -495,7 +495,7 @@ export interface BookOutline {
 export interface GenerateBookOutlinePayload {
   level?: number;
   num_pages: number;
-  theme?: string;
+  theme: string;
 }
 
 export interface StartBookPayload {
@@ -514,8 +514,8 @@ export interface GeneratePagePayload {
 
 export interface GenerateBookPayload {
   level: number;      // 0 = usa nível atual da criança
-  num_pages: number;  // 3-10
-  theme: string;      // vazio = IA escolhe
+  num_pages: number;  // 1-5
+  theme: string;      // contexto obrigatório do livro
 }
 
 export interface UserProfile {
