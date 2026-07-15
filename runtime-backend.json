@@ -1,8 +1,8 @@
-{
-    "host":  "losses-nam-tradition-headlines.trycloudflare.com",
+﻿{
+    "baseUrl":  "https://alaska-advertisements-surf-pack.trycloudflare.com",
+    "host":  "alaska-advertisements-surf-pack.trycloudflare.com",
+    "updatedAt":  "2026-07-15T01:40:29.8742256Z",
     "source":  "global",
-    "machineName":  "HELBER",
-    "baseUrl":  "https://losses-nam-tradition-headlines.trycloudflare.com",
-    "activatedAt":  "2026-07-14T12:43:34.5946738Z",
-    "updatedAt":  "2026-07-14T12:43:34.5946738Z"
+    "activatedAt":  "2026-07-15T01:40:29.8742256Z",
+    "machineName":  "HELBER"
 }
