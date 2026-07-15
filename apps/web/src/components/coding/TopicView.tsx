@@ -435,11 +435,19 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               <div className="space-y-5">
                 {topic.ai_content.quiz.map((q, qIdx) => {
                   const state = quizState[qIdx];
+                  // Shuffle options consistently per question to avoid correct answer always being first
+                  const seed = (q.id || qIdx) + (q.question.charCodeAt(0) || 0) * 73;
+                  const shuffledOptions = [...q.options].sort((a, b) => {
+                    const hash_a = (seed * 73856093 ^ a.charCodeAt(0) * 19349663) % 1000;
+                    const hash_b = (seed * 73856093 ^ b.charCodeAt(0) * 19349663) % 1000;
+                    return hash_a - hash_b;
+                  });
+                  
                   return (
                     <div key={q.id} className="rounded-2xl bg-white p-4">
                       <p className="mb-3 font-semibold text-slate-800">{qIdx + 1}. {q.question}</p>
                       <div className="space-y-2">
-                        {q.options.map((opt) => {
+                        {shuffledOptions.map((opt) => {
                           const isSelected = state?.selected === opt;
                           const isCorrect = opt === q.correct_option;
                           const answered = state?.answered;
@@ -886,28 +894,37 @@ function ReadingQuizStep({
       <p className="text-xs font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
       <h3 className="mt-3 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{question.question}</h3>
       <div className="mt-6 space-y-3">
-        {question.options.map((option) => {
-          const answered = Boolean(state?.answered);
-          const selected = state?.selected === option;
-          const correct = question.correct_option === option;
-          let className = 'w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition sm:text-base ';
-          if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-primary hover:bg-sky-50';
-          else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
-          else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';
-          else className += 'border-slate-100 bg-slate-50 text-slate-400';
+        {(() => {
+          // Shuffle options consistently per question to avoid correct answer always being first
+          const seed = (question.id || quizIndex) + (question.question.charCodeAt(0) || 0) * 73;
+          const shuffledOptions = [...question.options].sort((a, b) => {
+            const hash_a = (seed * 73856093 ^ a.charCodeAt(0) * 19349663) % 1000;
+            const hash_b = (seed * 73856093 ^ b.charCodeAt(0) * 19349663) % 1000;
+            return hash_a - hash_b;
+          });
+          return shuffledOptions.map((option) => {
+            const answered = Boolean(state?.answered);
+            const selected = state?.selected === option;
+            const correct = question.correct_option === option;
+            let className = 'w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition sm:text-base ';
+            if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-primary hover:bg-sky-50';
+            else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
+            else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';
+            else className += 'border-slate-100 bg-slate-50 text-slate-400';
 
-          return (
-            <button
-              key={option}
-              type="button"
-              disabled={answered}
-              onClick={() => onQuizAnswer(quizIndex, option, question)}
-              className={className}
-            >
-              {option}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={option}
+                type="button"
+                disabled={answered}
+                onClick={() => onQuizAnswer(quizIndex, option, question)}
+                className={className}
+              >
+                {option}
+              </button>
+            );
+          });
+        })()}
       </div>
       {state?.answered && (
         <div className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
