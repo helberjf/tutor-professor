@@ -149,62 +149,60 @@ async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
     'User-Agent': 'english-kids-tutor-vercel',
   };
 
-  // Try to get the current file SHA on the branch
-  const getRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`,
-    { headers, cache: 'no-store' },
-  );
+  async function fetchCurrentFileSha() {
+    const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`, {
+      headers,
+      cache: 'no-store',
+    });
 
-  let sha: string | undefined;
+    if (getRes.ok) {
+      const data = (await getRes.json()) as { sha: string };
+      return { sha: data.sha, branchExists: true };
+    }
 
-  if (getRes.ok) {
-    const data = (await getRes.json()) as { sha: string };
-    sha = data.sha;
-  } else if (getRes.status === 404) {
-    // Branch or file might not exist — check if the branch exists
-    const branchRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/branches/${branch}`,
-      { headers, cache: 'no-store' },
-    );
+    if (getRes.status === 404) {
+      const branchRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches/${branch}`, {
+        headers,
+        cache: 'no-store',
+      });
 
-    if (!branchRes.ok) {
-      // Branch does not exist: create it from the default branch HEAD
-      const mainRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`,
-        { headers, cache: 'no-store' },
-      );
+      if (!branchRes.ok) {
+        const mainRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`, {
+          headers,
+          cache: 'no-store',
+        });
 
-      if (!mainRes.ok) {
-        throw new Error('Nao foi possivel obter o SHA do branch main para criar o runtime-state.');
-      }
+        if (!mainRes.ok) {
+          throw new Error('Nao foi possivel obter o SHA do branch main para criar o runtime-state.');
+        }
 
-      const mainData = (await mainRes.json()) as { object: { sha: string } };
-      const createBranchRes = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/git/refs`,
-        {
+        const mainData = (await mainRes.json()) as { object: { sha: string } };
+        const createBranchRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
             ref: `refs/heads/${branch}`,
             sha: mainData.object.sha,
           }),
-        },
-      );
+        });
 
-      if (!createBranchRes.ok) {
-        const errText = await createBranchRes.text();
-        throw new Error(`Nao foi possivel criar o branch ${branch}: ${createBranchRes.status} ${errText}`);
+        if (!createBranchRes.ok) {
+          const errText = await createBranchRes.text();
+          throw new Error(`Nao foi possivel criar o branch ${branch}: ${createBranchRes.status} ${errText}`);
+        }
       }
+
+      return { sha: undefined, branchExists: false };
     }
-    // File doesn't exist on the branch yet — no SHA needed for creation
-  } else {
+
     throw new Error(`GitHub API GET falhou com status ${getRes.status}.`);
   }
 
   const content = Buffer.from(JSON.stringify(record, null, 2)).toString('base64');
-  const putRes = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
-    {
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { sha } = await fetchCurrentFileSha();
+    const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
       method: 'PUT',
       headers,
       body: JSON.stringify({
@@ -213,11 +211,17 @@ async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
         branch,
         ...(sha ? { sha } : {}),
       }),
-    },
-  );
+    });
 
-  if (!putRes.ok) {
+    if (putRes.ok) {
+      return;
+    }
+
     const errText = await putRes.text();
+    if (attempt === 0 && (putRes.status === 409 || putRes.status === 422)) {
+      continue;
+    }
+
     throw new Error(`GitHub API PUT falhou com status ${putRes.status}: ${errText}`);
   }
 }

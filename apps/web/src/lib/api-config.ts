@@ -93,14 +93,6 @@ export function getStoredApiBaseUrl() {
 function getPreferredConfiguredConnection(runtimeConfig = readStoredRuntimeBackendConfig()): ApiConnectionDetails {
   const savedUrl = getStoredApiBaseUrl();
 
-  if (runtimeConfig.baseUrl) {
-    return {
-      baseUrl: runtimeConfig.baseUrl,
-      host: runtimeConfig.host,
-      source: 'global',
-    };
-  }
-
   if (savedUrl) {
     return {
       baseUrl: savedUrl,
