@@ -180,9 +180,9 @@ function Publish-RuntimeStateViaGit([string]$BaseUrl) {
       throw "git fetch origin $RuntimeStateBranch falhou."
     }
 
-    & git -C $RepoRoot show-ref --verify --quiet "refs/heads/$RuntimeStateBranch"
+    & git -C $RepoRoot show-ref --verify --quiet "refs/remotes/origin/$RuntimeStateBranch"
     if ($LASTEXITCODE -eq 0) {
-      & git -C $RepoRoot worktree add $worktreePath $RuntimeStateBranch | Out-Null
+      & git -C $RepoRoot worktree add -B $RuntimeStateBranch $worktreePath "origin/$RuntimeStateBranch" | Out-Null
     } else {
       & git -C $RepoRoot worktree add -b $RuntimeStateBranch $worktreePath "origin/$RuntimeStateBranch" | Out-Null
     }

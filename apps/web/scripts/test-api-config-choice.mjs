@@ -74,17 +74,17 @@ const { getApiConnectionDetails, resolveApiBaseUrl } = loadApiConfig();
 
 assert.equal(
   await resolveApiBaseUrl(),
-  globalTunnel,
-  'published global runtime backend should win over a newer saved quick-tunnel URL',
+  savedTunnel,
+  'saved quick-tunnel URL should override the published global runtime backend on this device',
 );
 assert.deepEqual(
   getApiConnectionDetails(),
   {
-    baseUrl: globalTunnel,
-    host: 'global-data.trycloudflare.com',
-    source: 'global',
+    baseUrl: savedTunnel,
+    host: 'saved-empty.trycloudflare.com',
+    source: 'saved',
   },
-  'connection details should report the global backend when both global and saved URLs exist',
+  'connection details should report the saved backend when both global and saved URLs exist',
 );
 
 console.log('API connection choice checks passed.');
