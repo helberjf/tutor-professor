@@ -1,8 +1,8 @@
 ﻿{
-    "baseUrl":  "https://brought-mysimon-dis-suits.trycloudflare.com",
-    "host":  "brought-mysimon-dis-suits.trycloudflare.com",
-    "updatedAt":  "2026-07-19T01:13:18.7664142Z",
+    "baseUrl":  "https://api.trycloudflare.com",
+    "host":  "api.trycloudflare.com",
+    "updatedAt":  "2026-07-31T17:49:50.2287535Z",
     "source":  "global",
-    "activatedAt":  "2026-07-19T01:13:18.7664142Z",
+    "activatedAt":  "2026-07-31T17:49:50.2287535Z",
     "machineName":  "HELBER"
 }
