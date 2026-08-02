@@ -11,8 +11,9 @@ export function StudyStatisticsPanel() {
   if (!isExpanded) {
     return (
       <button
+        type="button"
         onClick={() => setIsExpanded(true)}
-        className="inline-flex items-center gap-2 rounded-lg border-2 border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50"
       >
         <TrendingUp size={18} />
         Ver Estatísticas
@@ -26,8 +27,10 @@ export function StudyStatisticsPanel() {
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-slate-800">Estatísticas</h3>
         <button
+          type="button"
+          aria-label="Recolher estatísticas"
           onClick={() => setIsExpanded(false)}
-          className="inline-flex rounded p-1 text-slate-600 transition hover:bg-slate-100"
+          className="inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 transition hover:bg-slate-100"
         >
           <ChevronDown size={20} className="rotate-180" />
         </button>

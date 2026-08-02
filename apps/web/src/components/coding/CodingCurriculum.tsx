@@ -188,7 +188,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                       type="button"
                       aria-label="Remover matéria"
                       onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
-                      className="rounded-xl border-2 border-rose-100 bg-white p-1.5 text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -215,7 +215,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                         type="button"
                         disabled={loadingTopics}
                         onClick={() => openSubject(subject)}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                       >
                         {loadingTopics ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -230,7 +230,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                         type="button"
                         disabled={loadingReview || subject.due_review_count === 0}
                         onClick={() => handleStartReview(subject)}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-40"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-40"
                       >
                         {loadingReview ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />} Revisar
                       </button>
@@ -238,7 +238,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                     <button
                       type="button"
                       onClick={() => setView({ type: 'deck', subject })}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
+                      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
                     >
                       <Layers size={12} /> Flashcards
                     </button>

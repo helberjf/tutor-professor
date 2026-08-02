@@ -13,18 +13,20 @@ import { getPomodoroCompletionMessage } from '../_lib/study-helpers';
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB BUTTON
 // ═══════════════════════════════════════════════════════════════════════════════
+/** flex-1 + min-w-0 so all three tabs share the row and fit from 320px up, instead
+ *  of overflowing and leaving the active tab clipped at the screen edge. */
 export function TabButton({ active, onClick, icon, label, mobileLabel }: { active: boolean; onClick: () => void; icon: ReactNode; label: string; mobileLabel?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-w-fit shrink-0 items-center justify-center gap-2 rounded-[1.15rem] px-4 py-2.5 text-sm font-black transition ${
+      className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[1.15rem] px-2 py-2.5 text-xs font-black transition sm:gap-2 sm:px-4 sm:text-sm ${
         active ? 'bg-primary text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-      <span className="sm:hidden">{mobileLabel ?? label}</span>
+      <span className="shrink-0">{icon}</span>
+      <span className="hidden truncate sm:inline">{label}</span>
+      <span className="truncate sm:hidden">{mobileLabel ?? label}</span>
     </button>
   );
 }
@@ -65,22 +67,22 @@ export function PomodoroWidget({
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4">
           <button type="button" onClick={() => onSwitch('focus')}
-            className={`rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             Foco
           </button>
           <button type="button" onClick={() => onSwitch('break')}
-            className={`rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
             Pausa
           </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button type="button" onClick={onToggle}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-2.5 text-xs font-black text-white transition hover:bg-slate-700 md:min-h-11 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-2.5 text-xs font-black text-white transition hover:bg-slate-700 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
             {running ? <Pause size={14} className="md:h-4 md:w-4" /> : <Play size={14} className="md:h-4 md:w-4" />}
             {running ? 'Pausar' : 'Iniciar'}
           </button>
           <button type="button" onClick={() => onSwitch(mode)}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:min-h-11 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
             <RotateCcw size={14} className="md:h-4 md:w-4" /> Reiniciar
           </button>
         </div>
@@ -88,7 +90,7 @@ export function PomodoroWidget({
 
       <button type="button" onClick={onRequestNotifications}
         disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}
-        className="mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:min-h-11 md:gap-2 md:rounded-2xl md:text-sm">
+        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:gap-2 md:rounded-2xl md:text-sm">
         <Bell size={14} className="md:h-4 md:w-4" />
         {notificationPermission === 'granted' ? 'Notificacoes ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificacoes'}
       </button>

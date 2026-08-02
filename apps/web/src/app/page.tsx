@@ -328,7 +328,7 @@ export default function HomePage() {
 
         {/* Parents area link */}
         <div className="mt-6 text-center">
-          <Link href="/parents" className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-slate-600 transition">
+          <Link href="/parents" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
             Área dos pais
           </Link>
         </div>

@@ -65,7 +65,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               maxLength={100}
               required
               autoFocus
-              className="flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 outline-none focus:border-primary"
+              className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 outline-none focus:border-primary"
             />
           </div>
           <input

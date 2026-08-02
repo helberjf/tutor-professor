@@ -967,7 +967,7 @@ function BooksPageContent() {
 
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <Link href="/" className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-primary">
+              <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-xs font-bold text-slate-400 hover:text-primary">
                 <ArrowLeft size={14} /> Inicio
               </Link>
               <div className="mt-2 flex items-center gap-3">
@@ -982,7 +982,7 @@ function BooksPageContent() {
             </div>
             <button
               onClick={() => setShowForm(true)}
-              className="flex shrink-0 items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+              className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
             >
               <Plus size={18} />
               <span className="hidden sm:inline">Novo livro</span>

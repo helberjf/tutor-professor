@@ -153,7 +153,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
             onChange={(e) => setHint(e.target.value)}
             maxLength={120}
             placeholder="Opcional: pedir um método específico (ex: Sliding Window)"
-            className="flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
+            className="min-w-0 flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
           />
           <select
             value={language}

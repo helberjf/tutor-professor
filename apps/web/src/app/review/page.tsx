@@ -489,7 +489,7 @@ export default function ReviewPage() {
           disabled={generating}
           aria-expanded={generationFormOpen}
           aria-controls="review-question-generator-panel"
-          className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60"
         >
           <Sparkles size={16} /> Criar proxima licao com IA
         </button>
@@ -562,7 +562,7 @@ export default function ReviewPage() {
     return (
       <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-lg">
-          <Link href="/" className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
+          <Link href="/" className="-ml-2 mb-5 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
           {generationPanel}
           <div className="kid-surface p-7 text-center">
             <Brain className="mx-auto text-slate-300" size={44} />

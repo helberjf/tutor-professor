@@ -376,7 +376,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           }}
           disabled={generating || generatingAdditionalFlashcards}
           aria-disabled={generating || generatingAdditionalFlashcards}
-          className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+          className="-ml-2 mb-3 flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-slate-500 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft size={16} /> {subjectName}
         </button>
@@ -390,7 +390,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               <button
                 type="button"
                 onClick={handleStartReadingStudy}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
               >
                 <BookOpen size={16} />
                 Iniciar estudo
@@ -400,7 +400,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               <button
                 type="button"
                 onClick={() => handleSetStatus(topic.status === 'studied' ? 'mastered' : 'studied')}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white hover:bg-emerald-600 sm:w-auto"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white hover:bg-emerald-600 sm:w-auto"
               >
                 {topic.status === 'studied' ? <><Star size={14} /> Dominar</> : <><CheckCircle2 size={14} /> Estudado</>}
               </button>
@@ -523,7 +523,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                     type="button"
                     onClick={() => void handleGenerate(regenerateContext)}
                     disabled={loadingFc || generating || generatingAdditionalFlashcards}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                    className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
                   >
                     {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     Regenerar agora
@@ -538,7 +538,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                   setShowRegenerateContext(true);
                 }}
                 disabled={loadingFc || generating || generatingAdditionalFlashcards}
-                className="flex items-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+                className="min-h-11 flex items-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
               >
                 {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 Regenerar com IA
@@ -563,7 +563,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           type="button"
           onClick={handleSaveNotes}
           disabled={savingNotes || notes === (topic.notes ?? '')}
-          className="mt-2 rounded-2xl bg-primary px-5 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:opacity-40"
+          className="mt-2 min-h-11 rounded-2xl bg-primary px-5 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:opacity-40"
         >
           {savingNotes ? 'Salvando...' : 'Salvar Notas'}
         </button>
@@ -585,7 +585,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                   setAdditionalFlashcardSuccess('');
                 }}
                 disabled={loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards || addingFc || importingFc || loadingFc}
-                className="flex items-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 hover:bg-violet-100"
+                className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 hover:bg-violet-100"
               >
                 <Sparkles size={14} />
                 Criar mais questões com IA
@@ -595,7 +595,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               type="button"
               onClick={handleCopyFlashcards}
               disabled={loadingFc || loadedFlashcardTopicId !== topic.id || flashcards.length === 0}
-              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary disabled:opacity-40"
+              className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary disabled:opacity-40"
             >
               <Copy size={14} />
               Copiar JSON
@@ -610,7 +610,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 setImportFcError('');
               }}
               disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
-              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
+              className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showImportFc ? <X size={14} /> : <Upload size={14} />}
               {showImportFc ? 'Cancelar' : 'Importar'}
@@ -624,7 +624,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 setAdditionalFlashcardError('');
               }}
               disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
-              className="flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
+              className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showAddFc ? <X size={14} /> : <Plus size={14} />}
               {showAddFc ? 'Cancelar' : 'Adicionar'}
@@ -668,7 +668,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               <button
                 type="submit"
                 disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {generatingAdditionalFlashcards ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                 {generatingAdditionalFlashcards ? 'Criando questões...' : 'Criar 5 questões'}
@@ -692,7 +692,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             <button
               type="submit"
               disabled={loadingFc || loadedFlashcardTopicId !== topic.id || importingFc || generating || generatingAdditionalFlashcards || !importFcText.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2 font-black text-white hover:bg-violet-700 disabled:opacity-50"
+              className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2 font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {importingFc ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
               Importar flashcards
@@ -705,7 +705,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               aria-label="Frente (conceito / pergunta)" value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder="Frente (conceito / pergunta)" maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder="Verso (resposta / explicação)" maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder="Exemplo de código (opcional)" maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
-            <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+            <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
               {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar Flashcard
             </button>
           </form>
@@ -855,7 +855,7 @@ function ReadingStudyModal({
                 type="button"
                 onClick={() => void handleCopyDoubt()}
                 title="Copiar este conteúdo para tirar dúvida com uma IA"
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
+                className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
               >
                 <Copy size={15} />
                 <span className="hidden sm:inline">{doubtCopied ? 'Copiado!' : 'Tirar dúvida com IA'}</span>
@@ -864,7 +864,7 @@ function ReadingStudyModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar estudo"
-                className="rounded-2xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
               >
                 <X size={18} />
               </button>

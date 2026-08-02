@@ -1108,12 +1108,12 @@ export default function StudyPage() {
 
         {/* Top bar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
+          <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
             <ArrowLeft size={18} /> Voltar
           </Link>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <span className="kid-tag w-fit text-xs">Painel de disciplina</span>
-            <label className="inline-flex min-h-9 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
+            <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
               <CalendarDays size={14} />
               <span className="sr-only">Data</span>
               <input

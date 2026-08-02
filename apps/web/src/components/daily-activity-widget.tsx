@@ -94,7 +94,7 @@ export function DailyActivityWidget() {
         <h3 className="font-bold text-slate-800">Atividades de Hoje</h3>
         <Link
           href="/activity-log"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          className="-mr-2 inline-flex min-h-11 items-center gap-1 px-2 text-xs font-semibold text-primary hover:underline"
         >
           Ver tudo <ArrowRight size={14} />
         </Link>

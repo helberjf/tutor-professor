@@ -118,7 +118,7 @@ export function EnglishTab({
               aria-label="Celular, video, notificacao" value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistraction(); } }}
                   maxLength={80} placeholder="Celular, video, notificacao..."
-                  className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary" />
+                  className="min-h-12 min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary" />
                 <button type="button" onClick={addDistraction}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700">
                   <Plus size={18} /> Adicionar

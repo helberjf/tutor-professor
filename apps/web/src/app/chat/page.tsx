@@ -218,7 +218,7 @@ export default function ChatPage() {
                   type="text"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="min-h-[3.5rem] flex-1 rounded-full border-2 border-slate-200 bg-white px-5 text-lg text-slate-700 outline-none transition focus:border-primary"
+                  className="min-h-[3.5rem] min-w-0 flex-1 rounded-full border-2 border-slate-200 bg-white px-5 text-lg text-slate-700 outline-none transition focus:border-primary"
                   placeholder="Peça uma frase ou diga oi..."
                   maxLength={300}
                 />

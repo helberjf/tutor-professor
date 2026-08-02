@@ -223,7 +223,7 @@ export function DiverseTab({
                   }}
                   maxLength={60}
                   placeholder="Matéria: React, Python, Francês..."
-                  className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
+                  className="min-h-12 w-full min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
                 />
                 <datalist id="catalog-subjects">
                   {catalog.map((c) => <option key={c.name} value={c.name} />)}
@@ -279,7 +279,7 @@ export function DiverseTab({
                       <button
                         type="button"
                         onClick={() => void onRemoveSubject(item.index)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
                         title="Apagar matéria"
                       >
                         <Trash2 size={15} />
@@ -497,7 +497,7 @@ export function DiverseSubjectDashboard({
                     value={aiKeyDraft}
                     onChange={(e) => setAiKeyDraft(e.target.value)}
                     placeholder="AIza..."
-                    className="min-h-10 flex-1 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
+                    className="min-h-10 min-w-0 flex-1 rounded-xl border-2 border-rose-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
                   />
                   <button
                     type="button"
@@ -1054,7 +1054,7 @@ export function SubjectStudyCard({
           value={subject.name}
           onChange={(e) => onUpdateSubjectName(e.target.value)}
           maxLength={60}
-          className="flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-lg font-black text-slate-800 outline-none transition focus:border-primary focus:bg-white"
+          className="min-w-0 flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-lg font-black text-slate-800 outline-none transition focus:border-primary focus:bg-white"
         />
         <div className="flex shrink-0 items-center gap-2">
           {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
@@ -1183,7 +1183,7 @@ export function SubjectStudyCard({
                               value={topicAiKeyDraft[ti] ?? ''}
                               onChange={(event) => setTopicAiKeyDraft((current) => ({ ...current, [ti]: event.target.value }))}
                               placeholder="Chave IA opcional"
-                              className="min-h-9 flex-1 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-violet-500"
+                              className="min-h-9 min-w-0 flex-1 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-violet-500"
                             />
                             <button
                               type="button"
