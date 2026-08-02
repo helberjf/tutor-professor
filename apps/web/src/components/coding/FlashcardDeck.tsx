@@ -380,7 +380,9 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
   const [aiSuccess, setAiSuccess] = useState('');
   const mountedRef = useRef(true);
   const generationLockRef = useRef(false);
-  const cards = overview?.cards ?? [];
+  // Memoised so the `?? []` fallback does not produce a new array identity on
+  // every render and invalidate the filter memo below.
+  const cards = useMemo(() => overview?.cards ?? [], [overview?.cards]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -678,7 +680,8 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
         <p className="text-sm font-black text-slate-700">{initial ? 'Editar card' : 'Novo card'}</p>
         <button type="button" aria-label="Fechar formulário do card" onClick={onCancel} disabled={disabled || busy} className="rounded-lg p-1 text-slate-400 hover:bg-white disabled:opacity-50"><X size={16} /></button>
       </div>
-      <input value={front} onChange={(e) => setFront(e.target.value)} disabled={disabled || busy} placeholder="Frente (pergunta / conceito)" className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
+      <input
+              aria-label="Frente (pergunta / conceito)" value={front} onChange={(e) => setFront(e.target.value)} disabled={disabled || busy} placeholder="Frente (pergunta / conceito)" className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       <textarea value={back} onChange={(e) => setBack(e.target.value)} disabled={disabled || busy} placeholder="Verso (resposta / explicação)" rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       <textarea value={code} onChange={(e) => setCode(e.target.value)} disabled={disabled || busy} placeholder="Exemplo de código (opcional)" rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       {err && <p className="text-xs font-bold text-rose-600">{err}</p>}
@@ -746,7 +749,7 @@ function OptionsTab({ subjectId, config, onSaved }: { subjectId: number; config?
       <Group title="FSRS" hint="Algoritmo moderno do Anki. Maior retenção = revisões mais frequentes.">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-wide text-slate-400">Retenção desejada — {Math.round(form.desired_retention * 100)}%</label>
-          <input type="range" min={70} max={99} value={Math.round(form.desired_retention * 100)} onChange={(e) => set('desired_retention', Number(e.target.value) / 100)} className="accent-primary" />
+          <input aria-label="Retenção desejada" type="range" min={70} max={99} value={Math.round(form.desired_retention * 100)} onChange={(e) => set('desired_retention', Number(e.target.value) / 100)} className="accent-primary" />
         </div>
         <NumField label="Intervalo máximo (dias)" value={form.maximum_interval} onChange={(v) => set('maximum_interval', v)} />
         <div className="sm:col-span-2">

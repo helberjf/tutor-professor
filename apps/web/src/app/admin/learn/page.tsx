@@ -519,6 +519,7 @@ function FlashcardsTab() {
             <div>
               <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">Frente (termo)</label>
               <input
+              aria-label="O que é um generic?"
                 value={form.front}
                 onChange={(e) => setForm((f) => ({ ...f, front: e.target.value }))}
                 className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"

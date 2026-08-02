@@ -47,6 +47,7 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
+              aria-label="Nome do tópico"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Nome do tópico (ex: useState Hook)"

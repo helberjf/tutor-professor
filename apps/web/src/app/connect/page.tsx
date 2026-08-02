@@ -191,6 +191,7 @@ export default function ConnectPage() {
               <div>
                 <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">URL do tunnel</label>
                 <input
+              aria-label="https://random-name.trycloudflare.com"
                   type="url"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}

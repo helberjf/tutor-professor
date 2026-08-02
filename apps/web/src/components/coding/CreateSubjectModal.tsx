@@ -50,6 +50,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-3">
             <input
+              aria-label="⚛️"
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
               placeholder="⚛️"
@@ -57,6 +58,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               className="w-16 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3 text-center text-xl outline-none focus:border-primary"
             />
             <input
+              aria-label="Nome da matéria"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Nome da matéria (ex: React)"
@@ -67,6 +69,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
             />
           </div>
           <input
+              aria-label="Descrição"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Descrição (opcional)"

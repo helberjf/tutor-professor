@@ -32,12 +32,24 @@ function setSessionToken(token: string) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
   preferredChildSyncKey = null;
+  invalidateUserMeCache();
 }
 
 function clearSessionToken() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
   preferredChildSyncKey = null;
+  invalidateUserMeCache();
+}
+
+// The auth gate, the navbar and useRequireAuth each ask for the profile on every
+// page render, so a single navigation fired three identical /api/auth/me calls.
+// Share one in-flight request and reuse the answer briefly.
+const USER_ME_CACHE_MS = 30_000;
+let userMeCache: { at: number; promise: Promise<UserProfile> } | null = null;
+
+function invalidateUserMeCache() {
+  userMeCache = null;
 }
 
 function shouldSyncPreferredChild(endpoint: string, options: RequestInit) {
@@ -1087,7 +1099,16 @@ export const api = {
     }
     return result;
   },
-  getUserMe: () => fetchAPI<UserProfile>('/api/auth/me'),
+  getUserMe: () => {
+    const now = Date.now();
+    if (userMeCache && now - userMeCache.at < USER_ME_CACHE_MS) return userMeCache.promise;
+    const promise = fetchAPI<UserProfile>('/api/auth/me');
+    userMeCache = { at: now, promise };
+    // A rejected profile must not be cached, or a transient blip locks the user out
+    // for the whole TTL.
+    promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
+    return promise;
+  },
   userLogout: async () => {
     try {
       return await fetchAPI<{ status: string }>('/api/auth/logout', {

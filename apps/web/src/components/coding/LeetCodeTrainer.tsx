@@ -147,6 +147,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
+              aria-label="pedir um método específico"
             type="text"
             value={hint}
             onChange={(e) => setHint(e.target.value)}

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Star, Trophy, XCircle } from 'lucide-react';
 
@@ -49,7 +49,7 @@ function QuizPageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz?.id]);
 
-  async function loadQuiz() {
+  const loadQuiz = useCallback(async () => {
     setLoading(true);
     try {
       const lessonIdParam = searchParams.get('lessonId');
@@ -67,11 +67,11 @@ function QuizPageContent() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [searchParams]);
 
   useEffect(() => {
     void loadQuiz();
-  }, [searchParams]);
+  }, [loadQuiz]);
 
   async function handleNext() {
     if (!quiz || !selectedOption) {

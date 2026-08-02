@@ -252,6 +252,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 </span>
               </label>
               <input
+                aria-label="Nível do livro"
                 type="range" min={0} max={10} value={level}
                 onChange={(e) => setLevel(Number(e.target.value))}
                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary"
@@ -269,6 +270,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 Paginas: <span className="font-normal text-slate-500">{numPages}</span>
               </label>
               <input
+                aria-label="Número de páginas"
                 type="range" min={1} max={5} value={numPages}
                 onChange={(e) => setNumPages(Number(e.target.value))}
                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary"

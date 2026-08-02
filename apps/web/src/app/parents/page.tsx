@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
@@ -78,7 +78,7 @@ export default function ParentsPage() {
   const [tunnelError, setTunnelError] = useState('');
   const tunnelConnection = getApiConnectionDetails();
 
-  async function loadSettings() {
+  const loadSettings = useCallback(async () => {
     try {
       const [settings, childList, progressList, providers, userAiSettings] = await Promise.all([
         api.getParentSettings(),
@@ -130,11 +130,11 @@ export default function ParentsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
     void loadSettings();
-  }, []);
+  }, [loadSettings]);
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -466,6 +466,7 @@ export default function ParentsPage() {
                   <div>
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome da crianca</label>
                     <input
+                      aria-label="Nome da criança"
                       type="text"
                       value={form.child_name}
                       onChange={(event) => setForm((current) => ({ ...current, child_name: event.target.value }))}
@@ -591,6 +592,7 @@ export default function ParentsPage() {
                 <div>
                   <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome do novo aluno</label>
                   <input
+              aria-label=": Ana"
                     type="text"
                     value={newChildName}
                     onChange={(event) => setNewChildName(event.target.value)}
@@ -666,6 +668,7 @@ export default function ParentsPage() {
                   <div>
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Modelo</label>
                     <input
+              aria-label="gemini-3.1-flash-lite"
                       type="text"
                       value={aiForm.model}
                       onChange={(event) => setAiForm((current) => ({ ...current, model: event.target.value }))}
@@ -681,6 +684,7 @@ export default function ParentsPage() {
                     Chave API
                   </label>
                   <input
+                    aria-label="Chave API"
                     type="password"
                     value={aiForm.api_key}
                     onChange={(event) => setAiForm((current) => ({ ...current, api_key: event.target.value }))}
@@ -698,6 +702,7 @@ export default function ParentsPage() {
                 <div>
                   <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">URL base opcional</label>
                   <input
+              aria-label="https://api.exemplo.com/v1"
                     type="url"
                     value={aiForm.base_url}
                     onChange={(event) => setAiForm((current) => ({ ...current, base_url: event.target.value }))}
@@ -730,6 +735,7 @@ export default function ParentsPage() {
               <div className="mt-5">
                 <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
                 <input
+              aria-label="jogos, comida, escola"
                   type="text"
                   value={generatorTopic}
                   onChange={(event) => setGeneratorTopic(event.target.value)}
@@ -827,6 +833,7 @@ export default function ParentsPage() {
 
               <form onSubmit={handleSaveTunnel} className="mt-5 space-y-3">
                 <input
+              aria-label="https://xxxx.trycloudflare.com"
                   type="url"
                   value={tunnelDraft}
                   onChange={(e) => setTunnelDraft(e.target.value)}

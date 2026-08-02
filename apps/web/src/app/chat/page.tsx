@@ -214,6 +214,7 @@ export default function ChatPage() {
 
               <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-3 border-t border-slate-100 px-2 pt-4 sm:flex-row">
                 <input
+              aria-label="Peça uma frase ou diga oi"
                   type="text"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}

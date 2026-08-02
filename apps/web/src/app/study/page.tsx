@@ -223,6 +223,10 @@ export default function StudyPage() {
   const [newDistraction, setNewDistraction] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingDay, setLoadingDay] = useState(false);
+  // A failed load leaves the fields empty, which is indistinguishable from "nothing
+  // written yet" — saving on top of that would wipe the stored day. Block it.
+  const [dayLoadFailed, setDayLoadFailed] = useState(false);
+  const [dayReloadNonce, setDayReloadNonce] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [savedMessage, setSavedMessage] = useState('');
@@ -236,6 +240,8 @@ export default function StudyPage() {
   const [diverseError, setDiverseError] = useState('');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
+  // The catalog never changes per date, so fetch it once instead of on every tab visit.
+  const catalogLoadedRef = useRef(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [aiAction, setAiAction] = useState<DiverseAIAction | null>(null);
   const [lastAIAction, setLastAIAction] = useState<DiverseAIAction | null>(null);
@@ -359,9 +365,11 @@ export default function StudyPage() {
   // ── Load English day ────────────────────────────────────────────────────────
   useEffect(() => {
     if (authState.status !== 'authenticated' || !selectedDate) return;
+    if (activeTab !== 'english') return;
     let cancelled = false;
     setLoadingDay(true);
     setSavedMessage('');
+    setDayLoadFailed(false);
     api.getStudyDay(selectedDate)
       .then((data) => {
         if (cancelled) return;
@@ -370,15 +378,19 @@ export default function StudyPage() {
         setDistractions(data.distractions);
       })
       .catch(() => {
-        if (!cancelled) { setPlanText(''); setStudiedText(''); setDistractions([]); }
+        if (cancelled) return;
+        setPlanText(''); setStudiedText(''); setDistractions([]);
+        setDayLoadFailed(true);
       })
       .finally(() => { if (!cancelled) setLoadingDay(false); });
     return () => { cancelled = true; };
-  }, [authState.status, selectedDate]);
+  }, [authState.status, activeTab, selectedDate, dayReloadNonce]);
 
   // ── Load Diverse day ────────────────────────────────────────────────────────
   useEffect(() => {
     if (authState.status !== 'authenticated' || !selectedDate) return;
+    // Needed by the diverse tab and by the subject picker shown on the coding tab.
+    if (activeTab !== 'diverse' && activeTab !== 'coding') return;
     let cancelled = false;
     setLoadingDiverse(true);
     setDiverseSaved('');
@@ -387,7 +399,7 @@ export default function StudyPage() {
       .catch(() => { if (!cancelled) setDiverseDay(null); })
       .finally(() => { if (!cancelled) setLoadingDiverse(false); });
     return () => { cancelled = true; };
-  }, [authState.status, selectedDate]);
+  }, [authState.status, activeTab, selectedDate]);
 
   useEffect(() => {
     if (activeTab !== 'diverse' || !selectedDiverseSubjectSlug || !diverseDay) return;
@@ -402,13 +414,16 @@ export default function StudyPage() {
 
   // ── Load Diverse catalog ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (authState.status !== 'authenticated') return;
-    api.getDiverseCatalog().then(setCatalog).catch(() => {});
-  }, [authState.status]);
+    if (authState.status !== 'authenticated' || activeTab !== 'diverse') return;
+    if (catalogLoadedRef.current) return;
+    catalogLoadedRef.current = true;
+    api.getDiverseCatalog().then(setCatalog).catch(() => { catalogLoadedRef.current = false; });
+  }, [authState.status, activeTab]);
 
   // ── Load Coding day ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (authState.status !== 'authenticated' || !selectedDate) return;
+    if (activeTab !== 'coding') return;
     let cancelled = false;
     setLoadingCoding(true);
     setCodingSaved('');
@@ -417,7 +432,7 @@ export default function StudyPage() {
       .catch(() => { if (!cancelled) setCodingDay(null); })
       .finally(() => { if (!cancelled) setLoadingCoding(false); });
     return () => { cancelled = true; };
-  }, [authState.status, selectedDate]);
+  }, [authState.status, activeTab, selectedDate]);
 
   // ── Notification permission ─────────────────────────────────────────────────
   useEffect(() => {
@@ -529,6 +544,9 @@ export default function StudyPage() {
   }
 
   async function saveEnglishDay() {
+    // Never write over a day we never managed to read — the empty fields are a
+    // loading artefact, not the user's content.
+    if (dayLoadFailed) return;
     setSaving(true); setSavedMessage(''); setError(null);
     try {
       await api.saveStudyDay(selectedDate, { plan_text: planText, studied_text: studiedText, distractions });
@@ -1295,6 +1313,8 @@ export default function StudyPage() {
             addDistraction={addDistraction}
             removeDistraction={(i) => setDistractions((d) => d.filter((_, idx) => idx !== i))}
             loadingDay={loadingDay}
+            dayLoadFailed={dayLoadFailed}
+            onRetryLoadDay={() => setDayReloadNonce((n) => n + 1)}
             saving={saving}
             error={error}
             savedMessage={savedMessage}
@@ -1429,7 +1449,7 @@ function EnglishTab({
   planText, setPlanText, studiedText, setStudiedText,
   distractions, newDistraction, setNewDistraction,
   addDistraction, removeDistraction,
-  loadingDay, saving, error, savedMessage, onSave,
+  loadingDay, dayLoadFailed, onRetryLoadDay, saving, error, savedMessage, onSave,
   generatingLesson, lessonGenMessage, onGenerateLesson,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
@@ -1443,7 +1463,7 @@ function EnglishTab({
   newDistraction: string; setNewDistraction: (v: string) => void;
   addDistraction: () => void;
   removeDistraction: (i: number) => void;
-  loadingDay: boolean; saving: boolean;
+  loadingDay: boolean; dayLoadFailed: boolean; onRetryLoadDay: () => void; saving: boolean;
   error: ApiError | null; savedMessage: string;
   onSave: () => void;
   generatingLesson: boolean; lessonGenMessage: string;
@@ -1526,7 +1546,8 @@ function EnglishTab({
             <div>
               <span className="text-sm font-black text-slate-700">Distracoes percebidas</span>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <input value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
+                <input
+              aria-label="Celular, video, notificacao" value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistraction(); } }}
                   maxLength={80} placeholder="Celular, video, notificacao..."
                   className="min-h-12 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary" />
@@ -1559,7 +1580,20 @@ function EnglishTab({
               <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{savedMessage}</p>
             ) : null}
 
-            <button type="button" onClick={onSave} disabled={saving || loadingDay}
+            {dayLoadFailed && (
+              <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                <p>Não consegui carregar o registro deste dia, então salvar está bloqueado para não apagar o que já estava gravado.</p>
+                <button
+                  type="button"
+                  onClick={onRetryLoadDay}
+                  className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border-2 border-amber-300 px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100"
+                >
+                  <RotateCcw size={14} /> Tentar carregar de novo
+                </button>
+              </div>
+            )}
+
+            <button type="button" onClick={onSave} disabled={saving || loadingDay || dayLoadFailed}
               className="kid-button w-full bg-primary hover:bg-primary-dark">
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               Salvar registro
@@ -1911,6 +1945,7 @@ function DiverseTab({
             <div className="flex gap-2">
               <>
                 <input
+              aria-label="Matéria: React, Python, Francês"
                   list="catalog-subjects"
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
@@ -2191,6 +2226,7 @@ function DiverseSubjectDashboard({
                 <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
                 <div className="flex gap-2">
                   <input
+              aria-label="AIza"
                     type="password"
                     value={aiKeyDraft}
                     onChange={(e) => setAiKeyDraft(e.target.value)}
@@ -2770,6 +2806,7 @@ function SubjectStudyCard({
           <ChevronRight size={15} className={`transition-transform ${collapsed ? '' : 'rotate-90'}`} />
         </button>
         <input
+          aria-label="Nome da matéria"
           value={subject.name}
           onChange={(e) => onUpdateSubjectName(e.target.value)}
           maxLength={60}
@@ -2869,6 +2906,7 @@ function SubjectStudyCard({
                   {topicOpen && (
                     <div className="space-y-2 px-3 pb-3">
                       <input
+              aria-label="Pergunta / topico"
                         value={t.topic}
                         onChange={(e) => onUpdateTopicText(ti, e.target.value)}
                         maxLength={120}
@@ -2896,6 +2934,7 @@ function SubjectStudyCard({
                           />
                           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                             <input
+              aria-label="Chave IA opcional"
                               type="password"
                               value={topicAiKeyDraft[ti] ?? ''}
                               onChange={(event) => setTopicAiKeyDraft((current) => ({ ...current, [ti]: event.target.value }))}
