@@ -390,6 +390,14 @@ def _run_schema_migrations() -> None:
             except Exception:
                 pass
         # admin_flashcard table: created by SQLModel.create_all on first run
+        # Add context column to programmingsubject (guidance for AI content generation)
+        try:
+            conn.execute(text("ALTER TABLE programmingsubject ADD COLUMN IF NOT EXISTS context TEXT"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE programmingsubject ADD COLUMN context TEXT"))
+            except Exception:
+                pass
         conn.commit()
 
 
@@ -3441,7 +3449,7 @@ def list_coding_subjects(request: Request, session: Session = Depends(get_sessio
         topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == s.id)).all()
         result.append(ProgrammingSubjectSchema(
             id=s.id or 0, child_id=s.child_id, name=s.name,
-            description=s.description, icon_emoji=s.icon_emoji,
+            description=s.description, context=s.context, icon_emoji=s.icon_emoji,
             created_at=s.created_at,
             topic_count=len(topics),
             studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
@@ -3462,6 +3470,7 @@ def create_coding_subject(
         child_id=child.id or 0,
         name=payload.name.strip(),
         description=(payload.description or "").strip() or None,
+        context=(payload.context or "").strip() or None,
         icon_emoji=(payload.icon_emoji or "").strip() or None,
         created_at=datetime.utcnow(),
     )
@@ -3470,7 +3479,7 @@ def create_coding_subject(
     session.refresh(subject)
     return ProgrammingSubjectSchema(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
-        description=subject.description, icon_emoji=subject.icon_emoji,
+        description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         created_at=subject.created_at,
         topic_count=0,
         studied_count=0,
@@ -3494,6 +3503,8 @@ def update_coding_subject(
         subject.name = payload.name.strip()
     if payload.description is not None:
         subject.description = payload.description.strip() or None
+    if payload.context is not None:
+        subject.context = payload.context.strip() or None
     if payload.icon_emoji is not None:
         subject.icon_emoji = payload.icon_emoji.strip() or None
     session.add(subject)
@@ -3502,7 +3513,7 @@ def update_coding_subject(
     topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject.id)).all()
     return ProgrammingSubjectSchema(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
-        description=subject.description, icon_emoji=subject.icon_emoji,
+        description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         created_at=subject.created_at,
         topic_count=len(topics),
         studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
@@ -3600,6 +3611,7 @@ def generate_coding_subject_topic(
                 history_context
                 or "- No topics exist yet; choose the first fundamental topic for this subject"
             ),
+            user_context=subject.context or "",
         )
         content = validate_initial_topic_content(content, require_title=True)
         title = content.title or ""
@@ -3670,6 +3682,7 @@ def create_coding_topic(
                     topic_title=payload.title.strip(),
                     ai_config=ai_config,
                     previous_context=build_topic_history_context(existing_topics),
+                    user_context=subject.context or "",
                 )
                 content = validate_initial_topic_content(content)
             except (RuntimeError, ValueError) as exc:
@@ -3787,6 +3800,7 @@ def generate_coding_topic_content(
         raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
     try:
         context_text = re.sub(r"\s+", " ", ((payload.context if payload else "") or "").strip())[:1000]
+        combined_context = "\n".join(part for part in (subject.context or "", context_text) if part)
         sibling_topics = sorted(
             session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == topic.subject_id)).all(),
             key=lambda t: t.order_index,
@@ -3797,7 +3811,7 @@ def generate_coding_topic_content(
             topic_title=topic.title,
             ai_config=ai_config,
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
-            user_context=context_text,
+            user_context=combined_context,
         )
         content = validate_initial_topic_content(content)
     except (RuntimeError, ValueError) as exc:

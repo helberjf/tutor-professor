@@ -670,6 +670,7 @@ export interface ProgrammingSubject {
   child_id: number;
   name: string;
   description: string | null;
+  context: string | null;
   icon_emoji: string | null;
   created_at: string;
   topic_count: number;
@@ -1187,9 +1188,9 @@ export const api = {
   // Coding Curriculum
   getCodingSubjects: () =>
     fetchAPI<ProgrammingSubject[]>('/api/coding/subjects'),
-  createCodingSubject: (payload: { name: string; description?: string; icon_emoji?: string }) =>
+  createCodingSubject: (payload: { name: string; description?: string; context?: string; icon_emoji?: string }) =>
     fetchAPI<ProgrammingSubject>('/api/coding/subjects', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCodingSubject: (id: number, payload: { name?: string; description?: string; icon_emoji?: string }) =>
+  updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string }) =>
     fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCodingSubject: (id: number) =>
     fetchAPI<void>(`/api/coding/subjects/${id}`, { method: 'DELETE' }),

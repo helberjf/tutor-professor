@@ -218,6 +218,7 @@ class ProgrammingSubject(SQLModel, table=True):
     child_id: int = Field(foreign_key="childprofile.id", index=True)
     name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = Field(default=None, max_length=500)
+    context: Optional[str] = Field(default=None, max_length=2000)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

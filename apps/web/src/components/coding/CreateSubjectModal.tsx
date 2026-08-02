@@ -12,6 +12,8 @@ interface Props {
 export function CreateSubjectModal({ onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [contextEnabled, setContextEnabled] = useState(false);
+  const [context, setContext] = useState('');
   const [emoji, setEmoji] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +27,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
       const subject = await api.createCodingSubject({
         name: name.trim(),
         description: description.trim() || undefined,
+        context: contextEnabled ? context.trim() || undefined : undefined,
         icon_emoji: emoji.trim() || undefined,
       });
       onCreated(subject);
@@ -70,6 +73,39 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
             maxLength={500}
             className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
           />
+          <div className="rounded-2xl border-2 border-slate-200 p-4">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={contextEnabled}
+              onClick={() => setContextEnabled((v) => !v)}
+              className="flex w-full items-center justify-between gap-3"
+            >
+              <span className="text-left text-sm font-bold text-slate-700">
+                Adicionar contexto para a IA
+                <span className="mt-0.5 block text-xs font-medium text-slate-400">
+                  Instruções extras usadas ao gerar o conteúdo desta matéria
+                </span>
+              </span>
+              <span
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${contextEnabled ? 'bg-primary' : 'bg-slate-300'}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${contextEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+                />
+              </span>
+            </button>
+            {contextEnabled && (
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="Ex: foco no exame AWS SAA-C03, estilo de prova, nível avançado..."
+                maxLength={2000}
+                rows={3}
+                className="mt-3 w-full resize-none rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
+              />
+            )}
+          </div>
           {error && <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 rounded-2xl border-2 border-slate-200 py-3 font-bold text-slate-600 hover:bg-slate-50">
