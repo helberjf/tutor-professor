@@ -801,7 +801,7 @@ function ReadingStudyModal({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest text-primary">{subjectName}</p>
-              <h2 id="reading-study-title" className="mt-1 text-xl font-black leading-tight text-slate-950 sm:text-2xl">
+              <h2 id="reading-study-title" className="mt-1 text-xl font-black leading-tight text-slate-900 sm:text-2xl">
                 {topicTitle}
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
@@ -828,7 +828,7 @@ function ReadingStudyModal({
               <p className="text-xs font-black uppercase tracking-widest text-slate-400">
                 Parte {step.sectionIndex + 1}
               </p>
-              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">
+              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-900 sm:text-3xl">
                 {step.section.title}
               </h3>
               <p className="mt-5 whitespace-pre-wrap text-base font-medium leading-8 text-slate-700 sm:text-lg sm:leading-9">
@@ -892,7 +892,7 @@ function ReadingQuizStep({
   return (
     <section className="mx-auto max-w-2xl">
       <p className="text-xs font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
-      <h3 className="mt-3 text-2xl font-black leading-tight text-slate-950 sm:text-3xl">{question.question}</h3>
+      <h3 className="mt-3 text-2xl font-black leading-tight text-slate-900 sm:text-3xl">{question.question}</h3>
       <div className="mt-6 space-y-3">
         {(() => {
           // Shuffle options consistently per question to avoid correct answer always being first
