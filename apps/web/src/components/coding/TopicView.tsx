@@ -21,6 +21,26 @@ type ReadingStudyStep =
   | { type: 'section'; section: ReadingSection; sectionIndex: number }
   | { type: 'quiz'; question: AIQuizQuestion; quizIndex: number };
 
+// Reading text sizes, in px. Everything inside the reading pane is sized in `em`
+// relative to the chosen step, so headings, body and code scale together instead
+// of drifting apart. Index 1 (16px) matches the previous fixed size.
+const READING_FONT_STEPS = [14, 16, 18, 21, 24] as const;
+const DEFAULT_READING_FONT_INDEX = 1;
+const READING_FONT_STORAGE_KEY = 'english-kids-tutor.reading-font-index';
+
+function readStoredReadingFontIndex(): number {
+  if (typeof window === 'undefined') return DEFAULT_READING_FONT_INDEX;
+  const stored = window.localStorage.getItem(READING_FONT_STORAGE_KEY);
+  // Guard the empty case explicitly: Number(null) is 0, which is a valid index
+  // and would silently start every new reader at the smallest size.
+  if (stored === null || stored.trim() === '') return DEFAULT_READING_FONT_INDEX;
+  const raw = Number(stored);
+  if (!Number.isInteger(raw) || raw < 0 || raw >= READING_FONT_STEPS.length) {
+    return DEFAULT_READING_FONT_INDEX;
+  }
+  return raw;
+}
+
 function buildStudyDoubtPrompt(step: ReadingStudyStep, subjectName: string, topicTitle: string): string {
   const lines = [`Estou estudando "${topicTitle}" (matéria: ${subjectName}).`, ''];
   if (step.type === 'section') {
@@ -789,6 +809,9 @@ function ReadingStudyModal({
 }) {
   const [doubtCopied, setDoubtCopied] = useState(false);
   const [doubtText, setDoubtText] = useState('');
+  // Starts at the default and syncs from storage after mount: reading localStorage
+  // during render would make the server and client markup disagree.
+  const [fontIndex, setFontIndex] = useState(DEFAULT_READING_FONT_INDEX);
   const total = steps.length;
   const safeIndex = Math.min(Math.max(currentIndex, 0), Math.max(total - 1, 0));
   const step = steps[safeIndex];
@@ -806,6 +829,24 @@ function ReadingStudyModal({
     const timer = window.setTimeout(() => setDoubtCopied(false), 2500);
     return () => window.clearTimeout(timer);
   }, [doubtCopied]);
+
+  useEffect(() => {
+    setFontIndex(readStoredReadingFontIndex());
+  }, []);
+
+  const fontPx = READING_FONT_STEPS[fontIndex];
+  const canShrink = fontIndex > 0;
+  const canGrow = fontIndex < READING_FONT_STEPS.length - 1;
+
+  function changeFontIndex(delta: number) {
+    setFontIndex((current) => {
+      const next = Math.min(Math.max(current + delta, 0), READING_FONT_STEPS.length - 1);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(READING_FONT_STORAGE_KEY, String(next));
+      }
+      return next;
+    });
+  }
 
   if (!step) return null;
 
@@ -840,7 +881,7 @@ function ReadingStudyModal({
     >
       <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[90dvh] sm:rounded-3xl">
         <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest text-primary">{subjectName}</p>
               <h2 id="reading-study-title" className="mt-1 text-xl font-black leading-tight text-slate-900 sm:text-2xl">
@@ -850,7 +891,42 @@ function ReadingStudyModal({
                 {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questao'}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            {/* Close stays anchored top-right; the reading controls sit on their
+                own row so a long title is not squeezed into a narrow column. */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar estudo"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="flex items-center rounded-2xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => changeFontIndex(-1)}
+                  disabled={!canShrink}
+                  aria-label="Diminuir tamanho da letra"
+                  title="Diminuir tamanho da letra"
+                  className="flex h-11 w-9 items-center justify-center rounded-l-2xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  A<span className="text-[0.6rem]">−</span>
+                </button>
+                <span className="sr-only" aria-live="polite">{`Texto em ${fontPx} pixels`}</span>
+                <button
+                  type="button"
+                  onClick={() => changeFontIndex(1)}
+                  disabled={!canGrow}
+                  aria-label="Aumentar tamanho da letra"
+                  title="Aumentar tamanho da letra"
+                  className="flex h-11 w-9 items-center justify-center rounded-r-2xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  A<span className="text-[0.6rem]">+</span>
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => void handleCopyDoubt()}
@@ -858,17 +934,8 @@ function ReadingStudyModal({
                 className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
               >
                 <Copy size={15} />
-                <span className="hidden sm:inline">{doubtCopied ? 'Copiado!' : 'Tirar dúvida com IA'}</span>
+                <span>{doubtCopied ? 'Copiado!' : 'Tirar dúvida com IA'}</span>
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar estudo"
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
-              >
-                <X size={18} />
-              </button>
-            </div>
           </div>
           {doubtCopied && (
             <p className="mt-3 rounded-2xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
@@ -889,21 +956,23 @@ function ReadingStudyModal({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+        {/* Every size below is in `em`, so the reader's choice scales the whole
+            pane proportionally instead of only the body copy. */}
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8" style={{ fontSize: `${fontPx}px` }}>
           {step.type === 'section' ? (
             <article className="mx-auto max-w-2xl">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+              <p className="text-[0.72em] font-black uppercase tracking-widest text-slate-400">
                 Parte {step.sectionIndex + 1}
               </p>
-              <h3 className="mt-2 text-2xl font-black leading-tight text-slate-900 sm:text-3xl">
+              <h3 className="mt-2 text-[1.55em] font-black leading-tight text-slate-900">
                 {step.section.title}
               </h3>
-              <p className="mt-5 whitespace-pre-wrap text-base font-medium leading-8 text-slate-700 sm:text-lg sm:leading-9">
+              <p className="mt-5 whitespace-pre-wrap text-[1em] font-medium leading-[1.8] text-slate-700">
                 {step.section.body}
               </p>
               {step.section.code_example && (
                 <div className="mt-6 overflow-hidden rounded-2xl">
-                  <SyntaxCodeBlock code={step.section.code_example} language={subjectName} className="text-[11px] sm:text-xs" />
+                  <SyntaxCodeBlock code={step.section.code_example} language={subjectName} className="text-[0.72em]" />
                 </div>
               )}
             </article>
@@ -958,8 +1027,8 @@ function ReadingQuizStep({
 }) {
   return (
     <section className="mx-auto max-w-2xl">
-      <p className="text-xs font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
-      <h3 className="mt-3 text-2xl font-black leading-tight text-slate-900 sm:text-3xl">{question.question}</h3>
+      <p className="text-[0.72em] font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
+      <h3 className="mt-3 text-[1.55em] font-black leading-tight text-slate-900">{question.question}</h3>
       <div className="mt-6 space-y-3">
         {(() => {
           // Shuffle options consistently per question to avoid correct answer always being first
@@ -973,7 +1042,7 @@ function ReadingQuizStep({
             const answered = Boolean(state?.answered);
             const selected = state?.selected === option;
             const correct = question.correct_option === option;
-            let className = 'w-full rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition sm:text-base ';
+            let className = 'w-full min-h-11 rounded-2xl border-2 px-4 py-3 text-left text-[0.95em] font-black transition ';
             if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-primary hover:bg-sky-50';
             else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
             else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';
@@ -994,7 +1063,7 @@ function ReadingQuizStep({
         })()}
       </div>
       {state?.answered && (
-        <div className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
+        <div className={`mt-6 rounded-2xl px-4 py-3 text-[0.9em] font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
           {state.correct ? 'Correto. ' : 'Ainda nao. '}
           {question.explanation}
         </div>

@@ -1,3 +1,5 @@
+import { twMerge } from 'tailwind-merge';
+
 import { normalizeCodeLanguage, tokenizeCode, type CodeTokenKind } from './syntax-highlighter';
 
 interface SyntaxCodeBlockProps {
@@ -24,7 +26,13 @@ export function SyntaxCodeBlock({ code, language, className = '' }: SyntaxCodeBl
 
   return (
     <pre
-      className={`overflow-x-auto rounded-2xl border border-slate-800 bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-inner ${className}`}
+      // twMerge, not template concatenation: a caller passing its own text size
+      // has to actually replace `text-xs`, and two conflicting Tailwind classes
+      // in one string resolve by stylesheet order rather than by intent.
+      className={twMerge(
+        'overflow-x-auto rounded-2xl border border-slate-800 bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-inner',
+        className,
+      )}
       data-language={normalizedLanguage}
     >
       <code>
