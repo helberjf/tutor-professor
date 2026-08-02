@@ -3800,7 +3800,8 @@ def generate_coding_topic_content(
         raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
     try:
         context_text = re.sub(r"\s+", " ", ((payload.context if payload else "") or "").strip())[:1000]
-        combined_context = "\n".join(part for part in (subject.context or "", context_text) if part)
+        # The subject-level context always applies; per-request instructions refine it.
+        context_text = "\n".join(part for part in ((subject.context or "").strip(), context_text) if part)
         sibling_topics = sorted(
             session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == topic.subject_id)).all(),
             key=lambda t: t.order_index,
@@ -3811,7 +3812,7 @@ def generate_coding_topic_content(
             topic_title=topic.title,
             ai_config=ai_config,
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
-            user_context=combined_context,
+            user_context=context_text,
         )
         content = validate_initial_topic_content(content)
     except (RuntimeError, ValueError) as exc:

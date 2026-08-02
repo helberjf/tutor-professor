@@ -1259,6 +1259,16 @@ export default function StudyPage() {
           />
         </div>
 
+        {(activeTab === 'diverse' || activeTab === 'coding') && (
+          <OtherSubjectsPicker
+            subjects={diverseDay?.custom_subjects ?? []}
+            selectedValue={selectedOtherMatterValue}
+            onSelectOverview={selectDiverseOverview}
+            onSelectCoding={() => selectStudyTab('coding')}
+            onSelectSubjectTab={selectDiverseSubjectTab}
+          />
+        )}
+
         {activeTab === 'english' && (
           <Link
             href="/lesson"
@@ -1320,7 +1330,6 @@ export default function StudyPage() {
             lastAIAction={lastAIAction}
             aiError={aiError}
             selectedSubjectSlug={selectedDiverseSubjectSlug}
-            selectedOtherMatterValue={selectedOtherMatterValue}
             onSelectSubjectTab={selectDiverseSubjectTab}
             onSelectOverview={selectDiverseOverview}
             onSelectCoding={() => selectStudyTab('coding')}
@@ -1721,13 +1730,55 @@ function CodingTab({
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// OTHER SUBJECTS PICKER
+// ═══════════════════════════════════════════════════════════════════════════════
+function OtherSubjectsPicker({
+  subjects, selectedValue, onSelectOverview, onSelectCoding, onSelectSubjectTab,
+}: {
+  subjects: DiverseSubject[];
+  selectedValue: string;
+  onSelectOverview: () => void;
+  onSelectCoding: () => void;
+  onSelectSubjectTab: (slug: string) => void;
+}) {
+  return (
+    <div className="mb-6 rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
+      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+        Abrir matéria
+      </label>
+      <div className="relative">
+        <select
+          aria-label="Selecionar matéria"
+          value={selectedValue}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (!value) onSelectOverview();
+            else if (value === '__coding__') onSelectCoding();
+            else onSelectSubjectTab(value);
+          }}
+          className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
+        >
+          <option value="">Todas as matérias</option>
+          <option value="__coding__">Programação</option>
+          {subjects.map((subject, index) => {
+            const slug = getDiverseSubjectSlug(subject, index, subjects);
+            return <option key={slug} value={slug}>{subject.name}</option>;
+          })}
+        </select>
+        <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // DIVERSE TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
-  selectedSubjectSlug, selectedOtherMatterValue, onSelectSubjectTab, onSelectOverview, onSelectCoding,
+  selectedSubjectSlug, onSelectSubjectTab, onSelectOverview, onSelectCoding,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onRegenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
   onGenerateMoreQuestions, generatingDiverseQuestions,
@@ -1751,7 +1802,6 @@ function DiverseTab({
   lastAIAction: DiverseAIAction | null;
   aiError: string;
   selectedSubjectSlug: string | null;
-  selectedOtherMatterValue: string;
   onSelectSubjectTab: (slug: string) => void;
   onSelectOverview: () => void;
   onSelectCoding: () => void;
@@ -1806,32 +1856,6 @@ function DiverseTab({
             helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
         </div>
       </section>
-
-      <div className="rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
-        <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-          Abrir matéria
-        </label>
-        <div className="relative">
-          <select
-            aria-label="Selecionar matéria"
-            value={selectedOtherMatterValue}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (!value) onSelectOverview();
-              else if (value === '__coding__') onSelectCoding();
-              else onSelectSubjectTab(value);
-            }}
-            className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
-          >
-            <option value="">Todas as matérias</option>
-            <option value="__coding__">Programação</option>
-            {subjectTabs.map((item) => (
-              <option key={item.slug} value={item.slug}>{item.subject.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        </div>
-      </div>
 
       {selectedSubject ? (
         <DiverseSubjectDashboard
@@ -1916,14 +1940,29 @@ function DiverseTab({
             <div className="flex items-center justify-center rounded-[1.5rem] border-2 border-slate-100 bg-white p-10">
               <Loader2 className="animate-spin text-primary" size={28} />
             </div>
-          ) : subjects.length === 0 ? (
-            <div className="rounded-[1.5rem] border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center">
-              <Layers className="mx-auto text-slate-300" size={40} />
-              <p className="mt-4 text-base font-bold text-slate-400">Nenhuma matéria ainda.</p>
-              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar.</p>
-            </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
+              <article className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Materia</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-800">Programação</h2>
+                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-primary">
+                    <BookOpen size={16} />
+                  </span>
+                </div>
+                <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">
+                  Currículo de programação com aulas, flashcards e revisão espaçada.
+                </p>
+                <button
+                  type="button"
+                  onClick={onSelectCoding}
+                  className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700"
+                >
+                  <Layers size={16} /> Abrir dashboard
+                </button>
+              </article>
               {subjectTabs.map((item) => {
                 const subjectTopics = getDiverseSubjectTopics(item.subject);
                 const done = subjectTopics.filter((topic) => topic.done).length;
@@ -1969,6 +2008,14 @@ function DiverseTab({
                   </article>
                 );
               })}
+            </div>
+          )}
+
+          {!loadingDiverse && subjects.length === 0 && (
+            <div className="rounded-[1.5rem] border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
+              <Layers className="mx-auto text-slate-300" size={32} />
+              <p className="mt-3 text-base font-bold text-slate-400">Nenhuma matéria própria ainda.</p>
+              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar.</p>
             </div>
           )}
 

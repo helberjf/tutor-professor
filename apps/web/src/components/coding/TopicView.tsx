@@ -21,6 +21,21 @@ type ReadingStudyStep =
   | { type: 'section'; section: ReadingSection; sectionIndex: number }
   | { type: 'quiz'; question: AIQuizQuestion; quizIndex: number };
 
+function buildStudyDoubtPrompt(step: ReadingStudyStep, subjectName: string, topicTitle: string): string {
+  const lines = [`Estou estudando "${topicTitle}" (matéria: ${subjectName}).`, ''];
+  if (step.type === 'section') {
+    lines.push(`Parte ${step.sectionIndex + 1} — ${step.section.title}`, '', step.section.body);
+    if (step.section.code_example) lines.push('', 'Código de exemplo:', '```', step.section.code_example, '```');
+  } else {
+    lines.push(`Questão ${step.quizIndex + 1}: ${step.question.question}`, '');
+    lines.push('Alternativas:', ...step.question.options.map((option) => `- ${option}`));
+    lines.push('', `Resposta correta: ${step.question.correct_option}`);
+    if (step.question.explanation) lines.push(`Explicação: ${step.question.explanation}`);
+  }
+  lines.push('', 'Minha dúvida: ');
+  return lines.join('\n');
+}
+
 function pickTextField(record: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = record[key];
@@ -771,6 +786,8 @@ function ReadingStudyModal({
   onClose: () => void;
   onFinish: () => void;
 }) {
+  const [doubtCopied, setDoubtCopied] = useState(false);
+  const [doubtText, setDoubtText] = useState('');
   const total = steps.length;
   const safeIndex = Math.min(Math.max(currentIndex, 0), Math.max(total - 1, 0));
   const step = steps[safeIndex];
@@ -778,7 +795,31 @@ function ReadingStudyModal({
   const isFirst = safeIndex === 0;
   const isLast = safeIndex + 1 >= total;
 
+  useEffect(() => {
+    setDoubtCopied(false);
+    setDoubtText('');
+  }, [safeIndex]);
+
+  useEffect(() => {
+    if (!doubtCopied) return;
+    const timer = window.setTimeout(() => setDoubtCopied(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [doubtCopied]);
+
   if (!step) return null;
+
+  async function handleCopyDoubt() {
+    if (!step) return;
+    const text = buildStudyDoubtPrompt(step, subjectName, topicTitle);
+    try {
+      await navigator.clipboard.writeText(text);
+      setDoubtCopied(true);
+      setDoubtText('');
+    } catch {
+      // Clipboard blocked (insecure context / permission): show the text so it can be copied by hand.
+      setDoubtText(text);
+    }
+  }
 
   function goPrevious() {
     if (!isFirst) onStepChange(safeIndex - 1);
@@ -808,15 +849,40 @@ function ReadingStudyModal({
                 {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questao'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fechar estudo"
-              className="shrink-0 rounded-2xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleCopyDoubt()}
+                title="Copiar este conteúdo para tirar dúvida com uma IA"
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
+              >
+                <Copy size={15} />
+                <span className="hidden sm:inline">{doubtCopied ? 'Copiado!' : 'Tirar dúvida com IA'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Fechar estudo"
+                className="rounded-2xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
+          {doubtCopied && (
+            <p className="mt-3 rounded-2xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
+              Conteúdo copiado. Cole no ChatGPT, Claude ou outra IA e escreva sua dúvida no final.
+            </p>
+          )}
+          {doubtText && (
+            <textarea
+              readOnly
+              value={doubtText}
+              onFocus={(e) => e.currentTarget.select()}
+              rows={4}
+              className="mt-3 w-full resize-none rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 outline-none"
+            />
+          )}
           <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
             <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
           </div>
