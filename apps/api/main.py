@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -168,8 +169,48 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
 
+logger = logging.getLogger(__name__)
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kids_tutor.sqlite")
-SESSION_SECRET = os.getenv("SESSION_SECRET", "development-session-secret")
+
+# SESSION_SECRET hashes session tokens *and* derives the Fernet key that encrypts
+# each user's AI API key, so a known value means forgeable sessions and
+# decryptable keys. Refuse to boot with a placeholder anywhere that looks like a
+# real deployment; local SQLite development keeps working with no configuration.
+DEV_SESSION_SECRET = "development-session-secret"
+_PLACEHOLDER_SESSION_SECRETS = {
+    "",
+    DEV_SESSION_SECRET,
+    "your-super-secret-session-key",
+    "changeme",
+    "secret",
+}
+
+
+def _resolve_session_secret() -> str:
+    configured = os.getenv("SESSION_SECRET", "").strip()
+    if configured and configured.casefold() not in _PLACEHOLDER_SESSION_SECRETS:
+        return configured
+
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    looks_local = DATABASE_URL.startswith("sqlite") and app_env not in {"production", "staging"}
+    if app_env == "development" or looks_local:
+        logger.warning(
+            "SESSION_SECRET is unset or a placeholder; using the insecure development "
+            "default. Never run a real deployment like this."
+        )
+        return DEV_SESSION_SECRET
+
+    raise RuntimeError(
+        "SESSION_SECRET is unset or still a placeholder. It signs session tokens and "
+        "encrypts stored AI API keys, so it must be a unique secret in any real "
+        "deployment. Generate one with: python -c \"import secrets; "
+        "print(secrets.token_urlsafe(48))\" and set SESSION_SECRET. Set "
+        "APP_ENV=development to bypass this check locally."
+    )
+
+
+SESSION_SECRET = _resolve_session_secret()
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "").strip()
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
