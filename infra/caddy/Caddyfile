@@ -1,0 +1,37 @@
+# Caddy issues and renews the TLS certificate for API_DOMAIN automatically, so
+# the Vercel frontend can call the API over HTTPS with no manual certbot step.
+# Ports 80 and 443 must be reachable from the internet for the ACME challenge.
+
+{
+	email {$ACME_EMAIL}
+	# Health and ACME traffic is noise; keep only real errors by default.
+	log {
+		level ERROR
+	}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	# The browser sends Authorization on cross-origin requests, so responses must
+	# not be shared between users by any cache in front of this.
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# CORS is answered by FastAPI itself (CORS_ALLOWED_ORIGINS), including the
+	# preflight, so nothing here should rewrite or short-circuit OPTIONS.
+	reverse_proxy api:8001 {
+		health_uri /health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

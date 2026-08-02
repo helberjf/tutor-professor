@@ -581,9 +581,17 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assertTrue(has_lesson_question_identity(self.database))
 
     def test_startup_sources_bootstrap_before_create_all_or_uvicorn(self) -> None:
+        # Check the CMD itself, not the whole file: comments legitimately mention
+        # uvicorn before the command line and would break a naive text ordering.
         dockerfile = (API / "Dockerfile").read_text(encoding="utf-8")
-        docker_command = dockerfile.index("database_bootstrap.py")
-        self.assertLess(docker_command, dockerfile.index("uvicorn"))
+        docker_command = next(
+            line for line in dockerfile.splitlines() if line.startswith("CMD") and "uvicorn" in line
+        )
+        self.assertLess(
+            docker_command.index("database_bootstrap.py"),
+            docker_command.index("uvicorn"),
+            f"migrations must run before uvicorn starts: {docker_command}",
+        )
 
         runner = (ROOT / "scripts" / "run-api.ps1").read_text(encoding="utf-8")
         bootstrap_command = runner.index("database_bootstrap.py")

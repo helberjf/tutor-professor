@@ -1,0 +1,102 @@
+# Production stack for a VPS running the backend only.
+#
+# The frontend stays on Vercel and calls this host over HTTPS, so Caddy is the
+# only service published to the internet: it terminates TLS (certificates issued
+# and renewed automatically) and proxies to the API on the private network.
+# Postgres is never exposed to the host.
+#
+#   cp .env.prod.example .env.prod   # fill it in first
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# See docs/DEPLOY-VPS.md for the full walkthrough.
+
+name: tutor-professor
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kids_tutor}
+      POSTGRES_USER: ${POSTGRES_USER:-kids_tutor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # Fail the build of a new cluster rather than silently accepting trust auth.
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-kids_tutor} -d ${POSTGRES_DB:-kids_tutor}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '5'
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    env_file:
+      # Optional application settings that are not part of the deploy itself:
+      # AI keys, Google OAuth, TTS. Copy apps/api/.env.example if you need them.
+      - path: ./apps/api/.env
+        required: false
+    environment:
+      # Set here rather than in apps/api/.env so they always match this stack,
+      # and so a stale copy of that file cannot point the API at another database.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kids_tutor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-kids_tutor}
+      APP_ENV: production
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-https://tutorprofessor.vercel.app}
+      # The frontend is on another domain, so the session cookie only travels if
+      # it is Secure and SameSite=None.
+      PARENT_COOKIE_SECURE: 'true'
+      PARENT_COOKIE_SAMESITE: none
+    volumes:
+      - audio_cache:/app/audio_cache
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    # Not published to the host: Caddy reaches it over the private network.
+    expose:
+      - '8001'
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    networks:
+      - backend
+    logging: *logging
+
+volumes:
+  postgres_data:
+  audio_cache:
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend:
+    driver: bridge

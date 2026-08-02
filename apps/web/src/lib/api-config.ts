@@ -101,6 +101,19 @@ function getPreferredConfiguredConnection(runtimeConfig = readStoredRuntimeBacke
     };
   }
 
+  // A build-time NEXT_PUBLIC_API_BASE_URL means the backend has a permanent
+  // address (a VPS), so it outranks the rotating tunnel URL published for the
+  // laptop-hosted setup. Without this, deploying to a server would keep pointing
+  // at the last tunnel that machine published, and there would be no sign why.
+  const configuredUrl = getConfiguredApiBaseUrl();
+  if (configuredUrl) {
+    return {
+      baseUrl: configuredUrl,
+      host: getRuntimeBackendHost(configuredUrl),
+      source: 'default',
+    };
+  }
+
   if (runtimeConfig.baseUrl) {
     return {
       baseUrl: runtimeConfig.baseUrl,
@@ -116,10 +129,15 @@ function getPreferredConfiguredConnection(runtimeConfig = readStoredRuntimeBacke
   };
 }
 
-export function getDefaultApiBaseUrl() {
-  const envUrl = normalizeRuntimeBackendBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL || '', {
+/** The backend address baked in at build time, when there is one. */
+function getConfiguredApiBaseUrl() {
+  return normalizeRuntimeBackendBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL || '', {
     requireHttps: false,
   });
+}
+
+export function getDefaultApiBaseUrl() {
+  const envUrl = getConfiguredApiBaseUrl();
   if (envUrl) {
     return envUrl;
   }
