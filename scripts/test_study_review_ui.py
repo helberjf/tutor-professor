@@ -3,6 +3,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 STUDY_PAGE = ROOT / "apps" / "web" / "src" / "app" / "study" / "page.tsx"
+
+def read_study_source() -> str:
+    """The study page plus the modules it was split into.
+
+    Lives across page.tsx, _components/*.tsx and _lib/*.ts, so these checks read
+    the whole feature instead of a single file and survive further extraction.
+    """
+    study_dir = ROOT / "apps" / "web" / "src" / "app" / "study"
+    parts = [study_dir / "page.tsx"]
+    parts += sorted(study_dir.glob("_components/*.tsx"))
+    parts += sorted(study_dir.glob("_lib/*.ts"))
+    return "\n".join(path.read_text(encoding="utf-8") for path in parts)
+
 LAYOUT_PAGE = ROOT / "apps" / "web" / "src" / "app" / "layout.tsx"
 GLOBAL_CSS = ROOT / "apps" / "web" / "src" / "app" / "globals.css"
 
@@ -13,7 +26,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def main() -> None:
-    source = STUDY_PAGE.read_text(encoding="utf-8")
+    source = read_study_source()
     layout = LAYOUT_PAGE.read_text(encoding="utf-8")
     css = GLOBAL_CSS.read_text(encoding="utf-8")
 

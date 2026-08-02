@@ -7,7 +7,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const homePage = readFileSync(resolve(root, 'src/app/page.tsx'), 'utf8');
 const lessonPage = readFileSync(resolve(root, 'src/app/lesson/page.tsx'), 'utf8');
-const studyPage = readFileSync(resolve(root, 'src/app/study/page.tsx'), 'utf8');
+// The study page was split into modules; read the whole feature.
+const studyPage = [
+  'src/app/study/page.tsx',
+  'src/app/study/_components/CodingTab.tsx',
+  'src/app/study/_components/DiverseTab.tsx',
+  'src/app/study/_components/EnglishTab.tsx',
+  'src/app/study/_components/shared.tsx',
+  'src/app/study/_lib/study-helpers.ts',
+].map((file) => readFileSync(resolve(root, file), 'utf8')).join('\n');
 const layout = readFileSync(resolve(root, 'src/app/layout.tsx'), 'utf8');
 const navbar = readFileSync(resolve(root, 'src/components/navbar.tsx'), 'utf8');
 const codingCurriculum = readFileSync(

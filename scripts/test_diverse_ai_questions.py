@@ -6,7 +6,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "apps/api/main.py").read_text(encoding="utf-8")
 schemas = (ROOT / "apps/api/schemas/schemas.py").read_text(encoding="utf-8")
-page = (ROOT / "apps/web/src/app/study/page.tsx").read_text(encoding="utf-8")
+study_dir = ROOT / "apps/web/src/app/study"
+# The study page was split into modules; read the whole feature.
+page = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in [study_dir / "page.tsx", *sorted(study_dir.glob("_components/*.tsx")), *sorted(study_dir.glob("_lib/*.ts"))]
+)
 api = (ROOT / "apps/web/src/lib/api.ts").read_text(encoding="utf-8")
 
 assert "class GenerateDiverseQuestionsSchema" in schemas

@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
-WEB_PAGE = ROOT / "apps" / "web" / "src" / "app" / "study" / "page.tsx"
+STUDY_DIR = ROOT / "apps" / "web" / "src" / "app" / "study"
+WEB_PAGE = STUDY_DIR / "page.tsx"
 WEB_API = ROOT / "apps" / "web" / "src" / "lib" / "api.ts"
 TMP_DIR = Path(tempfile.mkdtemp(prefix="diverse-initial-generation-"))
 DB_PATH = TMP_DIR / "test.sqlite"
@@ -79,7 +80,10 @@ class DiverseInitialSourceTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.main = (API / "main.py").read_text(encoding="utf-8")
         cls.schemas = (API / "schemas" / "schemas.py").read_text(encoding="utf-8")
-        cls.page = WEB_PAGE.read_text(encoding="utf-8")
+        cls.page = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in [WEB_PAGE, *sorted(STUDY_DIR.glob("_components/*.tsx")), *sorted(STUDY_DIR.glob("_lib/*.ts"))]
+    )
         cls.web_api = WEB_API.read_text(encoding="utf-8")
 
     def test_lesson_mode_is_explicit_and_uses_one_response_before_preview_install(self) -> None:
