@@ -343,7 +343,12 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported"):
             validate_language_question_batch(base_questions, [])
 
-    def test_validator_rejects_front_that_is_not_written_as_a_question(self) -> None:
+    def test_validator_rewrites_front_that_is_not_written_as_a_question(self) -> None:
+        """A statement front is normalized into a question instead of being rejected.
+
+        The AI often returns "Traduza esta frase." — rejecting the whole batch for
+        that would throw away four good questions, so the front is rewritten.
+        """
         raw_questions = [
             {
                 "front": f"Pergunta válida {index}?",
@@ -354,8 +359,10 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
         ]
         raw_questions[0]["front"] = "Traduza esta frase."
 
-        with self.assertRaisesRegex(ValueError, "written as a question"):
-            validate_language_question_batch(raw_questions, [])
+        validated = validate_language_question_batch(raw_questions, [])
+
+        self.assertEqual(validated[0].front, "Traduza esta frase?")
+        self.assertTrue(all(item.front.endswith("?") for item in validated))
 
     def test_validator_rejects_duplicates_and_enforces_saved_field_lengths(self) -> None:
         raw_questions = [
@@ -366,8 +373,10 @@ class LanguageQuestionGenerationTests(unittest.TestCase):
             }
             for index in range(1, 6)
         ]
-        with self.assertRaisesRegex(ValueError, "500"):
-            validate_language_question_batch(raw_questions, [])
+        # An over-long front is truncated to the stored column width, not rejected.
+        validated = validate_language_question_batch(raw_questions, [])
+        self.assertTrue(all(len(item.front) <= 500 for item in validated))
+        self.assertEqual(max(len(item.front) for item in validated), 500)
 
         raw_questions[0]["front"] = "Pergunta repetida?"
         raw_questions[1]["front"] = "Pergunta repetida ?"

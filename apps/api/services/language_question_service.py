@@ -168,8 +168,9 @@ def validate_language_question_batch(
             raise ValueError("Supporting example must have at most 1000 characters")
         if question_type not in ALLOWED_LANGUAGE_QUESTION_TYPES:
             raise ValueError(f"Unsupported question type: {question_type or '(empty)'}")
-        if not front.endswith(("?", "？")):
-            raise ValueError("Each item must be written as a question")
+        # No "is it a question?" / "is it under 500 chars?" check here: _question_front
+        # already guarantees both by rewriting the front, so such a check would be
+        # unreachable. Reject only what cannot be repaired.
 
     normalized_questions = [
         {**raw, "front": _question_front(_raw_text(raw, "front"))}

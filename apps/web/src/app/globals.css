@@ -276,11 +276,21 @@ html[data-theme='dark'] :is(.bg-rose-50, .bg-red-50, .bg-pink-50) {
   background-color: rgba(244, 63, 94, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.border-white, [class~='border-white/70'], .border-slate-100, .border-slate-200, .border-sky-100) {
+html[data-theme='dark'] :is(.border-white, [class~='border-white/70'], .border-slate-100, .border-slate-200, .border-slate-300, .border-sky-100) {
   border-color: var(--line-soft) !important;
 }
 
-html[data-theme='dark'] :is(.text-slate-900, .text-slate-800) {
+/* Dark-mode text remapping.
+ *
+ * Only the shades that are *dark ink on a light surface* belong here. slate-100
+ * and slate-200 are deliberately light and are used on already-dark surfaces
+ * (code blocks, dark textareas), so remapping them would break those.
+ *
+ * Every dark shade the app uses must be listed, otherwise that text stays almost
+ * black on the dark card and silently becomes unreadable — which is exactly how
+ * text-slate-950 slipped through. scripts/test_dark_mode_coverage.py fails the
+ * build when a new shade appears in the app without being covered here. */
+html[data-theme='dark'] :is(.text-slate-950, .text-slate-900, .text-slate-800) {
   color: var(--text-strong) !important;
 }
 

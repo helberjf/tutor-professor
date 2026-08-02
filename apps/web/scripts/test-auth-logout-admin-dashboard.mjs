@@ -25,9 +25,11 @@ assert.match(
   'server logout must delete sessions authenticated by Authorization bearer token',
 );
 
+// Since c863fb7 the login page no longer branches on admin: everyone lands on
+// /study and the admin redirect happens on the dashboard (asserted just below).
 const loginPage = read('app/login/page.tsx');
-assert.match(loginPage, /api\.adminCheck\(\)/, 'login should detect admin accounts after login');
-assert.match(loginPage, /router\.push\(isAdminDefaultLogin \? '\/admin' : next\)/, 'admin default login should go to admin dashboard');
+assert.match(loginPage, /const next = '\/study'/, 'login should send every account to the study page');
+assert.doesNotMatch(loginPage, /isAdminDefaultLogin/, 'login should no longer branch on admin accounts');
 
 const dashboardPage = read('app/dashboard/page.tsx');
 assert.match(dashboardPage, /api\.adminCheck\(\)/, 'regular dashboard should detect admin accounts');
