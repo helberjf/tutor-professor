@@ -1,8 +1,8 @@
 ﻿{
-    "baseUrl":  "https://creature-purchased-modes-corporate.trycloudflare.com",
-    "host":  "creature-purchased-modes-corporate.trycloudflare.com",
-    "updatedAt":  "2026-08-02T04:24:37.6700756Z",
+    "baseUrl":  "https://api.trycloudflare.com",
+    "host":  "api.trycloudflare.com",
+    "updatedAt":  "2026-08-05T05:20:07.5524523Z",
     "source":  "global",
-    "activatedAt":  "2026-08-02T04:24:37.6700756Z",
+    "activatedAt":  "2026-08-05T05:20:07.5524523Z",
     "machineName":  "HELBER"
 }
