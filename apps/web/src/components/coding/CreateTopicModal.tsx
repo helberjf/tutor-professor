@@ -14,6 +14,7 @@ interface Props {
 export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: Props) {
   const [title, setTitle] = useState('');
   const [generateAI, setGenerateAI] = useState(false);
+  const [topicContext, setTopicContext] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,7 +28,9 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
         title: title.trim(),
         order_index: topicCount,
         generate_ai: generateAI,
+        ...(generateAI && topicContext.trim() ? { context: topicContext.trim() } : {}),
       });
+      setTopicContext('');
       onCreated(topic);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao criar tópico.');
@@ -70,6 +73,19 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
               <p className="text-xs text-violet-600">Cria seções, quiz e flashcards automaticamente</p>
             </div>
           </label>
+          {generateAI && (
+            <label className="block rounded-2xl border-2 border-violet-100 bg-white px-4 py-3">
+              <span className="text-sm font-black text-violet-800">Contexto para a IA</span>
+              <textarea
+                value={topicContext}
+                onChange={(event) => setTopicContext(event.target.value)}
+                placeholder="Ex.: foco em entrevista tecnica, prova AWS, exemplos com Step Functions..."
+                maxLength={1000}
+                rows={3}
+                className="mt-2 w-full resize-none rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-400"
+              />
+            </label>
+          )}
           {loading && generateAI && (
             <p className="text-center text-sm font-semibold text-violet-600">Gerando conteúdo com IA... pode demorar alguns segundos.</p>
           )}

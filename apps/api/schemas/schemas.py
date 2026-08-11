@@ -556,6 +556,7 @@ class CreateProgrammingTopicSchema(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     order_index: Optional[int] = None
     generate_ai: bool = False
+    context: Optional[str] = Field(default=None, max_length=1000)
 
 
 class UpdateProgrammingTopicSchema(BaseModel):
@@ -572,6 +573,22 @@ class GenerateProgrammingTopicContentSchema(BaseModel):
 
 class GenerateAdditionalFlashcardsSchema(BaseModel):
     context: Optional[str] = Field(default=None, max_length=1000)
+
+
+class DeepenCodingReadingRequestSchema(BaseModel):
+    step_type: Literal["section", "quiz"]
+    title: Optional[str] = Field(default=None, max_length=300)
+    body: Optional[str] = Field(default=None, max_length=5000)
+    code_example: Optional[str] = Field(default=None, max_length=3000)
+    question: Optional[str] = Field(default=None, max_length=1000)
+    options: List[str] = Field(default_factory=list, max_length=8)
+    correct_option: Optional[str] = Field(default=None, max_length=500)
+    explanation: Optional[str] = Field(default=None, max_length=2000)
+    user_question: Optional[str] = Field(default=None, max_length=1000)
+
+
+class DeepenCodingReadingResponseSchema(BaseModel):
+    content: str
 
 
 class ProgrammingFlashcardSchema(FromAttributesModel):

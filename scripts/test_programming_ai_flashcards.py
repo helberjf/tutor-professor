@@ -323,11 +323,8 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             ),
             3,
         )
-        self.assertIn(
-            "onClick={() => void handleGenerate(regenerateContext)}\n"
-            "                    disabled={loadingFc || generating || generatingAdditionalFlashcards}",
-            self.topic_view,
-        )
+        self.assertIn("Recriar aula com IA", self.topic_view)
+        self.assertIn("onClick={() => void handleGenerate(regenerateContext)}", self.topic_view)
         self.assertGreaterEqual(
             self.topic_view.count(
                 "disabled={loadingFc || generating || generatingAdditionalFlashcards}"

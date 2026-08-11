@@ -1,4 +1,4 @@
-export async function speakWithBrowserVoice(text: string, rate = 0.92): Promise<boolean> {
+export async function speakWithBrowserVoice(text: string, rate = 0.92, lang = 'en-US'): Promise<boolean> {
   if (typeof window === 'undefined' || !text.trim()) {
     return false;
   }
@@ -12,14 +12,15 @@ export async function speakWithBrowserVoice(text: string, rate = 0.92): Promise<
 
   return new Promise<boolean>((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
+    utterance.lang = lang;
     utterance.rate = rate;
     utterance.pitch = 1;
 
     const voices = synthesis.getVoices();
-    const englishVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('en'));
-    if (englishVoice) {
-      utterance.voice = englishVoice;
+    const requestedPrefix = lang.split('-')[0].toLowerCase();
+    const requestedVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith(requestedPrefix));
+    if (requestedVoice) {
+      utterance.voice = requestedVoice;
     }
 
     utterance.onend = () => resolve(true);

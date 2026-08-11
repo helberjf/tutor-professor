@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
+import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
 
@@ -41,19 +42,43 @@ function readStoredReadingFontIndex(): number {
   return raw;
 }
 
-function buildStudyDoubtPrompt(step: ReadingStudyStep, subjectName: string, topicTitle: string): string {
-  const lines = [`Estou estudando "${topicTitle}" (matéria: ${subjectName}).`, ''];
+function buildSpeakableReadingText(step: ReadingStudyStep, topicTitle: string): string {
   if (step.type === 'section') {
-    lines.push(`Parte ${step.sectionIndex + 1} — ${step.section.title}`, '', step.section.body);
-    if (step.section.code_example) lines.push('', 'Código de exemplo:', '```', step.section.code_example, '```');
-  } else {
-    lines.push(`Questão ${step.quizIndex + 1}: ${step.question.question}`, '');
-    lines.push('Alternativas:', ...step.question.options.map((option) => `- ${option}`));
-    lines.push('', `Resposta correta: ${step.question.correct_option}`);
-    if (step.question.explanation) lines.push(`Explicação: ${step.question.explanation}`);
+    return [
+      topicTitle,
+      `Parte ${step.sectionIndex + 1}: ${step.section.title}`,
+      step.section.body,
+    ].join('. ');
   }
-  lines.push('', 'Minha dúvida: ');
-  return lines.join('\n');
+
+  return [
+    topicTitle,
+    `Questao ${step.quizIndex + 1}: ${step.question.question}`,
+    `Alternativas: ${step.question.options.join('; ')}`,
+    `Resposta correta: ${step.question.correct_option}`,
+    step.question.explanation,
+  ].join('. ');
+}
+
+function buildDeepeningPayload(step: ReadingStudyStep, userQuestion: string) {
+  if (step.type === 'section') {
+    return {
+      step_type: 'section' as const,
+      title: step.section.title,
+      body: step.section.body,
+      code_example: step.section.code_example || null,
+      user_question: userQuestion.trim() || undefined,
+    };
+  }
+
+  return {
+    step_type: 'quiz' as const,
+    question: step.question.question,
+    options: step.question.options,
+    correct_option: step.question.correct_option,
+    explanation: step.question.explanation,
+    user_question: userQuestion.trim() || undefined,
+  };
 }
 
 function pickTextField(record: Record<string, unknown>, keys: string[]) {
@@ -405,7 +430,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">{statusLabel}</span>
             <h1 className="mt-2 text-2xl font-black text-slate-800">{topic.title}</h1>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-44">
             {topic.ai_content && readingStudySteps.length > 0 && (
               <button
                 type="button"
@@ -414,6 +439,20 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               >
                 <BookOpen size={16} />
                 Iniciar estudo
+              </button>
+            )}
+            {topic.ai_content && (
+              <button
+                type="button"
+                onClick={() => {
+                  setGenError('');
+                  setShowRegenerateContext((value) => !value);
+                }}
+                disabled={loadingFc || generating || generatingAdditionalFlashcards}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                Recriar aula com IA
               </button>
             )}
             {topic.status !== 'mastered' && (
@@ -428,6 +467,46 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           </div>
         </div>
       </div>
+
+      {topic.ai_content && showRegenerateContext && (
+        <div className="rounded-3xl border-2 border-violet-200 bg-violet-50 p-4">
+          <label className="block text-left">
+            <span className="text-sm font-black text-violet-800">Como quer recriar esta aula?</span>
+            <textarea
+              value={regenerateContext}
+              onChange={(event) => setRegenerateContext(event.target.value)}
+              placeholder="Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns..."
+              maxLength={1000}
+              rows={3}
+              className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500"
+            />
+          </label>
+          {genError && <p className="mt-2 text-sm font-bold text-rose-600">{genError}</p>}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowRegenerateContext(false);
+                setRegenerateContext('');
+                setGenError('');
+              }}
+              disabled={loadingFc || generating || generatingAdditionalFlashcards}
+              className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleGenerate(regenerateContext)}
+              disabled={loadingFc || generating || generatingAdditionalFlashcards}
+              className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              Recriar agora
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Generate button or AI content */}
       {!topic.ai_content ? (
@@ -509,62 +588,6 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
               </div>
             </div>
           )}
-
-          {/* Regenerate */}
-          <div className="flex justify-end">
-            {showRegenerateContext ? (
-              <div className="w-full max-w-xl rounded-3xl border-2 border-violet-200 bg-violet-50 p-4">
-                <label className="block text-left">
-                  <span className="text-sm font-black text-violet-800">Como quer regenerar com IA?</span>
-                  <textarea
-                    value={regenerateContext}
-                    onChange={(event) => setRegenerateContext(event.target.value)}
-                    placeholder="Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns..."
-                    maxLength={1000}
-                    rows={3}
-                    className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500"
-                  />
-                </label>
-                {genError && <p className="mt-2 text-sm font-bold text-rose-600">{genError}</p>}
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRegenerateContext(false);
-                      setRegenerateContext('');
-                      setGenError('');
-                    }}
-                    disabled={loadingFc || generating || generatingAdditionalFlashcards}
-                    className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleGenerate(regenerateContext)}
-                    disabled={loadingFc || generating || generatingAdditionalFlashcards}
-                    className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
-                  >
-                    {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                    Regenerar agora
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setGenError('');
-                  setShowRegenerateContext(true);
-                }}
-                disabled={loadingFc || generating || generatingAdditionalFlashcards}
-                className="min-h-11 flex items-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50"
-              >
-                {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Regenerar com IA
-              </button>
-            )}
-          </div>
         </>
       )}
 
@@ -771,6 +794,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
       {showReadingStudy && topic.ai_content && (
         <ReadingStudyModal
+          topicId={topic.id}
           subjectName={subjectName}
           topicTitle={topic.title}
           steps={readingStudySteps}
@@ -787,6 +811,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 }
 
 function ReadingStudyModal({
+  topicId,
   subjectName,
   topicTitle,
   steps,
@@ -797,6 +822,7 @@ function ReadingStudyModal({
   onClose,
   onFinish,
 }: {
+  topicId: number;
   subjectName: string;
   topicTitle: string;
   steps: ReadingStudyStep[];
@@ -807,8 +833,14 @@ function ReadingStudyModal({
   onClose: () => void;
   onFinish: () => void;
 }) {
-  const [doubtCopied, setDoubtCopied] = useState(false);
-  const [doubtText, setDoubtText] = useState('');
+  const [speaking, setSpeaking] = useState(false);
+  const [speechError, setSpeechError] = useState('');
+  const [showDeepening, setShowDeepening] = useState(false);
+  const [deepeningQuestion, setDeepeningQuestion] = useState('');
+  const [deepeningAnswer, setDeepeningAnswer] = useState('');
+  const [deepeningError, setDeepeningError] = useState('');
+  const [deepeningLoading, setDeepeningLoading] = useState(false);
+  const [deepeningCopied, setDeepeningCopied] = useState(false);
   // Starts at the default and syncs from storage after mount: reading localStorage
   // during render would make the server and client markup disagree.
   const [fontIndex, setFontIndex] = useState(DEFAULT_READING_FONT_INDEX);
@@ -820,18 +852,30 @@ function ReadingStudyModal({
   const isLast = safeIndex + 1 >= total;
 
   useEffect(() => {
-    setDoubtCopied(false);
-    setDoubtText('');
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    setSpeaking(false);
+    setSpeechError('');
+    setShowDeepening(false);
+    setDeepeningQuestion('');
+    setDeepeningAnswer('');
+    setDeepeningError('');
+    setDeepeningCopied(false);
   }, [safeIndex]);
 
   useEffect(() => {
-    if (!doubtCopied) return;
-    const timer = window.setTimeout(() => setDoubtCopied(false), 2500);
+    if (!deepeningCopied) return;
+    const timer = window.setTimeout(() => setDeepeningCopied(false), 2500);
     return () => window.clearTimeout(timer);
-  }, [doubtCopied]);
+  }, [deepeningCopied]);
 
   useEffect(() => {
     setFontIndex(readStoredReadingFontIndex());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    };
   }, []);
 
   const fontPx = READING_FONT_STEPS[fontIndex];
@@ -850,17 +894,41 @@ function ReadingStudyModal({
 
   if (!step) return null;
 
-  async function handleCopyDoubt() {
+  async function handleSpeakCurrentStep() {
     if (!step) return;
-    const text = buildStudyDoubtPrompt(step, subjectName, topicTitle);
-    try {
-      await navigator.clipboard.writeText(text);
-      setDoubtCopied(true);
-      setDoubtText('');
-    } catch {
-      // Clipboard blocked (insecure context / permission): show the text so it can be copied by hand.
-      setDoubtText(text);
+    if (speaking) {
+      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      setSpeaking(false);
+      return;
     }
+    setSpeechError('');
+    setSpeaking(true);
+    const spoken = await speakWithBrowserVoice(buildSpeakableReadingText(step, topicTitle), 0.95, 'pt-BR');
+    setSpeaking(false);
+    if (!spoken) setSpeechError('Não consegui tocar o áudio neste navegador.');
+  }
+
+  async function handleDeepenCurrentStep(e: React.FormEvent) {
+    e.preventDefault();
+    if (!step || deepeningLoading) return;
+    setDeepeningLoading(true);
+    setDeepeningError('');
+    setDeepeningAnswer('');
+    setDeepeningCopied(false);
+    try {
+      const response = await api.deepenCodingReadingStep(topicId, buildDeepeningPayload(step, deepeningQuestion));
+      setDeepeningAnswer(response.content);
+    } catch (err) {
+      setDeepeningError(err instanceof Error ? err.message : 'Não foi possível aprofundar este assunto.');
+    } finally {
+      setDeepeningLoading(false);
+    }
+  }
+
+  async function handleCopyDeepening() {
+    if (!deepeningAnswer.trim()) return;
+    await navigator.clipboard.writeText(deepeningAnswer);
+    setDeepeningCopied(true);
   }
 
   function goPrevious() {
@@ -929,27 +997,73 @@ function ReadingStudyModal({
               </div>
               <button
                 type="button"
-                onClick={() => void handleCopyDoubt()}
-                title="Copiar este conteúdo para tirar dúvida com uma IA"
+                onClick={() => void handleSpeakCurrentStep()}
+                title="Ouvir o texto desta etapa"
                 className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
               >
-                <Copy size={15} />
-                <span>{doubtCopied ? 'Copiado!' : 'Tirar dúvida com IA'}</span>
+                <Volume2 size={15} />
+                <span>{speaking ? 'Parar áudio' : 'Ouvir texto'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeepening((value) => !value);
+                  setDeepeningError('');
+                }}
+                title="Aprofundar este assunto com IA"
+                className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 px-3 py-2 text-xs font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50"
+              >
+                <Sparkles size={15} />
+                <span>Aprofundar com IA</span>
               </button>
           </div>
-          {doubtCopied && (
-            <p className="mt-3 rounded-2xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
-              Conteúdo copiado. Cole no ChatGPT, Claude ou outra IA e escreva sua dúvida no final.
-            </p>
+          {speechError && (
+            <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700">{speechError}</p>
           )}
-          {doubtText && (
-            <textarea
-              readOnly
-              value={doubtText}
-              onFocus={(e) => e.currentTarget.select()}
-              rows={4}
-              className="mt-3 w-full resize-none rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 outline-none"
-            />
+          {showDeepening && (
+            <form onSubmit={handleDeepenCurrentStep} className="mt-3 space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-3">
+              <label className="block">
+                <span className="text-xs font-black text-violet-800">Qual dúvida você tem mais sobre este assunto?</span>
+                <textarea
+                  value={deepeningQuestion}
+                  onChange={(event) => setDeepeningQuestion(event.target.value)}
+                  placeholder="Padrão: ensinar os conceitos importantes de forma resumida e objetiva, com exemplos de cada conceito, pronto para copiar no Notion."
+                  maxLength={1000}
+                  rows={3}
+                  className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-100 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
+                />
+              </label>
+              {deepeningError && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{deepeningError}</p>}
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="submit"
+                  disabled={deepeningLoading}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {deepeningLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {deepeningLoading ? 'Aprofundando...' : 'Gerar aprofundamento'}
+                </button>
+              </div>
+              {deepeningAnswer && (
+                <div className="space-y-2">
+                  <textarea
+                    readOnly
+                    value={deepeningAnswer}
+                    onFocus={(event) => event.currentTarget.select()}
+                    rows={8}
+                    className="w-full resize-y rounded-2xl border-2 border-violet-100 bg-white px-3 py-2 font-mono text-xs leading-relaxed text-slate-700 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyDeepening()}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 bg-white px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
+                  >
+                    <Copy size={14} />
+                    {deepeningCopied ? 'Copiado!' : 'Copiar para Notion'}
+                  </button>
+                </div>
+              )}
+            </form>
           )}
           <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
             <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />

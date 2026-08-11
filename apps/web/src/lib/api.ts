@@ -733,6 +733,22 @@ export interface ProgrammingFlashcard {
   created_at: string;
 }
 
+export interface DeepenCodingReadingPayload {
+  step_type: 'section' | 'quiz';
+  title?: string;
+  body?: string;
+  code_example?: string | null;
+  question?: string;
+  options?: string[];
+  correct_option?: string;
+  explanation?: string;
+  user_question?: string;
+}
+
+export interface DeepenCodingReadingResponse {
+  content: string;
+}
+
 export interface CodingReviewCard {
   review_item_id: number;
   flashcard_id: number;
@@ -1217,7 +1233,7 @@ export const api = {
     fetchAPI<void>(`/api/coding/subjects/${id}`, { method: 'DELETE' }),
   getCodingTopics: (subjectId: number) =>
     fetchAPI<ProgrammingTopic[]>(`/api/coding/subjects/${subjectId}/topics`),
-  createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean }) =>
+  createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean; context?: string }) =>
     fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
   generateCodingTopic: (subjectId: number) =>
     fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics/generate`, { method: 'POST' }),
@@ -1232,6 +1248,11 @@ export const api = {
       ...(contextText ? { body: JSON.stringify({ context: contextText }) } : {}),
     });
   },
+  deepenCodingReadingStep: (topicId: number, payload: DeepenCodingReadingPayload) =>
+    fetchAPI<DeepenCodingReadingResponse>(`/api/coding/topics/${topicId}/reading/deepen`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getTopicFlashcards: (topicId: number) =>
     fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards`),
   generateAdditionalCodingFlashcards: (topicId: number, context?: string) =>

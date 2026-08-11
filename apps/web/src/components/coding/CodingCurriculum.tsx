@@ -15,7 +15,7 @@ type View =
   | { type: 'topics'; subject: ProgrammingSubject }
   | { type: 'topic'; subject: ProgrammingSubject; topic: ProgrammingTopic }
   | { type: 'review'; subject: ProgrammingSubject; cards: CodingReviewCard[] }
-  | { type: 'deck'; subject: ProgrammingSubject }
+  | { type: 'deck'; subject: ProgrammingSubject; returnToTopics?: boolean }
   | { type: 'leetcode' };
 
 type CodingFocusMode = 'reading' | 'flashcards';
@@ -43,9 +43,26 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   }, []);
 
   useEffect(() => {
-    setTopics([]);
     setError('');
-    setView({ type: 'subjects' });
+    setView((current) => {
+      if (focusMode === 'flashcards') {
+        if (current.type === 'topics' || current.type === 'topic') {
+          return { type: 'deck', subject: current.subject, returnToTopics: true };
+        }
+        return current;
+      }
+
+      if (focusMode === 'reading' && current.type === 'deck') {
+        if (current.returnToTopics) {
+          void loadTopics(current.subject);
+          return current;
+        }
+        setTopics([]);
+        return { type: 'subjects' };
+      }
+
+      return current;
+    });
   }, [focusMode]);
 
   async function loadSubjects() {
@@ -421,13 +438,13 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
 
   // ── Flashcard deck view ──────────────────────────────────────────────────
   if (view.type === 'deck') {
-    const { subject } = view;
+    const { subject, returnToTopics } = view;
     return (
       <FlashcardDeck
         subjectId={subject.id}
         subjectName={subject.name}
         subjectIcon={subject.icon_emoji}
-        onBack={() => { loadSubjects(); setView({ type: 'subjects' }); }}
+        onBack={() => { loadSubjects(); setView(returnToTopics ? { type: 'topics', subject } : { type: 'subjects' }); }}
         onChanged={loadSubjects}
       />
     );

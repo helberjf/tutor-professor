@@ -30,7 +30,7 @@ def main() -> None:
     require("/api/coding/subjects/${subjectId}/topics/generate" in api_source, "API client targets the generated-topic route")
     require("showRegenerateContext" in topic_view, "regenerate with AI opens a context editor before calling AI")
     require("regenerateContext" in topic_view, "regenerate context text is kept in component state")
-    require("Como quer regenerar" in topic_view, "regenerate context editor explains what context to enter")
+    require("Como quer recriar esta aula?" in topic_view, "recreate context editor explains what context to enter")
     require("api.generateCodingTopicContent(topic.id, { context:" in topic_view, "regenerate context is sent to the topic generation API")
     require("generateCodingTopicContent: (id: number, payload?: { context?: string })" in api_source, "API client accepts optional regeneration context")
     require("body: JSON.stringify({ context: contextText })" in api_source, "API client serializes regeneration context")

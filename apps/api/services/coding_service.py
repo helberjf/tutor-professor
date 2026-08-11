@@ -23,6 +23,7 @@ _phrase_service = PhraseGenerationService()
 VALID_TOPIC_STATUSES = {"not_started", "studied", "mastered"}
 MAX_ADDITIONAL_FLASHCARD_PROMPT_CHARS = 40_000
 MAX_EXISTING_FLASHCARD_FRONTS = 100
+MAX_READING_DEEPEN_PROMPT_CHARS = 24_000
 
 
 # ── SM-2 helpers ──────────────────────────────────────────────────────────────
@@ -430,6 +431,34 @@ Rules:
 - All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
 """
 
+_READING_DEEPEN_PROMPT_TEMPLATE = """\
+Voce vai aprofundar uma etapa de leitura de uma aula de programacao.
+
+Materia: {subject_name}
+Topico: {topic_title}
+
+Etapa atual:
+{step_payload}
+
+Duvida ou contexto do usuario:
+{user_question}
+
+Responda em Markdown pronto para copiar no Notion.
+
+Regras:
+- Escreva em portugues do Brasil
+- Comece com um titulo curto em Markdown
+- Ensine os conceitos importantes da etapa de forma resumida e objetiva
+- Apresente exemplos de cada conceito
+- Use blocos de codigo quando houver codigo ou quando um exemplo tecnico ajudar
+- Foque em prova, entrevista tecnica, raciocinio, trade-offs e armadilhas comuns
+- Responda diretamente a duvida do usuario quando ela existir
+- Nao salve nada, nao mencione banco de dados, e nao adicione comentarios fora do Markdown
+
+Retorne somente JSON valido neste formato:
+{{"content": "markdown"}}
+"""
+
 
 def _normalized_code(value: object) -> str:
     return "".join(str(value or "").split())
@@ -674,6 +703,47 @@ def generate_additional_topic_flashcards(
     if not isinstance(flashcards, list):
         raise RuntimeError("IA não retornou uma lista de flashcards adicionais.")
     return flashcards
+
+
+def deepen_coding_reading_step(
+    *,
+    subject_name: str,
+    topic_title: str,
+    step_payload: dict,
+    user_question: str,
+    ai_config: AIProviderConfig,
+) -> str:
+    compact_step = json.dumps(step_payload, ensure_ascii=False, indent=2)[:12_000]
+    prompt = _READING_DEEPEN_PROMPT_TEMPLATE.format(
+        subject_name=" ".join(str(subject_name).split())[:200],
+        topic_title=" ".join(str(topic_title).split())[:300],
+        step_payload=compact_step,
+        user_question=sanitize_context(user_question)
+        or (
+            "Ensine os conceitos importantes de forma resumida e objetiva, "
+            "com exemplos de cada conceito."
+        ),
+    )
+    if len(prompt) > MAX_READING_DEEPEN_PROMPT_CHARS:
+        raise RuntimeError("O conteudo da etapa e grande demais para aprofundar com seguranca.")
+
+    raw = _phrase_service.generate_json_text(
+        system_text=(
+            "You are an expert programming educator. Return ONLY valid JSON "
+            "with a single key named content."
+        ),
+        prompt=prompt,
+        temperature=0.45,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON invalido para o aprofundamento.") from exc
+    content = str(data.get("content") if isinstance(data, dict) else "").strip()
+    if not content:
+        raise RuntimeError("IA nao retornou conteudo para o aprofundamento.")
+    return content[:12_000]
 
 
 def build_topic_history_context(topics: list, exclude_topic_id: int | None = None) -> str:

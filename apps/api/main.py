@@ -79,6 +79,8 @@ from schemas.schemas import (
     CodingReviewResultSchema,
     CodingReviewSessionSchema,
     CreateDeckCardSchema,
+    DeepenCodingReadingRequestSchema,
+    DeepenCodingReadingResponseSchema,
     DeckAttemptSchema,
     DeckAttemptResultSchema,
     DeckCardSchema,
@@ -131,6 +133,7 @@ from services.coding_service import (
     compute_deck_stats,
     count_due_coding_items,
     deck_options,
+    deepen_coding_reading_step,
     generate_leetcode_method,
     generate_additional_topic_flashcards,
     generate_topic_ai_content,
@@ -3718,12 +3721,18 @@ def create_coding_topic(
         ai_config = _get_user_ai_config(user_session, session)
         if ai_config:
             try:
+                topic_context = sanitize_context(payload.context)
+                context_text = "\n".join(
+                    part
+                    for part in ((subject.context or "").strip(), topic_context)
+                    if part
+                )
                 content = generate_topic_ai_content(
                     subject_name=subject.name,
                     topic_title=payload.title.strip(),
                     ai_config=ai_config,
                     previous_context=build_topic_history_context(existing_topics),
-                    user_context=subject.context or "",
+                    user_context=context_text,
                 )
                 content = validate_initial_topic_content(content)
             except (RuntimeError, ValueError) as exc:
@@ -3796,6 +3805,50 @@ def update_coding_topic(
     session.commit()
     session.refresh(topic)
     return _programming_topic_schema(session, topic)
+
+
+@app.post("/api/coding/topics/{topic_id}/reading/deepen", response_model=DeepenCodingReadingResponseSchema)
+def deepen_coding_topic_reading(
+    topic_id: int,
+    payload: DeepenCodingReadingRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DeepenCodingReadingResponseSchema:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+
+    step_payload = payload.model_dump(exclude_none=True)
+    user_question = sanitize_context(payload.user_question)
+    subject_name = subject.name
+    topic_title = topic.title
+
+    # The deepening answer is intentionally ephemeral: close any read
+    # transaction before the external provider call and do not write afterward.
+    session.rollback()
+    try:
+        content = deepen_coding_reading_step(
+            subject_name=subject_name,
+            topic_title=topic_title,
+            step_payload=step_payload,
+            user_question=user_question,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return DeepenCodingReadingResponseSchema(content=content)
 
 
 @app.delete("/api/coding/topics/{topic_id}", status_code=204)
