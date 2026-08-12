@@ -226,11 +226,21 @@ class StudyDaySchema(BaseModel):
     updated_at: Optional[datetime] = None
 
 
+class QuestionSubjectMetricsSchema(BaseModel):
+    subject_id: int
+    subject_name: str
+    resolved_count: int = 0
+    correct_count: int = 0
+    error_count: int = 0
+    accuracy_percent: int = 0
+
+
 class StudyDashboardSchema(BaseModel):
     today: StudyDaySchema
     recent_days: List[StudyDaySchema] = Field(default_factory=list)
     study_streak_count: int = 0
     last_study_date: Optional[date] = None
+    question_metrics: List[QuestionSubjectMetricsSchema] = Field(default_factory=list)
 
 
 class DiverseLessonBlockSchema(BaseModel):
@@ -586,6 +596,20 @@ class GenerateProgrammingQuestionsSchema(BaseModel):
     context: Optional[str] = Field(default=None, max_length=1000)
 
 
+class ProgrammingQuestionAttemptSchema(BaseModel):
+    selected_option: str = Field(min_length=1, max_length=500)
+
+
+class ProgrammingQuestionAttemptResultSchema(BaseModel):
+    question_id: int
+    correct: bool
+    attempt_count: int
+    correct_count: int
+    error_count: int
+    last_selected_option: str
+    last_answered_at: datetime
+
+
 class DeepenCodingReadingRequestSchema(BaseModel):
     step_type: Literal["section", "quiz"]
     title: Optional[str] = Field(default=None, max_length=300)
@@ -620,6 +644,11 @@ class ProgrammingQuestionSchema(FromAttributesModel):
     options: List[str] = Field(default_factory=list)
     correct_option: str
     explanation: str
+    attempt_count: int = 0
+    correct_count: int = 0
+    error_count: int = 0
+    last_selected_option: Optional[str] = None
+    last_answered_at: Optional[datetime] = None
     created_at: datetime
 
 

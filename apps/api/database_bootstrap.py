@@ -37,7 +37,7 @@ import models.database  # noqa: F401  # Register every table in SQLModel.metadat
 
 
 API_DIR = Path(__file__).resolve().parent
-HEAD_REVISION = "0007"
+HEAD_REVISION = "0008"
 POSTGRES_ADVISORY_LOCK_ID = 4992089506640973647
 
 
@@ -259,6 +259,7 @@ _KNOWN_MIGRATION_STRING_LENGTHS = {
     ("programmingquestion", "question_key"): 64,
     ("programmingquestion", "correct_option"): 500,
     ("programmingquestion", "explanation"): 2000,
+    ("programmingquestion", "last_selected_option"): 500,
     ("lessonquestion", "target_language"): 40,
     ("lessonquestion", "question_type"): 40,
     ("lessonquestion", "front"): 500,

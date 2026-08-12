@@ -203,6 +203,16 @@ export interface StudyDashboard {
   recent_days: StudyDay[];
   study_streak_count: number;
   last_study_date: string | null;
+  question_metrics: QuestionSubjectMetrics[];
+}
+
+export interface QuestionSubjectMetrics {
+  subject_id: number;
+  subject_name: string;
+  resolved_count: number;
+  correct_count: number;
+  error_count: number;
+  accuracy_percent: number;
 }
 
 export interface StudyDayUpdatePayload {
@@ -741,11 +751,26 @@ export interface ProgrammingQuestion {
   options: string[];
   correct_option: string;
   explanation: string;
+  attempt_count: number;
+  correct_count: number;
+  error_count: number;
+  last_selected_option: string | null;
+  last_answered_at: string | null;
   created_at: string;
 }
 
 export interface GenerateProgrammingQuestionsPayload {
   context?: string;
+}
+
+export interface ProgrammingQuestionAttemptResult {
+  question_id: number;
+  correct: boolean;
+  attempt_count: number;
+  correct_count: number;
+  error_count: number;
+  last_selected_option: string;
+  last_answered_at: string;
 }
 
 export interface DeepenCodingReadingPayload {
@@ -1281,6 +1306,11 @@ export const api = {
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
       method: 'POST',
       body: JSON.stringify({ context: payload.context?.trim() || null }),
+    }),
+  submitCodingTopicQuestionAttempt: (questionId: number, payload: { selected_option: string }) =>
+    fetchAPI<ProgrammingQuestionAttemptResult>(`/api/coding/questions/${questionId}/attempt`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
   createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
     fetchAPI<ProgrammingFlashcard>(`/api/coding/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),

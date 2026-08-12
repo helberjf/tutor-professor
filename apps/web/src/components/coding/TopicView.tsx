@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingTopic } from '@/lib/api';
+import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic } from '@/lib/api';
 import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
@@ -384,6 +384,25 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     } finally {
       setGeneratingQuestions(false);
     }
+  }
+
+  async function handleQuestionAttempt(questionId: number, selectedOption: string): Promise<ProgrammingQuestionAttemptResult> {
+    const result = await api.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
+    setQuestions((current) =>
+      current.map((item) =>
+        item.id === questionId
+          ? {
+              ...item,
+              attempt_count: result.attempt_count,
+              correct_count: result.correct_count,
+              error_count: result.error_count,
+              last_selected_option: result.last_selected_option,
+              last_answered_at: result.last_answered_at,
+            }
+          : item,
+      ),
+    );
+    return result;
   }
 
   async function handleCopyFlashcards() {
@@ -984,6 +1003,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           subjectName={subjectName}
           topicTitle={topic.title}
           questions={questions}
+          onAnswer={handleQuestionAttempt}
           onClose={() => setQuestionPracticeOpen(false)}
         />
       )}
@@ -995,16 +1015,19 @@ function PracticeQuestionsModal({
   subjectName,
   topicTitle,
   questions,
+  onAnswer,
   onClose,
 }: {
   subjectName: string;
   topicTitle: string;
   questions: ProgrammingQuestion[];
+  onAnswer: (questionId: number, selectedOption: string) => Promise<ProgrammingQuestionAttemptResult>;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [finished, setFinished] = useState(false);
+  const [attemptError, setAttemptError] = useState('');
   const total = questions.length;
   const safeIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
   const question = questions[safeIndex];
@@ -1033,7 +1056,11 @@ function PracticeQuestionsModal({
 
   function chooseOption(option: string) {
     if (answered) return;
+    setAttemptError('');
     setAnswers((current) => ({ ...current, [question.id]: option }));
+    void onAnswer(question.id, option).catch((err) => {
+      setAttemptError(err instanceof Error ? err.message : 'Não foi possível salvar esta tentativa nas métricas.');
+    });
   }
 
   function goNext() {
@@ -1045,6 +1072,7 @@ function PracticeQuestionsModal({
     setIndex(0);
     setAnswers({});
     setFinished(false);
+    setAttemptError('');
   }
 
   return (
@@ -1144,6 +1172,11 @@ function PracticeQuestionsModal({
                   {isCorrect ? 'Correto. ' : 'Ainda não. '}
                   {question.explanation}
                 </div>
+              )}
+              {attemptError && (
+                <p role="alert" className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+                  Resposta exibida, mas não entrou nas métricas: {attemptError}
+                </p>
               )}
             </section>
           )}

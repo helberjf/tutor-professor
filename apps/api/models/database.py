@@ -258,6 +258,11 @@ class ProgrammingQuestion(SQLModel, table=True):
     options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     correct_option: str = Field(min_length=1, max_length=500)
     explanation: str = Field(min_length=1, max_length=2000)
+    attempt_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    error_count: int = Field(default=0)
+    last_selected_option: Optional[str] = Field(default=None, max_length=500)
+    last_answered_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -388,7 +389,7 @@ Return a JSON object with exactly this schema:
     {{
       "id": 1,
       "question": "string",
-      "options": ["A", "B", "C", "D"],
+      "options": ["Usar AWS X-Ray para rastreamento distribuído", "Guardar logs apenas no console local", "Desativar tracing para reduzir métricas", "Usar uma única chave IAM root"],
       "correct_option": "exact text of the correct option",
       "explanation": "string"
     }}
@@ -403,6 +404,8 @@ Rules:
 - When an explicit topic title is supplied, return that exact title
 - sections: 3 to 5 items (introduction, key concepts, code examples, when to use, common pitfalls)
 - quiz: exactly 5 questions with 4 options each
+- Quiz options must be complete answer texts, never only labels such as "A", "B", "C", or "D"
+- Quiz correct_option must be the exact complete answer text, never only the option letter
 - flashcards: exactly 5 flashcards covering key concepts
 - Every flashcard front must be phrased as a technical interview question
 - Flashcards must test concepts taught in sections from this same JSON response
@@ -465,7 +468,7 @@ Return a JSON object with exactly this schema:
   "questions": [
     {{
       "question": "string",
-      "options": ["A", "B", "C", "D"],
+      "options": ["Usar AWS X-Ray para rastreamento distribuído", "Guardar logs apenas no console local", "Desativar tracing para reduzir métricas", "Usar uma única chave IAM root"],
       "correct_option": "exact text of the correct option",
       "explanation": "string"
     }}
@@ -475,7 +478,8 @@ Return a JSON object with exactly this schema:
 Rules:
 - Return exactly 5 questions
 - Each question must have exactly 4 options
-- correct_option must exactly match one of the options
+- Each option must be a complete answer text, never only a label such as "A", "B", "C", or "D"
+- correct_option must exactly match one of the complete option texts, never only the option letter
 - Test concepts taught in the saved topic whenever content is available
 - Avoid existing prompts and close paraphrases
 - Prefer reasoning, trade-offs, debugging, common pitfalls, and exam-style recall
@@ -520,6 +524,69 @@ def programming_question_key(value: object) -> str:
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
 
 
+_OPTION_LABEL_ONLY_RE = re.compile(r"^[A-Da-d][\).:\-]?$")
+_OPTION_WITH_LABEL_RE = re.compile(r"^\s*([A-Da-d])[\).:\-]\s+(.+)$")
+
+
+def _clean_question_text(value: object, *, max_length: int = 500) -> str:
+    return " ".join(str(value or "").split())[:max_length].rstrip()
+
+
+def _option_label(value: object) -> str | None:
+    text = _clean_question_text(value)
+    if _OPTION_LABEL_ONLY_RE.fullmatch(text):
+        return text[:1].upper()
+    match = _OPTION_WITH_LABEL_RE.match(text)
+    if match:
+        return match.group(1).upper()
+    return None
+
+
+def _option_text_without_label(value: object) -> str:
+    text = _clean_question_text(value)
+    match = _OPTION_WITH_LABEL_RE.match(text)
+    if match:
+        return _clean_question_text(match.group(2))
+    return text
+
+
+def _normalize_multiple_choice_options(
+    raw_options: object,
+    raw_correct_option: object,
+    *,
+    context: str,
+) -> tuple[list[str], str]:
+    if not isinstance(raw_options, list) or len(raw_options) != 4:
+        raise ValueError(f"{context} must have exactly four options")
+
+    label_to_option: dict[str, str] = {}
+    options: list[str] = []
+    for raw_option in raw_options:
+        option = _option_text_without_label(raw_option)
+        if not option:
+            raise ValueError(f"{context} options must not be empty")
+        if _OPTION_LABEL_ONLY_RE.fullmatch(option):
+            raise ValueError(f"{context} options must contain answer text, not only labels")
+        label = _option_label(raw_option)
+        if label:
+            label_to_option[label] = option
+        options.append(option)
+
+    option_keys = [normalize_front(option) for option in options]
+    if len(set(option_keys)) != 4:
+        raise ValueError(f"{context} options must be unique")
+
+    correct_option = _option_text_without_label(raw_correct_option)
+    correct_label = _option_label(raw_correct_option)
+    if correct_label and correct_label in label_to_option:
+        correct_option = label_to_option[correct_label]
+    if not correct_option or _OPTION_LABEL_ONLY_RE.fullmatch(correct_option):
+        raise ValueError(f"{context} correct_option must contain the full answer text")
+    if correct_option not in options:
+        raise ValueError(f"{context} correct_option must match one option")
+    return options, correct_option
+
+
 def _question_record(raw_question: object) -> Mapping[str, object]:
     if isinstance(raw_question, Mapping):
         return raw_question
@@ -550,17 +617,11 @@ def validate_programming_question_batch(
         raw_options = record.get("options")
         if not question or not explanation:
             raise ValueError("Programming questions and explanations must not be empty")
-        if not isinstance(raw_options, list) or len(raw_options) != 4:
-            raise ValueError("Programming questions must have exactly four options")
-        options = [" ".join(str(option or "").split())[:500].rstrip() for option in raw_options]
-        if any(not option for option in options):
-            raise ValueError("Programming question options must not be empty")
-        option_keys = [normalize_front(option) for option in options]
-        if len(set(option_keys)) != 4:
-            raise ValueError("Programming question options must be unique")
-        correct_option = " ".join(str(record.get("correct_option") or "").split())[:500].rstrip()
-        if correct_option not in options:
-            raise ValueError("Programming question correct_option must match one option")
+        options, correct_option = _normalize_multiple_choice_options(
+            raw_options,
+            record.get("correct_option"),
+            context="Programming question",
+        )
         question_key = programming_question_key(question)
         if not question_key or question_key in existing_keys or question_key in batch_keys:
             raise ValueError("Programming questions must be unique for the topic")
@@ -612,10 +673,13 @@ def validate_initial_topic_content(
     for question in content.quiz:
         if not question.question.strip() or not question.explanation.strip():
             raise ValueError("AI quiz questions and explanations must not be blank")
-        if len(question.options) != 4 or any(not option.strip() for option in question.options):
-            raise ValueError("Each AI quiz question must contain four nonblank options")
-        if question.correct_option not in question.options:
-            raise ValueError("Each AI quiz answer must match one of its options")
+        options, correct_option = _normalize_multiple_choice_options(
+            question.options,
+            question.correct_option,
+            context="AI quiz question",
+        )
+        question.options = options
+        question.correct_option = correct_option
 
     if len(content.flashcards) != 5:
         raise ValueError("AI topic content must contain exactly five flashcards")

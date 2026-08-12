@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import { BookOpen, Flame, Timer } from 'lucide-react';
+import { BookOpen, ClipboardList, Flame, Timer } from 'lucide-react';
 import { type StudyDashboard, type StudyDay } from '@/lib/api';
 
 function getLocalDateValue(date = new Date()) {
@@ -53,6 +53,7 @@ export function DashboardOverview({
   const totalPomodoros = useMemo(() => allDays.reduce((sum, day) => sum + day.pomodoroCount, 0), [allDays]);
   const studyDays = useMemo(() => allDays.filter((day) => day.isStudyDay).length, [allDays]);
   const pomodoroToday = allDays[allDays.length - 1]?.pomodoroCount ?? 0;
+  const questionMetrics = dashboard?.question_metrics ?? [];
 
   return (
     <div className="space-y-5">
@@ -61,6 +62,55 @@ export function DashboardOverview({
         <SummaryCard icon={<Timer size={22} />} value={`${pomodoroToday}`} label="Pomodoros hoje" tone="sky" />
         <SummaryCard icon={<Timer size={22} />} value={`${totalPomodoros}`} label="Pomodoros (30 dias)" tone="violet" />
         <SummaryCard icon={<BookOpen size={22} />} value={`${studyDays}`} label="Dias de estudo (30 dias)" tone="emerald" />
+      </div>
+
+      <div className="rounded-[1.4rem] border-2 border-amber-100 bg-white/90 p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-500">Questões por matéria</p>
+            <h2 className="mt-1 text-xl font-black text-slate-800">Acertos e erros do Modo questões</h2>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+            <ClipboardList size={14} /> {questionMetrics.length} matéria{questionMetrics.length === 1 ? '' : 's'}
+          </span>
+        </div>
+
+        {questionMetrics.length === 0 ? (
+          <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500">
+            Ainda não há questões respondidas. Abra uma matéria em Programação, entre em Modo questões e resolva algumas para preencher este painel.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {questionMetrics.map((metric) => {
+              const accuracy = Math.min(100, Math.max(0, metric.accuracy_percent));
+              return (
+                <article key={metric.subject_id} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-slate-800">{metric.subject_name}</h3>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        {metric.resolved_count} questão{metric.resolved_count === 1 ? '' : 'ões'} resolvida{metric.resolved_count === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">
+                      {accuracy}% de acerto
+                    </span>
+                  </div>
+
+                  <div className="mt-3 h-2 rounded-full bg-rose-100">
+                    <div className="h-2 rounded-full bg-emerald-400 transition-all" style={{ width: `${accuracy}%` }} />
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-black">
+                    <span className="rounded-xl bg-white px-2 py-2 text-slate-600">{metric.resolved_count} feitas</span>
+                    <span className="rounded-xl bg-emerald-50 px-2 py-2 text-emerald-700">{metric.correct_count} acertos</span>
+                    <span className="rounded-xl bg-rose-50 px-2 py-2 text-rose-700">{metric.error_count} erros</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">

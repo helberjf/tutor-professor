@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import text, update
+from sqlalchemy import func, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -98,8 +98,11 @@ from schemas.schemas import (
     GenerateProgrammingTopicContentSchema,
     GenerateLeetCodeMethodRequestSchema,
     LeetCodeMethodSchema,
+    ProgrammingQuestionAttemptResultSchema,
+    ProgrammingQuestionAttemptSchema,
     ProgrammingFlashcardSchema,
     ProgrammingQuestionSchema,
+    QuestionSubjectMetricsSchema,
     ProgrammingSubjectSchema,
     ProgrammingTopicSchema,
     DiverseLessonBlockSchema,
@@ -449,6 +452,23 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE programmingsubject ADD COLUMN context TEXT"))
             except Exception:
                 pass
+        # Programming question metrics: Alembic 0008 owns the normal path; these
+        # idempotent ALTERs keep older create_all-created local databases safe.
+        _programming_question_metric_columns = [
+            ("attempt_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("correct_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("error_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_selected_option", "VARCHAR(500)"),
+            ("last_answered_at", "DATETIME"),
+        ]
+        for col, ddl in _programming_question_metric_columns:
+            try:
+                conn.execute(text(f"ALTER TABLE programmingquestion ADD COLUMN IF NOT EXISTS {col} {ddl}"))
+            except Exception:
+                try:
+                    conn.execute(text(f"ALTER TABLE programmingquestion ADD COLUMN {col} {ddl}"))
+                except Exception:
+                    pass
         conn.commit()
 
 
@@ -1893,6 +1913,43 @@ def build_study_day_schema(record: StudyDay | None, target_date: date) -> StudyD
     )
 
 
+def build_question_subject_metrics(session: Session, child_id: int) -> list[QuestionSubjectMetricsSchema]:
+    rows = session.exec(
+        select(
+            ProgrammingSubject.id,
+            ProgrammingSubject.name,
+            func.coalesce(func.sum(ProgrammingQuestion.attempt_count), 0),
+            func.coalesce(func.sum(ProgrammingQuestion.correct_count), 0),
+            func.coalesce(func.sum(ProgrammingQuestion.error_count), 0),
+        )
+        .join(ProgrammingQuestion, ProgrammingQuestion.subject_id == ProgrammingSubject.id)
+        .where(
+            ProgrammingSubject.child_id == child_id,
+            ProgrammingQuestion.child_id == child_id,
+            ProgrammingQuestion.attempt_count > 0,
+        )
+        .group_by(ProgrammingSubject.id, ProgrammingSubject.name)
+        .order_by(func.sum(ProgrammingQuestion.attempt_count).desc(), ProgrammingSubject.name)
+    ).all()
+    metrics: list[QuestionSubjectMetricsSchema] = []
+    for subject_id, subject_name, resolved_count, correct_count, error_count in rows:
+        resolved = int(resolved_count or 0)
+        correct = int(correct_count or 0)
+        errors = int(error_count or 0)
+        accuracy_percent = int(round((correct / resolved) * 100)) if resolved else 0
+        metrics.append(
+            QuestionSubjectMetricsSchema(
+                subject_id=int(subject_id or 0),
+                subject_name=str(subject_name or ""),
+                resolved_count=resolved,
+                correct_count=correct,
+                error_count=errors,
+                accuracy_percent=accuracy_percent,
+            )
+        )
+    return metrics
+
+
 def compute_study_streak(session: Session, child_id: int) -> tuple[int, date | None]:
     records = session.exec(
         select(StudyDay)
@@ -1945,6 +2002,7 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
         recent_days=[build_study_day_schema(record, record.study_date) for record in recent_records],
         study_streak_count=streak_count,
         last_study_date=last_study_date,
+        question_metrics=build_question_subject_metrics(session=session, child_id=child_id),
     )
 
 
@@ -3517,8 +3575,27 @@ def _programming_question_schema(question: ProgrammingQuestion) -> ProgrammingQu
         options=list(question.options or []),
         correct_option=question.correct_option,
         explanation=question.explanation,
+        attempt_count=question.attempt_count,
+        correct_count=question.correct_count,
+        error_count=question.error_count,
+        last_selected_option=question.last_selected_option,
+        last_answered_at=question.last_answered_at,
         created_at=question.created_at,
     )
+
+
+_QUESTION_OPTION_LABEL_ONLY_RE = re.compile(r"^[A-Da-d][\).:\-]?$")
+
+
+def _programming_question_has_usable_options(question: ProgrammingQuestion) -> bool:
+    options = [" ".join(str(option or "").split()) for option in list(question.options or [])]
+    if len(options) != 4:
+        return False
+    if any(not option or _QUESTION_OPTION_LABEL_ONLY_RE.fullmatch(option) for option in options):
+        return False
+    if len({option.casefold() for option in options}) != 4:
+        return False
+    return question.correct_option in options
 
 
 def _persist_programming_questions(
@@ -3967,7 +4044,55 @@ def list_topic_questions(
         .where(ProgrammingQuestion.topic_id == topic_id)
         .order_by(ProgrammingQuestion.id)
     ).all()
+    questions = [question for question in questions if _programming_question_has_usable_options(question)]
     return [_programming_question_schema(question) for question in questions]
+
+
+@app.post("/api/coding/questions/{question_id}/attempt", response_model=ProgrammingQuestionAttemptResultSchema)
+def submit_topic_question_attempt(
+    question_id: int,
+    payload: ProgrammingQuestionAttemptSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingQuestionAttemptResultSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    question = session.get(ProgrammingQuestion, question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
+    subject = session.get(ProgrammingSubject, question.subject_id)
+    if subject is None or subject.child_id != child.id or question.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
+    if not _programming_question_has_usable_options(question):
+        raise HTTPException(status_code=422, detail="Questão sem alternativas completas. Gere novas questões para este tópico.")
+
+    selected_option = " ".join(payload.selected_option.split())
+    if not selected_option:
+        raise HTTPException(status_code=422, detail="Selecione uma alternativa.")
+    if selected_option not in list(question.options or []):
+        raise HTTPException(status_code=422, detail="Alternativa inválida para esta questão.")
+
+    answered_at = datetime.utcnow()
+    correct = selected_option == question.correct_option
+    question.attempt_count = (question.attempt_count or 0) + 1
+    if correct:
+        question.correct_count = (question.correct_count or 0) + 1
+    else:
+        question.error_count = (question.error_count or 0) + 1
+    question.last_selected_option = selected_option
+    question.last_answered_at = answered_at
+    session.add(question)
+    session.commit()
+    session.refresh(question)
+    return ProgrammingQuestionAttemptResultSchema(
+        question_id=question.id or 0,
+        correct=correct,
+        attempt_count=question.attempt_count,
+        correct_count=question.correct_count,
+        error_count=question.error_count,
+        last_selected_option=question.last_selected_option or selected_option,
+        last_answered_at=question.last_answered_at or answered_at,
+    )
 
 
 @app.post("/api/coding/topics/{topic_id}/questions/generate", response_model=list[ProgrammingQuestionSchema])
