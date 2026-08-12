@@ -246,6 +246,21 @@ class ProgrammingFlashcard(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class ProgrammingQuestion(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("topic_id", "question_key"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    topic_id: int = Field(foreign_key="programmingtopic.id", index=True)
+    subject_id: int = Field(foreign_key="programmingsubject.id", index=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    question: str = Field(min_length=1, max_length=1000)
+    question_key: str = Field(min_length=1, max_length=64)
+    options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    correct_option: str = Field(min_length=1, max_length=500)
+    explanation: str = Field(min_length=1, max_length=2000)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class CodingReviewItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     flashcard_id: int = Field(foreign_key="programmingflashcard.id", index=True)

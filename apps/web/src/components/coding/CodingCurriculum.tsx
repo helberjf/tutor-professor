@@ -14,11 +14,12 @@ type View =
   | { type: 'subjects' }
   | { type: 'topics'; subject: ProgrammingSubject }
   | { type: 'topic'; subject: ProgrammingSubject; topic: ProgrammingTopic }
+  | { type: 'questionsTopic'; subject: ProgrammingSubject; topic: ProgrammingTopic; returnToQuestions?: boolean }
   | { type: 'review'; subject: ProgrammingSubject; cards: CodingReviewCard[] }
   | { type: 'deck'; subject: ProgrammingSubject; returnToTopics?: boolean }
   | { type: 'leetcode' };
 
-type CodingFocusMode = 'reading' | 'flashcards';
+type CodingFocusMode = 'reading' | 'flashcards' | 'questions';
 
 interface CodingCurriculumProps {
   focusMode?: CodingFocusMode;
@@ -46,10 +47,25 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     setError('');
     setView((current) => {
       if (focusMode === 'flashcards') {
-        if (current.type === 'topics' || current.type === 'topic') {
+        if (current.type === 'topics' || current.type === 'topic' || current.type === 'questionsTopic') {
           return { type: 'deck', subject: current.subject, returnToTopics: true };
         }
         return current;
+      }
+
+      if (focusMode === 'questions') {
+        if (current.type === 'topic') {
+          return { type: 'questionsTopic', subject: current.subject, topic: current.topic, returnToQuestions: true };
+        }
+        if (current.type === 'deck' && current.returnToTopics) {
+          void loadTopics(current.subject);
+          return current;
+        }
+        return current;
+      }
+
+      if (focusMode === 'reading' && current.type === 'questionsTopic') {
+        return { type: 'topic', subject: current.subject, topic: current.topic };
       }
 
       if (focusMode === 'reading' && current.type === 'deck') {
@@ -153,6 +169,10 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     void loadTopics(subject);
   }
 
+  function openQuestionTopic(subject: ProgrammingSubject, topic: ProgrammingTopic) {
+    setView({ type: 'questionsTopic', subject, topic, returnToQuestions: true });
+  }
+
   if (view.type === 'subjects') {
     return (
       <div className="space-y-6">
@@ -160,7 +180,11 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
           <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">Minhas Matérias</h1>
           <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
-            {focusMode === 'flashcards' ? 'Modo flashcards: escolha uma matéria para treinar.' : 'Modo leitura: escolha uma matéria para estudar.'}
+            {focusMode === 'flashcards'
+              ? 'Modo flashcards: escolha uma matéria para treinar.'
+              : focusMode === 'questions'
+                ? 'Modo questões: escolha um tópico para fazer simulados.'
+                : 'Modo leitura: escolha uma matéria para estudar.'}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
             <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label="Matérias" value={subjects.length} tone="sky" />
@@ -241,7 +265,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                         ) : (
                           <BookOpen size={12} />
                         )}
-                        {focusMode === 'flashcards' ? 'Flashcards' : 'Estudar'}
+                        {focusMode === 'flashcards' ? 'Flashcards' : focusMode === 'questions' ? 'Questões' : 'Estudar'}
                       </button>
                       <button
                         type="button"
@@ -361,7 +385,10 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
               <div
                 key={topic.id}
                 className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 bg-white px-5 py-4 transition hover:border-primary/40 ${topic.id === newTopicId ? 'border-violet-300 bg-violet-50/60' : 'border-slate-100'}`}
-                onClick={() => setView({ type: 'topic', subject, topic })}
+                onClick={() => {
+                  if (focusMode === 'questions') openQuestionTopic(subject, topic);
+                  else setView({ type: 'topic', subject, topic });
+                }}
               >
                 <span className="w-5 shrink-0 text-center text-sm font-bold text-slate-400">{idx + 1}</span>
                 <span className="text-lg">{statusIcon(topic.status)}</span>
@@ -406,12 +433,13 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   }
 
   // ── Topic detail view ────────────────────────────────────────────────────
-  if (view.type === 'topic') {
+  if (view.type === 'topic' || view.type === 'questionsTopic') {
     const { subject, topic } = view;
     return (
       <TopicView
         topic={topic}
         subjectName={subject.name}
+        initialQuestionPracticeOpen={view.type === 'questionsTopic'}
         onBack={() => setView({ type: 'topics', subject })}
         onTopicUpdated={(updated) => {
           setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));

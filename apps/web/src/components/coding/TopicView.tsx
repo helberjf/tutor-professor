@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingTopic } from '@/lib/api';
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingTopic } from '@/lib/api';
 import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
@@ -10,6 +10,7 @@ import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flas
 interface Props {
   topic: ProgrammingTopic;
   subjectName: string;
+  initialQuestionPracticeOpen?: boolean;
   onBack: () => void;
   onTopicUpdated: (topic: ProgrammingTopic) => void;
 }
@@ -143,13 +144,18 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
   return drafts;
 }
 
-export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpdated }: Props) {
+export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated }: Props) {
   const [topic, setTopic] = useState(initialTopic);
   const [flashcards, setFlashcards] = useState<ProgrammingFlashcard[]>([]);
   const [loadingFc, setLoadingFc] = useState(true);
   const [loadedFlashcardTopicId, setLoadedFlashcardTopicId] = useState<number | null>(null);
   const [flashcardsLoadError, setFlashcardsLoadError] = useState('');
   const flashcardLoadRequestId = useRef(0);
+  const [questions, setQuestions] = useState<ProgrammingQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [loadedQuestionTopicId, setLoadedQuestionTopicId] = useState<number | null>(null);
+  const [questionLoadError, setQuestionLoadError] = useState('');
+  const questionLoadRequestId = useRef(0);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [showRegenerateContext, setShowRegenerateContext] = useState(false);
@@ -174,6 +180,12 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   const [additionalFlashcardSuccess, setAdditionalFlashcardSuccess] = useState('');
   const [showReadingStudy, setShowReadingStudy] = useState(false);
   const [readingStepIndex, setReadingStepIndex] = useState(0);
+  const [questionPracticeOpen, setQuestionPracticeOpen] = useState(initialQuestionPracticeOpen);
+  const [showQuestionGenerationForm, setShowQuestionGenerationForm] = useState(false);
+  const [questionGenerationContext, setQuestionGenerationContext] = useState('');
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [questionGenerationError, setQuestionGenerationError] = useState('');
+  const [questionGenerationSuccess, setQuestionGenerationSuccess] = useState('');
 
   const readingStudySteps = useMemo<ReadingStudyStep[]>(() => {
     if (!topic.ai_content) return [];
@@ -211,12 +223,39 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     }
   }, []);
 
+  const loadTopicQuestions = useCallback(async (topicId: number): Promise<boolean> => {
+    const requestId = ++questionLoadRequestId.current;
+    setLoadingQuestions(true);
+    setQuestionLoadError('');
+    setLoadedQuestionTopicId(null);
+    try {
+      const loadedQuestions = await api.getTopicQuestions(topicId);
+      if (requestId !== questionLoadRequestId.current) return false;
+      setQuestions(loadedQuestions);
+      setLoadedQuestionTopicId(topicId);
+      return true;
+    } catch (err) {
+      if (requestId !== questionLoadRequestId.current) return false;
+      setQuestionLoadError(err instanceof Error ? err.message : 'Não foi possível carregar as questões.');
+      return false;
+    } finally {
+      if (requestId === questionLoadRequestId.current) setLoadingQuestions(false);
+    }
+  }, []);
+
   useEffect(() => {
     void loadTopicFlashcards(topic.id);
     return () => {
       flashcardLoadRequestId.current += 1;
     };
   }, [loadTopicFlashcards, topic.id]);
+
+  useEffect(() => {
+    void loadTopicQuestions(topic.id);
+    return () => {
+      questionLoadRequestId.current += 1;
+    };
+  }, [loadTopicQuestions, topic.id]);
 
   useEffect(() => {
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
@@ -235,10 +274,15 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   useEffect(() => {
     setReadingStepIndex(0);
     setShowReadingStudy(false);
-  }, [topic.id]);
+    setQuestionPracticeOpen(initialQuestionPracticeOpen);
+    setShowQuestionGenerationForm(false);
+    setQuestionGenerationContext('');
+    setQuestionGenerationError('');
+    setQuestionGenerationSuccess('');
+  }, [initialQuestionPracticeOpen, topic.id]);
 
   async function handleGenerate(context?: string) {
-    if (generating || generatingAdditionalFlashcards) return;
+    if (generating || generatingAdditionalFlashcards || generatingQuestions) return;
     if (loadingFc) return;
     setGenerating(true);
     setGenError('');
@@ -283,7 +327,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
   async function handleAddFlashcard(e: React.FormEvent) {
     e.preventDefault();
-    if (generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()) return;
+    if (generating || generatingAdditionalFlashcards || generatingQuestions || !addFcFront.trim() || !addFcBack.trim()) return;
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setAddingFc(true);
     try {
@@ -304,7 +348,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
 
   async function handleGenerateAdditionalFlashcards(e: React.FormEvent) {
     e.preventDefault();
-    if (generating || generatingAdditionalFlashcards || addingFc || importingFc) return;
+    if (generating || generatingAdditionalFlashcards || generatingQuestions || addingFc || importingFc) return;
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setGeneratingAdditionalFlashcards(true);
     setAdditionalFlashcardError('');
@@ -319,6 +363,26 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
       setAdditionalFlashcardError(err instanceof Error ? err.message : 'Não foi possível criar mais questões.');
     } finally {
       setGeneratingAdditionalFlashcards(false);
+    }
+  }
+
+  async function handleGenerateMoreQuestions(e: React.FormEvent) {
+    e.preventDefault();
+    if (generating || generatingAdditionalFlashcards || generatingQuestions || addingFc || importingFc) return;
+    if (loadingQuestions || loadedQuestionTopicId !== topic.id) return;
+    setGeneratingQuestions(true);
+    setQuestionGenerationError('');
+    setQuestionGenerationSuccess('');
+    try {
+      const created = await api.generateCodingTopicQuestions(topic.id, { context: questionGenerationContext });
+      setQuestions((current) => [...current, ...created]);
+      setQuestionGenerationSuccess('5 novas questões foram criadas. Questões criadas não se repetem neste tópico.');
+      setShowQuestionGenerationForm(false);
+      setQuestionGenerationContext('');
+    } catch (err) {
+      setQuestionGenerationError(err instanceof Error ? err.message : 'Não foi possível gerar mais questões.');
+    } finally {
+      setGeneratingQuestions(false);
     }
   }
 
@@ -378,7 +442,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
   }
 
   async function handleDeleteFlashcard(id: number) {
-    if (generating || generatingAdditionalFlashcards) return;
+    if (generating || generatingAdditionalFlashcards || generatingQuestions) return;
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     await api.deleteCodingFlashcard(id);
     setFlashcards((prev) => prev.filter((fc) => fc.id !== id));
@@ -405,9 +469,21 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
     }
   }
 
+  function handleStartQuestionPractice() {
+    if (loadingQuestions || loadedQuestionTopicId !== topic.id) return;
+    if (questions.length === 0) {
+      setShowQuestionGenerationForm(true);
+      setQuestionGenerationError('');
+      return;
+    }
+    setQuestionPracticeOpen(true);
+  }
+
   const statusLabel =
     topic.status === 'mastered' ? '⭐ Dominado' : topic.status === 'studied' ? '✅ Estudado' : '🔘 Não iniciado';
   const flashcardCountLabel = loadingFc ? '...' : loadedFlashcardTopicId === topic.id ? flashcards.length : 'erro';
+  const questionCountLabel = loadingQuestions ? '...' : loadedQuestionTopicId === topic.id ? questions.length : 'erro';
+  const questionActionsDisabled = generating || generatingAdditionalFlashcards || generatingQuestions || loadingQuestions || loadedQuestionTopicId !== topic.id;
 
   return (
     <div className="space-y-6">
@@ -416,11 +492,11 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
         <button
           type="button"
           onClick={() => {
-            if (generating || generatingAdditionalFlashcards) return;
+            if (generating || generatingAdditionalFlashcards || generatingQuestions) return;
             onBack();
           }}
-          disabled={generating || generatingAdditionalFlashcards}
-          aria-disabled={generating || generatingAdditionalFlashcards}
+          disabled={generating || generatingAdditionalFlashcards || generatingQuestions}
+          aria-disabled={generating || generatingAdditionalFlashcards || generatingQuestions}
           className="-ml-2 mb-3 flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-slate-500 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ArrowLeft size={16} /> {subjectName}
@@ -441,6 +517,15 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 Iniciar estudo
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleStartQuestionPractice}
+              disabled={questionActionsDisabled}
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+            >
+              <ClipboardList size={16} />
+              Fazer questões
+            </button>
             {topic.ai_content && (
               <button
                 type="button"
@@ -448,7 +533,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                   setGenError('');
                   setShowRegenerateContext((value) => !value);
                 }}
-                disabled={loadingFc || generating || generatingAdditionalFlashcards}
+                disabled={loadingFc || generating || generatingAdditionalFlashcards || generatingQuestions}
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
               >
                 {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -490,7 +575,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
                 setRegenerateContext('');
                 setGenError('');
               }}
-              disabled={loadingFc || generating || generatingAdditionalFlashcards}
+              disabled={loadingFc || generating || generatingAdditionalFlashcards || generatingQuestions}
               className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
             >
               Cancelar
@@ -498,7 +583,7 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
             <button
               type="button"
               onClick={() => void handleGenerate(regenerateContext)}
-              disabled={loadingFc || generating || generatingAdditionalFlashcards}
+              disabled={loadingFc || generating || generatingAdditionalFlashcards || generatingQuestions}
               className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -507,6 +592,94 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           </div>
         </div>
       )}
+
+      <div className="rounded-3xl border-2 border-amber-100 bg-amber-50 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-black text-amber-900">
+              <ClipboardList size={18} />
+              Questões do tópico ({questionCountLabel})
+            </h2>
+            <p className="mt-1 text-xs font-bold text-amber-700">Questões criadas não se repetem neste tópico.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={handleStartQuestionPractice}
+              disabled={questionActionsDisabled || questions.length === 0}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
+            >
+              <ClipboardList size={15} />
+              Fazer questões
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuestionGenerationForm((value) => !value);
+                setQuestionGenerationError('');
+                setQuestionGenerationSuccess('');
+              }}
+              disabled={questionActionsDisabled}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-amber-200 bg-white px-4 py-2 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {generatingQuestions ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              Gerar mais questões
+            </button>
+          </div>
+        </div>
+        {questionLoadError && (
+          <div role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            <p>{questionLoadError}</p>
+            <button
+              type="button"
+              onClick={() => void loadTopicQuestions(topic.id)}
+              disabled={loadingQuestions || generatingQuestions}
+              className="mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
+            >
+              Recarregar questões
+            </button>
+          </div>
+        )}
+        {showQuestionGenerationForm && (
+          <form onSubmit={handleGenerateMoreQuestions} className="mt-4 space-y-3 rounded-2xl border-2 border-amber-100 bg-white p-4">
+            <label className="block">
+              <span className="text-sm font-black text-amber-900">Foco das novas questões</span>
+              <textarea
+                value={questionGenerationContext}
+                onChange={(event) => setQuestionGenerationContext(event.target.value)}
+                placeholder="Ex.: questões estilo prova, cenários práticos, pegadinhas comuns, dificuldade maior..."
+                maxLength={1000}
+                rows={3}
+                className="mt-2 w-full resize-none rounded-2xl border-2 border-amber-100 bg-amber-50/40 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-400"
+              />
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuestionGenerationForm(false);
+                  setQuestionGenerationContext('');
+                  setQuestionGenerationError('');
+                }}
+                disabled={generatingQuestions}
+                className="rounded-2xl border-2 border-amber-200 bg-white px-4 py-2 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={questionActionsDisabled}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {generatingQuestions ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                {generatingQuestions ? 'Gerando questões...' : 'Criar 5 questões'}
+              </button>
+            </div>
+          </form>
+        )}
+        {questionGenerationError && <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{questionGenerationError}</p>}
+        {questionGenerationSuccess && <p role="status" className="mt-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{questionGenerationSuccess}</p>}
+      </div>
 
       {/* Generate button or AI content */}
       {!topic.ai_content ? (
@@ -806,6 +979,190 @@ export function TopicView({ topic: initialTopic, subjectName, onBack, onTopicUpd
           onFinish={handleFinishReadingStudy}
         />
       )}
+      {questionPracticeOpen && loadedQuestionTopicId === topic.id && questions.length > 0 && (
+        <PracticeQuestionsModal
+          subjectName={subjectName}
+          topicTitle={topic.title}
+          questions={questions}
+          onClose={() => setQuestionPracticeOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PracticeQuestionsModal({
+  subjectName,
+  topicTitle,
+  questions,
+  onClose,
+}: {
+  subjectName: string;
+  topicTitle: string;
+  questions: ProgrammingQuestion[];
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [finished, setFinished] = useState(false);
+  const total = questions.length;
+  const safeIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
+  const question = questions[safeIndex];
+  const selectedOption = question ? answers[question.id] ?? '' : '';
+  const isCorrect = question ? selectedOption === question.correct_option : false;
+  const answered = Boolean(selectedOption);
+  const progress = total > 0 ? ((safeIndex + 1) / total) * 100 : 0;
+  const score = questions.filter((item) => answers[item.id] === item.correct_option).length;
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  if (!question) return null;
+
+  const shuffledOptions = [...question.options].sort((a, b) => {
+    const seed = question.id + question.question.length * 31;
+    const hashA = (seed * 73856093 ^ a.charCodeAt(0) * 19349663) % 1000;
+    const hashB = (seed * 73856093 ^ b.charCodeAt(0) * 19349663) % 1000;
+    return hashA - hashB;
+  });
+
+  function chooseOption(option: string) {
+    if (answered) return;
+    setAnswers((current) => ({ ...current, [question.id]: option }));
+  }
+
+  function goNext() {
+    if (safeIndex + 1 >= total) setFinished(true);
+    else setIndex((current) => current + 1);
+  }
+
+  function restart() {
+    setIndex(0);
+    setAnswers({});
+    setFinished(false);
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="practice-questions-title"
+      className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
+    >
+      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[90dvh] sm:rounded-3xl">
+        <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-600">{subjectName}</p>
+              <h2 id="practice-questions-title" className="mt-1 text-xl font-black leading-tight text-slate-900 sm:text-2xl">
+                {topicTitle}
+              </h2>
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {finished ? 'Resultado' : `Questão ${safeIndex + 1} de ${total}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar questões"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          {!finished && (
+            <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
+              <div className="h-2 rounded-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+        </header>
+
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
+          {finished ? (
+            <section className="mx-auto flex max-w-2xl flex-col items-center justify-center py-10 text-center">
+              <div className="rounded-full bg-emerald-100 p-5 text-emerald-600">
+                <CheckCircle2 size={42} />
+              </div>
+              <h3 className="mt-5 text-2xl font-black text-slate-900">Sessão concluída</h3>
+              <p className="mt-2 text-lg font-black text-slate-700">
+                Você acertou {score} de {total}
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                As próximas questões geradas para este tópico evitam as perguntas já salvas.
+              </p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={restart}
+                  className="rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-sm font-black text-amber-800 hover:bg-amber-50"
+                >
+                  Fazer novamente
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white hover:bg-amber-600"
+                >
+                  Fechar
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="mx-auto max-w-2xl">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-600">Questão {safeIndex + 1}</p>
+              <h3 className="mt-3 text-2xl font-black leading-tight text-slate-900">{question.question}</h3>
+              <div className="mt-6 space-y-3">
+                {shuffledOptions.map((option) => {
+                  const selected = selectedOption === option;
+                  const correct = question.correct_option === option;
+                  let className = 'w-full min-h-11 rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition ';
+                  if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50';
+                  else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
+                  else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';
+                  else className += 'border-slate-100 bg-slate-50 text-slate-400';
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      disabled={answered}
+                      onClick={() => chooseOption(option)}
+                      className={className}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {answered && (
+                <div className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold leading-relaxed ${isCorrect ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
+                  {isCorrect ? 'Correto. ' : 'Ainda não. '}
+                  {question.explanation}
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+
+        {!finished && (
+          <footer className="border-t border-slate-200 bg-white px-5 py-4 sm:rounded-b-3xl sm:px-7">
+            <button
+              type="button"
+              onClick={goNext}
+              disabled={!answered}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-40"
+            >
+              {safeIndex + 1 >= total ? 'Ver resultado' : 'Próxima questão'}
+              {safeIndex + 1 < total && <ChevronRight size={17} />}
+            </button>
+          </footer>
+        )}
+      </div>
     </div>
   );
 }

@@ -499,6 +499,13 @@ class AIQuizQuestionSchema(BaseModel):
     explanation: str
 
 
+class GeneratedProgrammingQuestionSchema(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+    options: List[str] = Field(min_length=4, max_length=4)
+    correct_option: str = Field(min_length=1, max_length=500)
+    explanation: str = Field(min_length=1, max_length=2000)
+
+
 class AIFlashcardDraftSchema(BaseModel):
     front: str
     back: str
@@ -575,6 +582,10 @@ class GenerateAdditionalFlashcardsSchema(BaseModel):
     context: Optional[str] = Field(default=None, max_length=1000)
 
 
+class GenerateProgrammingQuestionsSchema(BaseModel):
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
 class DeepenCodingReadingRequestSchema(BaseModel):
     step_type: Literal["section", "quiz"]
     title: Optional[str] = Field(default=None, max_length=300)
@@ -598,6 +609,17 @@ class ProgrammingFlashcardSchema(FromAttributesModel):
     front: str
     back: str
     code_example: Optional[str] = None
+    created_at: datetime
+
+
+class ProgrammingQuestionSchema(FromAttributesModel):
+    id: int
+    topic_id: int
+    subject_id: int
+    question: str
+    options: List[str] = Field(default_factory=list)
+    correct_option: str
+    explanation: str
     created_at: datetime
 
 

@@ -733,6 +733,21 @@ export interface ProgrammingFlashcard {
   created_at: string;
 }
 
+export interface ProgrammingQuestion {
+  id: number;
+  topic_id: number;
+  subject_id: number;
+  question: string;
+  options: string[];
+  correct_option: string;
+  explanation: string;
+  created_at: string;
+}
+
+export interface GenerateProgrammingQuestionsPayload {
+  context?: string;
+}
+
 export interface DeepenCodingReadingPayload {
   step_type: 'section' | 'quiz';
   title?: string;
@@ -1259,6 +1274,13 @@ export const api = {
     fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards/generate`, {
       method: 'POST',
       body: JSON.stringify({ context: context?.trim() || null }),
+    }),
+  getTopicQuestions: (topicId: number) =>
+    fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions`),
+  generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
+    fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ context: payload.context?.trim() || null }),
     }),
   createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
     fetchAPI<ProgrammingFlashcard>(`/api/coding/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),

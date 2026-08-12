@@ -301,34 +301,32 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def test_generation_flows_are_mutually_exclusive_and_block_internal_back(self):
         self.assertIn(
             "async function handleGenerate(context?: string) {\n"
-            "    if (generating || generatingAdditionalFlashcards) return;",
+            "    if (generating || generatingAdditionalFlashcards || generatingQuestions) return;",
             self.topic_view,
         )
         self.assertIn("if (loadingFc) return;", self.topic_view)
         self.assertIn(
-            "if (generating || generatingAdditionalFlashcards || addingFc || importingFc) return;",
+            "if (generating || generatingAdditionalFlashcards || generatingQuestions || addingFc || importingFc) return;",
             self.topic_view,
         )
         self.assertRegex(
             self.topic_view,
-            r"if \(generating \|\| generatingAdditionalFlashcards\) return;\s+onBack\(\);",
+            r"if \(generating \|\| generatingAdditionalFlashcards \|\| generatingQuestions\) return;\s+onBack\(\);",
         )
         self.assertIn(
-            "aria-disabled={generating || generatingAdditionalFlashcards}",
+            "aria-disabled={generating || generatingAdditionalFlashcards || generatingQuestions}",
             self.topic_view,
         )
         self.assertGreaterEqual(
-            self.topic_view.count(
-                "disabled={generating || generatingAdditionalFlashcards}"
-            ),
+            self.topic_view.count("disabled={generating || generatingAdditionalFlashcards}")
+            + self.topic_view.count("disabled={generating || generatingAdditionalFlashcards || generatingQuestions}"),
             3,
         )
         self.assertIn("Recriar aula com IA", self.topic_view)
         self.assertIn("onClick={() => void handleGenerate(regenerateContext)}", self.topic_view)
         self.assertGreaterEqual(
-            self.topic_view.count(
-                "disabled={loadingFc || generating || generatingAdditionalFlashcards}"
-            ),
+            self.topic_view.count("disabled={loadingFc || generating || generatingAdditionalFlashcards}")
+            + self.topic_view.count("disabled={loadingFc || generating || generatingAdditionalFlashcards || generatingQuestions}"),
             3,
         )
 

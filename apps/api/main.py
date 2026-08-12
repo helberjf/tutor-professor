@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -94,10 +94,12 @@ from schemas.schemas import (
     CreateProgrammingSubjectSchema,
     CreateProgrammingTopicSchema,
     GenerateAdditionalFlashcardsSchema,
+    GenerateProgrammingQuestionsSchema,
     GenerateProgrammingTopicContentSchema,
     GenerateLeetCodeMethodRequestSchema,
     LeetCodeMethodSchema,
     ProgrammingFlashcardSchema,
+    ProgrammingQuestionSchema,
     ProgrammingSubjectSchema,
     ProgrammingTopicSchema,
     DiverseLessonBlockSchema,
@@ -136,14 +138,17 @@ from services.coding_service import (
     deepen_coding_reading_step,
     generate_leetcode_method,
     generate_additional_topic_flashcards,
+    generate_additional_topic_questions,
     generate_topic_ai_content,
     get_or_create_deck_config,
+    programming_question_key,
     preview_for_item,
     register_coding_review_attempt,
     reset_daily_counters,
     seed_coding_review_item,
     validate_additional_topic_flashcards,
     validate_initial_topic_content,
+    validate_programming_question_batch,
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import sanitize_context
@@ -242,6 +247,8 @@ LEGACY_FLASHCARDS_SUBJECT_NAME = "flashcards antigos"
 
 _topic_flashcard_locks_guard = threading.Lock()
 _topic_flashcard_locks: dict[int, threading.Lock] = {}
+_topic_question_locks_guard = threading.Lock()
+_topic_question_locks: dict[int, threading.Lock] = {}
 _diverse_question_locks_guard = threading.Lock()
 _lesson_question_locks_guard = threading.Lock()
 
@@ -3434,6 +3441,11 @@ def _get_topic_flashcard_lock(topic_id: int) -> threading.Lock:
         return _topic_flashcard_locks.setdefault(topic_id, threading.Lock())
 
 
+def _get_topic_question_lock(topic_id: int) -> threading.Lock:
+    with _topic_question_locks_guard:
+        return _topic_question_locks.setdefault(topic_id, threading.Lock())
+
+
 def _validate_topic_lesson_content(ai_content: object) -> dict:
     if (
         not isinstance(ai_content, dict)
@@ -3459,6 +3471,24 @@ def _validate_topic_lesson_content(ai_content: object) -> dict:
     return validated.model_dump(exclude_none=True)
 
 
+def _topic_question_generation_content(topic: ProgrammingTopic) -> dict:
+    if isinstance(topic.ai_content, dict):
+        try:
+            return TopicAIContentSchema.model_validate(topic.ai_content).model_dump(exclude_none=True)
+        except ValidationError:
+            pass
+    fallback_body = " ".join(((topic.notes or "").strip() or topic.title).split())
+    return {
+        "sections": [
+            {
+                "title": topic.title,
+                "body": fallback_body,
+                "code_example": None,
+            }
+        ]
+    }
+
+
 def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> ProgrammingTopicSchema:
     status = getattr(topic.status, "value", topic.status)
     flashcard_count = len(
@@ -3476,6 +3506,54 @@ def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> Prog
         updated_at=topic.updated_at,
         flashcard_count=flashcard_count,
     )
+
+
+def _programming_question_schema(question: ProgrammingQuestion) -> ProgrammingQuestionSchema:
+    return ProgrammingQuestionSchema(
+        id=question.id or 0,
+        topic_id=question.topic_id,
+        subject_id=question.subject_id,
+        question=question.question,
+        options=list(question.options or []),
+        correct_option=question.correct_option,
+        explanation=question.explanation,
+        created_at=question.created_at,
+    )
+
+
+def _persist_programming_questions(
+    session: Session,
+    *,
+    child_id: int,
+    subject_id: int,
+    topic_id: int,
+    raw_questions: list[object],
+    existing_questions: list[str],
+    expected_count: int = 5,
+) -> list[ProgrammingQuestion]:
+    validated_questions = validate_programming_question_batch(
+        raw_questions,
+        expected_count=expected_count,
+        existing_questions=existing_questions,
+    )
+    now = datetime.utcnow()
+    created: list[ProgrammingQuestion] = []
+    for question in validated_questions:
+        record = ProgrammingQuestion(
+            topic_id=topic_id,
+            subject_id=subject_id,
+            child_id=child_id,
+            question=question.question,
+            question_key=programming_question_key(question.question),
+            options=question.options,
+            correct_option=question.correct_option,
+            explanation=question.explanation,
+            created_at=now,
+        )
+        session.add(record)
+        session.flush()
+        created.append(record)
+    return created
 
 
 @app.get("/api/coding/subjects", response_model=list[ProgrammingSubjectSchema])
@@ -3578,6 +3656,9 @@ def delete_coding_subject(
         raise HTTPException(status_code=404, detail="Matéria não encontrada.")
     topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all()
     for topic in topics:
+        questions = session.exec(select(ProgrammingQuestion).where(ProgrammingQuestion.topic_id == topic.id)).all()
+        for question in questions:
+            session.delete(question)
         flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)).all()
         for fc in flashcards:
             for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():
@@ -3690,6 +3771,14 @@ def generate_coding_subject_topic(
         session.add(fc)
         session.flush()
         seed_coding_review_item(session, child.id or 0, fc.id or 0)
+    _persist_programming_questions(
+        session,
+        child_id=child.id or 0,
+        subject_id=subject_id,
+        topic_id=topic.id or 0,
+        raw_questions=list(content.quiz),
+        existing_questions=[],
+    )
     session.commit()
     session.refresh(topic)
     return _programming_topic_schema(session, topic)
@@ -3765,6 +3854,14 @@ def create_coding_topic(
                 session.add(fc)
                 session.flush()
                 seed_coding_review_item(session, child.id or 0, fc.id or 0)
+            _persist_programming_questions(
+                session,
+                child_id=child.id or 0,
+                subject_id=subject_id,
+                topic_id=topic.id or 0,
+                raw_questions=list(content.quiz),
+                existing_questions=[],
+            )
         session.commit()
         session.refresh(topic)
     except Exception:
@@ -3851,6 +3948,126 @@ def deepen_coding_topic_reading(
     return DeepenCodingReadingResponseSchema(content=content)
 
 
+@app.get("/api/coding/topics/{topic_id}/questions", response_model=list[ProgrammingQuestionSchema])
+def list_topic_questions(
+    topic_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingQuestionSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+    questions = session.exec(
+        select(ProgrammingQuestion)
+        .where(ProgrammingQuestion.topic_id == topic_id)
+        .order_by(ProgrammingQuestion.id)
+    ).all()
+    return [_programming_question_schema(question) for question in questions]
+
+
+@app.post("/api/coding/topics/{topic_id}/questions/generate", response_model=list[ProgrammingQuestionSchema])
+def generate_topic_questions(
+    topic_id: int,
+    payload: GenerateProgrammingQuestionsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingQuestionSchema]:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="ConfiguraÃ§Ã£o de IA nÃ£o encontrada. Configure sua chave de API em ConfiguraÃ§Ãµes.",
+        )
+
+    existing_questions = session.exec(
+        select(ProgrammingQuestion)
+        .where(ProgrammingQuestion.topic_id == topic_id)
+        .order_by(ProgrammingQuestion.id)
+    ).all()
+    existing_prompts = [question.question for question in existing_questions]
+    user_context = sanitize_context(payload.context)
+    child_id = child.id or 0
+    subject_id = subject.id or 0
+    subject_name = subject.name
+    topic_title = topic.title
+    ai_content = _topic_question_generation_content(topic)
+
+    session.rollback()
+    try:
+        raw_questions = generate_additional_topic_questions(
+            subject_name=subject_name,
+            topic_title=topic_title,
+            ai_content=ai_content,
+            existing_questions=existing_prompts,
+            user_context=user_context,
+            ai_config=ai_config,
+        )
+        validate_programming_question_batch(
+            raw_questions,
+            expected_count=5,
+            existing_questions=existing_prompts,
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    created: list[ProgrammingQuestion] = []
+    with _get_topic_question_lock(topic_id):
+        try:
+            current_topic = session.get(ProgrammingTopic, topic_id)
+            if current_topic is None:
+                raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+            current_subject = session.get(ProgrammingSubject, current_topic.subject_id)
+            if (
+                current_subject is None
+                or current_subject.id != subject_id
+                or current_subject.child_id != child_id
+            ):
+                raise HTTPException(status_code=404, detail="TÃ³pico nÃ£o encontrado.")
+            current_questions = session.exec(
+                select(ProgrammingQuestion)
+                .where(ProgrammingQuestion.topic_id == topic_id)
+                .order_by(ProgrammingQuestion.id)
+            ).all()
+            created = _persist_programming_questions(
+                session,
+                child_id=child_id,
+                subject_id=subject_id,
+                topic_id=topic_id,
+                raw_questions=raw_questions,
+                existing_questions=[question.question for question in current_questions],
+            )
+            session.commit()
+        except ValueError as exc:
+            session.rollback()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="A IA tentou repetir uma questÃ£o deste tÃ³pico. Tente gerar novamente.") from exc
+        except HTTPException:
+            session.rollback()
+            raise
+        except Exception:
+            session.rollback()
+            raise
+
+    for question in created:
+        session.refresh(question)
+    return [_programming_question_schema(question) for question in created]
+
+
 @app.delete("/api/coding/topics/{topic_id}", status_code=204)
 def delete_coding_topic(
     topic_id: int,
@@ -3865,6 +4082,9 @@ def delete_coding_topic(
     subject = session.get(ProgrammingSubject, topic.subject_id)
     if subject is None or subject.child_id != child.id:
         raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    questions = session.exec(select(ProgrammingQuestion).where(ProgrammingQuestion.topic_id == topic_id)).all()
+    for question in questions:
+        session.delete(question)
     flashcards = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()
     for fc in flashcards:
         for ri in session.exec(select(CodingReviewItem).where(CodingReviewItem.flashcard_id == fc.id)).all():

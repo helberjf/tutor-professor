@@ -10,7 +10,7 @@ import type { PomodoroMode } from '@/lib/pomodoro';
 export const AI_FLASHCARD_COUNT = 5;
 
 export type StudyTab = 'english' | 'coding' | 'diverse' | 'dashboard';
-export type CodingMode = 'reading' | 'flashcards';
+export type CodingMode = 'reading' | 'flashcards' | 'questions';
 
 export interface InlineStudyState {
   order: number[];        // topic indices, sorted by review priority

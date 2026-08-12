@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from pydantic import ValidationError
@@ -23,7 +26,18 @@ _phrase_service = PhraseGenerationService()
 VALID_TOPIC_STATUSES = {"not_started", "studied", "mastered"}
 MAX_ADDITIONAL_FLASHCARD_PROMPT_CHARS = 40_000
 MAX_EXISTING_FLASHCARD_FRONTS = 100
+MAX_ADDITIONAL_QUESTION_PROMPT_CHARS = 40_000
+MAX_EXISTING_QUESTION_PROMPTS = 150
 MAX_READING_DEEPEN_PROMPT_CHARS = 24_000
+
+
+@dataclass(frozen=True)
+class ValidatedProgrammingQuestion:
+    question: str
+    options: list[str]
+    correct_option: str
+    explanation: str
+    question_key: str
 
 
 # ── SM-2 helpers ──────────────────────────────────────────────────────────────
@@ -431,6 +445,43 @@ Rules:
 - All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
 """
 
+_ADDITIONAL_QUESTIONS_PROMPT_TEMPLATE = """\
+Create exactly five additional multiple-choice questions for the saved programming topic below.
+
+Subject: {subject_name}
+Topic: {topic_title}
+
+Saved topic content:
+{ai_content}
+
+Existing question prompts (do not repeat or paraphrase these):
+{existing_questions}
+
+User instructions:
+{user_context}
+
+Return a JSON object with exactly this schema:
+{{
+  "questions": [
+    {{
+      "question": "string",
+      "options": ["A", "B", "C", "D"],
+      "correct_option": "exact text of the correct option",
+      "explanation": "string"
+    }}
+  ]
+}}
+
+Rules:
+- Return exactly 5 questions
+- Each question must have exactly 4 options
+- correct_option must exactly match one of the options
+- Test concepts taught in the saved topic whenever content is available
+- Avoid existing prompts and close paraphrases
+- Prefer reasoning, trade-offs, debugging, common pitfalls, and exam-style recall
+- All explanatory text must be in Portuguese (Brazil); code and technical identifiers stay in English
+"""
+
 _READING_DEEPEN_PROMPT_TEMPLATE = """\
 Voce vai aprofundar uma etapa de leitura de uma aula de programacao.
 
@@ -462,6 +513,69 @@ Retorne somente JSON valido neste formato:
 
 def _normalized_code(value: object) -> str:
     return "".join(str(value or "").split())
+
+
+def programming_question_key(value: object) -> str:
+    normalized = normalize_front(value)
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()
+
+
+def _question_record(raw_question: object) -> Mapping[str, object]:
+    if isinstance(raw_question, Mapping):
+        return raw_question
+    model_dump = getattr(raw_question, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(mode="python")
+        if isinstance(dumped, Mapping):
+            return dumped
+    raise ValueError("Each programming question must be a JSON object")
+
+
+def validate_programming_question_batch(
+    raw_questions: list[object],
+    *,
+    expected_count: int,
+    existing_questions: list[str],
+) -> list[ValidatedProgrammingQuestion]:
+    if not isinstance(raw_questions, list) or len(raw_questions) != expected_count:
+        raise ValueError(f"Exactly {expected_count} programming questions are required")
+
+    existing_keys = {programming_question_key(question) for question in existing_questions}
+    batch_keys: set[str] = set()
+    validated: list[ValidatedProgrammingQuestion] = []
+    for raw_question in raw_questions:
+        record = _question_record(raw_question)
+        question = " ".join(str(record.get("question") or "").split())[:1000].rstrip()
+        explanation = " ".join(str(record.get("explanation") or "").split())[:2000].rstrip()
+        raw_options = record.get("options")
+        if not question or not explanation:
+            raise ValueError("Programming questions and explanations must not be empty")
+        if not isinstance(raw_options, list) or len(raw_options) != 4:
+            raise ValueError("Programming questions must have exactly four options")
+        options = [" ".join(str(option or "").split())[:500].rstrip() for option in raw_options]
+        if any(not option for option in options):
+            raise ValueError("Programming question options must not be empty")
+        option_keys = [normalize_front(option) for option in options]
+        if len(set(option_keys)) != 4:
+            raise ValueError("Programming question options must be unique")
+        correct_option = " ".join(str(record.get("correct_option") or "").split())[:500].rstrip()
+        if correct_option not in options:
+            raise ValueError("Programming question correct_option must match one option")
+        question_key = programming_question_key(question)
+        if not question_key or question_key in existing_keys or question_key in batch_keys:
+            raise ValueError("Programming questions must be unique for the topic")
+        batch_keys.add(question_key)
+        validated.append(
+            ValidatedProgrammingQuestion(
+                question=question,
+                options=options,
+                correct_option=correct_option,
+                explanation=explanation,
+                question_key=question_key,
+            )
+        )
+
+    return validated
 
 
 def validate_initial_topic_content(
@@ -622,6 +736,33 @@ def _build_additional_flashcards_prompt(
     return prompt
 
 
+def _build_additional_questions_prompt(
+    *,
+    subject_name: str,
+    topic_title: str,
+    ai_content: dict,
+    existing_questions: list[str],
+    user_context: str,
+) -> str:
+    compact_lesson = json.dumps(
+        _compact_additional_lesson(ai_content), ensure_ascii=False, indent=2
+    )
+    bounded_questions = [
+        " ".join(str(question).split())[:240]
+        for question in existing_questions[-MAX_EXISTING_QUESTION_PROMPTS:]
+    ]
+    prompt = _ADDITIONAL_QUESTIONS_PROMPT_TEMPLATE.format(
+        subject_name=" ".join(str(subject_name).split())[:200],
+        topic_title=" ".join(str(topic_title).split())[:300],
+        ai_content=compact_lesson,
+        existing_questions=json.dumps(bounded_questions, ensure_ascii=False, indent=2),
+        user_context=sanitize_context(user_context) or "No additional instructions.",
+    )
+    if len(prompt) > MAX_ADDITIONAL_QUESTION_PROMPT_CHARS:
+        raise RuntimeError("The saved topic is too large to build a safe AI question prompt")
+    return prompt
+
+
 def generate_topic_ai_content(
     *,
     subject_name: str,
@@ -703,6 +844,38 @@ def generate_additional_topic_flashcards(
     if not isinstance(flashcards, list):
         raise RuntimeError("IA não retornou uma lista de flashcards adicionais.")
     return flashcards
+
+
+def generate_additional_topic_questions(
+    *,
+    subject_name: str,
+    topic_title: str,
+    ai_content: dict,
+    existing_questions: list[str],
+    user_context: str,
+    ai_config: AIProviderConfig,
+) -> list[dict]:
+    prompt = _build_additional_questions_prompt(
+        subject_name=subject_name,
+        topic_title=topic_title,
+        ai_content=ai_content,
+        existing_questions=existing_questions,
+        user_context=user_context,
+    )
+    raw = _phrase_service.generate_json_text(
+        system_text=_SYSTEM_TEXT,
+        prompt=prompt,
+        temperature=0.6,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON invalido para as questoes adicionais.") from exc
+    questions = data.get("questions") if isinstance(data, dict) else None
+    if not isinstance(questions, list):
+        raise RuntimeError("IA nao retornou uma lista de questoes adicionais.")
+    return questions
 
 
 def deepen_coding_reading_step(
