@@ -218,9 +218,10 @@ def test_frontend_contract() -> None:
         require_in(expected, api_source, f"missing API client question contract: {expected}")
 
     for expected in (
-        "Fazer questões",
+        "Fazer simulado",
         "Gerar mais questões",
         "PracticeQuestionsModal",
+        "max-w-5xl",
         "questionPracticeOpen",
         "handleGenerateMoreQuestions",
         "api.getTopicQuestions(topicId)",

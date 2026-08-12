@@ -543,7 +543,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
             >
               <ClipboardList size={16} />
-              Fazer questões
+              Fazer simulado
             </button>
             {topic.ai_content && (
               <button
@@ -629,7 +629,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
             >
               <ClipboardList size={15} />
-              Fazer questões
+              Fazer simulado
             </button>
             <button
               type="button"
@@ -1082,7 +1082,7 @@ function PracticeQuestionsModal({
       aria-labelledby="practice-questions-title"
       className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
     >
-      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[90dvh] sm:rounded-3xl">
+      <div className="flex min-h-[100dvh] w-full max-w-5xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[92dvh] sm:rounded-3xl">
         <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -1148,7 +1148,7 @@ function PracticeQuestionsModal({
                 {shuffledOptions.map((option) => {
                   const selected = selectedOption === option;
                   const correct = question.correct_option === option;
-                  let className = 'w-full min-h-11 rounded-2xl border-2 px-4 py-3 text-left text-sm font-black transition ';
+                  let className = 'w-full min-h-12 rounded-2xl border-2 px-4 py-3 text-left text-base font-black leading-relaxed transition ';
                   if (!answered) className += 'border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50';
                   else if (correct) className += 'border-emerald-400 bg-emerald-50 text-emerald-800';
                   else if (selected) className += 'border-rose-300 bg-rose-50 text-rose-700';

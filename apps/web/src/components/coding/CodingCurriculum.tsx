@@ -265,7 +265,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                         ) : (
                           <BookOpen size={12} />
                         )}
-                        {focusMode === 'flashcards' ? 'Flashcards' : focusMode === 'questions' ? 'Questões' : 'Estudar'}
+                        {focusMode === 'flashcards' ? 'Flashcards' : focusMode === 'questions' ? 'Fazer simulado' : 'Estudar'}
                       </button>
                       <button
                         type="button"
