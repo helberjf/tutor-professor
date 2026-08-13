@@ -1104,7 +1104,7 @@ export default function StudyPage() {
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto max-w-5xl">
+      <div className={`mx-auto ${activeTab === 'coding' ? 'max-w-7xl' : 'max-w-5xl'}`}>
 
         {/* Top bar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

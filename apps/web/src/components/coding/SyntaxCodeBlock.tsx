@@ -30,7 +30,7 @@ export function SyntaxCodeBlock({ code, language, className = '' }: SyntaxCodeBl
       // has to actually replace `text-xs`, and two conflicting Tailwind classes
       // in one string resolve by stylesheet order rather than by intent.
       className={twMerge(
-        'overflow-x-auto rounded-2xl border border-slate-800 bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-inner',
+        'max-w-full overflow-x-hidden whitespace-pre-wrap break-words rounded-2xl border border-slate-800 bg-[#0d1117] p-4 font-mono text-xs leading-relaxed text-slate-100 shadow-inner [overflow-wrap:anywhere]',
         className,
       )}
       data-language={normalizedLanguage}

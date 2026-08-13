@@ -40,7 +40,7 @@ export function CodingTab({
   onRequestNotifications: () => void;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_0.45fr]">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="order-2 min-w-0 lg:order-1">
         <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <button
@@ -97,7 +97,7 @@ export function CodingTab({
         </section>
         <CodingCurriculum focusMode={codingMode} />
       </div>
-      <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+      <aside className="order-1 min-w-0 space-y-6 lg:order-2 lg:sticky lg:top-24 lg:w-72 lg:self-start xl:w-80">
         <PomodoroWidget
           mode={pomodoroMode} seconds={pomodoroSeconds} running={pomodoroRunning}
           todayCount={todayPomodoroCount} notificationPermission={notificationPermission}

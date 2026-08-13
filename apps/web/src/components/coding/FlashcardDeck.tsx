@@ -612,10 +612,10 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-start">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-black text-slate-800">{card.front}</p>
-        <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{card.back}</p>
+        <p className="break-words font-black text-slate-800">{card.front}</p>
+        <p className="mt-0.5 break-words text-sm leading-relaxed text-slate-500">{card.back}</p>
         {card.code_example && (
           <button
             type="button"
@@ -627,7 +627,7 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
           </button>
         )}
         {showCode && card.code_example && (
-          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+          <div className="mt-3 min-w-0 overflow-hidden rounded-xl border border-slate-200">
             <SyntaxCodeBlock code={card.code_example} language={subjectName} className="p-3" />
           </div>
         )}
@@ -640,7 +640,7 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
           {card.suspended && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-slate-600">suspenso</span>}
         </div>
       </div>
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 justify-end gap-1 sm:justify-start">
         <button type="button" aria-label="Editar card" onClick={() => setEditing(true)} disabled={locked} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-50"><Pencil size={15} /></button>
         <button type="button" aria-label="Excluir card" onClick={remove} disabled={busy || locked} className="rounded-xl p-1.5 text-slate-300 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50"><Trash2 size={15} /></button>
       </div>
