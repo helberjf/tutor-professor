@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -14,10 +15,38 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
 BOOTSTRAP = API / "database_bootstrap.py"
+VERSIONS = API / "alembic" / "versions"
 sys.path.insert(0, str(API))
 
 import database_bootstrap  # noqa: E402
 from services.language_question_service import front_key_for  # noqa: E402
+
+
+def migration_head() -> str:
+    """Head revision read from the migration files.
+
+    Derived instead of hardcoded so adding a migration does not silently turn
+    every "bootstrap reaches head" assertion red.
+    """
+    down_revisions: dict[str, str | None] = {}
+    for path in sorted(VERSIONS.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        revision = re.search(r"^revision[^=]*=\s*[\"']([^\"']+)[\"']", source, re.MULTILINE)
+        if revision is None:
+            continue
+        down = re.search(
+            r"^down_revision[^=]*=\s*(?:[\"']([^\"']+)[\"']|None)", source, re.MULTILINE
+        )
+        down_revisions[revision.group(1)] = down.group(1) if down else None
+
+    parents = {parent for parent in down_revisions.values() if parent}
+    heads = sorted(set(down_revisions) - parents)
+    if len(heads) != 1:
+        raise RuntimeError(f"expected exactly one alembic head, found {heads}")
+    return heads[0]
+
+
+HEAD_REVISION = migration_head()
 
 
 def sqlite_url(path: Path) -> str:
@@ -151,7 +180,7 @@ class DatabaseBootstrapTests(unittest.TestCase):
     def assert_bootstrap_succeeds(self) -> None:
         result = run_bootstrap(self.database)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(current_revision(self.database), "0007")
+        self.assertEqual(current_revision(self.database), HEAD_REVISION)
         self.assertIn("front_key", lesson_question_columns(self.database))
         self.assertTrue(has_lesson_question_identity(self.database))
 
@@ -565,7 +594,7 @@ class DatabaseBootstrapTests(unittest.TestCase):
             results = [process.communicate(timeout=30) for process in processes]
             for process, (stdout, stderr) in zip(processes, results):
                 self.assertEqual(process.returncode, 0, stdout + stderr)
-            self.assertEqual(current_revision(database), "0007")
+            self.assertEqual(current_revision(database), HEAD_REVISION)
 
             repeated = run_bootstrap(database)
             self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
@@ -577,7 +606,7 @@ class DatabaseBootstrapTests(unittest.TestCase):
         self.assertNotIn("front_key", lesson_question_columns(self.database))
         result = run_alembic(self.database, "upgrade", "head")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(current_revision(self.database), "0007")
+        self.assertEqual(current_revision(self.database), HEAD_REVISION)
         self.assertTrue(has_lesson_question_identity(self.database))
 
     def test_startup_sources_bootstrap_before_create_all_or_uvicorn(self) -> None:
