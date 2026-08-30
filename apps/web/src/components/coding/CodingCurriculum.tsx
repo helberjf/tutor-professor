@@ -22,6 +22,12 @@ type View =
 
 type CodingFocusMode = 'reading' | 'flashcards' | 'questions';
 
+/**
+ * AWS associate exams give 130 minutes for 65 questions. Deriving the clock from
+ * that pace keeps a shortened simulado as tight as the real thing.
+ */
+const EXAM_SECONDS_PER_QUESTION = 120;
+
 interface CodingCurriculumProps {
   focusMode?: CodingFocusMode;
 }
@@ -42,6 +48,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   // Full-subject mock exam: every question of the subject in one session.
   const [examQuestions, setExamQuestions] = useState<ProgrammingQuestion[] | null>(null);
   const [examLength, setExamLength] = useState(0); // 0 = todas
+  const [examTimed, setExamTimed] = useState(true);
   const [loadingExam, setLoadingExam] = useState(false);
   const [examError, setExamError] = useState('');
 
@@ -394,6 +401,15 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                 Fazer simulado
               </button>
             </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs font-bold text-amber-800">
+              <input
+                type="checkbox"
+                checked={examTimed}
+                onChange={(event) => setExamTimed(event.target.checked)}
+                className="h-4 w-4 accent-amber-500"
+              />
+              Cronometrar como na prova (2 min por questão)
+            </label>
             {examError && (
               <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 {examError}
@@ -409,6 +425,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             questions={examQuestions}
             onAnswer={handleExamAnswer}
             onClose={() => setExamQuestions(null)}
+            durationSeconds={examTimed ? examQuestions.length * EXAM_SECONDS_PER_QUESTION : undefined}
           />
         )}
 

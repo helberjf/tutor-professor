@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CheckCircle2, ChevronRight, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { CheckCircle2, ChevronRight, Timer, X } from 'lucide-react';
 
 /** Minimal shape a question needs to be practised; ProgrammingQuestion and StudyQuestion both satisfy it. */
 export interface PracticeQuestion {
@@ -12,23 +12,43 @@ export interface PracticeQuestion {
   explanation: string;
 }
 
+/** mm:ss, or h:mm:ss once the exam is an hour or longer. */
+export function formatClock(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+}
+
 export function PracticeQuestionsModal({
   subjectName,
   topicTitle,
   questions,
   onAnswer,
   onClose,
+  durationSeconds,
 }: {
   subjectName: string;
   topicTitle: string;
   questions: PracticeQuestion[];
   onAnswer: (questionId: number, selectedOption: string) => Promise<unknown>;
   onClose: () => void;
+  /** Timed exam when set; omit for an untimed practice session. */
+  durationSeconds?: number;
 }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [finished, setFinished] = useState(false);
   const [attemptError, setAttemptError] = useState('');
+  const timed = typeof durationSeconds === 'number' && durationSeconds > 0;
+  // A deadline, not a countdown variable: an interval that only decrements drifts
+  // badly once the browser throttles timers in a background tab.
+  const [deadline, setDeadline] = useState(() => Date.now() + (durationSeconds ?? 0) * 1000);
+  const [remaining, setRemaining] = useState(durationSeconds ?? 0);
+  const [ranOutOfTime, setRanOutOfTime] = useState(false);
+  const elapsedRef = useRef(0);
   const total = questions.length;
   const safeIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
   const question = questions[safeIndex];
@@ -45,6 +65,22 @@ export function PracticeQuestionsModal({
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    if (!timed || finished) return;
+    function tick() {
+      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      setRemaining(left);
+      if (left === 0) {
+        elapsedRef.current = durationSeconds ?? 0;
+        setRanOutOfTime(true);
+        setFinished(true);
+      }
+    }
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [timed, finished, deadline, durationSeconds]);
 
   if (!question) return null;
 
@@ -65,8 +101,12 @@ export function PracticeQuestionsModal({
   }
 
   function goNext() {
-    if (safeIndex + 1 >= total) setFinished(true);
-    else setIndex((current) => current + 1);
+    if (safeIndex + 1 >= total) {
+      if (timed) elapsedRef.current = (durationSeconds ?? 0) - remaining;
+      setFinished(true);
+    } else {
+      setIndex((current) => current + 1);
+    }
   }
 
   function restart() {
@@ -74,6 +114,12 @@ export function PracticeQuestionsModal({
     setAnswers({});
     setFinished(false);
     setAttemptError('');
+    setRanOutOfTime(false);
+    elapsedRef.current = 0;
+    if (timed) {
+      setRemaining(durationSeconds ?? 0);
+      setDeadline(Date.now() + (durationSeconds ?? 0) * 1000);
+    }
   }
 
   return (
@@ -95,14 +141,33 @@ export function PracticeQuestionsModal({
                 {finished ? 'Resultado' : `Questão ${safeIndex + 1} de ${total}`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Fechar questões"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex shrink-0 items-center gap-3">
+              {timed && !finished && (
+                <div
+                  role="timer"
+                  aria-live="off"
+                  aria-label={`Tempo restante: ${formatClock(remaining)}`}
+                  className={`flex items-center gap-2 rounded-2xl border-2 px-3 py-2 font-black tabular-nums ${
+                    remaining <= 60
+                      ? 'border-rose-300 bg-rose-50 text-rose-700'
+                      : remaining <= 300
+                        ? 'border-amber-300 bg-amber-50 text-amber-800'
+                        : 'border-slate-200 bg-white text-slate-700'
+                  }`}
+                >
+                  <Timer size={16} />
+                  {formatClock(remaining)}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Fechar questões"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
           {!finished && (
             <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
@@ -117,10 +182,19 @@ export function PracticeQuestionsModal({
               <div className="rounded-full bg-emerald-100 p-5 text-emerald-600">
                 <CheckCircle2 size={42} />
               </div>
-              <h3 className="mt-5 text-2xl font-black text-slate-900">Sessão concluída</h3>
+              <h3 className="mt-5 text-2xl font-black text-slate-900">
+                {ranOutOfTime ? 'Tempo esgotado' : 'Sessão concluída'}
+              </h3>
               <p className="mt-2 text-lg font-black text-slate-700">
                 Você acertou {score} de {total}
               </p>
+              {timed && (
+                <p role="status" className="mt-2 text-sm font-bold text-slate-500">
+                  {ranOutOfTime
+                    ? `O tempo de ${formatClock(durationSeconds ?? 0)} acabou com ${total - Object.keys(answers).length} questões sem responder.`
+                    : `Tempo usado: ${formatClock(elapsedRef.current)} de ${formatClock(durationSeconds ?? 0)}.`}
+                </p>
+              )}
               <p className="mt-2 text-sm font-bold text-slate-500">
                 As próximas questões geradas para este tópico evitam as perguntas já salvas.
               </p>
