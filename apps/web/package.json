@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "test:topic-flashcards": "node scripts/test-topic-flashcard-state.mjs",
+    "test:typed-answer": "node scripts/test-typed-answer.mjs",
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"

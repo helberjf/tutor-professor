@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, CheckCircle2, ChevronRight, Layers, Loader2, Pencil, Plus, RotateCcw,
+  ArrowLeft, CheckCircle2, ChevronRight, Keyboard, Layers, Loader2, Pencil, Plus, RotateCcw,
   Save, Search, Settings2, Sparkles, Trash2, X, Zap,
 } from 'lucide-react';
 import {
@@ -10,6 +10,7 @@ import {
   type ProgrammingTopic,
 } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
+import { compareAnswer, suggestRating, type AnswerComparison } from './typed-answer';
 
 interface Props {
   subjectId: number;
@@ -20,6 +21,26 @@ interface Props {
 }
 
 type Tab = 'study' | 'cards' | 'options';
+
+const TYPING_MODE_STORAGE_PREFIX = 'deck-typing-mode:';
+
+function readTypingMode(subjectId: number): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(`${TYPING_MODE_STORAGE_PREFIX}${subjectId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistTypingMode(subjectId: number, enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(`${TYPING_MODE_STORAGE_PREFIX}${subjectId}`, enabled ? '1' : '0');
+  } catch {
+    // preferência é conveniência local; se o storage falhar seguimos sem persistir
+  }
+}
 
 const STATE_BADGE: Record<string, { label: string; cls: string }> = {
   new: { label: 'Novo', cls: 'bg-sky-100 text-sky-700' },
@@ -173,7 +194,16 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
   const [submitting, setSubmitting] = useState(false);
   const [counts, setCounts] = useState({ again: 0, hard: 0, good: 0, easy: 0 });
   const [completedCounts, setCompletedCounts] = useState<typeof counts | null>(null);
+  const [typingMode, setTypingMode] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [comparison, setComparison] = useState<AnswerComparison | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const typedFieldRef = useRef<HTMLTextAreaElement | null>(null);
   const studyModalOpen = queue !== null && queue.length > 0;
+
+  useEffect(() => {
+    setTypingMode(readTypingMode(subjectId));
+  }, [subjectId]);
 
   useEffect(() => {
     if (!studyModalOpen) return;
@@ -184,6 +214,23 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
     };
   }, [studyModalOpen]);
 
+  useEffect(() => {
+    if (!studyModalOpen || !typingMode || revealed) return;
+    typedFieldRef.current?.focus();
+  }, [studyModalOpen, typingMode, revealed, index, attempts]);
+
+  function resetTypedAnswer() {
+    setTyped('');
+    setComparison(null);
+    setAttempts(0);
+  }
+
+  function toggleTypingMode(enabled: boolean) {
+    setTypingMode(enabled);
+    persistTypingMode(subjectId, enabled);
+    resetTypedAnswer();
+  }
+
   async function start() {
     setLoading(true);
     try {
@@ -193,9 +240,27 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
       setRevealed(false);
       setCounts({ again: 0, hard: 0, good: 0, easy: 0 });
       setCompletedCounts(null);
+      resetTypedAnswer();
     } finally {
       setLoading(false);
     }
+  }
+
+  function compareTypedAnswer() {
+    if (!queue) return;
+    const card = queue[index];
+    if (!typed.trim()) return;
+    const result = compareAnswer(typed, card.back);
+    setComparison(result);
+    setAttempts((value) => value + 1);
+    // Acertou: já mostra o verso. Errou: mantém escondido para dar chance de tentar de novo.
+    if (result.verdict === 'exact') setRevealed(true);
+  }
+
+  function retryTypedAnswer() {
+    setTyped('');
+    setComparison(null);
+    typedFieldRef.current?.focus();
   }
 
   async function answer(rating: DeckRating) {
@@ -217,6 +282,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
     } else {
       setIndex((i) => i + 1);
       setRevealed(false);
+      resetTypedAnswer();
     }
   }
 
@@ -227,6 +293,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
     setSubmitting(false);
     setCounts({ again: 0, hard: 0, good: 0, easy: 0 });
     setCompletedCounts(null);
+    resetTypedAnswer();
     onFinished();
   }
 
@@ -242,14 +309,27 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
           {due > 0 ? 'Erre / Difícil / Bom / Fácil — o intervalo da próxima revisão ajusta sozinho (FSRS).' : 'Volte mais tarde ou adicione novos cards.'}
         </p>
         {due > 0 && (
-          <button
-            type="button"
-            onClick={start}
-            disabled={loading}
-            className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} Começar
-          </button>
+          <>
+            <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-2xl border-2 border-slate-100 px-4 py-2 text-sm font-bold text-slate-600 hover:border-primary hover:text-primary">
+              <input
+                type="checkbox"
+                checked={typingMode}
+                onChange={(event) => toggleTypingMode(event.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <Keyboard size={16} /> Modo decorar: digitar a resposta antes de ver
+            </label>
+            <div>
+              <button
+                type="button"
+                onClick={start}
+                disabled={loading}
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} Começar
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
@@ -278,6 +358,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
 
   const card = queue[index];
   const badge = STATE_BADGE[card.state] ?? STATE_BADGE.new;
+  const suggested = typingMode && comparison ? suggestRating(comparison.verdict, attempts) : null;
 
   return (
     <div
@@ -313,7 +394,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
             <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Frente</p>
             <p className="text-lg font-black text-slate-800">{card.front}</p>
 
-            {!revealed ? (
+            {!revealed && !typingMode && (
               <button
                 type="button"
                 onClick={() => setRevealed(true)}
@@ -321,19 +402,99 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
               >
                 <ChevronRight size={18} /> Mostrar resposta
               </button>
-            ) : (
+            )}
+
+            {!revealed && typingMode && (
+              <div className="mt-5 space-y-3">
+                <textarea
+                  ref={typedFieldRef}
+                  value={typed}
+                  onChange={(event) => setTyped(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      compareTypedAnswer();
+                    }
+                  }}
+                  rows={3}
+                  aria-label="Escreva a resposta de memória"
+                  placeholder="Escreva a resposta de memória… (Enter compara, Shift+Enter quebra linha)"
+                  className="w-full resize-y rounded-2xl border-2 border-slate-200 p-3 text-slate-700 outline-none focus:border-primary"
+                />
+
+                {card.code_example && (
+                  <p className="text-xs font-bold text-slate-400">
+                    A comparação usa só o verso — o código de exemplo não entra.
+                  </p>
+                )}
+
+                {comparison && comparison.verdict !== 'exact' && (
+                  <div
+                    role="status"
+                    className={`rounded-2xl border-2 p-3 text-sm font-bold ${
+                      comparison.verdict === 'close'
+                        ? 'border-amber-200 bg-amber-50 text-amber-800'
+                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                    }`}
+                  >
+                    {comparison.verdict === 'close' ? 'Quase lá! Faltou pouco.' : 'Ainda não é isso.'}{' '}
+                    <span className="font-black">{Math.round(comparison.similarity * 100)}% igual</span>
+                    {' · '}
+                    {attempts === 1 ? '1ª tentativa' : `${attempts}ª tentativa`}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {comparison && comparison.verdict !== 'exact' ? (
+                    <button
+                      type="button"
+                      onClick={retryTypedAnswer}
+                      className="flex items-center justify-center gap-2 rounded-2xl border-2 border-primary py-3 font-black text-primary hover:bg-primary-light"
+                    >
+                      <RotateCcw size={18} /> Tentar de novo
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={compareTypedAnswer}
+                      disabled={!typed.trim()}
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={18} /> Comparar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setRevealed(true)}
+                    className="flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3 font-black text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    <ChevronRight size={18} /> Ver resposta
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {revealed && (
               <>
                 <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
                   <p className="leading-relaxed text-slate-700">{card.back}</p>
                   {card.code_example && <SyntaxCodeBlock code={card.code_example} language={subjectName} className="mt-3 p-3" />}
                 </div>
+
+                {typingMode && comparison && <AnswerDiff comparison={comparison} attempts={attempts} />}
+
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <GradeButton label="Errei" preview={card.previews.again} onClick={() => answer('again')} disabled={submitting} cls="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" />
-                  <GradeButton label="Difícil" preview={card.previews.hard} onClick={() => answer('hard')} disabled={submitting} cls="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" />
-                  <GradeButton label="Bom" preview={card.previews.good} onClick={() => answer('good')} disabled={submitting} cls="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
-                  <GradeButton label="Fácil" preview={card.previews.easy} onClick={() => answer('easy')} disabled={submitting} cls="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" />
+                  <GradeButton label="Errei" preview={card.previews.again} onClick={() => answer('again')} disabled={submitting} suggested={suggested === 'again'} cls="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" />
+                  <GradeButton label="Difícil" preview={card.previews.hard} onClick={() => answer('hard')} disabled={submitting} suggested={suggested === 'hard'} cls="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" />
+                  <GradeButton label="Bom" preview={card.previews.good} onClick={() => answer('good')} disabled={submitting} suggested={suggested === 'good'} cls="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100" />
+                  <GradeButton label="Fácil" preview={card.previews.easy} onClick={() => answer('easy')} disabled={submitting} suggested={suggested === 'easy'} cls="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" />
                 </div>
+                {suggested && (
+                  <p className="mt-2 text-center text-xs font-bold text-slate-400">
+                    A comparação só sugere uma nota — quem decide é você.
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -343,17 +504,46 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
   );
 }
 
-function GradeButton({ label, preview, onClick, disabled, cls }: { label: string; preview: string; onClick: () => void; disabled: boolean; cls: string }) {
+function GradeButton({ label, preview, onClick, disabled, cls, suggested = false }: { label: string; preview: string; onClick: () => void; disabled: boolean; cls: string; suggested?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex flex-col items-center gap-0.5 rounded-2xl border-2 py-2.5 text-sm font-black transition disabled:opacity-50 ${cls}`}
+      aria-label={suggested ? `${label} (sugerido pela comparação)` : label}
+      className={`flex flex-col items-center gap-0.5 rounded-2xl border-2 py-2.5 text-sm font-black transition disabled:opacity-50 ${cls} ${suggested ? 'ring-2 ring-slate-900/25 ring-offset-1' : ''}`}
     >
       <span>{label}</span>
       <span className="text-[11px] font-bold opacity-70">{preview}</span>
+      {suggested && <span className="text-[10px] font-bold uppercase tracking-wide opacity-60">sugerido</span>}
     </button>
+  );
+}
+
+const DIFF_CLS: Record<string, string> = {
+  ok: 'text-emerald-700',
+  missing: 'rounded bg-amber-100 px-1 text-amber-800',
+  extra: 'text-rose-500 line-through',
+};
+
+function AnswerDiff({ comparison, attempts }: { comparison: AnswerComparison; attempts: number }) {
+  return (
+    <div className="mt-4 rounded-2xl border-2 border-slate-100 p-4">
+      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+        Sua resposta · {Math.round(comparison.similarity * 100)}% igual
+        {attempts > 1 ? ` · ${attempts} tentativas` : ''}
+      </p>
+      <p className="leading-relaxed">
+        {comparison.diff.map((part, position) => (
+          <span key={`${part.kind}-${position}`} className={`mr-1 ${DIFF_CLS[part.kind]}`}>
+            {part.text}
+          </span>
+        ))}
+      </p>
+      <p className="mt-2 text-[11px] font-bold text-slate-400">
+        verde = acertou · amarelo = faltou · riscado = sobrou
+      </p>
+    </div>
   );
 }
 
