@@ -1340,6 +1340,11 @@ export const api = {
     }),
   getTopicQuestions: (topicId: number) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions`),
+  /** Every question in a subject, shuffled, for a full-subject mock exam. limit 0 means all. */
+  getSubjectQuestions: (subjectId: number, limit = 0) =>
+    fetchAPI<ProgrammingQuestion[]>(
+      `/api/coding/subjects/${subjectId}/questions?limit=${limit}&shuffle=true`,
+    ),
   generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
       method: 'POST',

@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
 import secrets
 import threading
@@ -4033,6 +4034,44 @@ def deepen_coding_topic_reading(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return DeepenCodingReadingResponseSchema(content=content)
+
+
+@app.get("/api/coding/subjects/{subject_id}/questions", response_model=list[ProgrammingQuestionSchema])
+def list_subject_questions(
+    subject_id: int,
+    request: Request,
+    limit: int = 0,
+    shuffle: bool = True,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingQuestionSchema]:
+    """Every practisable question in a subject, for a full-subject mock exam.
+
+    The per-topic endpoint drills one theme; this one draws from all of them at
+    once so a session can look like the real certification exam. The sample is
+    shuffled before the limit is applied, so a shorter exam still spans topics
+    instead of stopping inside the first one.
+    """
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+
+    questions = session.exec(
+        select(ProgrammingQuestion)
+        .where(ProgrammingQuestion.subject_id == subject_id)
+        .order_by(ProgrammingQuestion.id)
+    ).all()
+    usable = [
+        question
+        for question in questions
+        if question.child_id == child.id and _programming_question_has_usable_options(question)
+    ]
+    if shuffle:
+        random.shuffle(usable)
+    if limit > 0:
+        usable = usable[:limit]
+    return [_programming_question_schema(question) for question in usable]
 
 
 @app.get("/api/coding/topics/{topic_id}/questions", response_model=list[ProgrammingQuestionSchema])

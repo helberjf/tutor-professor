@@ -252,10 +252,45 @@ def test_frontend_contract() -> None:
         require_in(expected, dashboard_source, f"missing dashboard question metrics UI: {expected}")
 
 
+def test_subject_wide_exam_contract() -> None:
+    """A subject-level simulado draws from every topic, not one at a time."""
+    main_source = read(MAIN)
+    for expected in (
+        '@app.get("/api/coding/subjects/{subject_id}/questions"',
+        "def list_subject_questions",
+        "ProgrammingQuestion.subject_id == subject_id",
+        "_programming_question_has_usable_options(question)",
+        "random.shuffle(usable)",
+    ):
+        require_in(expected, main_source, f"missing subject exam endpoint: {expected}")
+    require_in(
+        "subject is None or subject.child_id != child.id",
+        main_source,
+        "the subject exam must be scoped to the signed-in child",
+    )
+    # The limit is applied after the shuffle so a shorter exam still spans topics.
+    shuffle_at = main_source.index("random.shuffle(usable)")
+    limit_at = main_source.index("usable = usable[:limit]")
+    require(shuffle_at < limit_at, "the question pool must be shuffled before the limit is applied")
+
+    api_source = read(WEB_API)
+    require_in("getSubjectQuestions:", api_source, "the API client must expose the subject exam")
+
+    curriculum_source = read(CODING_CURRICULUM)
+    for expected in (
+        "Simulado da matéria",
+        "api.getSubjectQuestions",
+        "PracticeQuestionsModal",
+        "65 questões (formato da prova)",
+    ):
+        require_in(expected, curriculum_source, f"missing subject exam UI: {expected}")
+
+
 def main() -> None:
     test_backend_contract()
     test_validator_rejects_repeated_or_invalid_questions()
     test_frontend_contract()
+    test_subject_wide_exam_contract()
     print("Topic questions mode checks passed.")
 
 
