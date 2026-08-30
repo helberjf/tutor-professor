@@ -73,9 +73,22 @@ def normalize(value: str) -> str:
     return " ".join(without_marks.split()).casefold()
 
 
+def find_local_secrets() -> Path | None:
+    """local.secrets from this checkout, or from the main one when run in a worktree.
+
+    Git worktrees live under <repo>/.claude/worktrees/<name> and do not carry the
+    untracked secrets file, so an ancestor lookup finds the real repository root.
+    """
+    for candidate in (ROOT, *ROOT.parents):
+        secrets_path = candidate / "local.secrets"
+        if secrets_path.exists():
+            return secrets_path
+    return None
+
+
 def load_local_secrets() -> None:
-    secrets_path = ROOT / "local.secrets"
-    if not secrets_path.exists():
+    secrets_path = find_local_secrets()
+    if secrets_path is None:
         return
     for raw_line in secrets_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
