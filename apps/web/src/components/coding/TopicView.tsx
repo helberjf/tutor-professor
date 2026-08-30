@@ -1148,9 +1148,9 @@ function ReadingStudyModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="reading-study-title"
-      className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-3 lg:p-4"
     >
-      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[90dvh] sm:rounded-3xl">
+      <div className="flex min-h-[100dvh] w-full flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
         <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -1275,9 +1275,9 @@ function ReadingStudyModal({
 
         {/* Every size below is in `em`, so the reader's choice scales the whole
             pane proportionally instead of only the body copy. */}
-        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8" style={{ fontSize: `${fontPx}px` }}>
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 lg:py-10" style={{ fontSize: `${fontPx}px` }}>
           {step.type === 'section' ? (
-            <article className="mx-auto max-w-2xl">
+            <article className="mx-auto w-full max-w-[72ch]">
               <p className="text-[0.72em] font-black uppercase tracking-widest text-slate-400">
                 Parte {step.sectionIndex + 1}
               </p>
@@ -1343,7 +1343,7 @@ function ReadingQuizStep({
   onQuizAnswer: (qIdx: number, option: string, question: AIQuizQuestion) => void;
 }) {
   return (
-    <section className="mx-auto max-w-2xl">
+    <section className="mx-auto w-full max-w-[72ch]">
       <p className="text-[0.72em] font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
       <h3 className="mt-3 text-[1.55em] font-black leading-tight text-slate-900">{question.question}</h3>
       <div className="mt-6 space-y-3">
