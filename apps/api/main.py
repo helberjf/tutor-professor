@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -116,6 +116,10 @@ from schemas.schemas import (
     StudyDashboardSchema,
     StudyDaySchema,
     StudyDayUpdateSchema,
+    GenerateStudyQuestionsSchema,
+    StudyQuestionAttemptResultSchema,
+    StudyQuestionAttemptSchema,
+    StudyQuestionSchema,
     DailyActivitySchema,
     DailyActivityCreateSchema,
     DailyActivitySummarySchema,
@@ -130,6 +134,12 @@ from services.diverse_question_service import (
     validate_generated_question_batch,
 )
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
+from services.study_question_service import (
+    QUESTIONS_PER_BATCH,
+    build_source_content,
+    generate_study_questions,
+    validate_study_question_batch,
+)
 from services.coding_service import (
     apply_deck_attempt,
     build_coding_review_cards,
@@ -4191,6 +4201,285 @@ def generate_topic_questions(
     for question in created:
         session.refresh(question)
     return [_programming_question_schema(question) for question in created]
+
+
+# ── Study questions (diverse subjects and English) ─────────────────────────────
+
+
+def _study_question_schema(question: StudyQuestion) -> StudyQuestionSchema:
+    return StudyQuestionSchema(
+        id=question.id or 0,
+        area=question.area,  # type: ignore[arg-type]
+        subject_name=question.subject_name,
+        topic_key=question.topic_key,
+        topic_title=question.topic_title,
+        question=question.question,
+        options=list(question.options or []),
+        correct_option=question.correct_option,
+        explanation=question.explanation,
+        attempt_count=question.attempt_count,
+        correct_count=question.correct_count,
+        error_count=question.error_count,
+        last_selected_option=question.last_selected_option,
+        last_answered_at=question.last_answered_at,
+        created_at=question.created_at,
+    )
+
+
+def _study_question_has_usable_options(question: StudyQuestion) -> bool:
+    options = [" ".join(str(option or "").split()) for option in list(question.options or [])]
+    if len(options) != 4:
+        return False
+    if any(not option or _QUESTION_OPTION_LABEL_ONLY_RE.fullmatch(option) for option in options):
+        return False
+    if len({option.casefold() for option in options}) != 4:
+        return False
+    return question.correct_option in options
+
+
+def _diverse_lesson_source_content(
+    session: Session, *, child_id: int, subject_name: str, topic_key: str
+) -> str:
+    """Study material for a diverse lesson, from the most recent day holding it.
+
+    A diverse subject only exists as a name inside DiverseDay.custom_subjects, so
+    the lesson is located by scanning recent days newest first, the same way the
+    diverse catalog is built.
+    """
+    records = session.exec(
+        select(DiverseDay)
+        .where(DiverseDay.child_id == child_id)
+        .order_by(DiverseDay.study_date.desc())
+        .limit(60)
+    ).all()
+    wanted_name = " ".join(subject_name.split()).casefold()
+    for record in records:
+        for subject in normalize_subjects(record.custom_subjects or []):
+            if " ".join(str(subject.get("name") or "").split()).casefold() != wanted_name:
+                continue
+            topics_by_id = {
+                str(topic.get("id") or ""): topic
+                for topic in subject.get("topics") or []
+                if isinstance(topic, dict)
+            }
+            for lesson in subject.get("lessons") or []:
+                if str(lesson.get("id") or "") != topic_key:
+                    continue
+                blocks = [str(lesson.get("title") or "")]
+                for linked_id in lesson.get("topic_ids") or []:
+                    topic = topics_by_id.get(str(linked_id))
+                    if not topic:
+                        continue
+                    blocks.append(str(topic.get("topic") or ""))
+                    blocks.append(str(topic.get("answer") or ""))
+                return build_source_content(blocks)
+    raise HTTPException(status_code=404, detail="Licao nao encontrada para esta materia.")
+
+
+def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
+    try:
+        lesson_id = int(topic_key)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail="Licao de ingles invalida.") from exc
+    lesson = session.get(Lesson, lesson_id)
+    if lesson is None or (lesson.child_id is not None and lesson.child_id != child_id):
+        raise HTTPException(status_code=404, detail="Licao de ingles nao encontrada.")
+    blocks = [lesson.title, lesson.theme, lesson.objective]
+    content = lesson.content if isinstance(lesson.content, dict) else {}
+    blocks.append(json.dumps(content, ensure_ascii=False))
+    return build_source_content(blocks)
+
+
+def _study_question_source_content(
+    session: Session, *, child_id: int, area: str, subject_name: str, topic_key: str
+) -> str:
+    if area == "english":
+        return _english_lesson_source_content(session, child_id=child_id, topic_key=topic_key)
+    return _diverse_lesson_source_content(
+        session, child_id=child_id, subject_name=subject_name, topic_key=topic_key
+    )
+
+
+def _list_study_questions(
+    session: Session, *, child_id: int, area: str, subject_name: str, topic_key: str
+) -> list[StudyQuestion]:
+    return list(
+        session.exec(
+            select(StudyQuestion)
+            .where(
+                StudyQuestion.child_id == child_id,
+                StudyQuestion.area == area,
+                StudyQuestion.subject_name == subject_name,
+                StudyQuestion.topic_key == topic_key,
+            )
+            .order_by(StudyQuestion.id)
+        ).all()
+    )
+
+
+@app.get("/api/study/questions", response_model=list[StudyQuestionSchema])
+def list_study_questions(
+    request: Request,
+    area: str,
+    subject_name: str,
+    topic_key: str,
+    session: Session = Depends(get_session),
+) -> list[StudyQuestionSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    if area not in {"diverse", "english"}:
+        raise HTTPException(status_code=422, detail="Area de estudo invalida.")
+    questions = _list_study_questions(
+        session,
+        child_id=child.id or 0,
+        area=area,
+        subject_name=" ".join(subject_name.split()),
+        topic_key=topic_key.strip(),
+    )
+    return [
+        _study_question_schema(question)
+        for question in questions
+        if _study_question_has_usable_options(question)
+    ]
+
+
+@app.post("/api/study/questions/{question_id}/attempt", response_model=StudyQuestionAttemptResultSchema)
+def submit_study_question_attempt(
+    question_id: int,
+    payload: StudyQuestionAttemptSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyQuestionAttemptResultSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    question = session.get(StudyQuestion, question_id)
+    if question is None or question.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Questao nao encontrada.")
+    if not _study_question_has_usable_options(question):
+        raise HTTPException(
+            status_code=422,
+            detail="Questao sem alternativas completas. Gere novas questoes para esta licao.",
+        )
+
+    selected_option = " ".join(payload.selected_option.split())
+    if not selected_option:
+        raise HTTPException(status_code=422, detail="Selecione uma alternativa.")
+    if selected_option not in list(question.options or []):
+        raise HTTPException(status_code=422, detail="Alternativa invalida para esta questao.")
+
+    answered_at = datetime.utcnow()
+    correct = selected_option == question.correct_option
+    question.attempt_count = (question.attempt_count or 0) + 1
+    if correct:
+        question.correct_count = (question.correct_count or 0) + 1
+    else:
+        question.error_count = (question.error_count or 0) + 1
+    question.last_selected_option = selected_option
+    question.last_answered_at = answered_at
+    session.add(question)
+    session.commit()
+    session.refresh(question)
+    return StudyQuestionAttemptResultSchema(
+        question_id=question.id or 0,
+        correct=correct,
+        attempt_count=question.attempt_count,
+        correct_count=question.correct_count,
+        error_count=question.error_count,
+        last_selected_option=question.last_selected_option or selected_option,
+        last_answered_at=question.last_answered_at or answered_at,
+    )
+
+
+@app.post("/api/study/questions/generate", response_model=list[StudyQuestionSchema])
+def generate_study_question_batch(
+    payload: GenerateStudyQuestionsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[StudyQuestionSchema]:
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    subject_name = " ".join(payload.subject_name.split())
+    topic_title = " ".join(payload.topic_title.split())
+    topic_key = payload.topic_key.strip()
+
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+        )
+
+    source_content = _study_question_source_content(
+        session,
+        child_id=child_id,
+        area=payload.area,
+        subject_name=subject_name,
+        topic_key=topic_key,
+    )
+    existing = _list_study_questions(
+        session,
+        child_id=child_id,
+        area=payload.area,
+        subject_name=subject_name,
+        topic_key=topic_key,
+    )
+    existing_prompts = [question.question for question in existing]
+    user_context = sanitize_context(payload.context)
+
+    session.rollback()
+    try:
+        raw_questions = generate_study_questions(
+            area=payload.area,
+            subject_name=subject_name,
+            topic_title=topic_title,
+            source_content=source_content,
+            existing_questions=existing_prompts,
+            user_context=user_context,
+            ai_config=ai_config,
+        )
+        validated = validate_study_question_batch(
+            raw_questions,
+            expected_count=QUESTIONS_PER_BATCH,
+            existing_questions=existing_prompts,
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    now = datetime.utcnow()
+    created: list[StudyQuestion] = []
+    try:
+        for question in validated:
+            record = StudyQuestion(
+                child_id=child_id,
+                area=payload.area,
+                subject_name=subject_name,
+                topic_key=topic_key,
+                topic_title=topic_title,
+                question=question.question,
+                question_key=programming_question_key(question.question),
+                options=question.options,
+                correct_option=question.correct_option,
+                explanation=question.explanation,
+                created_at=now,
+            )
+            session.add(record)
+            session.flush()
+            created.append(record)
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Estas questoes ja foram salvas. Recarregue e tente novamente.",
+        ) from exc
+    except Exception:
+        session.rollback()
+        raise
+
+    for record in created:
+        session.refresh(record)
+    return [_study_question_schema(record) for record in created]
 
 
 @app.delete("/api/coding/topics/{topic_id}", status_code=204)

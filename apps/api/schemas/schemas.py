@@ -610,6 +610,51 @@ class ProgrammingQuestionAttemptResultSchema(BaseModel):
     last_answered_at: datetime
 
 
+# ── Study questions (diverse subjects and English) ────────────────────────────
+
+StudyQuestionArea = Literal["diverse", "english"]
+
+
+class StudyQuestionSchema(FromAttributesModel):
+    id: int
+    area: StudyQuestionArea
+    subject_name: str
+    topic_key: str
+    topic_title: str
+    question: str
+    options: List[str] = Field(default_factory=list)
+    correct_option: str
+    explanation: str
+    attempt_count: int = 0
+    correct_count: int = 0
+    error_count: int = 0
+    last_selected_option: Optional[str] = None
+    last_answered_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class GenerateStudyQuestionsSchema(BaseModel):
+    area: StudyQuestionArea
+    subject_name: str = Field(min_length=1, max_length=120)
+    topic_key: str = Field(min_length=1, max_length=120)
+    topic_title: str = Field(min_length=1, max_length=300)
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
+class StudyQuestionAttemptSchema(BaseModel):
+    selected_option: str = Field(min_length=1, max_length=500)
+
+
+class StudyQuestionAttemptResultSchema(BaseModel):
+    question_id: int
+    correct: bool
+    attempt_count: int
+    correct_count: int
+    error_count: int
+    last_selected_option: str
+    last_answered_at: datetime
+
+
 class DeepenCodingReadingRequestSchema(BaseModel):
     step_type: Literal["section", "quiz"]
     title: Optional[str] = Field(default=None, max_length=300)

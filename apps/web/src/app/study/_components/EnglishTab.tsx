@@ -7,6 +7,7 @@ import { ApiError, type StudyDashboard } from '@/lib/api';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
 import { formatDateLabel } from '../_lib/study-helpers';
+import { EnglishQuestionsSection } from './EnglishQuestionsSection';
 import { MetricCard, PomodoroWidget } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -242,6 +243,8 @@ export function EnglishTab({
           )}
         </aside>
       </div>
+
+      <EnglishQuestionsSection />
     </div>
   );
 }

@@ -773,6 +773,44 @@ export interface ProgrammingQuestionAttemptResult {
   last_answered_at: string;
 }
 
+/** Study areas outside the programming curriculum that support the simulado. */
+export type StudyQuestionArea = 'diverse' | 'english';
+
+export interface StudyQuestion {
+  id: number;
+  area: StudyQuestionArea;
+  subject_name: string;
+  topic_key: string;
+  topic_title: string;
+  question: string;
+  options: string[];
+  correct_option: string;
+  explanation: string;
+  attempt_count: number;
+  correct_count: number;
+  error_count: number;
+  last_selected_option: string | null;
+  last_answered_at: string | null;
+  created_at: string;
+}
+
+export interface StudyQuestionTarget {
+  area: StudyQuestionArea;
+  subject_name: string;
+  topic_key: string;
+  topic_title: string;
+}
+
+export interface StudyQuestionAttemptResult {
+  question_id: number;
+  correct: boolean;
+  attempt_count: number;
+  correct_count: number;
+  error_count: number;
+  last_selected_option: string;
+  last_answered_at: string;
+}
+
 export interface DeepenCodingReadingPayload {
   step_type: 'section' | 'quiz';
   title?: string;
@@ -1309,6 +1347,22 @@ export const api = {
     }),
   submitCodingTopicQuestionAttempt: (questionId: number, payload: { selected_option: string }) =>
     fetchAPI<ProgrammingQuestionAttemptResult>(`/api/coding/questions/${questionId}/attempt`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getStudyQuestions: (target: StudyQuestionTarget) =>
+    fetchAPI<StudyQuestion[]>(
+      `/api/study/questions?area=${encodeURIComponent(target.area)}` +
+        `&subject_name=${encodeURIComponent(target.subject_name)}` +
+        `&topic_key=${encodeURIComponent(target.topic_key)}`,
+    ),
+  generateStudyQuestions: (target: StudyQuestionTarget, context?: string) =>
+    fetchAPI<StudyQuestion[]>('/api/study/questions/generate', {
+      method: 'POST',
+      body: JSON.stringify({ ...target, context: context?.trim() || null }),
+    }),
+  submitStudyQuestionAttempt: (questionId: number, payload: { selected_option: string }) =>
+    fetchAPI<StudyQuestionAttemptResult>(`/api/study/questions/${questionId}/attempt`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

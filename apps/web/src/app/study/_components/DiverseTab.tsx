@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
+import { StudyQuestionsPanel } from '@/components/questions/StudyQuestionsPanel';
 import { api, type CatalogSubject, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject } from '@/lib/api';
 import { findItemIndexById, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveItemsByIds } from '@/lib/diverse-question-state';
 import type { PomodoroMode } from '@/lib/pomodoro';
@@ -587,35 +588,45 @@ export function DiverseSubjectDashboard({
               {lessons.map((lesson, lessonIndex) => {
                 const resolvedTopics = resolveDiverseLessonTopics(subject, lesson);
                 return (
-                  <SubjectStudyCard
-                    key={lesson.id}
-                    defaultCollapsed={true}
-                    subject={{ id: subject.id, name: lesson.title, topics: resolvedTopics, lessons: [] }}
-                    syntaxLanguage={subject.name}
-                    onRemove={() => onRemoveLesson(lessonIndex)}
-                    onToggleTopic={(ti) => {
-                      const topicId = resolvedTopics[ti]?.id;
-                      if (topicId) onToggleLessonTopic(topicId);
-                    }}
-                    onUpdateTopicText={(ti, value) => {
-                      const topicId = resolvedTopics[ti]?.id;
-                      if (topicId) onUpdateLessonTopicText(topicId, value);
-                    }}
-                    onUpdateTopicAnswer={(ti, value) => {
-                      const topicId = resolvedTopics[ti]?.id;
-                      if (topicId) onUpdateLessonTopicAnswer(topicId, value);
-                    }}
-                    onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
-                    onRateTopic={(ti, rating) => {
-                      const topicId = resolvedTopics[ti]?.id;
-                      if (topicId) onRateLessonTopic(topicId, rating);
-                    }}
-                    onSessionComplete={onSessionComplete}
-                    fixedQuestionGenerationLesson={lesson}
-                    questionGenerationButtonLabel="Criar mais questões"
-                    onGenerateMoreQuestions={onGenerateMoreQuestions}
-                    questionGenerationBusy={questionGenerationBusy}
-                  />
+                  <div key={lesson.id} className="space-y-3">
+                    <SubjectStudyCard
+                      defaultCollapsed={true}
+                      subject={{ id: subject.id, name: lesson.title, topics: resolvedTopics, lessons: [] }}
+                      syntaxLanguage={subject.name}
+                      onRemove={() => onRemoveLesson(lessonIndex)}
+                      onToggleTopic={(ti) => {
+                        const topicId = resolvedTopics[ti]?.id;
+                        if (topicId) onToggleLessonTopic(topicId);
+                      }}
+                      onUpdateTopicText={(ti, value) => {
+                        const topicId = resolvedTopics[ti]?.id;
+                        if (topicId) onUpdateLessonTopicText(topicId, value);
+                      }}
+                      onUpdateTopicAnswer={(ti, value) => {
+                        const topicId = resolvedTopics[ti]?.id;
+                        if (topicId) onUpdateLessonTopicAnswer(topicId, value);
+                      }}
+                      onUpdateSubjectName={(value) => onUpdateLessonTitle(lessonIndex, value)}
+                      onRateTopic={(ti, rating) => {
+                        const topicId = resolvedTopics[ti]?.id;
+                        if (topicId) onRateLessonTopic(topicId, rating);
+                      }}
+                      onSessionComplete={onSessionComplete}
+                      fixedQuestionGenerationLesson={lesson}
+                      questionGenerationButtonLabel="Criar mais questões"
+                      onGenerateMoreQuestions={onGenerateMoreQuestions}
+                      questionGenerationBusy={questionGenerationBusy}
+                    />
+                    <StudyQuestionsPanel
+                      target={{
+                        area: 'diverse',
+                        subject_name: subject.name,
+                        topic_key: lesson.id,
+                        topic_title: lesson.title,
+                      }}
+                      emptyHint="Gere questões de múltipla escolha a partir desta lição para fazer o simulado."
+                    />
+                  </div>
                 );
               })}
             </div>

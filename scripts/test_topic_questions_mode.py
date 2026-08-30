@@ -12,6 +12,7 @@ MODE_HELPERS = ROOT / "apps" / "web" / "src" / "app" / "study" / "_lib" / "study
 CODING_TAB = ROOT / "apps" / "web" / "src" / "app" / "study" / "_components" / "CodingTab.tsx"
 CODING_CURRICULUM = ROOT / "apps" / "web" / "src" / "components" / "coding" / "CodingCurriculum.tsx"
 TOPIC_VIEW = ROOT / "apps" / "web" / "src" / "components" / "coding" / "TopicView.tsx"
+PRACTICE_MODAL = ROOT / "apps" / "web" / "src" / "components" / "questions" / "PracticeQuestionsModal.tsx"
 DASHBOARD_OVERVIEW = ROOT / "apps" / "web" / "src" / "components" / "dashboard-overview.tsx"
 WEB_API = ROOT / "apps" / "web" / "src" / "lib" / "api.ts"
 MODELS = API / "models" / "database.py"
@@ -221,17 +222,24 @@ def test_frontend_contract() -> None:
         "Fazer simulado",
         "Gerar mais questões",
         "PracticeQuestionsModal",
-        "max-w-5xl",
         "questionPracticeOpen",
         "handleGenerateMoreQuestions",
         "api.getTopicQuestions(topicId)",
         "api.generateCodingTopicQuestions(topic.id",
-        "selectedOption === question.correct_option",
-        "onAnswer(question.id, option)",
         "submitCodingTopicQuestionAttempt",
         "Questões criadas não se repetem neste tópico.",
     ):
         require_in(expected, topic_view_source, f"missing TopicView question UI: {expected}")
+
+    # The practice modal is shared with the diverse and English question modes, so
+    # its markup lives in components/questions instead of inside TopicView.
+    practice_modal_source = read(PRACTICE_MODAL)
+    for expected in (
+        "max-w-5xl",
+        "selectedOption === question.correct_option",
+        "onAnswer(question.id, option)",
+    ):
+        require_in(expected, practice_modal_source, f"missing practice modal question UI: {expected}")
 
     for expected in (
         "Questões por matéria",

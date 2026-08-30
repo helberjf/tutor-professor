@@ -266,6 +266,48 @@ class ProgrammingQuestion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class StudyQuestion(SQLModel, table=True):
+    """Multiple-choice question for study areas outside the programming curriculum.
+
+    ProgrammingQuestion hangs off ProgrammingTopic, but the "diverse" and English
+    areas have no relational subject entity: a diverse subject is a name inside a
+    per-day JSON blob and an English topic is a Lesson. So questions here are keyed
+    by the natural identifiers those areas already use, which is also what keeps a
+    subject's questions alive across days.
+    """
+
+    __table_args__ = (
+        UniqueConstraint(
+            "child_id",
+            "area",
+            "subject_name",
+            "topic_key",
+            "question_key",
+            name="uq_studyquestion_identity",
+        ),
+        Index("ix_studyquestion_child_area_subject", "child_id", "area", "subject_name"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    # diverse | english
+    area: str = Field(max_length=20)
+    subject_name: str = Field(min_length=1, max_length=120)
+    topic_key: str = Field(min_length=1, max_length=120)
+    topic_title: str = Field(min_length=1, max_length=300)
+    question: str = Field(min_length=1, max_length=1000)
+    question_key: str = Field(min_length=1, max_length=64)
+    options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    correct_option: str = Field(min_length=1, max_length=500)
+    explanation: str = Field(min_length=1, max_length=2000)
+    attempt_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    error_count: int = Field(default=0)
+    last_selected_option: Optional[str] = Field(default=None, max_length=500)
+    last_answered_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class CodingReviewItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     flashcard_id: int = Field(foreign_key="programmingflashcard.id", index=True)
