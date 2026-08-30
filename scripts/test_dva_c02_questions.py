@@ -199,6 +199,63 @@ def test_seed_is_idempotent() -> None:
         session.close()
 
 
+def test_seed_finds_a_subject_by_fragment_of_its_title() -> None:
+    """Subject titles here are long sentences, so the seeder must not need the whole one."""
+    full_title = (
+        "Simulado DVA-C02 — Estilo próximo da prova esse simulado "
+        "além de ser um banco de questoes ensinará"
+    )
+    require(len(full_title) <= 100, "the stored subject name column holds at most 100 characters")
+
+    session = _session_with_child()
+    try:
+        child = session.exec(select(ChildProfile)).first()
+        session.add(ProgrammingSubject(child_id=child.id, name=full_title))
+        session.commit()
+
+        result = seeder.seed(
+            session,
+            email="parent@example.test",
+            child_name="Henrique",
+            subject_name="Simulado DVA-C02",
+        )
+        session.commit()
+
+        require(result.subjects_created == 0, "an existing subject must be reused, not duplicated")
+        require(result.subject_created is False, "the seeder must report that it found the subject")
+        require(result.subject_name == full_title, "the resolved subject must be the existing one")
+        require(len(session.exec(select(ProgrammingSubject)).all()) == 1, "no second subject may appear")
+        require(
+            result.questions_created == len(bank.all_questions()),
+            "the questions must land in the existing subject",
+        )
+    finally:
+        session.close()
+
+
+def test_seed_refuses_an_ambiguous_subject_fragment() -> None:
+    session = _session_with_child()
+    try:
+        child = session.exec(select(ChildProfile)).first()
+        session.add(ProgrammingSubject(child_id=child.id, name="Simulado DVA-C02 parte 1"))
+        session.add(ProgrammingSubject(child_id=child.id, name="Simulado DVA-C02 parte 2"))
+        session.commit()
+
+        try:
+            seeder.seed(
+                session,
+                email="parent@example.test",
+                child_name="Henrique",
+                subject_name="Simulado DVA-C02",
+            )
+        except seeder.SeedError as error:
+            require("parte 1" in str(error) and "parte 2" in str(error), "the error must list the candidates")
+        else:
+            raise AssertionError("an ambiguous fragment must fail instead of guessing a subject")
+    finally:
+        session.close()
+
+
 def test_seed_reports_a_missing_child() -> None:
     session = _session_with_child()
     try:

@@ -47,7 +47,8 @@ from dva_c02_question_bank import EXAMS, Exam  # noqa: E402
 
 TARGET_EMAIL = "helberjf@gmail.com"
 TARGET_CHILD = "Henrique"
-DEFAULT_SUBJECT = "AWS"
+# Matched as a fragment, so the full subject title does not have to be retyped.
+DEFAULT_SUBJECT = "Simulado DVA-C02"
 SUBJECT_DESCRIPTION = "Certificacao DVA-C02"
 SUBJECT_ICON = "☁️"
 
@@ -62,6 +63,8 @@ class SeedResult:
     topics_created: int = 0
     questions_created: int = 0
     questions_skipped: int = 0
+    subject_name: str = ""
+    subject_created: bool = False
 
 
 def normalize(value: str) -> str:
@@ -102,13 +105,38 @@ def find_child(session: Session, email: str, child_name: str) -> ChildProfile:
 def find_or_create_subject(
     session: Session, *, child: ChildProfile, name: str, result: SeedResult
 ) -> ProgrammingSubject:
+    """Resolve the subject that receives the simulados.
+
+    Subject titles in this app can be long sentences, so an exact match is tried
+    first and then a fragment match, which lets ``--subject "Simulado DVA-C02"``
+    find a subject whose full title continues past that. An ambiguous fragment is
+    an error rather than a guess: seeding into the wrong subject is not something
+    the user can spot easily afterwards.
+    """
     subjects = session.exec(
         select(ProgrammingSubject).where(ProgrammingSubject.child_id == child.id)
     ).all()
     target = normalize(name)
+
     for subject in subjects:
         if normalize(subject.name) == target:
+            result.subject_name = subject.name
             return subject
+
+    partial = [
+        subject
+        for subject in subjects
+        if target in normalize(subject.name) or normalize(subject.name) in target
+    ]
+    if len(partial) > 1:
+        titles = "; ".join(repr(subject.name) for subject in partial)
+        raise SeedError(
+            f"{name!r} matches more than one subject: {titles}. "
+            "Re-run with --subject using the full title of the one you want."
+        )
+    if partial:
+        result.subject_name = partial[0].name
+        return partial[0]
 
     subject = ProgrammingSubject(
         child_id=child.id or 0,
@@ -119,6 +147,8 @@ def find_or_create_subject(
     session.add(subject)
     session.flush()
     result.subjects_created += 1
+    result.subject_name = subject.name
+    result.subject_created = True
     return subject
 
 
@@ -230,13 +260,21 @@ def main() -> None:
         else:
             session.commit()
 
+    where = "WOULD CREATE new subject" if result.subject_created else "found existing subject"
+    print(f"Subject: {where} {result.subject_name!r}")
     print(
-        ("Dry run: " if args.dry_run else "Seed complete: ")
+        ("Dry run, nothing written: " if args.dry_run else "Seed complete: ")
         + f"subjects_created={result.subjects_created} "
         + f"topics_created={result.topics_created} "
         + f"questions_created={result.questions_created} "
         + f"questions_skipped={result.questions_skipped}"
     )
+    if result.subject_created:
+        print(
+            "Check the subject line above before running without --dry-run: "
+            "if the simulados belong in a subject you already have, re-run with "
+            "--subject matching part of its title."
+        )
 
 
 if __name__ == "__main__":
