@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, Code2, Database, Loader2, Sparkles, Terminal, Trash2, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Clock, Code2, Database, Layers, Loader2, Sparkles, Terminal, Trash2, Trophy } from 'lucide-react';
 import { api, type LeetCodeMethod } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 
@@ -10,6 +10,15 @@ interface Props {
 }
 
 const LANGUAGES = ['TypeScript', 'JavaScript', 'Python', 'Java', 'Go'];
+
+// A preferência de modo leitura fica no navegador: quem estuda lendo volta ao
+// trainer já no mesmo modo.
+const READING_MODE_STORAGE_KEY = 'english-kids-tutor.leetcode-reading-mode';
+
+function readStoredReadingMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(READING_MODE_STORAGE_KEY) === '1';
+}
 
 // Cor por linguagem (TypeScript é o padrão).
 const LANG_META: Record<string, { chip: string; dot: string; bar: string }> = {
@@ -34,6 +43,75 @@ function langMeta(lang: string) {
   return LANG_META[lang] ?? DEFAULT_LANG_META;
 }
 
+function MethodChips({ method }: { method: LeetCodeMethod }) {
+  const meta = langMeta(method.language);
+  return (
+    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
+      {method.category && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-bold text-sky-700">{method.category}</span>}
+      <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-bold ${meta.chip}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} /> {method.language}
+      </span>
+      {method.complexity_time && (
+        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">
+          <Clock size={10} /> {method.complexity_time}
+        </span>
+      )}
+      {method.complexity_space && (
+        <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-bold text-violet-700">
+          <Database size={10} /> {method.complexity_space}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Conteúdo do método. No modo leitura o texto cresce e o botão de remover some,
+// para a página virar um material corrido de estudo.
+function MethodBody({ method, reading, onDelete }: { method: LeetCodeMethod; reading?: boolean; onDelete?: () => void }) {
+  return (
+    <>
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">O que é e quando usar</p>
+        <p className={`whitespace-pre-wrap text-slate-600 ${reading ? 'text-base leading-8' : 'text-sm leading-relaxed'}`}>
+          {method.explanation}
+        </p>
+      </div>
+
+      {method.code_example && (
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
+            <Code2 size={12} /> Exemplo ({method.language})
+          </p>
+          <SyntaxCodeBlock code={method.code_example} language={method.language} />
+        </div>
+      )}
+
+      {method.example_output && (
+        <div>
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
+            <Terminal size={12} /> Resultado do exemplo
+          </p>
+          <pre className="leetcode-result-output">
+            {method.example_output}
+          </pre>
+        </div>
+      )}
+
+      {onDelete && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onDelete}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+          >
+            <Trash2 size={13} /> Remover método
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function LeetCodeTrainer({ onBack }: Props) {
   const [methods, setMethods] = useState<LeetCodeMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,12 +120,29 @@ export function LeetCodeTrainer({ onBack }: Props) {
   const [hint, setHint] = useState('');
   const [language, setLanguage] = useState('TypeScript');
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [readingMode, setReadingMode] = useState(false);
   const [registeringActivity, setRegisteringActivity] = useState(false);
   const [activityMessage, setActivityMessage] = useState('');
 
   useEffect(() => {
     loadMethods();
   }, []);
+
+  // localStorage só existe no cliente: lê depois da montagem para o HTML do
+  // servidor e o da primeira renderização baterem.
+  useEffect(() => {
+    setReadingMode(readStoredReadingMode());
+  }, []);
+
+  function toggleReadingMode() {
+    setReadingMode((current) => {
+      const next = !current;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(READING_MODE_STORAGE_KEY, next ? '1' : '0');
+      }
+      return next;
+    });
+  }
 
   async function loadMethods() {
     setLoading(true);
@@ -114,16 +209,34 @@ export function LeetCodeTrainer({ onBack }: Props) {
         <button type="button" onClick={onBack} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
           <ArrowLeft size={16} /> Programação
         </button>
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100">
-            <Trophy size={24} className="text-amber-600" />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100">
+              <Trophy size={24} className="text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-slate-800">LeetCode Trainer</h1>
+              <p className="text-sm text-slate-500">
+                {readingMode
+                  ? 'Modo leitura: todos os métodos abertos, um embaixo do outro, para estudar de ponta a ponta.'
+                  : 'Métodos e técnicas para resolver problemas — cada card explica o que é, mostra um exemplo e o resultado.'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-800">LeetCode Trainer</h1>
-            <p className="text-sm text-slate-500">
-              Métodos e técnicas para resolver problemas — cada card explica o que é, mostra um exemplo e o resultado.
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={toggleReadingMode}
+            aria-pressed={readingMode}
+            title={readingMode ? 'Voltar para os cards' : 'Abrir no modo leitura'}
+            className={`flex shrink-0 items-center gap-2 rounded-2xl border-2 px-3 py-2 text-sm font-black transition ${
+              readingMode
+                ? 'border-sky-300 bg-sky-500 text-white hover:bg-sky-600'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary'
+            }`}
+          >
+            {readingMode ? <Layers size={16} /> : <BookOpen size={16} />}
+            <span className="hidden sm:inline">{readingMode ? 'Modo cards' : 'Modo leitura'}</span>
+          </button>
         </div>
         <button
           type="button"
@@ -137,45 +250,47 @@ export function LeetCodeTrainer({ onBack }: Props) {
         {activityMessage && <p className="mt-3 text-sm font-bold text-slate-500">{activityMessage}</p>}
       </section>
 
-      {/* Generate next method */}
-      <div className="rounded-3xl border-2 border-violet-100 bg-violet-50 p-5">
-        <p className="mb-3 text-sm font-black text-violet-800">
-          Gerar o próximo método com IA
-          <span className="ml-2 font-normal text-violet-500">
-            (a IA sabe quais você já tem e escolhe o próximo passo)
-          </span>
-        </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-              aria-label="pedir um método específico"
-            type="text"
-            value={hint}
-            onChange={(e) => setHint(e.target.value)}
-            maxLength={120}
-            placeholder="Opcional: pedir um método específico (ex: Sliding Window)"
-            className="min-w-0 flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
-          />
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={{ borderLeftColor: LANG_HEX[language] ?? '#c4b5fd', borderLeftWidth: 6 }}
-            className="rounded-2xl border-2 border-violet-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-violet-400"
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang} value={lang}>{lang}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
-          >
-            {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {generating ? 'Gerando...' : `Gerar método ${methods.length + 1}`}
-          </button>
+      {/* Generate next method — o modo leitura deixa a página só com o conteúdo */}
+      {!readingMode && (
+        <div className="rounded-3xl border-2 border-violet-100 bg-violet-50 p-5">
+          <p className="mb-3 text-sm font-black text-violet-800">
+            Gerar o próximo método com IA
+            <span className="ml-2 font-normal text-violet-500">
+              (a IA sabe quais você já tem e escolhe o próximo passo)
+            </span>
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+                aria-label="pedir um método específico"
+              type="text"
+              value={hint}
+              onChange={(e) => setHint(e.target.value)}
+              maxLength={120}
+              placeholder="Opcional: pedir um método específico (ex: Sliding Window)"
+              className="min-w-0 flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
+            />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              style={{ borderLeftColor: LANG_HEX[language] ?? '#c4b5fd', borderLeftWidth: 6 }}
+              className="rounded-2xl border-2 border-violet-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700 outline-none focus:border-violet-400"
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
+            >
+              {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {generating ? 'Gerando...' : `Gerar método ${methods.length + 1}`}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
 
@@ -188,11 +303,31 @@ export function LeetCodeTrainer({ onBack }: Props) {
           <p className="font-bold text-slate-500">Nenhum método ainda.</p>
           <p className="mt-1 text-sm text-slate-400">Gere o primeiro método com IA — comece por Two Pointers ou Binary Search.</p>
         </div>
+      ) : readingMode ? (
+        <div className="space-y-4">
+          {methods.map((m, idx) => (
+            <article
+              key={m.id}
+              style={{ borderLeftColor: LANG_HEX[m.language] ?? '#cbd5e1' }}
+              className="rounded-3xl border-2 border-l-[6px] border-slate-100 bg-white px-6 py-6 sm:px-8"
+            >
+              <header className="mb-4 border-b-2 border-slate-100 pb-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Método {idx + 1} de {methods.length}
+                </p>
+                <h2 className="mt-1 text-xl font-black text-slate-800 sm:text-2xl">{m.name}</h2>
+                <MethodChips method={m} />
+              </header>
+              <div className="space-y-4">
+                <MethodBody method={m} reading />
+              </div>
+            </article>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
           {methods.map((m, idx) => {
             const expanded = expandedId === m.id;
-            const meta = langMeta(m.language);
             return (
               <div
                 key={m.id}
@@ -208,22 +343,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
                   <span className="w-5 shrink-0 text-center text-sm font-bold text-slate-400">{idx + 1}</span>
                   <div className="flex-1">
                     <p className="font-black text-slate-800">{m.name}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
-                      {m.category && <span className="rounded-full bg-sky-100 px-2 py-0.5 font-bold text-sky-700">{m.category}</span>}
-                      <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-bold ${meta.chip}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} /> {m.language}
-                      </span>
-                      {m.complexity_time && (
-                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">
-                          <Clock size={10} /> {m.complexity_time}
-                        </span>
-                      )}
-                      {m.complexity_space && (
-                        <span className="flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-bold text-violet-700">
-                          <Database size={10} /> {m.complexity_space}
-                        </span>
-                      )}
-                    </div>
+                    <MethodChips method={m} />
                   </div>
                   {expanded ? <ChevronUp size={18} className="shrink-0 text-slate-400" /> : <ChevronDown size={18} className="shrink-0 text-slate-400" />}
                 </button>
@@ -231,40 +351,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
                 {/* Expanded content */}
                 {expanded && (
                   <div className="space-y-4 border-t-2 border-slate-100 px-5 py-5">
-                    <div>
-                      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">O que é e quando usar</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{m.explanation}</p>
-                    </div>
-
-                    {m.code_example && (
-                      <div>
-                        <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-                          <Code2 size={12} /> Exemplo ({m.language})
-                        </p>
-                        <SyntaxCodeBlock code={m.code_example} language={m.language} />
-                      </div>
-                    )}
-
-                    {m.example_output && (
-                      <div>
-                        <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-                          <Terminal size={12} /> Resultado do exemplo
-                        </p>
-                        <pre className="leetcode-result-output">
-                          {m.example_output}
-                        </pre>
-                      </div>
-                    )}
-
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(m.id)}
-                        className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-500"
-                      >
-                        <Trash2 size={13} /> Remover método
-                      </button>
-                    </div>
+                    <MethodBody method={m} onDelete={() => handleDelete(m.id)} />
                   </div>
                 )}
               </div>
