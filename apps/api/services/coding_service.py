@@ -532,7 +532,8 @@ Regras:
 - Escreva em portugues do Brasil, em Markdown pronto para copiar no Notion
 - Comece com "# Resumo de {subject_name}"
 - Uma secao "##" por topico, na mesma ordem do conteudo estudado
-- Dentro de cada topico use no maximo 6 bullets, cada bullet com no maximo 20 palavras
+- Dentro de cada topico use no maximo {max_bullets} bullets, cada bullet com no maximo {max_words_per_bullet} palavras
+- O resumo inteiro precisa caber em {word_budget} palavras: se nao couber, corte os pontos menos cobrados em vez de escrever mais
 - Guarde so o que cai em prova: definicoes, limites, numeros, quando usar cada
   conceito ou servico, diferencas entre alternativas parecidas e pegadinhas
 - Corte introducao, motivacao, historia, analogias, exemplos longos e frases de ligacao
@@ -1013,6 +1014,24 @@ def deepen_coding_reading_step(
     return content[:12_000]
 
 
+# A revision sheet is only useful while it stays readable in one sitting, so the
+# per-topic allowance shrinks as the subject grows: 28 topics at six bullets each
+# is no longer a summary, and would overflow the response cap mid-sentence.
+SUMMARY_TOTAL_WORD_BUDGET = 1_400
+
+
+def _summary_shape(topic_count: int) -> tuple[int, int, int]:
+    """Bullets per topic, words per bullet and the total word budget."""
+    if topic_count <= 8:
+        max_bullets, max_words = 6, 20
+    elif topic_count <= 15:
+        max_bullets, max_words = 4, 20
+    else:
+        max_bullets, max_words = 3, 15
+    budget = min(SUMMARY_TOTAL_WORD_BUDGET, max(240, topic_count * max_bullets * max_words))
+    return max_bullets, max_words, budget
+
+
 _SUMMARY_MAX_SECTIONS_PER_TOPIC = 8
 _SUMMARY_MAX_QUESTIONS_PER_TOPIC = 8
 _SUMMARY_SECTION_BODY_CHARS = 900
@@ -1084,10 +1103,14 @@ def summarize_subject_essentials(
     digest = _fit_summary_digest(topics_digest.strip())
     if not digest:
         raise RuntimeError("Esta materia ainda nao tem aulas geradas para resumir.")
+    max_bullets, max_words_per_bullet, word_budget = _summary_shape(digest.count("## Topico:"))
     prompt = _SUBJECT_SUMMARY_PROMPT_TEMPLATE.format(
         subject_name=" ".join(str(subject_name).split())[:200],
         subject_context=sanitize_context(subject_context) or "Sem contexto adicional.",
         topics_digest=digest,
+        max_bullets=max_bullets,
+        max_words_per_bullet=max_words_per_bullet,
+        word_budget=word_budget,
     )
     if len(prompt) > MAX_SUBJECT_SUMMARY_PROMPT_CHARS:
         raise RuntimeError("O conteudo da materia e grande demais para resumir de uma vez.")

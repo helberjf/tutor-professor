@@ -126,6 +126,36 @@ class SummaryPromptTests(unittest.TestCase):
         # A revision sheet recalls the material instead of improvising around it.
         self.assertLessEqual(generator.call_args.kwargs["temperature"], 0.4)
 
+    def test_bigger_subjects_get_a_tighter_per_topic_allowance(self) -> None:
+        shapes = {}
+        for topic_count in (1, 8, 12, 28):
+            digest = "\n\n".join(
+                f"## Topico: T{index}\n- ponto" for index in range(topic_count)
+            )
+            with patch.object(
+                coding_service._phrase_service,
+                "generate_json_text",
+                return_value=json.dumps({"content": "# Resumo"}),
+            ) as generator:
+                coding_service.summarize_subject_essentials(
+                    subject_name="AWS",
+                    subject_context="",
+                    topics_digest=digest,
+                    ai_config=object(),
+                )
+            shapes[topic_count] = generator.call_args.kwargs["prompt"]
+
+        self.assertIn("no maximo 6 bullets", shapes[8])
+        self.assertIn("no maximo 4 bullets", shapes[12])
+        self.assertIn("no maximo 3 bullets", shapes[28])
+        # Whatever the size of the subject, the sheet still fits one sitting.
+        for topic_count, prompt in shapes.items():
+            budget = int(prompt.split("precisa caber em ", 1)[1].split(" palavras", 1)[0])
+            with self.subTest(topic_count=topic_count):
+                self.assertLessEqual(budget, coding_service.SUMMARY_TOTAL_WORD_BUDGET)
+                # A sheet that fits the budget cannot hit the 12k response cap.
+                self.assertLess(budget * 8, 12_000)
+
     def test_empty_digest_is_refused_before_calling_the_provider(self) -> None:
         with patch.object(coding_service._phrase_service, "generate_json_text") as generator:
             with self.assertRaises(RuntimeError):
@@ -247,6 +277,7 @@ class SummaryFrontendTests(unittest.TestCase):
             "navigator.clipboard.writeText(content)",
             "Gerar de novo",
             "max-w-[72ch]",
+            "palavras · {readingMinutes} min de leitura",
             "sm:h-[calc(100dvh-1.5rem)]",
         ):
             with self.subTest(expected=expected):

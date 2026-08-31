@@ -52,6 +52,10 @@ export function SubjectSummaryModal({
 }: SubjectSummaryModalProps) {
   const [copied, setCopied] = useState(false);
 
+  // The whole point of the sheet is being short, so show how short it came out.
+  const words = content.split(/\s+/).filter(Boolean).length;
+  const readingMinutes = Math.max(1, Math.round(words / 200));
+
   async function handleCopy() {
     if (!navigator.clipboard) return;
     await navigator.clipboard.writeText(content);
@@ -74,7 +78,8 @@ export function SubjectSummaryModal({
                 Resumo da matéria
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
-                Só o que cai na prova · {topicCount} {topicCount === 1 ? 'tópico' : 'tópicos'}
+                Só o que cai na prova · {topicCount} {topicCount === 1 ? 'tópico' : 'tópicos'} ·{' '}
+                {words} palavras · {readingMinutes} min de leitura
               </p>
             </div>
             <button
