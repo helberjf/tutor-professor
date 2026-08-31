@@ -118,6 +118,9 @@ from schemas.schemas import (
     StudyDaySchema,
     StudyDayUpdateSchema,
     SubjectSummaryResponseSchema,
+    TopicSummarySchema,
+    UpdateTopicSummarySchema,
+    PendingSummaryTopicSchema,
     GenerateStudyQuestionsSchema,
     StudyQuestionAttemptResultSchema,
     StudyQuestionAttemptSchema,
@@ -146,7 +149,7 @@ from services.coding_service import (
     apply_deck_attempt,
     build_coding_review_cards,
     build_deck_queue,
-    build_subject_summary_digest,
+    build_summary_digest,
     build_topic_history_context,
     compute_deck_stats,
     count_due_coding_items,
@@ -157,13 +160,14 @@ from services.coding_service import (
     generate_additional_topic_questions,
     generate_topic_ai_content,
     get_or_create_deck_config,
+    join_topic_summaries,
     programming_question_key,
     preview_for_item,
     register_coding_review_attempt,
     reset_daily_counters,
     seed_coding_review_item,
     subject_topics_with_lessons,
-    summarize_subject_essentials,
+    summarize_topic_essentials,
     validate_additional_topic_flashcards,
     validate_initial_topic_content,
     validate_programming_question_batch,
@@ -3578,6 +3582,7 @@ def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> Prog
         created_at=topic.created_at,
         updated_at=topic.updated_at,
         flashcard_count=flashcard_count,
+        has_summary=bool((topic.summary or "").strip()),
     )
 
 
@@ -4040,60 +4045,133 @@ def deepen_coding_topic_reading(
     return DeepenCodingReadingResponseSchema(content=content)
 
 
-@app.post("/api/coding/subjects/{subject_id}/summary", response_model=SubjectSummaryResponseSchema)
-def summarize_coding_subject(
-    subject_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-) -> SubjectSummaryResponseSchema:
-    """The shortest revision sheet that still covers what the exam asks.
+def _topic_for_child(session: Session, topic_id: int, child) -> ProgrammingTopic:
+    topic = session.get(ProgrammingTopic, topic_id)
+    if topic is None:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+    return topic
 
-    Studying eleven topics leaves no single page to review the night before, so
-    this folds every lesson of the subject into one exam-focused summary. Like
-    the reading deepening, the answer is deliberately ephemeral: nothing is
-    written back, so a re-run always reflects the lessons as they are now.
+
+@app.post("/api/coding/topics/{topic_id}/summary", response_model=TopicSummarySchema)
+def summarize_coding_topic(
+    topic_id: int,
+    request: Request,
+    regenerate: bool = False,
+    session: Session = Depends(get_session),
+) -> TopicSummarySchema:
+    """The revision sheet of one topic, generated once and then reused.
+
+    The subject sheet is the join of these, so a stored sheet is returned as it
+    is: adding a topic later costs one call for that topic instead of redoing
+    the whole subject, and an edited sheet is never silently overwritten.
     """
     user_session = require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    subject = session.get(ProgrammingSubject, subject_id)
-    if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    topic = _topic_for_child(session, topic_id, child)
+    stored = (topic.summary or "").strip()
+    if stored and not regenerate:
+        return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=stored)
+
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(
             status_code=422,
             detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
         )
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    digest = build_summary_digest([topic])
+    if not digest:
+        raise HTTPException(
+            status_code=422,
+            detail="Este tópico ainda não tem aula gerada para resumir.",
+        )
+    subject_name = subject.name if subject else ""
+    subject_context = (subject.context if subject else "") or ""
+    topic_title = topic.title
+
+    # Close the read transaction before the external provider call.
+    session.rollback()
+    try:
+        content = summarize_topic_essentials(
+            subject_name=subject_name,
+            topic_title=topic_title,
+            subject_context=subject_context,
+            topic_digest=digest,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    topic = session.get(ProgrammingTopic, topic_id)
+    topic.summary = content
+    topic.summary_updated_at = datetime.utcnow()
+    session.add(topic)
+    session.commit()
+    session.refresh(topic)
+    return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=content)
+
+
+@app.put("/api/coding/topics/{topic_id}/summary", response_model=TopicSummarySchema)
+def update_coding_topic_summary(
+    topic_id: int,
+    payload: UpdateTopicSummarySchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> TopicSummarySchema:
+    """Save the reader's own wording. The subject sheet joins whatever is stored."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    topic = _topic_for_child(session, topic_id, child)
+    content = payload.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="O resumo não pode ficar vazio.")
+    topic.summary = content
+    topic.summary_updated_at = datetime.utcnow()
+    session.add(topic)
+    session.commit()
+    session.refresh(topic)
+    return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=content)
+
+
+@app.get("/api/coding/subjects/{subject_id}/summary", response_model=SubjectSummaryResponseSchema)
+def get_coding_subject_summary(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> SubjectSummaryResponseSchema:
+    """The subject sheet: the topic sheets joined in study order.
+
+    Nothing is generated here. Topics still missing a sheet come back in
+    `pending`, so the caller can fill exactly those - a newly added topic costs
+    one call, not a rewrite of the whole subject.
+    """
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
 
     topics = session.exec(
         select(ProgrammingTopic)
         .where(ProgrammingTopic.subject_id == subject_id)
         .order_by(ProgrammingTopic.order_index, ProgrammingTopic.id)
     ).all()
-    topic_count = len(subject_topics_with_lessons(topics))
-    digest = build_subject_summary_digest(topics)
-    if not digest:
-        raise HTTPException(
-            status_code=422,
-            detail="Esta matéria ainda não tem aulas geradas para resumir.",
-        )
-    subject_name = subject.name
-    subject_context = subject.context or ""
-
-    # Close the read transaction before the external provider call, and do not
-    # write afterwards: the summary is read-only by design.
-    session.rollback()
-    try:
-        content = summarize_subject_essentials(
-            subject_name=subject_name,
-            subject_context=subject_context,
-            topics_digest=digest,
-            ai_config=ai_config,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    return SubjectSummaryResponseSchema(content=content, topic_count=topic_count)
+    summarisable = subject_topics_with_lessons(topics)
+    entries = [(topic.title, topic.summary) for topic in summarisable if (topic.summary or "").strip()]
+    pending = [
+        PendingSummaryTopicSchema(topic_id=topic.id or 0, title=topic.title)
+        for topic in summarisable
+        if not (topic.summary or "").strip()
+    ]
+    return SubjectSummaryResponseSchema(
+        content=join_topic_summaries(subject.name, entries) if entries else "",
+        topic_count=len(summarisable),
+        summarized_count=len(entries),
+        pending=pending,
+    )
 
 
 @app.get("/api/coding/subjects/{subject_id}/questions", response_model=list[ProgrammingQuestionSchema])

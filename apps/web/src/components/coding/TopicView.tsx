@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic } from '@/lib/api';
+import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
 import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
+import { SummarySheetModal } from './SummarySheetModal';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
 
@@ -187,6 +188,34 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [questionGenerationError, setQuestionGenerationError] = useState('');
   const [questionGenerationSuccess, setQuestionGenerationSuccess] = useState('');
+  // Revision sheet for this topic. It is stored, so the subject sheet can join
+  // it later without paying for the same topic twice.
+  const [summary, setSummary] = useState<TopicSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+
+  async function openTopicSummary(regenerate = false) {
+    setLoadingSummary(true);
+    setSummaryError('');
+    try {
+      setSummary(await api.generateTopicSummary(topic.id, regenerate));
+    } catch (err) {
+      // Keep any sheet already on screen: a failed re-run should not throw away
+      // the summary the reader is looking at.
+      setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
+    } finally {
+      setLoadingSummary(false);
+    }
+  }
+
+  async function handleSaveTopicSummary(content: string) {
+    setSummaryError('');
+    try {
+      setSummary(await api.saveTopicSummary(topic.id, content));
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : 'Não foi possível salvar o resumo.');
+    }
+  }
 
   const readingStudySteps = useMemo<ReadingStudyStep[]>(() => {
     if (!topic.ai_content) return [];
@@ -546,6 +575,17 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <ClipboardList size={16} />
               Fazer simulado
             </button>
+            {topic.ai_content && (
+              <button
+                type="button"
+                onClick={() => void openTopicSummary()}
+                disabled={loadingSummary}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                {loadingSummary ? 'Resumindo...' : 'Resumo do tópico'}
+              </button>
+            )}
             {topic.ai_content && (
               <button
                 type="button"
@@ -1006,6 +1046,19 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           questions={questions}
           onAnswer={handleQuestionAttempt}
           onClose={() => setQuestionPracticeOpen(false)}
+        />
+      )}
+      {summary && (
+        <SummarySheetModal
+          subjectName={subjectName}
+          heading="Resumo do tópico"
+          scopeLabel={topic.title}
+          content={summary.content}
+          regenerating={loadingSummary}
+          error={summaryError}
+          onSave={handleSaveTopicSummary}
+          onRegenerate={() => void openTopicSummary(true)}
+          onClose={() => setSummary(null)}
         />
       )}
     </div>

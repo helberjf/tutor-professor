@@ -6,7 +6,7 @@ import { api, type CodingReviewCard, type CodingSubjectSummary, type Programming
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
-import { SubjectSummaryModal } from './SubjectSummaryModal';
+import { SummarySheetModal } from './SummarySheetModal';
 import { TopicView } from './TopicView';
 import { ReviewSession } from './ReviewSession';
 import { LeetCodeTrainer } from './LeetCodeTrainer';
@@ -74,22 +74,49 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     return api.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
   }
 
-  // Exam-focused revision sheet for the whole subject. Nothing is persisted, so
-  // a re-run always reflects the lessons as they are now.
+  // The subject sheet is the join of the topic sheets. Each topic is summarised
+  // once and stored, so adding a topic later costs one call for that topic
+  // instead of rewriting the whole subject.
   const [summary, setSummary] = useState<CodingSubjectSummary | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryProgress, setSummaryProgress] = useState('');
   const [summaryError, setSummaryError] = useState('');
 
-  async function generateSubjectSummary(subject: ProgrammingSubject) {
+  async function openSubjectSummary(subject: ProgrammingSubject, regenerate = false) {
     setLoadingSummary(true);
     setSummaryError('');
     try {
-      setSummary(await api.generateSubjectSummary(subject.id));
+      let sheet = await api.getSubjectSummary(subject.id);
+      if (sheet.topic_count === 0) {
+        setSummaryError('Esta matéria ainda não tem aulas geradas para resumir.');
+        return;
+      }
+      // Show what is already written while the missing topics are filled in.
+      setSummary(sheet);
+      const missing = regenerate
+        ? topics.filter((topic) => topic.ai_content).map((topic) => ({ topic_id: topic.id, title: topic.title }))
+        : sheet.pending;
+      let failed = '';
+      for (const [index, pendingTopic] of missing.entries()) {
+        setSummaryProgress(`Resumindo ${index + 1} de ${missing.length}: ${pendingTopic.title}`);
+        try {
+          await api.generateTopicSummary(pendingTopic.topic_id, regenerate);
+        } catch (err) {
+          failed = err instanceof Error ? err.message : 'Não foi possível resumir um dos tópicos.';
+        }
+      }
+      if (missing.length > 0) {
+        sheet = await api.getSubjectSummary(subject.id);
+        setSummary(sheet);
+        loadTopics(subject);
+      }
+      if (failed) setSummaryError(failed);
     } catch (err) {
-      // Keep any sheet already on screen: a failed re-run should not throw away
+      // Keep any sheet already on screen: a failed run should not throw away
       // the summary the reader is looking at.
       setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
     } finally {
+      setSummaryProgress('');
       setLoadingSummary(false);
     }
   }
@@ -441,16 +468,16 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
           <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
             <p className="text-sm font-black text-violet-900">Resumo da matéria</p>
             <p className="mt-1 text-xs font-bold text-violet-700">
-              Junta todos os tópicos em uma folha só, com o mínimo que precisa saber e cai na prova.
+              Resume cada tópico e junta tudo em uma folha só. Tópico novo entra sem refazer o resto.
             </p>
             <button
               type="button"
-              onClick={() => void generateSubjectSummary(subject)}
+              onClick={() => void openSubjectSummary(subject)}
               disabled={loadingSummary}
               className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-              {loadingSummary ? 'Resumindo a matéria...' : 'Gerar resumo'}
+              {loadingSummary ? summaryProgress || 'Montando o resumo...' : 'Gerar resumo'}
             </button>
             {summaryError && (
               <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
@@ -461,13 +488,15 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
         </section>
 
         {summary && (
-          <SubjectSummaryModal
+          <SummarySheetModal
             subjectName={subject.name}
-            topicCount={summary.topic_count}
+            heading="Resumo da matéria"
+            scopeLabel={`${summary.summarized_count} de ${summary.topic_count} tópicos`}
             content={summary.content}
             regenerating={loadingSummary}
+            progress={summaryProgress}
             error={summaryError}
-            onRegenerate={() => void generateSubjectSummary(subject)}
+            onRegenerate={() => void openSubjectSummary(subject, true)}
             onClose={() => setSummary(null)}
           />
         )}

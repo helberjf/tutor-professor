@@ -30,8 +30,15 @@ MAX_EXISTING_FLASHCARD_FRONTS = 100
 MAX_ADDITIONAL_QUESTION_PROMPT_CHARS = 40_000
 MAX_EXISTING_QUESTION_PROMPTS = 150
 MAX_READING_DEEPEN_PROMPT_CHARS = 24_000
-MAX_SUBJECT_SUMMARY_PROMPT_CHARS = 40_000
-MAX_SUBJECT_SUMMARY_DIGEST_CHARS = 36_000
+MAX_TOPIC_SUMMARY_PROMPT_CHARS = 24_000
+MAX_TOPIC_SUMMARY_DIGEST_CHARS = 20_000
+# A topic sheet is one screen: six bullets and the classic traps. The subject
+# sheet is the join of these, so keeping each one short is what keeps the
+# whole revision readable.
+MAX_TOPIC_SUMMARY_CHARS = 4_000
+SUMMARY_MAX_BULLETS = 6
+SUMMARY_MAX_WORDS_PER_BULLET = 20
+SUMMARY_MAX_TRAPS = 3
 
 
 @dataclass(frozen=True)
@@ -517,28 +524,26 @@ Retorne somente JSON valido neste formato:
 """
 
 
-_SUBJECT_SUMMARY_PROMPT_TEMPLATE = """\
-Voce vai escrever o resumo final de uma materia inteira, para a revisao da vespera da prova.
+_TOPIC_SUMMARY_PROMPT_TEMPLATE = """Voce vai escrever a folha de revisao de UM topico de estudo, para a vespera da prova.
 
 Materia: {subject_name}
+Topico: {topic_title}
 Contexto da materia: {subject_context}
 
-Conteudo ja estudado (topicos, secoes e questoes praticadas):
-{topics_digest}
+Conteudo da aula (secoes e questoes ja praticadas):
+{topic_digest}
 
-Objetivo: o MENOR texto possivel que ainda cubra tudo que costuma cair na prova.
+Objetivo: o MENOR texto possivel que ainda cubra o que esse topico cobra na prova.
 
 Regras:
 - Escreva em portugues do Brasil, em Markdown pronto para copiar no Notion
-- Comece com "# Resumo de {subject_name}"
-- Uma secao "##" por topico, na mesma ordem do conteudo estudado
-- Dentro de cada topico use no maximo {max_bullets} bullets, cada bullet com no maximo {max_words_per_bullet} palavras
-- O resumo inteiro precisa caber em {word_budget} palavras: se nao couber, corte os pontos menos cobrados em vez de escrever mais
+- NAO escreva titulo e nao repita o nome do topico: comece direto no primeiro bullet
+- No maximo {max_bullets} bullets, cada um com no maximo {max_words} palavras
 - Guarde so o que cai em prova: definicoes, limites, numeros, quando usar cada
-  conceito ou servico, diferencas entre alternativas parecidas e pegadinhas
+  conceito ou servico e diferencas entre alternativas parecidas
 - Corte introducao, motivacao, historia, analogias, exemplos longos e frases de ligacao
 - Nada de blocos de codigo, exceto uma linha unica quando a sintaxe exata for cobrada
-- Termine com "## Pegadinhas", no maximo 8 bullets com os erros mais cobrados
+- Se houver pegadinhas classicas, feche com "### Pegadinhas" e no maximo {max_traps} bullets
 - Sem saudacao, sem conclusao e sem comentarios fora do Markdown
 
 Retorne somente JSON valido neste formato:
@@ -1014,24 +1019,6 @@ def deepen_coding_reading_step(
     return content[:12_000]
 
 
-# A revision sheet is only useful while it stays readable in one sitting, so the
-# per-topic allowance shrinks as the subject grows: 28 topics at six bullets each
-# is no longer a summary, and would overflow the response cap mid-sentence.
-SUMMARY_TOTAL_WORD_BUDGET = 1_400
-
-
-def _summary_shape(topic_count: int) -> tuple[int, int, int]:
-    """Bullets per topic, words per bullet and the total word budget."""
-    if topic_count <= 8:
-        max_bullets, max_words = 6, 20
-    elif topic_count <= 15:
-        max_bullets, max_words = 4, 20
-    else:
-        max_bullets, max_words = 3, 15
-    budget = min(SUMMARY_TOTAL_WORD_BUDGET, max(240, topic_count * max_bullets * max_words))
-    return max_bullets, max_words, budget
-
-
 _SUMMARY_MAX_SECTIONS_PER_TOPIC = 8
 _SUMMARY_MAX_QUESTIONS_PER_TOPIC = 8
 _SUMMARY_SECTION_BODY_CHARS = 900
@@ -1047,7 +1034,7 @@ def subject_topics_with_lessons(topics: list) -> list:
     return [topic for topic in topics if _topic_has_lesson_content(topic)]
 
 
-def build_subject_summary_digest(topics: list) -> str:
+def build_summary_digest(topics: list) -> str:
     """Compact view of every lesson in a subject, small enough for one prompt.
 
     Only what carries exam signal survives: section titles and prose, plus the
@@ -1078,42 +1065,42 @@ def build_subject_summary_digest(topics: list) -> str:
     return "\n\n".join(blocks)
 
 
-def _fit_summary_digest(digest: str) -> str:
-    """Trim the digest to the prompt budget, cutting on a topic boundary.
+def _strip_leading_title(content: str) -> str:
+    """Drop a title the model added anyway.
 
-    A subject with many topics is exactly the one that needs a revision sheet,
-    so an oversized digest is trimmed instead of refused.
+    Each sheet is stored as a body only: the app writes the heading, so the
+    subject sheet can nest every topic under one title instead of stacking a
+    dozen competing H1s.
     """
-    if len(digest) <= MAX_SUBJECT_SUMMARY_DIGEST_CHARS:
-        return digest
-    clipped = digest[:MAX_SUBJECT_SUMMARY_DIGEST_CHARS]
-    boundary = clipped.rfind("\n\n## Topico:")
-    if boundary > MAX_SUBJECT_SUMMARY_DIGEST_CHARS // 2:
-        clipped = clipped[:boundary]
-    return clipped.rstrip()
+    lines = content.lstrip().splitlines()
+    if lines and lines[0].lstrip().startswith("#"):
+        return "\n".join(lines[1:]).lstrip()
+    return content
 
 
-def summarize_subject_essentials(
+def summarize_topic_essentials(
     *,
     subject_name: str,
+    topic_title: str,
     subject_context: str,
-    topics_digest: str,
+    topic_digest: str,
     ai_config: AIProviderConfig,
 ) -> str:
-    digest = _fit_summary_digest(topics_digest.strip())
+    """The shortest sheet that still covers what this topic asks in the exam."""
+    digest = topic_digest.strip()[:MAX_TOPIC_SUMMARY_DIGEST_CHARS]
     if not digest:
-        raise RuntimeError("Esta materia ainda nao tem aulas geradas para resumir.")
-    max_bullets, max_words_per_bullet, word_budget = _summary_shape(digest.count("## Topico:"))
-    prompt = _SUBJECT_SUMMARY_PROMPT_TEMPLATE.format(
+        raise RuntimeError("Este topico ainda nao tem aula gerada para resumir.")
+    prompt = _TOPIC_SUMMARY_PROMPT_TEMPLATE.format(
         subject_name=" ".join(str(subject_name).split())[:200],
+        topic_title=" ".join(str(topic_title).split())[:300],
         subject_context=sanitize_context(subject_context) or "Sem contexto adicional.",
-        topics_digest=digest,
-        max_bullets=max_bullets,
-        max_words_per_bullet=max_words_per_bullet,
-        word_budget=word_budget,
+        topic_digest=digest,
+        max_bullets=SUMMARY_MAX_BULLETS,
+        max_words=SUMMARY_MAX_WORDS_PER_BULLET,
+        max_traps=SUMMARY_MAX_TRAPS,
     )
-    if len(prompt) > MAX_SUBJECT_SUMMARY_PROMPT_CHARS:
-        raise RuntimeError("O conteudo da materia e grande demais para resumir de uma vez.")
+    if len(prompt) > MAX_TOPIC_SUMMARY_PROMPT_CHARS:
+        raise RuntimeError("O conteudo deste topico e grande demais para resumir.")
 
     raw = _phrase_service.generate_json_text(
         system_text=(
@@ -1129,11 +1116,24 @@ def summarize_subject_essentials(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("IA retornou JSON invalido para o resumo da materia.") from exc
-    content = str(data.get("content") if isinstance(data, dict) else "").strip()
+        raise RuntimeError("IA retornou JSON invalido para o resumo do topico.") from exc
+    content = _strip_leading_title(str(data.get("content") if isinstance(data, dict) else "").strip())
     if not content:
-        raise RuntimeError("IA nao retornou conteudo para o resumo da materia.")
-    return content[:12_000]
+        raise RuntimeError("IA nao retornou conteudo para o resumo do topico.")
+    return content[:MAX_TOPIC_SUMMARY_CHARS]
+
+
+def join_topic_summaries(subject_name: str, entries: list[tuple[str, str]]) -> str:
+    """The subject sheet: every topic sheet under one title, in study order."""
+    lines = [f"# Resumo de {' '.join(str(subject_name).split())[:200]}"]
+    for title, summary in entries:
+        body = _strip_leading_title(str(summary or "").strip())
+        if not body:
+            continue
+        lines.append("")
+        lines.append(f"## {' '.join(str(title).split())[:200]}")
+        lines.append(body)
+    return "\n".join(lines).strip()
 
 
 def build_topic_history_context(topics: list, exclude_topic_id: int | None = None) -> str:

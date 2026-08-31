@@ -567,6 +567,7 @@ class ProgrammingTopicSchema(FromAttributesModel):
     created_at: datetime
     updated_at: datetime
     flashcard_count: int = 0
+    has_summary: bool = False
 
 
 class CreateProgrammingTopicSchema(BaseModel):
@@ -671,11 +672,32 @@ class DeepenCodingReadingResponseSchema(BaseModel):
     content: str
 
 
+class TopicSummarySchema(BaseModel):
+    """The revision sheet of a single topic, stored without its heading."""
+
+    topic_id: int
+    title: str
+    content: str
+
+
+class UpdateTopicSummarySchema(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class PendingSummaryTopicSchema(BaseModel):
+    """A topic whose sheet still has to be generated before the join."""
+
+    topic_id: int
+    title: str
+
+
 class SubjectSummaryResponseSchema(BaseModel):
-    """The shortest exam-focused revision sheet for a whole subject."""
+    """Every topic sheet of a subject, joined in study order."""
 
     content: str
     topic_count: int
+    summarized_count: int
+    pending: List[PendingSummaryTopicSchema] = Field(default_factory=list)
 
 
 class ProgrammingFlashcardSchema(FromAttributesModel):

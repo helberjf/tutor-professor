@@ -731,6 +731,7 @@ export interface ProgrammingTopic {
   created_at: string;
   updated_at: string;
   flashcard_count: number;
+  has_summary?: boolean;
 }
 
 export interface ProgrammingFlashcard {
@@ -827,9 +828,22 @@ export interface DeepenCodingReadingResponse {
   content: string;
 }
 
+export interface TopicSummary {
+  topic_id: number;
+  title: string;
+  content: string;
+}
+
+export interface PendingSummaryTopic {
+  topic_id: number;
+  title: string;
+}
+
 export interface CodingSubjectSummary {
   content: string;
   topic_count: number;
+  summarized_count: number;
+  pending: PendingSummaryTopic[];
 }
 
 export interface CodingReviewCard {
@@ -1350,11 +1364,19 @@ export const api = {
     fetchAPI<ProgrammingQuestion[]>(
       `/api/coding/subjects/${subjectId}/questions?limit=${limit}&shuffle=true`,
     ),
-  /** Shortest exam-focused revision sheet for a whole subject. Nothing is saved. */
-  generateSubjectSummary: (subjectId: number) =>
-    fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`, {
+  /** The exam-focused sheet of one topic. Reuses the stored one unless regenerating. */
+  generateTopicSummary: (topicId: number, regenerate = false) =>
+    fetchAPI<TopicSummary>(`/api/coding/topics/${topicId}/summary?regenerate=${regenerate}`, {
       method: 'POST',
     }),
+  saveTopicSummary: (topicId: number, content: string) =>
+    fetchAPI<TopicSummary>(`/api/coding/topics/${topicId}/summary`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+  /** The topic sheets joined in study order, plus the topics still missing one. */
+  getSubjectSummary: (subjectId: number) =>
+    fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`),
   generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
       method: 'POST',

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from enum import Enum as PyEnum
 from typing import Optional, Dict, Any
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import Index, Text, UniqueConstraint
 from sqlmodel import SQLModel, Field, JSON, Column
 
 
@@ -231,6 +231,10 @@ class ProgrammingTopic(SQLModel, table=True):
     status: TopicStatus = Field(default=TopicStatus.not_started)
     ai_content: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     notes: Optional[str] = Field(default=None, max_length=5000)
+    # Revision sheet for this topic. The subject sheet is the join of these, so
+    # it is generated once and reread instead of costing an AI call per visit.
+    summary: Optional[str] = Field(default=None, sa_column=Column(Text))
+    summary_updated_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
