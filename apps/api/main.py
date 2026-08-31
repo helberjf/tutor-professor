@@ -117,6 +117,7 @@ from schemas.schemas import (
     StudyDashboardSchema,
     StudyDaySchema,
     StudyDayUpdateSchema,
+    SubjectSummaryResponseSchema,
     GenerateStudyQuestionsSchema,
     StudyQuestionAttemptResultSchema,
     StudyQuestionAttemptSchema,
@@ -145,6 +146,7 @@ from services.coding_service import (
     apply_deck_attempt,
     build_coding_review_cards,
     build_deck_queue,
+    build_subject_summary_digest,
     build_topic_history_context,
     compute_deck_stats,
     count_due_coding_items,
@@ -160,6 +162,8 @@ from services.coding_service import (
     register_coding_review_attempt,
     reset_daily_counters,
     seed_coding_review_item,
+    subject_topics_with_lessons,
+    summarize_subject_essentials,
     validate_additional_topic_flashcards,
     validate_initial_topic_content,
     validate_programming_question_batch,
@@ -4034,6 +4038,62 @@ def deepen_coding_topic_reading(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return DeepenCodingReadingResponseSchema(content=content)
+
+
+@app.post("/api/coding/subjects/{subject_id}/summary", response_model=SubjectSummaryResponseSchema)
+def summarize_coding_subject(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> SubjectSummaryResponseSchema:
+    """The shortest revision sheet that still covers what the exam asks.
+
+    Studying eleven topics leaves no single page to review the night before, so
+    this folds every lesson of the subject into one exam-focused summary. Like
+    the reading deepening, the answer is deliberately ephemeral: nothing is
+    written back, so a re-run always reflects the lessons as they are now.
+    """
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+
+    topics = session.exec(
+        select(ProgrammingTopic)
+        .where(ProgrammingTopic.subject_id == subject_id)
+        .order_by(ProgrammingTopic.order_index, ProgrammingTopic.id)
+    ).all()
+    topic_count = len(subject_topics_with_lessons(topics))
+    digest = build_subject_summary_digest(topics)
+    if not digest:
+        raise HTTPException(
+            status_code=422,
+            detail="Esta matéria ainda não tem aulas geradas para resumir.",
+        )
+    subject_name = subject.name
+    subject_context = subject.context or ""
+
+    # Close the read transaction before the external provider call, and do not
+    # write afterwards: the summary is read-only by design.
+    session.rollback()
+    try:
+        content = summarize_subject_essentials(
+            subject_name=subject_name,
+            subject_context=subject_context,
+            topics_digest=digest,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return SubjectSummaryResponseSchema(content=content, topic_count=topic_count)
 
 
 @app.get("/api/coding/subjects/{subject_id}/questions", response_model=list[ProgrammingQuestionSchema])

@@ -671,6 +671,13 @@ class DeepenCodingReadingResponseSchema(BaseModel):
     content: str
 
 
+class SubjectSummaryResponseSchema(BaseModel):
+    """The shortest exam-focused revision sheet for a whole subject."""
+
+    content: str
+    topic_count: int
+
+
 class ProgrammingFlashcardSchema(FromAttributesModel):
     id: int
     topic_id: int

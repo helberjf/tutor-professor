@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardList, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
-import { api, type CodingReviewCard, type ProgrammingQuestion, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardList, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
+import { api, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingQuestion, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
+import { SubjectSummaryModal } from './SubjectSummaryModal';
 import { TopicView } from './TopicView';
 import { ReviewSession } from './ReviewSession';
 import { LeetCodeTrainer } from './LeetCodeTrainer';
@@ -71,6 +72,26 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
 
   async function handleExamAnswer(questionId: number, selectedOption: string) {
     return api.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
+  }
+
+  // Exam-focused revision sheet for the whole subject. Nothing is persisted, so
+  // a re-run always reflects the lessons as they are now.
+  const [summary, setSummary] = useState<CodingSubjectSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
+
+  async function generateSubjectSummary(subject: ProgrammingSubject) {
+    setLoadingSummary(true);
+    setSummaryError('');
+    try {
+      setSummary(await api.generateSubjectSummary(subject.id));
+    } catch (err) {
+      // Keep any sheet already on screen: a failed re-run should not throw away
+      // the summary the reader is looking at.
+      setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
+    } finally {
+      setLoadingSummary(false);
+    }
   }
 
   useEffect(() => {
@@ -416,7 +437,40 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
               </p>
             )}
           </div>
+
+          <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
+            <p className="text-sm font-black text-violet-900">Resumo da matéria</p>
+            <p className="mt-1 text-xs font-bold text-violet-700">
+              Junta todos os tópicos em uma folha só, com o mínimo que precisa saber e cai na prova.
+            </p>
+            <button
+              type="button"
+              onClick={() => void generateSubjectSummary(subject)}
+              disabled={loadingSummary}
+              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+            >
+              {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+              {loadingSummary ? 'Resumindo a matéria...' : 'Gerar resumo'}
+            </button>
+            {summaryError && (
+              <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                {summaryError}
+              </p>
+            )}
+          </div>
         </section>
+
+        {summary && (
+          <SubjectSummaryModal
+            subjectName={subject.name}
+            topicCount={summary.topic_count}
+            content={summary.content}
+            regenerating={loadingSummary}
+            error={summaryError}
+            onRegenerate={() => void generateSubjectSummary(subject)}
+            onClose={() => setSummary(null)}
+          />
+        )}
 
         {examQuestions && examQuestions.length > 0 && (
           <PracticeQuestionsModal

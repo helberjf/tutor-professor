@@ -827,6 +827,11 @@ export interface DeepenCodingReadingResponse {
   content: string;
 }
 
+export interface CodingSubjectSummary {
+  content: string;
+  topic_count: number;
+}
+
 export interface CodingReviewCard {
   review_item_id: number;
   flashcard_id: number;
@@ -1345,6 +1350,11 @@ export const api = {
     fetchAPI<ProgrammingQuestion[]>(
       `/api/coding/subjects/${subjectId}/questions?limit=${limit}&shuffle=true`,
     ),
+  /** Shortest exam-focused revision sheet for a whole subject. Nothing is saved. */
+  generateSubjectSummary: (subjectId: number) =>
+    fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`, {
+      method: 'POST',
+    }),
   generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
       method: 'POST',

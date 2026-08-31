@@ -30,6 +30,8 @@ MAX_EXISTING_FLASHCARD_FRONTS = 100
 MAX_ADDITIONAL_QUESTION_PROMPT_CHARS = 40_000
 MAX_EXISTING_QUESTION_PROMPTS = 150
 MAX_READING_DEEPEN_PROMPT_CHARS = 24_000
+MAX_SUBJECT_SUMMARY_PROMPT_CHARS = 40_000
+MAX_SUBJECT_SUMMARY_DIGEST_CHARS = 36_000
 
 
 @dataclass(frozen=True)
@@ -515,6 +517,34 @@ Retorne somente JSON valido neste formato:
 """
 
 
+_SUBJECT_SUMMARY_PROMPT_TEMPLATE = """\
+Voce vai escrever o resumo final de uma materia inteira, para a revisao da vespera da prova.
+
+Materia: {subject_name}
+Contexto da materia: {subject_context}
+
+Conteudo ja estudado (topicos, secoes e questoes praticadas):
+{topics_digest}
+
+Objetivo: o MENOR texto possivel que ainda cubra tudo que costuma cair na prova.
+
+Regras:
+- Escreva em portugues do Brasil, em Markdown pronto para copiar no Notion
+- Comece com "# Resumo de {subject_name}"
+- Uma secao "##" por topico, na mesma ordem do conteudo estudado
+- Dentro de cada topico use no maximo 6 bullets, cada bullet com no maximo 20 palavras
+- Guarde so o que cai em prova: definicoes, limites, numeros, quando usar cada
+  conceito ou servico, diferencas entre alternativas parecidas e pegadinhas
+- Corte introducao, motivacao, historia, analogias, exemplos longos e frases de ligacao
+- Nada de blocos de codigo, exceto uma linha unica quando a sintaxe exata for cobrada
+- Termine com "## Pegadinhas", no maximo 8 bullets com os erros mais cobrados
+- Sem saudacao, sem conclusao e sem comentarios fora do Markdown
+
+Retorne somente JSON valido neste formato:
+{{"content": "markdown"}}
+"""
+
+
 def _normalized_code(value: object) -> str:
     return "".join(str(value or "").split())
 
@@ -980,6 +1010,106 @@ def deepen_coding_reading_step(
     content = str(data.get("content") if isinstance(data, dict) else "").strip()
     if not content:
         raise RuntimeError("IA nao retornou conteudo para o aprofundamento.")
+    return content[:12_000]
+
+
+_SUMMARY_MAX_SECTIONS_PER_TOPIC = 8
+_SUMMARY_MAX_QUESTIONS_PER_TOPIC = 8
+_SUMMARY_SECTION_BODY_CHARS = 900
+
+
+def _topic_has_lesson_content(topic) -> bool:
+    content = topic.ai_content if isinstance(topic.ai_content, dict) else {}
+    return bool(content.get("sections")) or bool(content.get("quiz"))
+
+
+def subject_topics_with_lessons(topics: list) -> list:
+    """Only the topics that already carry generated lesson content."""
+    return [topic for topic in topics if _topic_has_lesson_content(topic)]
+
+
+def build_subject_summary_digest(topics: list) -> str:
+    """Compact view of every lesson in a subject, small enough for one prompt.
+
+    Only what carries exam signal survives: section titles and prose, plus the
+    questions already asked about the topic. Code samples are dropped on
+    purpose - the summary is meant to be the shortest possible revision sheet,
+    not a second copy of the lesson.
+    """
+    blocks: list[str] = []
+    for topic in subject_topics_with_lessons(topics):
+        content = topic.ai_content if isinstance(topic.ai_content, dict) else {}
+        lines = [f"## Topico: {' '.join(str(topic.title).split())[:200]}"]
+        sections = [s for s in content.get("sections", []) if isinstance(s, dict)]
+        for section in sections[:_SUMMARY_MAX_SECTIONS_PER_TOPIC]:
+            title = " ".join(str(section.get("title", "")).split())[:200]
+            body = " ".join(str(section.get("body", "")).split())[:_SUMMARY_SECTION_BODY_CHARS]
+            if title or body:
+                lines.append(f"- {title}: {body}".strip(" :"))
+        quiz = [q for q in content.get("quiz", []) if isinstance(q, dict)]
+        asked = [
+            " ".join(str(question.get("question", "")).split())[:300]
+            for question in quiz[:_SUMMARY_MAX_QUESTIONS_PER_TOPIC]
+        ]
+        asked = [question for question in asked if question]
+        if asked:
+            lines.append("- Ja cobrado em questoes: " + " | ".join(asked))
+        if len(lines) > 1:
+            blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def _fit_summary_digest(digest: str) -> str:
+    """Trim the digest to the prompt budget, cutting on a topic boundary.
+
+    A subject with many topics is exactly the one that needs a revision sheet,
+    so an oversized digest is trimmed instead of refused.
+    """
+    if len(digest) <= MAX_SUBJECT_SUMMARY_DIGEST_CHARS:
+        return digest
+    clipped = digest[:MAX_SUBJECT_SUMMARY_DIGEST_CHARS]
+    boundary = clipped.rfind("\n\n## Topico:")
+    if boundary > MAX_SUBJECT_SUMMARY_DIGEST_CHARS // 2:
+        clipped = clipped[:boundary]
+    return clipped.rstrip()
+
+
+def summarize_subject_essentials(
+    *,
+    subject_name: str,
+    subject_context: str,
+    topics_digest: str,
+    ai_config: AIProviderConfig,
+) -> str:
+    digest = _fit_summary_digest(topics_digest.strip())
+    if not digest:
+        raise RuntimeError("Esta materia ainda nao tem aulas geradas para resumir.")
+    prompt = _SUBJECT_SUMMARY_PROMPT_TEMPLATE.format(
+        subject_name=" ".join(str(subject_name).split())[:200],
+        subject_context=sanitize_context(subject_context) or "Sem contexto adicional.",
+        topics_digest=digest,
+    )
+    if len(prompt) > MAX_SUBJECT_SUMMARY_PROMPT_CHARS:
+        raise RuntimeError("O conteudo da materia e grande demais para resumir de uma vez.")
+
+    raw = _phrase_service.generate_json_text(
+        system_text=(
+            "You are an expert exam coach. Return ONLY valid JSON "
+            "with a single key named content."
+        ),
+        prompt=prompt,
+        # Low temperature: a revision sheet should recall the material, not
+        # improvise around it.
+        temperature=0.3,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON invalido para o resumo da materia.") from exc
+    content = str(data.get("content") if isinstance(data, dict) else "").strip()
+    if not content:
+        raise RuntimeError("IA nao retornou conteudo para o resumo da materia.")
     return content[:12_000]
 
 
