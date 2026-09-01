@@ -142,16 +142,58 @@ def test_normalize_domains_rejects_a_broken_blueprint() -> None:
     normalized = normalize_domains(AWS_DOMAINS)
     require(len(normalized) == 4, "a valid blueprint must survive normalization")
     for broken, label in (
-        ([], "an empty blueprint"),
         ([{"name": "", "weight": 1.0}], "a nameless domain"),
         ([{"name": "Security", "weight": 0}], "a zero weight"),
         ([{"name": "Security", "weight": -0.5}, {"name": "X", "weight": 1.5}], "a negative weight"),
+        ([{"name": "Security", "weight": 0.5}, {"name": "Security", "weight": 0.5}], "a duplicate"),
     ):
         try:
             normalize_domains(broken)
         except ValueError:
             continue
         raise AssertionError(f"{label} must be rejected")
+
+
+# ── General simulado: no per-domain blueprint ─────────────────────────────────
+
+def test_a_general_simulado_needs_no_blueprint() -> None:
+    require(normalize_domains([]) == [], "an empty blueprint means a general simulado")
+    require(normalize_domains(None) == [], "a missing blueprint means a general simulado")
+
+    pool = build_pool(10)
+    drawn = sample_by_blueprint(pool, [], 20, rng=random.Random(5))
+    require(len(drawn) == 20, "a general simulado still draws the requested number")
+    require(len({question.id for question in drawn}) == 20, "no repeats without a blueprint either")
+
+    everything = sample_by_blueprint(pool, [], 999, rng=random.Random(5))
+    require(len(everything) == len(pool), "asking for more than the pool yields the pool")
+
+
+def test_general_questions_accept_any_domain_label() -> None:
+    validated = validate_exam_question_batch(
+        [valid_exam_question("Pergunta geral", domain="Qualquer assunto")],
+        domains=[],
+        existing_questions=[],
+    )
+    require(validated[0].domain == "Qualquer assunto", "a free label must survive without a blueprint")
+
+    unlabelled = validate_exam_question_batch(
+        [valid_exam_question("Outra pergunta", domain="")],
+        domains=[],
+        existing_questions=[],
+    )
+    require(unlabelled[0].domain == "Geral", "an unlabelled question falls back to Geral")
+
+    # A blueprint, when present, still constrains the domain.
+    try:
+        validate_exam_question_batch(
+            [valid_exam_question("Terceira", domain="Astrologia")],
+            domains=AWS_DOMAINS,
+            existing_questions=[],
+        )
+    except ValueError:
+        return
+    raise AssertionError("with a blueprint, an unknown domain must still be rejected")
 
 
 # ── Question validation ───────────────────────────────────────────────────────
@@ -317,12 +359,9 @@ def test_backend_contract() -> None:
         '@app.get("/api/exams/{exam_id}/attempts"',
     ):
         require(expected in main, f"missing exam route: {expected}")
-    # The old subject-wide pool still exists on purpose: removing it before the
-    # exam screens land would leave the app with no simulado at all. Phase 2
-    # deletes it together with the UI that replaces it.
     require(
-        "superseded by /api/exams/{exam_id}/attempts" in main,
-        "the superseded pool must say it is on its way out",
+        "def list_subject_questions" not in main,
+        "the subject-wide pool must be gone: it is what conflated the two modes",
     )
 
     migration = read(MIGRATION)

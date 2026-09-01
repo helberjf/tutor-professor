@@ -20,6 +20,9 @@ from services.coding_service import programming_question_key
 DEFAULT_PASSING_PERCENT = 72
 SECONDS_PER_QUESTION = 120
 
+# Label used when a simulado has no per-domain blueprint, which is the general case.
+DEFAULT_DOMAIN = "Geral"
+
 MIN_OPTIONS = 4
 MAX_OPTIONS = 6
 RESPONSE_TYPES = {"single", "multiple"}
@@ -78,7 +81,7 @@ def build_domain_breakdown(questions: Sequence[Any], correct_ids: set[int]) -> d
     """
     breakdown: dict[str, dict[str, int]] = {}
     for question in questions:
-        domain = str(getattr(question, "domain", "") or "Geral")
+        domain = str(getattr(question, "domain", "") or DEFAULT_DOMAIN)
         bucket = breakdown.setdefault(domain, {"total": 0, "correct": 0})
         bucket["total"] += 1
         if getattr(question, "id", None) in correct_ids:
@@ -93,9 +96,17 @@ def duration_minutes_for(question_count: int) -> int:
 # ── Blueprint ─────────────────────────────────────────────────────────────────
 
 def normalize_domains(domains: object) -> list[dict[str, Any]]:
-    """Validate a blueprint and rescale its weights to sum to 1."""
-    if not isinstance(domains, (list, tuple)) or not domains:
-        raise ValueError("O simulado precisa de pelo menos um dominio.")
+    """Validate a blueprint and rescale its weights to sum to 1.
+
+    An empty blueprint is legal and means "no blueprint": a general simulado just
+    shuffles its pool. Only a malformed domain is an error.
+    """
+    if domains is None:
+        return []
+    if not isinstance(domains, (list, tuple)):
+        raise ValueError("Os dominios do simulado devem ser uma lista.")
+    if not domains:
+        return []
 
     normalized: list[dict[str, Any]] = []
     for entry in domains:
@@ -137,6 +148,12 @@ def sample_by_blueprint(
         return []
 
     normalized = normalize_domains(domains)
+    if not normalized:
+        # General simulado: no blueprint, so the whole pool is one bag.
+        shuffled = list(pool)
+        generator.shuffle(shuffled)
+        return shuffled[:count]
+
     by_domain: dict[str, list[Any]] = {domain["name"]: [] for domain in normalized}
     leftovers: list[Any] = []
     for question in pool:
@@ -191,7 +208,9 @@ def validate_exam_question_batch(
     if not isinstance(raw_questions, (list, tuple)) or not raw_questions:
         raise ValueError("Envie pelo menos uma questao de simulado.")
 
-    domain_names = {domain["name"].casefold() for domain in normalize_domains(domains)}
+    # With no blueprint the domain is a free label, kept only for the breakdown.
+    blueprint = normalize_domains(domains)
+    domain_names = {domain["name"].casefold() for domain in blueprint}
     existing_keys = {programming_question_key(question) for question in existing_questions}
     batch_keys: set[str] = set()
     validated: list[ValidatedExamQuestion] = []
@@ -199,9 +218,9 @@ def validate_exam_question_batch(
     for raw in raw_questions:
         record = _record(raw)
 
-        domain = _clean(record.get("domain"), 120)
-        if domain.casefold() not in domain_names:
-            raise ValueError(f"Dominio fora do blueprint do simulado: {domain or '(vazio)'}")
+        domain = _clean(record.get("domain"), 120) or DEFAULT_DOMAIN
+        if blueprint and domain.casefold() not in domain_names:
+            raise ValueError(f"Dominio fora do blueprint do simulado: {domain}")
 
         question = _clean(record.get("question"), 1000)
         explanation = _clean(record.get("explanation"), 2000)

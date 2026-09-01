@@ -774,6 +774,95 @@ export interface ProgrammingQuestionAttemptResult {
   last_answered_at: string;
 }
 
+// ── Exam simulado ─────────────────────────────────────────────────────────────
+
+export interface ExamDomain {
+  name: string;
+  weight: number;
+}
+
+export interface Exam {
+  id: number;
+  code: string;
+  name: string;
+  subject_id: number | null;
+  question_count: number;
+  duration_minutes: number;
+  passing_percent: number;
+  /** Empty for a general simulado: no per-domain blueprint, just the pool. */
+  domains: ExamDomain[];
+  created_at: string;
+}
+
+export interface ExamPoolDomain extends ExamDomain {
+  available: number;
+  target: number;
+}
+
+export interface ExamOverview {
+  exam: Exam;
+  pool_size: number;
+  pool_by_domain: ExamPoolDomain[];
+  best_score_percent: number | null;
+  attempts_count: number;
+}
+
+/** What the client may see while a sitting is open: no answer key, no explanation. */
+export interface ExamAttemptQuestion {
+  id: number;
+  order_index: number;
+  domain: string;
+  question: string;
+  options: string[];
+  response_type: 'single' | 'multiple';
+}
+
+export interface ExamAttempt {
+  id: number;
+  exam_id: number;
+  status: 'in_progress' | 'finished' | 'expired';
+  started_at: string;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  question_count: number;
+  correct_count: number;
+  score_percent: number | null;
+  passed: boolean | null;
+  domain_breakdown: Record<string, { total: number; correct: number }>;
+}
+
+export interface ExamAttemptStart {
+  attempt: ExamAttempt;
+  exam: Exam;
+  questions: ExamAttemptQuestion[];
+}
+
+export interface ExamQuestionFull {
+  id: number;
+  exam_id: number;
+  domain: string;
+  question: string;
+  options: string[];
+  correct_options: string[];
+  response_type: 'single' | 'multiple';
+  explanation: string;
+  reference_url: string | null;
+  difficulty: string;
+  created_at: string;
+}
+
+export interface ExamAttemptReviewItem {
+  question: ExamQuestionFull;
+  selected_options: string[];
+  correct: boolean;
+}
+
+export interface ExamAttemptResult {
+  attempt: ExamAttempt;
+  exam: Exam;
+  review: ExamAttemptReviewItem[];
+}
+
 /** Study areas outside the programming curriculum that support the simulado. */
 export type StudyQuestionArea = 'diverse' | 'english';
 
@@ -1359,11 +1448,6 @@ export const api = {
     }),
   getTopicQuestions: (topicId: number) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions`),
-  /** Every question in a subject, shuffled, for a full-subject mock exam. limit 0 means all. */
-  getSubjectQuestions: (subjectId: number, limit = 0) =>
-    fetchAPI<ProgrammingQuestion[]>(
-      `/api/coding/subjects/${subjectId}/questions?limit=${limit}&shuffle=true`,
-    ),
   /** The exam-focused sheet of one topic. Reuses the stored one unless regenerating. */
   generateTopicSummary: (topicId: number, regenerate = false) =>
     fetchAPI<TopicSummary>(`/api/coding/topics/${topicId}/summary?regenerate=${regenerate}`, {
@@ -1377,6 +1461,26 @@ export const api = {
   /** The topic sheets joined in study order, plus the topics still missing one. */
   getSubjectSummary: (subjectId: number) =>
     fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`),
+  getExams: () => fetchAPI<ExamOverview[]>('/api/exams'),
+  createExam: (payload: {
+    name: string;
+    code?: string;
+    subject_id?: number | null;
+    question_count?: number;
+    passing_percent?: number;
+    domains?: ExamDomain[];
+  }) =>
+    fetchAPI<Exam>('/api/exams', { method: 'POST', body: JSON.stringify(payload) }),
+  startExamAttempt: (examId: number) =>
+    fetchAPI<ExamAttemptStart>(`/api/exams/${examId}/attempts`, { method: 'POST' }),
+  recordExamAnswer: (attemptId: number, payload: { exam_question_id: number; selected_options: string[] }) =>
+    fetchAPI<void>(`/api/exams/attempts/${attemptId}/answers`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  finishExamAttempt: (attemptId: number) =>
+    fetchAPI<ExamAttemptResult>(`/api/exams/attempts/${attemptId}/finish`, { method: 'POST' }),
+  getExamAttempts: (examId: number) => fetchAPI<ExamAttempt[]>(`/api/exams/${examId}/attempts`),
   generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
     fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
       method: 'POST',

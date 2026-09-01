@@ -1,8 +1,9 @@
 'use client';
 
-import { BookOpen, ClipboardList, Layers } from 'lucide-react';
+import { BookOpen, ClipboardList, GraduationCap, Layers } from 'lucide-react';
 
 import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
+import { ExamList } from '@/components/exam/ExamList';
 import type { CodingDay } from '@/lib/api';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
@@ -42,7 +43,7 @@ export function CodingTab({
   return (
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="order-2 min-w-0 lg:order-1">
-        <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <button
             type="button"
             onClick={() => setCodingMode('reading')}
@@ -94,8 +95,25 @@ export function CodingTab({
               <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>Treinar simulados por tópico</span>
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setCodingMode('exam')}
+            className={`flex min-h-16 items-center gap-3 rounded-[1.35rem] border-2 p-3 text-left transition sm:min-h-24 sm:gap-4 sm:p-4 ${
+              codingMode === 'exam'
+                ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                : 'border-slate-100 bg-white/85 text-slate-600 hover:border-indigo-300 hover:bg-white'
+            }`}
+          >
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 ${codingMode === 'exam' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+              <GraduationCap size={22} />
+            </span>
+            <span>
+              <span className="block text-sm font-black sm:text-lg">Modo simulado</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>Prova cronometrada com nota no fim</span>
+            </span>
+          </button>
         </section>
-        <CodingCurriculum focusMode={codingMode} />
+        {codingMode === 'exam' ? <ExamList /> : <CodingCurriculum focusMode={codingMode} />}
       </div>
       <aside className="order-1 min-w-0 space-y-6 lg:order-2 lg:sticky lg:top-24 lg:w-72 lg:self-start xl:w-80">
         <PomodoroWidget

@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, ClipboardList, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
-import { api, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingQuestion, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
-import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
+import { api, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
@@ -23,11 +22,6 @@ type View =
 
 type CodingFocusMode = 'reading' | 'flashcards' | 'questions';
 
-/**
- * AWS associate exams give 130 minutes for 65 questions. Deriving the clock from
- * that pace keeps a shortened simulado as tight as the real thing.
- */
-const EXAM_SECONDS_PER_QUESTION = 120;
 
 interface CodingCurriculumProps {
   focusMode?: CodingFocusMode;
@@ -46,34 +40,6 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   const [topicAIError, setTopicAIError] = useState('');
   const [newTopicId, setNewTopicId] = useState<number | null>(null);
   const [error, setError] = useState('');
-  // Full-subject mock exam: every question of the subject in one session.
-  const [examQuestions, setExamQuestions] = useState<ProgrammingQuestion[] | null>(null);
-  const [examLength, setExamLength] = useState(0); // 0 = todas
-  const [examTimed, setExamTimed] = useState(true);
-  const [loadingExam, setLoadingExam] = useState(false);
-  const [examError, setExamError] = useState('');
-
-  async function startSubjectExam(subject: ProgrammingSubject) {
-    setLoadingExam(true);
-    setExamError('');
-    try {
-      const questions = await api.getSubjectQuestions(subject.id, examLength);
-      if (questions.length === 0) {
-        setExamError('Esta matéria ainda não tem questões salvas. Gere questões em algum tópico primeiro.');
-        return;
-      }
-      setExamQuestions(questions);
-    } catch (err) {
-      setExamError(err instanceof Error ? err.message : 'Não foi possível montar o simulado.');
-    } finally {
-      setLoadingExam(false);
-    }
-  }
-
-  async function handleExamAnswer(questionId: number, selectedOption: string) {
-    return api.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
-  }
-
   // The subject sheet is the join of the topic sheets. Each topic is summarised
   // once and stored, so adding a topic later costs one call for that topic
   // instead of rewriting the whole subject.
@@ -421,50 +387,6 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             )}
           </div>
 
-          <div className="mt-5 rounded-2xl border-2 border-amber-100 bg-amber-50 p-4">
-            <p className="text-sm font-black text-amber-900">Simulado da matéria</p>
-            <p className="mt-1 text-xs font-bold text-amber-700">
-              Junta as questões de todos os tópicos em uma prova só, embaralhadas.
-            </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <label className="sr-only" htmlFor="exam-length">Numero de questoes</label>
-              <select
-                id="exam-length"
-                value={examLength}
-                onChange={(event) => setExamLength(Number(event.target.value))}
-                className="min-h-11 rounded-2xl border-2 border-amber-200 bg-white px-3 text-sm font-black text-amber-900 outline-none focus:border-amber-400"
-              >
-                <option value={0}>Todas as questões</option>
-                <option value={65}>65 questões (formato da prova)</option>
-                <option value={40}>40 questões</option>
-                <option value={20}>20 questões</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => void startSubjectExam(subject)}
-                disabled={loadingExam}
-                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
-              >
-                {loadingExam ? <Loader2 size={16} className="animate-spin" /> : <ClipboardList size={16} />}
-                Fazer simulado
-              </button>
-            </div>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs font-bold text-amber-800">
-              <input
-                type="checkbox"
-                checked={examTimed}
-                onChange={(event) => setExamTimed(event.target.checked)}
-                className="h-4 w-4 accent-amber-500"
-              />
-              Cronometrar como na prova (2 min por questão)
-            </label>
-            {examError && (
-              <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-                {examError}
-              </p>
-            )}
-          </div>
-
           <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
             <p className="text-sm font-black text-violet-900">Resumo da matéria</p>
             <p className="mt-1 text-xs font-bold text-violet-700">
@@ -498,17 +420,6 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             error={summaryError}
             onRegenerate={() => void openSubjectSummary(subject, true)}
             onClose={() => setSummary(null)}
-          />
-        )}
-
-        {examQuestions && examQuestions.length > 0 && (
-          <PracticeQuestionsModal
-            subjectName={subject.name}
-            topicTitle={`Simulado da matéria · ${examQuestions.length} questões`}
-            questions={examQuestions}
-            onAnswer={handleExamAnswer}
-            onClose={() => setExamQuestions(null)}
-            durationSeconds={examTimed ? examQuestions.length * EXAM_SECONDS_PER_QUESTION : undefined}
           />
         )}
 

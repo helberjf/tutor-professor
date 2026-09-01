@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronRight, Timer, X } from 'lucide-react';
 
+import { formatClock, useCountdown } from './use-countdown';
+
 /** Minimal shape a question needs to be practised; ProgrammingQuestion and StudyQuestion both satisfy it. */
 export interface PracticeQuestion {
   id: number;
@@ -10,16 +12,6 @@ export interface PracticeQuestion {
   options: string[];
   correct_option: string;
   explanation: string;
-}
-
-/** mm:ss, or h:mm:ss once the exam is an hour or longer. */
-export function formatClock(totalSeconds: number): string {
-  const safe = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safe / 3600);
-  const minutes = Math.floor((safe % 3600) / 60);
-  const seconds = safe % 60;
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
 
 export function PracticeQuestionsModal({
@@ -42,12 +34,9 @@ export function PracticeQuestionsModal({
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [finished, setFinished] = useState(false);
   const [attemptError, setAttemptError] = useState('');
-  const timed = typeof durationSeconds === 'number' && durationSeconds > 0;
-  // A deadline, not a countdown variable: an interval that only decrements drifts
-  // badly once the browser throttles timers in a background tab.
-  const [deadline, setDeadline] = useState(() => Date.now() + (durationSeconds ?? 0) * 1000);
-  const [remaining, setRemaining] = useState(durationSeconds ?? 0);
   const [ranOutOfTime, setRanOutOfTime] = useState(false);
+  const clock = useCountdown(durationSeconds, !finished);
+  const { timed, remaining } = clock;
   const elapsedRef = useRef(0);
   const total = questions.length;
   const safeIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
@@ -67,20 +56,11 @@ export function PracticeQuestionsModal({
   }, []);
 
   useEffect(() => {
-    if (!timed || finished) return;
-    function tick() {
-      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
-      setRemaining(left);
-      if (left === 0) {
-        elapsedRef.current = durationSeconds ?? 0;
-        setRanOutOfTime(true);
-        setFinished(true);
-      }
-    }
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [timed, finished, deadline, durationSeconds]);
+    if (!clock.expired || finished) return;
+    elapsedRef.current = durationSeconds ?? 0;
+    setRanOutOfTime(true);
+    setFinished(true);
+  }, [clock.expired, finished, durationSeconds]);
 
   if (!question) return null;
 
@@ -116,10 +96,7 @@ export function PracticeQuestionsModal({
     setAttemptError('');
     setRanOutOfTime(false);
     elapsedRef.current = 0;
-    if (timed) {
-      setRemaining(durationSeconds ?? 0);
-      setDeadline(Date.now() + (durationSeconds ?? 0) * 1000);
-    }
+    clock.restart();
   }
 
   return (

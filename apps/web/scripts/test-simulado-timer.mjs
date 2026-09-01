@@ -4,19 +4,21 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
+const countdownUrl = new URL('../src/components/questions/use-countdown.ts', import.meta.url);
 const modalUrl = new URL('../src/components/questions/PracticeQuestionsModal.tsx', import.meta.url);
-const curriculumUrl = new URL('../src/components/coding/CodingCurriculum.tsx', import.meta.url);
+const runnerUrl = new URL('../src/components/exam/ExamRunner.tsx', import.meta.url);
 
-let modalSource;
+let countdownSource;
 try {
-  modalSource = readFileSync(modalUrl, 'utf8');
+  countdownSource = readFileSync(countdownUrl, 'utf8');
 } catch {
-  assert.fail('Expected PracticeQuestionsModal.tsx to exist');
+  assert.fail('Expected use-countdown.ts to exist');
 }
+const modalSource = readFileSync(modalUrl, 'utf8');
 
-// Compile just the pure clock helper: the component itself needs a DOM.
-const helperMatch = modalSource.match(/export function formatClock\(totalSeconds: number\): string \{[\s\S]*?\n\}/);
-assert.ok(helperMatch, 'Expected formatClock to be exported from the practice modal');
+// Compile just the pure clock helper: the hook itself needs React and a DOM.
+const helperMatch = countdownSource.match(/export function formatClock\(totalSeconds: number\): string \{[\s\S]*?\n\}/);
+assert.ok(helperMatch, 'Expected formatClock to be exported from the countdown module');
 const compiled = ts.transpileModule(helperMatch[0], {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
@@ -38,15 +40,15 @@ assert.equal(formatClock(30.7), '00:30', 'fractional seconds must floor, never r
 
 // ── The timer must be a deadline, not a decrementing counter ────────────────
 assert.ok(
-  modalSource.includes('deadline - Date.now()'),
+  countdownSource.includes('deadline - Date.now()'),
   'the countdown must be derived from a deadline so a throttled background tab does not drift',
 );
 assert.ok(
-  !/setRemaining\((?:current|value|prev)[^)]*-\s*1\)/.test(modalSource),
+  !/setRemaining\((?:current|value|prev)[^)]*-\s*1\)/.test(countdownSource),
   'the countdown must not be a naive decrement',
 );
 assert.ok(
-  modalSource.includes('window.clearInterval(id)'),
+  countdownSource.includes('window.clearInterval(id)'),
   'the interval must be cleared so it does not outlive the session',
 );
 assert.ok(
@@ -62,7 +64,7 @@ assert.ok(
   'the timer must be optional so untimed practice sessions are unchanged',
 );
 assert.ok(
-  modalSource.includes('if (!timed || finished) return;'),
+  countdownSource.includes('if (!timed || !active || expired) return;'),
   'the clock must stop once the session is finished',
 );
 assert.ok(
@@ -71,31 +73,41 @@ assert.ok(
 );
 
 // restart() must give back a full clock, otherwise "Fazer novamente" starts expired.
-const restartMatch = modalSource.match(/function restart\(\) \{[\s\S]*?\n  \}/);
-assert.ok(restartMatch, 'Expected a restart function');
+const restartMatch = countdownSource.match(/const restart = useCallback\(\(\) => \{[\s\S]*?\}, \[total\]\);/);
+assert.ok(restartMatch, 'Expected a restart callback on the countdown');
 assert.ok(
   restartMatch[0].includes('setDeadline(') && restartMatch[0].includes('setRemaining('),
   'restarting a timed exam must reset the clock, not resume an expired one',
 );
 assert.ok(
-  restartMatch[0].includes('setRanOutOfTime(false)'),
-  'restarting must clear the ran-out-of-time result',
+  restartMatch[0].includes('setExpired(false)'),
+  'restarting must clear the expired flag',
+);
+assert.ok(
+  modalSource.includes('setRanOutOfTime(false)'),
+  'the practice modal must clear its ran-out-of-time result on restart',
 );
 
-// ── The subject exam wires the clock to the real exam pace ──────────────────
-const curriculumSource = readFileSync(curriculumUrl, 'utf8');
-const paceMatch = curriculumSource.match(/const EXAM_SECONDS_PER_QUESTION = (\d+);/);
-assert.ok(paceMatch, 'Expected the subject exam to declare its pace');
-const pace = Number(paceMatch[1]);
-assert.equal(pace, 120, 'AWS associate exams allow 130 minutes for 65 questions, so about 2 minutes each');
-assert.equal(65 * pace, 7800, 'a 65 question simulado must budget the same 130 minutes as the real exam');
+// ── The exam runner takes its clock from the server, not the client ─────────
+const runnerSource = readFileSync(runnerUrl, 'utf8');
 assert.ok(
-  curriculumSource.includes('examTimed ? examQuestions.length * EXAM_SECONDS_PER_QUESTION : undefined'),
-  'the clock must scale with the number of questions drawn, and be skippable',
+  runnerSource.includes('const durationSeconds = exam.duration_minutes * 60;'),
+  'the sitting must be timed by the exam it belongs to',
 );
 assert.ok(
-  curriculumSource.includes('Cronometrar como na prova'),
-  'the subject exam must let the user choose whether to be timed',
+  runnerSource.includes('if (clock.expired && !result && !finishing) void finish();'),
+  'running out of time must end the sitting exactly like pressing finish',
 );
+// Nothing may leak the answer while the exam is open. Comments are stripped first,
+// otherwise the doc comment explaining this very rule would trip the check.
+const runnerCode = runnerSource
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '');
+for (const leak of ['correct_options', 'explanation', 'isCorrect']) {
+  assert.ok(
+    !runnerCode.includes(leak),
+    `the runner must not reference ${leak}: no feedback before the exam ends`,
+  );
+}
 
 console.log('Simulado timer checks passed.');

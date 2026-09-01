@@ -4194,45 +4194,6 @@ def get_coding_subject_summary(
         pending=pending,
     )
 
-
-@app.get("/api/coding/subjects/{subject_id}/questions", response_model=list[ProgrammingQuestionSchema])
-def list_subject_questions(
-    subject_id: int,
-    request: Request,
-    limit: int = 0,
-    shuffle: bool = True,
-    session: Session = Depends(get_session),
-) -> list[ProgrammingQuestionSchema]:
-    """Subject-wide question pool, kept only until the exam mode ships its UI.
-
-    Pooling ProgrammingQuestion is what made a simulado indistinguishable from the
-    questions mode, so this route is superseded by /api/exams/{exam_id}/attempts.
-    It stays for now because deleting it before the exam screens exist would leave
-    the app with no simulado at all.
-    """
-    require_parent_session(request, session)
-    child = get_requested_child(request=request, session=session)
-    subject = session.get(ProgrammingSubject, subject_id)
-    if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
-
-    questions = session.exec(
-        select(ProgrammingQuestion)
-        .where(ProgrammingQuestion.subject_id == subject_id)
-        .order_by(ProgrammingQuestion.id)
-    ).all()
-    usable = [
-        question
-        for question in questions
-        if question.child_id == child.id and _programming_question_has_usable_options(question)
-    ]
-    if shuffle:
-        random.shuffle(usable)
-    if limit > 0:
-        usable = usable[:limit]
-    return [_programming_question_schema(question) for question in usable]
-
-
 # ── Exam simulado ─────────────────────────────────────────────────────────────
 
 

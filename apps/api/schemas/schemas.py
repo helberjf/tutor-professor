@@ -714,12 +714,13 @@ class ExamAttemptResultSchema(BaseModel):
 
 
 class CreateExamSchema(BaseModel):
-    code: str = Field(min_length=1, max_length=40)
     name: str = Field(min_length=1, max_length=200)
+    code: str = Field(default="", max_length=40)
     subject_id: Optional[int] = None
-    question_count: int = Field(default=65, ge=1, le=300)
-    passing_percent: int = Field(default=72, ge=1, le=100)
-    domains: List[ExamDomainSchema] = Field(min_length=1, max_length=12)
+    question_count: int = Field(default=20, ge=1, le=300)
+    passing_percent: int = Field(default=70, ge=1, le=100)
+    # Empty means a general simulado: no per-domain blueprint, just the pool.
+    domains: List[ExamDomainSchema] = Field(default_factory=list, max_length=12)
 
 
 # ── Study questions (diverse subjects and English) ────────────────────────────
