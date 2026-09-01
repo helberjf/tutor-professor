@@ -270,6 +270,85 @@ class ProgrammingQuestion(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Exam(SQLModel, table=True):
+    """A certification blueprint: how many questions a sitting draws, and from where.
+
+    Distinct from ProgrammingTopic on purpose. A topic is a theme you study; an
+    exam is a rehearsal you sit, scored once per attempt against a pass mark.
+    """
+
+    __table_args__ = (UniqueConstraint("child_id", "name", name="uq_exam_child_name"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    subject_id: Optional[int] = Field(default=None, foreign_key="programmingsubject.id", index=True)
+    code: str = Field(min_length=1, max_length=40)  # DVA-C02
+    name: str = Field(min_length=1, max_length=200)
+    question_count: int = Field(default=65)
+    duration_minutes: int = Field(default=130)
+    passing_percent: int = Field(default=72)
+    # [{"name": "Security", "weight": 0.26}, ...]
+    domains: list = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ExamQuestion(SQLModel, table=True):
+    """Exam-style question: 4-6 options and one *or more* correct answers.
+
+    ProgrammingQuestion holds a single correct_option, which cannot express the
+    "choose TWO" items the real certification exams ask.
+    """
+
+    __table_args__ = (UniqueConstraint("exam_id", "question_key", name="uq_examquestion_identity"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    exam_id: int = Field(foreign_key="exam.id", index=True)
+    domain: str = Field(min_length=1, max_length=120, index=True)
+    question: str = Field(min_length=1, max_length=1000)
+    question_key: str = Field(min_length=1, max_length=64)
+    options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    correct_options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    response_type: str = Field(default="single", max_length=20)  # single | multiple
+    explanation: str = Field(min_length=1, max_length=2000)
+    reference_url: Optional[str] = Field(default=None, max_length=500)
+    difficulty: str = Field(default="medium", max_length=20)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ExamAttempt(SQLModel, table=True):
+    """One sitting. This is what the questions mode cannot represent."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    exam_id: int = Field(foreign_key="exam.id", index=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    status: str = Field(default="in_progress", max_length=20)  # in_progress | finished | expired
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    finished_at: Optional[datetime] = Field(default=None)
+    duration_seconds: Optional[int] = Field(default=None)
+    question_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    score_percent: Optional[int] = Field(default=None)
+    passed: Optional[bool] = Field(default=None)
+    # {"Security": {"total": 17, "correct": 12}}
+    domain_breakdown: dict = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+class ExamAttemptAnswer(SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint("attempt_id", "exam_question_id", name="uq_examattemptanswer_identity"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    attempt_id: int = Field(foreign_key="examattempt.id", index=True)
+    exam_question_id: int = Field(foreign_key="examquestion.id", index=True)
+    # Position in the drawn sitting, so the questions can be replayed in order.
+    order_index: int = Field(default=0)
+    selected_options: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    correct: bool = Field(default=False)
+    answered_at: Optional[datetime] = Field(default=None)
+
+
 class StudyQuestion(SQLModel, table=True):
     """Multiple-choice question for study areas outside the programming curriculum.
 

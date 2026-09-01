@@ -611,6 +611,117 @@ class ProgrammingQuestionAttemptResultSchema(BaseModel):
     last_answered_at: datetime
 
 
+# ── Exam simulado ─────────────────────────────────────────────────────────────
+
+class ExamDomainSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    weight: float = Field(gt=0, le=1)
+
+
+class ExamSchema(FromAttributesModel):
+    id: int
+    code: str
+    name: str
+    subject_id: Optional[int] = None
+    question_count: int
+    duration_minutes: int
+    passing_percent: int
+    domains: List[ExamDomainSchema] = Field(default_factory=list)
+    created_at: datetime
+
+
+class ExamPoolDomainSchema(BaseModel):
+    name: str
+    weight: float
+    available: int
+    target: int
+
+
+class ExamOverviewSchema(BaseModel):
+    exam: ExamSchema
+    pool_size: int
+    pool_by_domain: List[ExamPoolDomainSchema] = Field(default_factory=list)
+    best_score_percent: Optional[int] = None
+    attempts_count: int = 0
+
+
+class ExamQuestionSchema(FromAttributesModel):
+    """Full question, answer key included. Only ever returned after a sitting ends."""
+
+    id: int
+    exam_id: int
+    domain: str
+    question: str
+    options: List[str] = Field(default_factory=list)
+    correct_options: List[str] = Field(default_factory=list)
+    response_type: str
+    explanation: str
+    reference_url: Optional[str] = None
+    difficulty: str
+    created_at: datetime
+
+
+class ExamAttemptQuestionSchema(BaseModel):
+    """What the client may see while the sitting is open.
+
+    Deliberately carries no answer key and no explanation: sending either during
+    an attempt would hand over the exam.
+    """
+
+    id: int
+    order_index: int
+    domain: str
+    question: str
+    options: List[str] = Field(default_factory=list)
+    response_type: str
+
+
+class ExamAttemptSchema(FromAttributesModel):
+    id: int
+    exam_id: int
+    status: str
+    started_at: datetime
+    finished_at: Optional[datetime] = None
+    duration_seconds: Optional[int] = None
+    question_count: int
+    correct_count: int
+    score_percent: Optional[int] = None
+    passed: Optional[bool] = None
+    domain_breakdown: Dict[str, Dict[str, int]] = Field(default_factory=dict)
+
+
+class ExamAttemptStartSchema(BaseModel):
+    attempt: ExamAttemptSchema
+    exam: ExamSchema
+    questions: List[ExamAttemptQuestionSchema] = Field(default_factory=list)
+
+
+class ExamAnswerSchema(BaseModel):
+    exam_question_id: int
+    selected_options: List[str] = Field(default_factory=list, max_length=6)
+
+
+class ExamAttemptReviewItemSchema(BaseModel):
+    question: ExamQuestionSchema
+    selected_options: List[str] = Field(default_factory=list)
+    correct: bool
+
+
+class ExamAttemptResultSchema(BaseModel):
+    attempt: ExamAttemptSchema
+    exam: ExamSchema
+    review: List[ExamAttemptReviewItemSchema] = Field(default_factory=list)
+
+
+class CreateExamSchema(BaseModel):
+    code: str = Field(min_length=1, max_length=40)
+    name: str = Field(min_length=1, max_length=200)
+    subject_id: Optional[int] = None
+    question_count: int = Field(default=65, ge=1, le=300)
+    passing_percent: int = Field(default=72, ge=1, le=100)
+    domains: List[ExamDomainSchema] = Field(min_length=1, max_length=12)
+
+
 # ── Study questions (diverse subjects and English) ────────────────────────────
 
 StudyQuestionArea = Literal["diverse", "english"]

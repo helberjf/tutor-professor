@@ -27,7 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
 from schemas.schemas import (
     AIProviderSchema,
     BookOutlineSchema,
@@ -121,6 +121,18 @@ from schemas.schemas import (
     TopicSummarySchema,
     UpdateTopicSummarySchema,
     PendingSummaryTopicSchema,
+    CreateExamSchema,
+    ExamAnswerSchema,
+    ExamAttemptQuestionSchema,
+    ExamAttemptResultSchema,
+    ExamAttemptReviewItemSchema,
+    ExamAttemptSchema,
+    ExamAttemptStartSchema,
+    ExamDomainSchema,
+    ExamOverviewSchema,
+    ExamPoolDomainSchema,
+    ExamQuestionSchema,
+    ExamSchema,
     GenerateStudyQuestionsSchema,
     StudyQuestionAttemptResultSchema,
     StudyQuestionAttemptSchema,
@@ -139,6 +151,15 @@ from services.diverse_question_service import (
     validate_generated_question_batch,
 )
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
+from services.exam_service import (
+    build_domain_breakdown,
+    duration_minutes_for,
+    grade_answer,
+    has_passed,
+    normalize_domains,
+    sample_by_blueprint,
+    score_percent,
+)
 from services.study_question_service import (
     QUESTIONS_PER_BATCH,
     build_source_content,
@@ -4182,12 +4203,12 @@ def list_subject_questions(
     shuffle: bool = True,
     session: Session = Depends(get_session),
 ) -> list[ProgrammingQuestionSchema]:
-    """Every practisable question in a subject, for a full-subject mock exam.
+    """Subject-wide question pool, kept only until the exam mode ships its UI.
 
-    The per-topic endpoint drills one theme; this one draws from all of them at
-    once so a session can look like the real certification exam. The sample is
-    shuffled before the limit is applied, so a shorter exam still spans topics
-    instead of stopping inside the first one.
+    Pooling ProgrammingQuestion is what made a simulado indistinguishable from the
+    questions mode, so this route is superseded by /api/exams/{exam_id}/attempts.
+    It stays for now because deleting it before the exam screens exist would leave
+    the app with no simulado at all.
     """
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
@@ -4210,6 +4231,351 @@ def list_subject_questions(
     if limit > 0:
         usable = usable[:limit]
     return [_programming_question_schema(question) for question in usable]
+
+
+# ── Exam simulado ─────────────────────────────────────────────────────────────
+
+
+def _exam_schema(exam: Exam) -> ExamSchema:
+    return ExamSchema(
+        id=exam.id or 0,
+        code=exam.code,
+        name=exam.name,
+        subject_id=exam.subject_id,
+        question_count=exam.question_count,
+        duration_minutes=exam.duration_minutes,
+        passing_percent=exam.passing_percent,
+        domains=[ExamDomainSchema(**domain) for domain in (exam.domains or [])],
+        created_at=exam.created_at,
+    )
+
+
+def _exam_question_schema(question: ExamQuestion) -> ExamQuestionSchema:
+    return ExamQuestionSchema(
+        id=question.id or 0,
+        exam_id=question.exam_id,
+        domain=question.domain,
+        question=question.question,
+        options=list(question.options or []),
+        correct_options=list(question.correct_options or []),
+        response_type=question.response_type,
+        explanation=question.explanation,
+        reference_url=question.reference_url,
+        difficulty=question.difficulty,
+        created_at=question.created_at,
+    )
+
+
+def _exam_attempt_schema(attempt: ExamAttempt) -> ExamAttemptSchema:
+    return ExamAttemptSchema(
+        id=attempt.id or 0,
+        exam_id=attempt.exam_id,
+        status=attempt.status,
+        started_at=attempt.started_at,
+        finished_at=attempt.finished_at,
+        duration_seconds=attempt.duration_seconds,
+        question_count=attempt.question_count,
+        correct_count=attempt.correct_count,
+        score_percent=attempt.score_percent,
+        passed=attempt.passed,
+        domain_breakdown=dict(attempt.domain_breakdown or {}),
+    )
+
+
+def _require_exam(session: Session, exam_id: int, child_id: int) -> Exam:
+    exam = session.get(Exam, exam_id)
+    if exam is None or exam.child_id != child_id:
+        raise HTTPException(status_code=404, detail="Simulado não encontrado.")
+    return exam
+
+
+def _require_attempt(session: Session, attempt_id: int, child_id: int) -> ExamAttempt:
+    attempt = session.get(ExamAttempt, attempt_id)
+    if attempt is None or attempt.child_id != child_id:
+        raise HTTPException(status_code=404, detail="Tentativa não encontrada.")
+    return attempt
+
+
+def _exam_pool(session: Session, exam_id: int) -> list[ExamQuestion]:
+    return list(
+        session.exec(
+            select(ExamQuestion)
+            .where(ExamQuestion.exam_id == exam_id)
+            .order_by(ExamQuestion.id)
+        ).all()
+    )
+
+
+@app.get("/api/exams", response_model=list[ExamOverviewSchema])
+def list_exams(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ExamOverviewSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    exams = session.exec(
+        select(Exam).where(Exam.child_id == child.id).order_by(Exam.name)
+    ).all()
+
+    overviews: list[ExamOverviewSchema] = []
+    for exam in exams:
+        pool = _exam_pool(session, exam.id or 0)
+        by_domain: dict[str, int] = {}
+        for question in pool:
+            by_domain[question.domain] = by_domain.get(question.domain, 0) + 1
+        domains = [
+            ExamPoolDomainSchema(
+                name=domain["name"],
+                weight=domain["weight"],
+                available=by_domain.get(domain["name"], 0),
+                target=round(domain["weight"] * exam.question_count),
+            )
+            for domain in (exam.domains or [])
+        ]
+        attempts = session.exec(
+            select(ExamAttempt).where(
+                ExamAttempt.exam_id == exam.id,
+                ExamAttempt.child_id == child.id,
+                ExamAttempt.status == "finished",
+            )
+        ).all()
+        scores = [attempt.score_percent for attempt in attempts if attempt.score_percent is not None]
+        overviews.append(
+            ExamOverviewSchema(
+                exam=_exam_schema(exam),
+                pool_size=len(pool),
+                pool_by_domain=domains,
+                best_score_percent=max(scores) if scores else None,
+                attempts_count=len(attempts),
+            )
+        )
+    return overviews
+
+
+@app.post("/api/exams", response_model=ExamSchema, status_code=201)
+def create_exam(
+    payload: CreateExamSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ExamSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    try:
+        domains = normalize_domains([domain.model_dump() for domain in payload.domains])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if payload.subject_id is not None:
+        subject = session.get(ProgrammingSubject, payload.subject_id)
+        if subject is None or subject.child_id != child.id:
+            raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+
+    exam = Exam(
+        child_id=child.id or 0,
+        subject_id=payload.subject_id,
+        code=" ".join(payload.code.split()),
+        name=" ".join(payload.name.split()),
+        question_count=payload.question_count,
+        duration_minutes=duration_minutes_for(payload.question_count),
+        passing_percent=payload.passing_percent,
+        domains=domains,
+    )
+    session.add(exam)
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um simulado com esse nome.") from exc
+    session.refresh(exam)
+    return _exam_schema(exam)
+
+
+@app.post("/api/exams/{exam_id}/attempts", response_model=ExamAttemptStartSchema, status_code=201)
+def start_exam_attempt(
+    exam_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ExamAttemptStartSchema:
+    """Draw a sitting by blueprint and open an attempt.
+
+    The questions come back without correct_options or explanation: sending the
+    answer key while the sitting is open would defeat the exam.
+    """
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    exam = _require_exam(session, exam_id, child.id or 0)
+
+    pool = _exam_pool(session, exam_id)
+    if not pool:
+        raise HTTPException(
+            status_code=422,
+            detail="Este simulado ainda não tem questões. Adicione questões antes de começar.",
+        )
+    try:
+        drawn = sample_by_blueprint(pool, exam.domains or [], exam.question_count)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    attempt = ExamAttempt(
+        exam_id=exam_id,
+        child_id=child.id or 0,
+        status="in_progress",
+        started_at=datetime.utcnow(),
+        question_count=len(drawn),
+    )
+    session.add(attempt)
+    session.flush()
+    for order_index, question in enumerate(drawn):
+        session.add(
+            ExamAttemptAnswer(
+                attempt_id=attempt.id or 0,
+                exam_question_id=question.id or 0,
+                order_index=order_index,
+                selected_options=[],
+                correct=False,
+            )
+        )
+    session.commit()
+    session.refresh(attempt)
+
+    return ExamAttemptStartSchema(
+        attempt=_exam_attempt_schema(attempt),
+        exam=_exam_schema(exam),
+        questions=[
+            ExamAttemptQuestionSchema(
+                id=question.id or 0,
+                order_index=order_index,
+                domain=question.domain,
+                question=question.question,
+                options=list(question.options or []),
+                response_type=question.response_type,
+            )
+            for order_index, question in enumerate(drawn)
+        ],
+    )
+
+
+@app.post("/api/exams/attempts/{attempt_id}/answers", status_code=204)
+def record_exam_answer(
+    attempt_id: int,
+    payload: ExamAnswerSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    """Store one answer. Deliberately returns nothing: no feedback mid-exam."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    attempt = _require_attempt(session, attempt_id, child.id or 0)
+    if attempt.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Esta tentativa já foi encerrada.")
+
+    answer = session.exec(
+        select(ExamAttemptAnswer).where(
+            ExamAttemptAnswer.attempt_id == attempt_id,
+            ExamAttemptAnswer.exam_question_id == payload.exam_question_id,
+        )
+    ).first()
+    if answer is None:
+        raise HTTPException(status_code=404, detail="Questão não faz parte desta tentativa.")
+
+    question = session.get(ExamQuestion, payload.exam_question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
+
+    valid_options = {option.casefold(): option for option in (question.options or [])}
+    selected: list[str] = []
+    for option in payload.selected_options:
+        match = valid_options.get(" ".join(str(option).split()).casefold())
+        if match is None:
+            raise HTTPException(status_code=422, detail="Alternativa inválida para esta questão.")
+        if match not in selected:
+            selected.append(match)
+
+    answer.selected_options = selected
+    # Graded here so finishing stays a pure aggregation, but never returned yet.
+    answer.correct = grade_answer(selected, question.correct_options or [])
+    answer.answered_at = datetime.utcnow()
+    session.add(answer)
+    session.commit()
+
+
+@app.post("/api/exams/attempts/{attempt_id}/finish", response_model=ExamAttemptResultSchema)
+def finish_exam_attempt(
+    attempt_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ExamAttemptResultSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    attempt = _require_attempt(session, attempt_id, child.id or 0)
+    exam = _require_exam(session, attempt.exam_id, child.id or 0)
+
+    answers = list(
+        session.exec(
+            select(ExamAttemptAnswer)
+            .where(ExamAttemptAnswer.attempt_id == attempt_id)
+            .order_by(ExamAttemptAnswer.order_index)
+        ).all()
+    )
+    questions_by_id = {
+        question.id: question
+        for question in session.exec(
+            select(ExamQuestion).where(
+                ExamQuestion.id.in_([answer.exam_question_id for answer in answers] or [0])
+            )
+        ).all()
+    }
+
+    drawn = [questions_by_id[answer.exam_question_id] for answer in answers if answer.exam_question_id in questions_by_id]
+    correct_ids = {
+        answer.exam_question_id
+        for answer in answers
+        if answer.correct and answer.exam_question_id in questions_by_id
+    }
+
+    if attempt.status == "in_progress":
+        finished_at = datetime.utcnow()
+        percent = score_percent(len(correct_ids), len(answers))
+        attempt.status = "finished"
+        attempt.finished_at = finished_at
+        attempt.duration_seconds = max(0, int((finished_at - attempt.started_at).total_seconds()))
+        attempt.correct_count = len(correct_ids)
+        attempt.score_percent = percent
+        attempt.passed = has_passed(percent, exam.passing_percent)
+        attempt.domain_breakdown = build_domain_breakdown(drawn, correct_ids)
+        session.add(attempt)
+        session.commit()
+        session.refresh(attempt)
+
+    review = [
+        ExamAttemptReviewItemSchema(
+            question=_exam_question_schema(questions_by_id[answer.exam_question_id]),
+            selected_options=list(answer.selected_options or []),
+            correct=answer.correct,
+        )
+        for answer in answers
+        if answer.exam_question_id in questions_by_id
+    ]
+    return ExamAttemptResultSchema(
+        attempt=_exam_attempt_schema(attempt), exam=_exam_schema(exam), review=review
+    )
+
+
+@app.get("/api/exams/{exam_id}/attempts", response_model=list[ExamAttemptSchema])
+def list_exam_attempts(
+    exam_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ExamAttemptSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    _require_exam(session, exam_id, child.id or 0)
+    attempts = session.exec(
+        select(ExamAttempt)
+        .where(ExamAttempt.exam_id == exam_id, ExamAttempt.child_id == child.id)
+        .order_by(ExamAttempt.started_at.desc())
+    ).all()
+    return [_exam_attempt_schema(attempt) for attempt in attempts]
 
 
 @app.get("/api/coding/topics/{topic_id}/questions", response_model=list[ProgrammingQuestionSchema])
