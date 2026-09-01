@@ -460,6 +460,85 @@ def test_seeded_topics_become_exams() -> None:
         session.close()
 
 
+def test_a_simulado_topic_outside_the_bank_also_moves() -> None:
+    """A simulado generated later is still a simulado, not a study topic."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import migrate_dva_c02_to_exam as migrator
+    import seed_dva_c02_questions as seeder
+    from sqlmodel import select
+    from models.database import Exam, ExamQuestion, ProgrammingQuestion, ProgrammingSubject, ProgrammingTopic
+
+    session = _migration_session()
+    try:
+        seeder.seed(
+            session,
+            email="parent@example.test",
+            child_name="Henrique",
+            subject_name="Simulado DVA-C02 - Estilo proximo da prova",
+        )
+        session.commit()
+
+        subject = session.exec(select(ProgrammingSubject)).first()
+        extra = ProgrammingTopic(
+            subject_id=subject.id, title="DVA-C02 - Simulado 4: Cenarios Avancados", order_index=99
+        )
+        study = ProgrammingTopic(
+            subject_id=subject.id, title="AWS Lambda e Serverless Computing", order_index=100
+        )
+        session.add(extra)
+        session.add(study)
+        session.flush()
+        for index in range(3):
+            session.add(
+                ProgrammingQuestion(
+                    topic_id=extra.id,
+                    subject_id=subject.id,
+                    child_id=subject.child_id,
+                    question=f"Pergunta avulsa {index}",
+                    question_key=f"avulsa-{index}",
+                    options=["Alternativa um", "Alternativa dois", "Alternativa tres", "Alternativa quatro"],
+                    correct_option="Alternativa um",
+                    explanation="Porque sim, com uma explicacao de verdade.",
+                )
+            )
+        session.add(
+            ProgrammingQuestion(
+                topic_id=study.id,
+                subject_id=subject.id,
+                child_id=subject.child_id,
+                question="Uma questao de estudo",
+                question_key="estudo-1",
+                options=["Alternativa um", "Alternativa dois", "Alternativa tres", "Alternativa quatro"],
+                correct_option="Alternativa dois",
+                explanation="Explicacao da questao de estudo.",
+            )
+        )
+        session.commit()
+
+        migrator.migrate(session, email="parent@example.test", child_name="Henrique")
+        session.commit()
+
+        exams = {exam.name: exam for exam in session.exec(select(Exam)).all()}
+        require(len(exams) == 4, f"the extra simulado must become an exam too, got {sorted(exams)}")
+        extra_exam = exams["DVA-C02 - Simulado 4: Cenarios Avancados"]
+        require(
+            extra_exam.domains == [],
+            "a simulado outside the curated bank has no blueprint: it is a general one",
+        )
+        require(extra_exam.question_count == 3, "the exam draws what the topic had")
+        pool = session.exec(select(ExamQuestion).where(ExamQuestion.exam_id == extra_exam.id)).all()
+        require(len(pool) == 3, "every question of the extra simulado must move")
+        require(all(q.domain == "Geral" for q in pool), "questions with no blueprint fall back to Geral")
+
+        remaining = session.exec(select(ProgrammingTopic)).all()
+        require(len(remaining) == 1, "only the study topic may remain")
+        require(remaining[0].title == "AWS Lambda e Serverless Computing", "the study topic must survive")
+        left_questions = session.exec(select(ProgrammingQuestion)).all()
+        require(len(left_questions) == 1, "the study question must stay in the questions mode")
+    finally:
+        session.close()
+
+
 def test_migration_is_idempotent() -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import migrate_dva_c02_to_exam as migrator

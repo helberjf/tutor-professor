@@ -29,12 +29,17 @@ import models.database  # noqa: F401,E402  # Register SQLModel tables.
 from models.database import (  # noqa: E402
     Exam,
     ExamQuestion,
+    ProgrammingFlashcard,
     ProgrammingQuestion,
     ProgrammingSubject,
     ProgrammingTopic,
 )
 from services.coding_service import programming_question_key  # noqa: E402
-from services.exam_service import duration_minutes_for, normalize_domains  # noqa: E402
+from services.exam_service import (  # noqa: E402
+    DEFAULT_DOMAIN,
+    duration_minutes_for,
+    normalize_domains,
+)
 
 from dva_c02_question_bank import DOMAIN_WEIGHTS, EXAMS  # noqa: E402
 from seed_dva_c02_questions import (  # noqa: E402
@@ -48,11 +53,22 @@ EXAM_CODE = "DVA-C02"
 SUBJECT_FRAGMENT = "dva-c02"
 
 
+def is_simulado_title(title: str) -> bool:
+    """A topic that is really a simulado.
+
+    Study topics in this subject are named after what they teach ("AWS Lambda e
+    Serverless Computing"), so the word only appears on the ones that were
+    always exams. Matching is accent and case insensitive.
+    """
+    return "simulado" in normalize(title)
+
+
 @dataclass
 class MigrationResult:
     exams_created: int = 0
     questions_moved: int = 0
     topics_removed: int = 0
+    topics_kept_for_flashcards: int = 0
     questions_skipped: int = 0
     broken_questions_removed: int = 0
     notes: list[str] = field(default_factory=list)
@@ -180,16 +196,97 @@ def migrate(session: Session, *, email: str, child_name: str) -> MigrationResult
 
         _remove_topic(session, topic, result)
 
+    # Any other topic that is a simulado wearing a topic's clothes moves too.
+    # The curated three carry the official blueprint; these carry none, which is
+    # what a general simulado wants: one pool, shuffled, no per-domain quota.
+    for topic in list(topics):
+        if not is_simulado_title(topic.title):
+            continue
+        if any(normalize(spec.title) == normalize(topic.title) for spec in EXAMS):
+            continue  # already handled above
+        if session.exec(
+            select(Exam).where(Exam.child_id == child_id, Exam.name == topic.title)
+        ).first() is not None:
+            result.notes.append(f"{topic.title}: exam already exists, skipping")
+            _remove_topic(session, topic, result)
+            continue
+
+        questions = session.exec(
+            select(ProgrammingQuestion)
+            .where(ProgrammingQuestion.topic_id == topic.id)
+            .order_by(ProgrammingQuestion.id)
+        ).all()
+        if not questions:
+            result.notes.append(f"{topic.title}: no questions, left as a topic")
+            continue
+
+        exam = Exam(
+            child_id=child_id,
+            subject_id=subject.id,
+            code=EXAM_CODE,
+            name=topic.title[:200],
+            question_count=len(questions),
+            duration_minutes=duration_minutes_for(len(questions)),
+            passing_percent=72,
+            domains=[],
+        )
+        session.add(exam)
+        session.flush()
+        result.exams_created += 1
+
+        seen: set[str] = set()
+        for question in questions:
+            key = question.question_key or programming_question_key(question.question)
+            if key in seen:
+                result.questions_skipped += 1
+                continue
+            seen.add(key)
+            session.add(
+                ExamQuestion(
+                    exam_id=exam.id or 0,
+                    domain=DEFAULT_DOMAIN,
+                    question=question.question,
+                    question_key=key,
+                    options=list(question.options or []),
+                    correct_options=[question.correct_option],
+                    response_type="single",
+                    explanation=question.explanation,
+                    difficulty="medium",
+                    created_at=question.created_at or datetime.utcnow(),
+                )
+            )
+            result.questions_moved += 1
+
+        _remove_topic(session, topic, result)
+
     remove_broken_questions(session, subject_id=subject.id or 0, result=result)
     return result
 
 
 def _remove_topic(session: Session, topic: ProgrammingTopic, result: MigrationResult) -> None:
+    """Drop the topic once its questions have moved, unless it holds flashcards.
+
+    A simulado topic that also carries flashcards is still study material, and
+    deleting it would take those with it. In that case the questions leave — which
+    is the whole point — and the topic stays behind holding its cards.
+    """
     leftovers = session.exec(
         select(ProgrammingQuestion).where(ProgrammingQuestion.topic_id == topic.id)
     ).all()
     for question in leftovers:
         session.delete(question)
+
+    flashcards = session.exec(
+        select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic.id)
+    ).all()
+    if flashcards:
+        session.flush()
+        result.topics_kept_for_flashcards += 1
+        result.notes.append(
+            f"{topic.title}: kept as a topic, it still holds {len(flashcards)} flashcards"
+        )
+        return
+
     session.delete(topic)
     result.topics_removed += 1
 
@@ -221,6 +318,7 @@ def main() -> None:
         + f"exams_created={result.exams_created} "
         + f"questions_moved={result.questions_moved} "
         + f"topics_removed={result.topics_removed} "
+        + f"topics_kept_for_flashcards={result.topics_kept_for_flashcards} "
         + f"questions_skipped={result.questions_skipped} "
         + f"broken_questions_removed={result.broken_questions_removed}"
     )
