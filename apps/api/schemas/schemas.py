@@ -643,6 +643,9 @@ class ExamOverviewSchema(BaseModel):
     pool_by_domain: List[ExamPoolDomainSchema] = Field(default_factory=list)
     best_score_percent: Optional[int] = None
     attempts_count: int = 0
+    # Set while a sitting is open, so the list offers to continue it.
+    active_attempt_id: Optional[int] = None
+    active_seconds_remaining: Optional[int] = None
 
 
 class ExamQuestionSchema(FromAttributesModel):
@@ -690,10 +693,21 @@ class ExamAttemptSchema(FromAttributesModel):
     domain_breakdown: Dict[str, Dict[str, int]] = Field(default_factory=dict)
 
 
+class ExamAttemptAnswerStateSchema(BaseModel):
+    """What was already marked, so a resumed sitting comes back filled in."""
+
+    exam_question_id: int
+    selected_options: List[str] = Field(default_factory=list)
+
+
 class ExamAttemptStartSchema(BaseModel):
     attempt: ExamAttemptSchema
     exam: ExamSchema
     questions: List[ExamAttemptQuestionSchema] = Field(default_factory=list)
+    answers: List[ExamAttemptAnswerStateSchema] = Field(default_factory=list)
+    # Counted from the attempt's start, not from when this screen opened.
+    seconds_remaining: int = 0
+    resumed: bool = False
 
 
 class ExamAnswerSchema(BaseModel):

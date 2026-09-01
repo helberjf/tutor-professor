@@ -17,13 +17,21 @@ import { ExamResult } from './ExamResult';
  */
 export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClose: () => void }) {
   const { attempt, exam, questions } = start;
-  const [index, setIndex] = useState(0);
-  const [selections, setSelections] = useState<Record<number, string[]>>({});
+  // Resuming: come back with what was already marked, on the first unanswered
+  // question, and with the clock the attempt already had.
+  const [selections, setSelections] = useState<Record<number, string[]>>(() =>
+    Object.fromEntries(start.answers.map((answer) => [answer.exam_question_id, answer.selected_options])),
+  );
+  const [index, setIndex] = useState(() => {
+    const answered = new Set(start.answers.map((answer) => answer.exam_question_id));
+    const firstOpen = questions.findIndex((question) => !answered.has(question.id));
+    return firstOpen === -1 ? Math.max(0, questions.length - 1) : firstOpen;
+  });
   const [result, setResult] = useState<ExamAttemptResult | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState('');
 
-  const durationSeconds = exam.duration_minutes * 60;
+  const durationSeconds = start.seconds_remaining;
   const clock = useCountdown(durationSeconds, result === null);
 
   const total = questions.length;
@@ -104,6 +112,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
                 Questão {safeIndex + 1} de {total} · {answeredCount} respondidas
+                {start.resumed && ' · retomado'}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
@@ -127,7 +136,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Sair do simulado"
+                aria-label="Sair do simulado sem perder o progresso"
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
               >
                 <X size={18} />
@@ -213,11 +222,10 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
               </button>
             )}
           </div>
-          {answeredCount < total && (
-            <p className="mt-2 text-center text-xs font-bold text-slate-400">
-              {total - answeredCount} questões ainda sem resposta
-            </p>
-          )}
+          <p className="mt-2 text-center text-xs font-bold text-slate-400">
+            {answeredCount < total && `${total - answeredCount} questões ainda sem resposta · `}
+            Sair mantém o progresso e o tempo
+          </p>
         </footer>
       </div>
     </div>

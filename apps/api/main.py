@@ -123,6 +123,7 @@ from schemas.schemas import (
     PendingSummaryTopicSchema,
     CreateExamSchema,
     ExamAnswerSchema,
+    ExamAttemptAnswerStateSchema,
     ExamAttemptQuestionSchema,
     ExamAttemptResultSchema,
     ExamAttemptReviewItemSchema,
@@ -153,6 +154,7 @@ from services.diverse_question_service import (
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.exam_service import (
     build_domain_breakdown,
+    remaining_seconds,
     duration_minutes_for,
     grade_answer,
     has_passed,
@@ -4243,6 +4245,101 @@ def _exam_attempt_schema(attempt: ExamAttempt) -> ExamAttemptSchema:
     )
 
 
+def _active_exam_attempt(session: Session, exam_id: int, child_id: int) -> Optional[ExamAttempt]:
+    """The open sitting to resume, and there must be only one.
+
+    Before sittings could be resumed, every reopen started another attempt, so a
+    database can hold several in-progress rows for one exam with the real work
+    scattered among them. The one with the most answers wins and the rest are
+    abandoned, which recovers the progress and leaves a single open attempt.
+    """
+    open_attempts = list(
+        session.exec(
+            select(ExamAttempt)
+            .where(
+                ExamAttempt.exam_id == exam_id,
+                ExamAttempt.child_id == child_id,
+                ExamAttempt.status == "in_progress",
+            )
+            .order_by(ExamAttempt.started_at.desc())
+        ).all()
+    )
+    if not open_attempts:
+        return None
+    if len(open_attempts) == 1:
+        return open_attempts[0]
+
+    def answered(attempt: ExamAttempt) -> int:
+        return len(
+            [
+                answer
+                for answer in session.exec(
+                    select(ExamAttemptAnswer).where(ExamAttemptAnswer.attempt_id == attempt.id)
+                ).all()
+                if answer.selected_options
+            ]
+        )
+
+    # Most progress first; ties go to whichever started last.
+    ranked = sorted(open_attempts, key=lambda a: (answered(a), a.started_at), reverse=True)
+    keeper = ranked[0]
+    for stale in ranked[1:]:
+        stale.status = "abandoned"
+        session.add(stale)
+    session.commit()
+    session.refresh(keeper)
+    return keeper
+
+
+def _attempt_payload(
+    session: Session, attempt: ExamAttempt, exam: Exam, *, resumed: bool
+) -> ExamAttemptStartSchema:
+    """The open sitting, in the order it was drawn, with what was already marked."""
+    answers = list(
+        session.exec(
+            select(ExamAttemptAnswer)
+            .where(ExamAttemptAnswer.attempt_id == attempt.id)
+            .order_by(ExamAttemptAnswer.order_index)
+        ).all()
+    )
+    questions_by_id = {
+        question.id: question
+        for question in session.exec(
+            select(ExamQuestion).where(
+                ExamQuestion.id.in_([answer.exam_question_id for answer in answers] or [0])
+            )
+        ).all()
+    }
+    return ExamAttemptStartSchema(
+        attempt=_exam_attempt_schema(attempt),
+        exam=_exam_schema(exam),
+        questions=[
+            ExamAttemptQuestionSchema(
+                id=question.id or 0,
+                order_index=answer.order_index,
+                domain=question.domain,
+                question=question.question,
+                options=list(question.options or []),
+                response_type=question.response_type,
+            )
+            for answer in answers
+            if (question := questions_by_id.get(answer.exam_question_id)) is not None
+        ],
+        answers=[
+            ExamAttemptAnswerStateSchema(
+                exam_question_id=answer.exam_question_id,
+                selected_options=list(answer.selected_options or []),
+            )
+            for answer in answers
+            if answer.selected_options
+        ],
+        seconds_remaining=remaining_seconds(
+            attempt.started_at, exam.duration_minutes, datetime.utcnow()
+        ),
+        resumed=resumed,
+    )
+
+
 def _require_exam(session: Session, exam_id: int, child_id: int) -> Exam:
     exam = session.get(Exam, exam_id)
     if exam is None or exam.child_id != child_id:
@@ -4301,6 +4398,7 @@ def list_exams(
             )
         ).all()
         scores = [attempt.score_percent for attempt in attempts if attempt.score_percent is not None]
+        open_attempt = _active_exam_attempt(session, exam.id or 0, child.id or 0)
         overviews.append(
             ExamOverviewSchema(
                 exam=_exam_schema(exam),
@@ -4308,6 +4406,12 @@ def list_exams(
                 pool_by_domain=domains,
                 best_score_percent=max(scores) if scores else None,
                 attempts_count=len(attempts),
+                active_attempt_id=open_attempt.id if open_attempt else None,
+                active_seconds_remaining=(
+                    remaining_seconds(open_attempt.started_at, exam.duration_minutes, datetime.utcnow())
+                    if open_attempt
+                    else None
+                ),
             )
         )
     return overviews
@@ -4357,7 +4461,11 @@ def start_exam_attempt(
     request: Request,
     session: Session = Depends(get_session),
 ) -> ExamAttemptStartSchema:
-    """Draw a sitting by blueprint and open an attempt.
+    """Resume the open sitting, or draw a new one by blueprint.
+
+    Closing the exam by accident must not cost the attempt, so an in-progress one
+    is handed back as it was: same questions, same order, same answers, and a
+    clock counted from when it started rather than from now.
 
     The questions come back without correct_options or explanation: sending the
     answer key while the sitting is open would defeat the exam.
@@ -4365,6 +4473,10 @@ def start_exam_attempt(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     exam = _require_exam(session, exam_id, child.id or 0)
+
+    open_attempt = _active_exam_attempt(session, exam_id, child.id or 0)
+    if open_attempt is not None:
+        return _attempt_payload(session, open_attempt, exam, resumed=True)
 
     pool = _exam_pool(session, exam_id)
     if not pool:
@@ -4399,21 +4511,7 @@ def start_exam_attempt(
     session.commit()
     session.refresh(attempt)
 
-    return ExamAttemptStartSchema(
-        attempt=_exam_attempt_schema(attempt),
-        exam=_exam_schema(exam),
-        questions=[
-            ExamAttemptQuestionSchema(
-                id=question.id or 0,
-                order_index=order_index,
-                domain=question.domain,
-                question=question.question,
-                options=list(question.options or []),
-                response_type=question.response_type,
-            )
-            for order_index, question in enumerate(drawn)
-        ],
-    )
+    return _attempt_payload(session, attempt, exam, resumed=False)
 
 
 @app.post("/api/exams/attempts/{attempt_id}/answers", status_code=204)

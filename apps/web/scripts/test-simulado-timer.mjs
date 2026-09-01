@@ -91,8 +91,21 @@ assert.ok(
 // ── The exam runner takes its clock from the server, not the client ─────────
 const runnerSource = readFileSync(runnerUrl, 'utf8');
 assert.ok(
-  runnerSource.includes('const durationSeconds = exam.duration_minutes * 60;'),
-  'the sitting must be timed by the exam it belongs to',
+  runnerSource.includes('const durationSeconds = start.seconds_remaining;'),
+  'the clock must come from the attempt, so closing the exam does not hand back time',
+);
+assert.ok(
+  !runnerSource.includes('exam.duration_minutes * 60'),
+  'the runner must not restart the full duration on every open',
+);
+// Resuming must come back where it left off, with what was already marked.
+assert.ok(
+  runnerSource.includes('start.answers.map((answer) => [answer.exam_question_id, answer.selected_options])'),
+  'a resumed sitting must prefill the answers already given',
+);
+assert.ok(
+  runnerSource.includes('const firstOpen = questions.findIndex((question) => !answered.has(question.id));'),
+  'a resumed sitting must open on the first unanswered question',
 );
 assert.ok(
   runnerSource.includes('if (clock.expired && !result && !finishing) void finish();'),

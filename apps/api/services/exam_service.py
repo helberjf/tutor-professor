@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 import re
+from datetime import datetime
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -91,6 +92,19 @@ def build_domain_breakdown(questions: Sequence[Any], correct_ids: set[int]) -> d
 
 def duration_minutes_for(question_count: int) -> int:
     return max(1, round(question_count * SECONDS_PER_QUESTION / 60))
+
+
+def remaining_seconds(started_at: datetime, duration_minutes: int, now: datetime) -> int:
+    """Time left in a sitting, measured from when it started.
+
+    The clock belongs to the attempt, not to the screen. Deriving it from
+    started_at is what lets someone close the exam by accident, come back, and
+    find the same countdown instead of a fresh one.
+    """
+    if duration_minutes <= 0:
+        return 0
+    elapsed = (now - started_at).total_seconds()
+    return max(0, int(duration_minutes * 60 - elapsed))
 
 
 # ── Blueprint ─────────────────────────────────────────────────────────────────

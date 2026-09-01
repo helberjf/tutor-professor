@@ -805,6 +805,9 @@ export interface ExamOverview {
   pool_by_domain: ExamPoolDomain[];
   best_score_percent: number | null;
   attempts_count: number;
+  /** Set while a sitting is open, so the list offers to continue it. */
+  active_attempt_id: number | null;
+  active_seconds_remaining: number | null;
 }
 
 /** What the client may see while a sitting is open: no answer key, no explanation. */
@@ -831,10 +834,20 @@ export interface ExamAttempt {
   domain_breakdown: Record<string, { total: number; correct: number }>;
 }
 
+export interface ExamAttemptAnswerState {
+  exam_question_id: number;
+  selected_options: string[];
+}
+
 export interface ExamAttemptStart {
   attempt: ExamAttempt;
   exam: Exam;
   questions: ExamAttemptQuestion[];
+  /** What was already marked, so a resumed sitting comes back filled in. */
+  answers: ExamAttemptAnswerState[];
+  /** Counted from when the attempt started, not from when the screen opened. */
+  seconds_remaining: number;
+  resumed: boolean;
 }
 
 export interface ExamQuestionFull {

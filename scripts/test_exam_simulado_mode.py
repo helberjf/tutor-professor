@@ -19,6 +19,7 @@ sys.path.insert(0, str(API))
 
 from services.exam_service import (  # noqa: E402
     DEFAULT_PASSING_PERCENT,
+    remaining_seconds,
     build_domain_breakdown,
     grade_answer,
     has_passed,
@@ -88,6 +89,23 @@ def test_score_is_a_percentage_against_the_72_cut() -> None:
     require(score_percent(0, 0) == 0, "an empty sitting must not divide by zero")
     require(has_passed(score_percent(47, 65)), "47 of 65 is 72% and passes")
     require(not has_passed(score_percent(46, 65)), "46 of 65 is 71% and fails")
+
+
+def test_the_clock_belongs_to_the_attempt_not_the_screen() -> None:
+    """Closing the exam and coming back must not hand back time."""
+    from datetime import datetime, timedelta
+
+    started = datetime(2026, 9, 1, 10, 0, 0)
+    require(remaining_seconds(started, 42, started) == 42 * 60, "a fresh sitting has the full clock")
+    require(
+        remaining_seconds(started, 42, started + timedelta(minutes=10)) == 32 * 60,
+        "ten minutes away must still be ten minutes gone",
+    )
+    require(
+        remaining_seconds(started, 42, started + timedelta(hours=3)) == 0,
+        "a sitting left open past its time has no time left, never negative",
+    )
+    require(remaining_seconds(started, 0, started) == 0, "an exam with no duration has no clock")
 
 
 def test_domain_breakdown_counts_every_domain_drawn() -> None:
@@ -362,6 +380,21 @@ def test_backend_contract() -> None:
     require(
         "def list_subject_questions" not in main,
         "the subject-wide pool must be gone: it is what conflated the two modes",
+    )
+
+    # Closing the exam must not cost the attempt.
+    for expected in (
+        "def _active_exam_attempt",
+        "def _attempt_payload",
+        "if open_attempt is not None:",
+        "return _attempt_payload(session, open_attempt, exam, resumed=True)",
+        "active_attempt_id=open_attempt.id if open_attempt else None",
+        'stale.status = "abandoned"',
+    ):
+        require(expected in main, f"missing resume contract: {expected}")
+    require(
+        "seconds_remaining=remaining_seconds(" in main,
+        "the resumed clock must be counted from the attempt, not from now",
     )
 
     migration = read(MIGRATION)

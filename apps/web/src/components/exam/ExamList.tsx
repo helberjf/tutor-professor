@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ClipboardList, Loader2, Play, Timer, Trophy } from 'lucide-react';
 
+import { formatClock } from '@/components/questions/use-countdown';
 import { api, type ExamAttemptStart, type ExamOverview } from '@/lib/api';
 
 import { ExamRunner } from './ExamRunner';
@@ -98,9 +99,17 @@ export function ExamList() {
         </p>
       )}
 
-      {exams.map(({ exam, pool_size: poolSize, best_score_percent: best, attempts_count: attempts }) => {
+      {exams.map(({
+        exam,
+        pool_size: poolSize,
+        best_score_percent: best,
+        attempts_count: attempts,
+        active_attempt_id: activeId,
+        active_seconds_remaining: activeLeft,
+      }) => {
         const drawn = Math.min(poolSize, exam.question_count);
         const thin = poolSize < exam.question_count;
+        const open = activeId !== null;
         return (
           <article key={exam.id} className="rounded-3xl border-2 border-slate-100 bg-white p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -128,15 +137,25 @@ export function ExamList() {
                     O acervo tem {poolSize} questões, menos que as {exam.question_count} do formato — a prova sai com {drawn}.
                   </p>
                 )}
+                {open && (
+                  <p className="mt-2 text-xs font-black text-indigo-700">
+                    Simulado em andamento
+                    {activeLeft !== null && activeLeft > 0
+                      ? ` · ${formatClock(activeLeft)} restantes`
+                      : ' · o tempo acabou, abra para ver o resultado'}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => void start(exam.id)}
                 disabled={startingId !== null || poolSize === 0}
-                className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 font-black text-white hover:bg-indigo-700 disabled:opacity-50"
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-6 font-black text-white disabled:opacity-50 ${
+                  open ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                }`}
               >
                 {startingId === exam.id ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                Fazer simulado
+                {open ? 'Continuar simulado' : 'Fazer simulado'}
               </button>
             </div>
           </article>
