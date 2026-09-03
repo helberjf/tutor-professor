@@ -417,7 +417,18 @@ async def _module_gate(request: Request, call_next):
     if module_id is None:
         return await call_next(request)
     with Session(engine) as db:
-        user = get_request_user(request=request, session=db)
+        session_record = get_request_user_session(request=request, session=db)
+        if session_record is None:
+            # No session means no account, and so no module choice to enforce.
+            # Answering 403 here would tell a signed-out caller that a module is
+            # off when what they need to hear is that they are not signed in;
+            # the route's own check says that.
+            return await call_next(request)
+        user = (
+            db.get(User, session_record.user_id)
+            if session_record.user_id is not None
+            else None
+        )
         enabled = is_module_enabled(user.enabled_modules if user else None, module_id)
     if not enabled:
         return JSONResponse(

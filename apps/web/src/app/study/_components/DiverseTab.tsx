@@ -35,12 +35,16 @@ import { MetricCard, PomodoroWidget } from './shared';
 // ═══════════════════════════════════════════════════════════════════════════════
 export function OtherSubjectsPicker({
   subjects, selectedValue, onSelectOverview, onSelectCoding, onSelectSubjectTab,
+  codingEnabled = true,
 }: {
   subjects: DiverseSubject[];
   selectedValue: string;
   onSelectOverview: () => void;
   onSelectCoding: () => void;
   onSelectSubjectTab: (slug: string) => void;
+  // The programming module ships off; the entry appears once it is switched on
+  // in the parents area.
+  codingEnabled?: boolean;
 }) {
   return (
     <div className="mb-6 rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
@@ -60,7 +64,7 @@ export function OtherSubjectsPicker({
           className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
         >
           <option value="">Todas as matérias</option>
-          <option value="__coding__">Programação</option>
+          {codingEnabled ? <option value="__coding__">Programação</option> : null}
           {subjects.map((subject, index) => {
             const slug = getDiverseSubjectSlug(subject, index, subjects);
             return <option key={slug} value={slug}>{subject.name}</option>;
@@ -80,6 +84,7 @@ export function DiverseTab({
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview, onSelectCoding,
+  codingEnabled = true,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onRegenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
   onGenerateMoreQuestions, generatingDiverseQuestions,
@@ -106,6 +111,7 @@ export function DiverseTab({
   onSelectSubjectTab: (slug: string) => void;
   onSelectOverview: () => void;
   onSelectCoding: () => void;
+  codingEnabled?: boolean;
   onRemoveSubject: (i: number) => void | Promise<void>;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
@@ -244,6 +250,7 @@ export function DiverseTab({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
+              {codingEnabled ? (
               <article className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -265,6 +272,7 @@ export function DiverseTab({
                   <Layers size={16} /> Abrir dashboard
                 </button>
               </article>
+              ) : null}
               {subjectTabs.map((item) => {
                 const subjectTopics = getDiverseSubjectTopics(item.subject);
                 const done = subjectTopics.filter((topic) => topic.done).length;

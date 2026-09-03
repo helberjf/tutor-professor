@@ -551,6 +551,21 @@ export interface UserProfile {
   created_at: string;
   status: AccountStatus;
   is_admin: boolean;
+  // Which optional modules this account switched on. Absent on an older backend,
+  // in which case the UI falls back to showing everything it always showed.
+  modules?: Record<string, boolean>;
+}
+
+export interface ModuleInfo {
+  id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  locked: boolean;
+}
+
+export interface ModuleSettings {
+  modules: ModuleInfo[];
 }
 
 export interface UserRegisterPayload {
@@ -1367,6 +1382,44 @@ export const api = {
     userMeCache = { at: Date.now(), promise };
     promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
     return promise;
+  },
+  forgotPassword: (email: string) =>
+    fetchAPI<{ detail: string }>('/api/auth/password/forgot', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, password: string) =>
+    fetchAPI<void>('/api/auth/password/reset', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+  verifyEmail: (token: string) =>
+    fetchAPI<UserProfile>('/api/auth/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }),
+  resendVerificationEmail: (email: string) =>
+    fetchAPI<{ detail: string }>('/api/auth/email/resend', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  changeOwnPassword: (currentPassword: string, newPassword: string) =>
+    fetchAPI<void>('/api/account/password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }),
+  revokeOwnSessions: () =>
+    fetchAPI<void>('/api/account/sessions/revoke', { method: 'POST' }),
+  getAccountModules: () => fetchAPI<ModuleSettings>('/api/account/modules'),
+  updateAccountModules: async (modules: Record<string, boolean>) => {
+    const result = await fetchAPI<ModuleSettings>('/api/account/modules', {
+      method: 'PUT',
+      body: JSON.stringify({ modules }),
+    });
+    // The navigation reads the switches from /api/auth/me, so the cached copy
+    // would keep hiding a module the user just switched on.
+    invalidateUserMeCache();
+    return result;
   },
   userLogout: async () => {
     try {

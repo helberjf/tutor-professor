@@ -16,6 +16,7 @@ import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useModules } from '@/hooks/use-modules';
 import {
   createInitialPomodoroState,
   formatTimer,
@@ -132,6 +133,8 @@ export default function StudyPage() {
   const todayPomodoroCount = getTodaysPomodoroCount(pomodoroState);
   // Baseline for detecting new pomodoro completions to sync to backend
   const pomodoroSyncBaseRef = useRef<Record<string, number> | null>(null);
+  const { modules, loading: loadingModules } = useModules();
+  const codingEnabled = modules.coding === true;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -145,6 +148,15 @@ export default function StudyPage() {
       setSelectedDiverseSubjectSlug(null);
     }
   }, []);
+
+  // A saved link to ?tab=coding still opens the tab for an account that has the
+  // module on; this only steps in once the answer says it is off.
+  useEffect(() => {
+    if (loadingModules || codingEnabled || activeTab !== 'coding') return;
+    setActiveTab('diverse');
+    setSelectedDiverseSubjectSlug(null);
+    setStudyUrlTab('diverse');
+  }, [loadingModules, codingEnabled, activeTab]);
 
   useEffect(() => {
     diverseDayRef.current = diverseDay;
@@ -166,6 +178,12 @@ export default function StudyPage() {
   }
 
   function selectStudyTab(tab: StudyTab) {
+    // A deep link to ?tab=coding from before the module was switched off would
+    // otherwise open a tab whose every request answers 403.
+    if (tab === 'coding' && !codingEnabled) {
+      selectDiverseOverview();
+      return;
+    }
     setActiveTab(tab);
     setSelectedDiverseSubjectSlug(null);
     setStudyUrlTab(tab === 'english' ? null : tab);
@@ -1146,6 +1164,7 @@ export default function StudyPage() {
             onSelectOverview={selectDiverseOverview}
             onSelectCoding={() => selectStudyTab('coding')}
             onSelectSubjectTab={selectDiverseSubjectTab}
+            codingEnabled={codingEnabled}
           />
         )}
 
@@ -1215,6 +1234,7 @@ export default function StudyPage() {
             onSelectSubjectTab={selectDiverseSubjectTab}
             onSelectOverview={selectDiverseOverview}
             onSelectCoding={() => selectStudyTab('coding')}
+            codingEnabled={codingEnabled}
             onRemoveSubject={removeDiverseSubject}
             onToggleTopic={toggleDiverseTopic}
             onUpdateTopicText={updateDiverseTopicText}
