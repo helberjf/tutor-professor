@@ -185,6 +185,64 @@ async def run() -> None:
             "approved account reaches the app",
         )
 
+        # Approval and AI authorization are two independent switches: being let
+        # into the app grants no AI on its own.
+        ai_settings = (await family_client.get("/api/ai/settings")).json()
+        require(
+            not ai_settings["has_api_key"] and not ai_settings["use_global_key"],
+            f"approval must not hand out AI access, got {ai_settings}",
+        )
+        assert_status(
+            await family_client.post(
+                "/api/study/diverse/generate-flashcards",
+                json={"subject": "Historia", "count": 2},
+            ),
+            403,
+            "an approved account without AI cannot generate",
+        )
+
+        approved_row = next(
+            row
+            for row in (await admin_client.get("/api/admin/users?status=approved")).json()
+            if row["email"] == "familia@example.com"
+        )
+        require(
+            approved_row["ai_settings"]["use_global_key"] is False,
+            f"expected no AI authorization after approval, got {approved_row}",
+        )
+
+        assert_status(
+            await admin_client.put(
+                f"/api/admin/users/{family_id}/ai-settings",
+                json={"provider": "gemini", "use_global_key": True},
+            ),
+            200,
+            "authorize the global AI key",
+        )
+        granted = (await family_client.get("/api/ai/settings")).json()
+        require(
+            granted["use_global_key"],
+            f"expected the global key authorization to stick, got {granted}",
+        )
+
+        # Revoking the AI leaves the account itself working.
+        revoke_response = await admin_client.delete(f"/api/admin/users/{family_id}/ai-settings")
+        assert_status(revoke_response, 200, "revoke the AI authorization")
+        require(
+            not revoke_response.json()["use_global_key"],
+            f"expected the authorization dropped, got {revoke_response.text}",
+        )
+        assert_status(
+            await family_client.get("/api/parent/children"),
+            200,
+            "revoking AI does not remove app access",
+        )
+        after_revoke = (await family_client.get("/api/ai/settings")).json()
+        require(
+            not after_revoke["has_api_key"] and not after_revoke["use_global_key"],
+            f"expected no AI settings after revoking, got {after_revoke}",
+        )
+
         # A refused account loses its access immediately.
         await register(other_client, email="outro@example.com", cpf=OTHER_CPF, name="Outro")
         await login(other_client, "outro@example.com")

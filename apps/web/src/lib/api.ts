@@ -1444,6 +1444,8 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  adminRevokeUserAI: (userId: number) =>
+    fetchAPI<UserAISettings>(`/api/admin/users/${userId}/ai-settings`, { method: 'DELETE' }),
   adminListModules: () => fetchAPI<AdminModule[]>('/api/admin/learn/modules'),
   adminGetModule: (slug: string) => fetchAPI<AdminModuleDetail>(`/api/admin/learn/modules/${slug}`),
   adminListFlashcards: () => fetchAPI<AdminFlashcard[]>('/api/admin/learn/flashcards'),

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Loader2, RotateCcw, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { Check, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, X } from 'lucide-react';
 
 import { api, type AccountStatus, type AdminUser } from '@/lib/api';
 
@@ -97,6 +97,39 @@ export function AdminAccountQueue() {
     }
   }
 
+  // The second switch, independent of approval: an approved account still has no
+  // AI until it is authorized here, and revoking it leaves the account working.
+  async function setAIAccess(user: AdminUser, grant: boolean) {
+    setBusyUserId(user.id);
+    setMessage(null);
+    try {
+      const ai_settings = grant
+        ? await api.adminSaveUserAISettings(user.id, {
+            provider: user.ai_settings.provider,
+            model: user.ai_settings.model,
+            base_url: user.ai_settings.base_url ?? undefined,
+            use_global_key: true,
+          })
+        : await api.adminRevokeUserAI(user.id);
+      setUsers((current) =>
+        current.map((item) => (item.id === user.id ? { ...item, ai_settings } : item)),
+      );
+      setMessage({
+        tone: 'success',
+        text: grant
+          ? `${user.email} pode usar a IA com a sua chave global.`
+          : `${user.email} perdeu o acesso a IA, mas continua usando o app.`,
+      });
+    } catch (error) {
+      setMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Nao foi possivel mudar o acesso a IA.',
+      });
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -149,6 +182,12 @@ export function AdminAccountQueue() {
       {visible.map((user) => {
         const badge = STATUS_BADGE[user.status];
         const busy = busyUserId === user.id;
+        const hasAI = user.ai_settings.use_global_key || user.ai_settings.has_api_key;
+        const aiLabel = user.ai_settings.use_global_key
+          ? 'IA pela chave global'
+          : user.ai_settings.has_api_key
+            ? 'IA com chave propria'
+            : 'Sem IA';
 
         return (
           <article key={user.id} className="rounded-2xl border-2 border-slate-100 bg-white p-4 shadow-sm">
@@ -171,10 +210,18 @@ export function AdminAccountQueue() {
                   <p className="mt-2 text-xs font-bold text-slate-500">Nota: {user.review_note}</p>
                 ) : null}
               </div>
-              <span className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${badge.className}`}>
-                {user.status === 'rejected' ? <ShieldX size={13} /> : <ShieldCheck size={13} />}
-                {badge.label}
-              </span>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${badge.className}`}>
+                  {user.status === 'rejected' ? <ShieldX size={13} /> : <ShieldCheck size={13} />}
+                  {badge.label}
+                </span>
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
+                  hasAI ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  <KeyRound size={13} />
+                  {aiLabel}
+                </span>
+              </div>
             </div>
 
             {user.is_admin ? (
@@ -182,42 +229,88 @@ export function AdminAccountQueue() {
                 A conta do administrador não passa pela fila de aprovação.
               </p>
             ) : (
-              <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
-                <label className="flex-1 text-sm font-black text-slate-700">
-                  Nota interna (opcional)
-                  <input
-                    value={notes[user.id] ?? ''}
-                    onChange={(event) =>
-                      setNotes((current) => ({ ...current, [user.id]: event.target.value }))
-                    }
-                    placeholder="Ex.: familia conhecida, turma da escola..."
-                    maxLength={300}
-                    className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
-                  />
-                </label>
-                <div className="flex gap-2">
-                  {user.status !== 'approved' ? (
-                    <button
-                      type="button"
-                      onClick={() => void review(user, 'approve')}
-                      disabled={busy}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                      {user.status === 'rejected' ? 'Reabrir acesso' : 'Aprovar'}
-                    </button>
-                  ) : null}
-                  {user.status !== 'rejected' ? (
-                    <button
-                      type="button"
-                      onClick={() => void review(user, 'reject')}
-                      disabled={busy}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {busy ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
-                      {user.status === 'approved' ? 'Revogar acesso' : 'Recusar'}
-                    </button>
-                  ) : null}
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    1. Acesso ao app
+                  </p>
+                  <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end">
+                    <label className="flex-1 text-sm font-black text-slate-700">
+                      Nota interna (opcional)
+                      <input
+                        value={notes[user.id] ?? ''}
+                        onChange={(event) =>
+                          setNotes((current) => ({ ...current, [user.id]: event.target.value }))
+                        }
+                        placeholder="Ex.: familia conhecida, turma da escola..."
+                        maxLength={300}
+                        className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      {user.status !== 'approved' ? (
+                        <button
+                          type="button"
+                          onClick={() => void review(user, 'approve')}
+                          disabled={busy}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                          {user.status === 'rejected' ? 'Reabrir acesso' : 'Aprovar'}
+                        </button>
+                      ) : null}
+                      {user.status !== 'rejected' ? (
+                        <button
+                          type="button"
+                          onClick={() => void review(user, 'reject')}
+                          disabled={busy}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busy ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
+                          {user.status === 'approved' ? 'Revogar acesso' : 'Recusar'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-slate-100 pt-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                    2. Acesso a IA (separado)
+                  </p>
+                  <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm font-semibold leading-6 text-slate-500">
+                      {hasAI
+                        ? user.ai_settings.use_global_key
+                          ? 'Usa a sua chave global do servidor.'
+                          : `Usa a chave propria ${user.ai_settings.api_key_preview ?? 'salva'}.`
+                        : 'Aprovada ou nao, esta conta nao gera nada por IA ate voce liberar.'}
+                    </p>
+                    <div className="flex shrink-0 gap-2">
+                      {!user.ai_settings.use_global_key ? (
+                        <button
+                          type="button"
+                          onClick={() => void setAIAccess(user, true)}
+                          disabled={busy}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-2 text-sm font-black text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busy ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                          Liberar minha chave
+                        </button>
+                      ) : null}
+                      {hasAI ? (
+                        <button
+                          type="button"
+                          onClick={() => void setAIAccess(user, false)}
+                          disabled={busy}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busy ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                          Revogar IA
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

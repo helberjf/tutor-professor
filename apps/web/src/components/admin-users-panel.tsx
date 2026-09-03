@@ -119,6 +119,37 @@ export function AdminUsersPanel() {
     }
   }
 
+  async function revokeUserAI(user: AdminUser) {
+    setSavingUserId(user.id);
+    setMessage(null);
+    try {
+      const saved = await api.adminRevokeUserAI(user.id);
+      setUsers((current) => current.map((item) => (
+        item.id === user.id ? { ...item, ai_settings: saved } : item
+      )));
+      setForms((current) => ({
+        ...current,
+        [user.id]: {
+          provider: saved.provider,
+          model: saved.model,
+          base_url: saved.base_url ?? '',
+          api_key: '',
+        },
+      }));
+      setMessage({
+        tone: 'success',
+        text: `${user.email} perdeu o acesso a IA. A conta continua funcionando no app.`,
+      });
+    } catch (error) {
+      setMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Nao foi possivel revogar o acesso a IA.',
+      });
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
   async function authorizeUserWithGlobalKey(user: AdminUser) {
     const form = forms[user.id] ?? {
       provider: user.ai_settings.provider,
@@ -286,6 +317,17 @@ export function AdminUsersPanel() {
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
                 Autorizar IA
               </button>
+              {user.ai_settings.use_global_key || user.ai_settings.has_api_key ? (
+                <button
+                  type="button"
+                  onClick={() => void revokeUserAI(user)}
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-2 text-sm font-black text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                  Revogar IA
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void saveUserSettings(user)}

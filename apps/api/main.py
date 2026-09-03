@@ -7137,6 +7137,33 @@ def admin_save_user_ai_settings(
     return build_ai_settings_schema(record)
 
 
+@app.delete("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)
+def admin_revoke_user_ai_settings(
+    user_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> UserAISettingsSchema:
+    """Take the AI authorization back, leaving the account itself untouched.
+
+    Approval and AI access are two separate switches, so revoking here does not
+    log the person out or block the rest of the app - only AI generation stops.
+    """
+
+    _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+
+    record = get_user_ai_settings_record(user_id, session)
+    if record is not None:
+        # Dropping the row rather than blanking the key: a row with neither a key
+        # nor the global flag is a state save_ai_settings_for_user refuses to
+        # create, so keeping one here would be a shape nothing else expects.
+        session.delete(record)
+        session.commit()
+    return build_ai_settings_schema(None)
+
+
 @app.get("/api/admin/learn/modules")
 def admin_list_modules(
     request: Request,
