@@ -3,12 +3,25 @@ import { readFileSync } from 'node:fs';
 
 const registerPage = readFileSync(new URL('../src/app/register/page.tsx', import.meta.url), 'utf8');
 
+/**
+ * Devolve a tag de abertura inteira do <Field> com aquele id, em uma linha ou
+ * em varias. O que o teste garante e a marcacao de obrigatorio, entao ele nao
+ * pode quebrar so porque o JSX foi reformatado.
+ */
 function fieldLine(id) {
-  const start = registerPage.indexOf(`<Field id="${id}"`);
-  assert.notEqual(start, -1, `${id} field should exist`);
-  const end = registerPage.indexOf('\n', start);
-  assert.notEqual(end, -1, `${id} field line should end`);
-  return registerPage.slice(start, end);
+  const idIndex = registerPage.indexOf(`id="${id}"`);
+  assert.notEqual(idIndex, -1, `${id} field should exist`);
+  const start = registerPage.lastIndexOf('<Field', idIndex);
+  assert.notEqual(start, -1, `${id} should belong to a Field`);
+
+  let depth = 0;
+  for (let i = start; i < registerPage.length; i += 1) {
+    const character = registerPage[i];
+    if (character === '{') depth += 1;
+    else if (character === '}') depth -= 1;
+    else if (character === '>' && depth === 0) return registerPage.slice(start, i + 1);
+  }
+  return assert.fail(`${id} field tag should close`);
 }
 
 assert.match(registerPage, /required\?: boolean;/);

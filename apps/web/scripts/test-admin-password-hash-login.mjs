@@ -15,7 +15,9 @@ const loginBlock = apiMain.slice(loginStart, loginEnd);
 
 assert.match(loginBlock, /password_matches = verify_password\(payload\.password, user\.password_hash\)/);
 assert.match(loginBlock, /admin_password_matches = verify_admin_password_override\(user\.email, payload\.password\)/);
-assert.match(loginBlock, /if not user or not \(password_matches or admin_password_matches\):/);
+assert.match(loginBlock, /if not \(password_matches or admin_password_matches\):/);
+// A conta inexistente ja saiu com 401 antes daqui.
+assert.match(loginBlock, /if not user:\s+raise HTTPException\(status_code=401/s);
 assert.doesNotMatch(loginBlock, /ADMIN_PASSWORD=/);
 
 assert.match(envExample, /ADMIN_EMAIL=/);
