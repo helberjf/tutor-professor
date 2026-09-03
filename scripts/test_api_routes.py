@@ -42,6 +42,7 @@ import httpx  # noqa: E402
 from sqlmodel import Session  # noqa: E402
 
 import main  # noqa: E402
+from account_approval_support import enable_all_modules  # noqa: E402
 
 
 VALID_CPF = "52998224725"
@@ -173,6 +174,11 @@ async def run() -> None:
         )
         assert_status(await client.post("/api/auth/login", json={"email": "pai@example.com", "password": "Secret@123"}), 200, "login")
         assert_status(await client.get("/api/auth/me"), 200, "me")
+
+        # The programming module ships off. This smoke test drives the coding
+        # curriculum end to end, so switch every module on the way an account
+        # would in Configuracoes.
+        enable_all_modules(main)
 
         providers_response = await client.get("/api/ai/providers")
         assert_status(providers_response, 200, "ai providers")

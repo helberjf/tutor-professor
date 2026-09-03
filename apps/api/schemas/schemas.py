@@ -1086,6 +1086,48 @@ class UserResponseSchema(FromAttributesModel):
     # themselves is always reported as approved.
     status: str = "pending"
     is_admin: bool = False
+    # Which optional modules this account switched on. The frontend hides the
+    # navigation for anything switched off.
+    modules: dict[str, bool] = {}
+
+
+class EmailRequestSchema(BaseModel):
+    email: str
+
+
+class VerifyEmailSchema(BaseModel):
+    token: str
+
+
+class PasswordResetRequestSchema(BaseModel):
+    token: str
+    password: str
+
+
+class PasswordChangeSchema(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AccountDeleteSchema(BaseModel):
+    password: str
+
+
+class ModuleSchema(BaseModel):
+    id: str
+    label: str
+    description: str
+    enabled: bool
+    locked: bool = False
+
+
+class ModuleSettingsSchema(BaseModel):
+    modules: list[ModuleSchema]
+
+
+class ModuleSettingsUpdateSchema(BaseModel):
+    # Only the switches being changed need to be sent.
+    modules: dict[str, bool]
 
 
 class AdminUserReviewSchema(BaseModel):

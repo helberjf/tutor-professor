@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -20,15 +21,24 @@ from cryptography.fernet import Fernet, InvalidToken
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func, inspect, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
-from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
+from services.key_vault import KeyVaultError, build_key_vault, derive_fernet_key
+from services.email_service import EmailMessageSpec, EmailService
+from services.rate_limit import RateLimitRule, SlidingWindowRateLimiter
+from services.modules import (
+    MODULE_DEFINITIONS,
+    apply_module_changes,
+    is_module_enabled,
+    resolve_modules,
+)
+from models.database import AdminFlashcard, AuthToken, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -59,7 +69,15 @@ from schemas.schemas import (
     LessonSchema,
     LessonSummarySchema,
     ParentLoginSchema,
+    AccountDeleteSchema,
+    EmailRequestSchema,
+    ModuleSchema,
+    ModuleSettingsSchema,
+    ModuleSettingsUpdateSchema,
+    PasswordChangeSchema,
+    PasswordResetRequestSchema,
     ParentSettingsUpdateSchema,
+    VerifyEmailSchema,
     UserAISettingsSchema,
     UserAISettingsUpdateSchema,
     UserLoginSchema,
@@ -268,6 +286,9 @@ def _resolve_session_secret() -> str:
 
 
 SESSION_SECRET = _resolve_session_secret()
+# Stored AI keys have their own key with its own lifetime, so SESSION_SECRET can
+# be rotated after a scare without destroying every key users saved.
+key_vault = build_key_vault(session_secret=SESSION_SECRET)
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "").strip()
 
@@ -288,6 +309,21 @@ NO_AI_CREDITS_DETAIL = (
 # permanent lock would hand anyone an easy way to lock a real person out.
 MAX_FAILED_LOGINS = int(os.getenv("MAX_FAILED_LOGINS", "5"))
 LOGIN_LOCK_MINUTES = int(os.getenv("LOGIN_LOCK_MINUTES", "15"))
+# A request with no parent session used to fall back to the shared child row
+# (user_id IS NULL). For a single family on a laptop that is convenience; for a
+# hosted product it is one bucket every visitor on the internet reads and
+# writes. It is opt-in now, and off wherever the app is actually served.
+ALLOW_GUEST_ACCESS = os.getenv("ALLOW_GUEST_ACCESS", "false").lower() == "true"
+LOGIN_REQUIRED_DETAIL = "Entre na sua conta para continuar."
+
+# "manual" keeps the administrator's approval queue in front of the door;
+# "open" lets a verified e-mail in on its own, which is what self-service needs.
+SIGNUP_MODE = os.getenv("SIGNUP_MODE", "manual").strip().lower()
+SIGNUP_MODE_OPEN = "open"
+SIGNUP_MODE_MANUAL = "manual"
+if SIGNUP_MODE not in (SIGNUP_MODE_OPEN, SIGNUP_MODE_MANUAL):
+    SIGNUP_MODE = SIGNUP_MODE_MANUAL
+
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -353,6 +389,127 @@ _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite"
 engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 app = FastAPI(title="Tutor and Professor API", version="1.0.0")
 
+# ── Module gate ───────────────────────────────────────────────────────────────
+# Optional modules are switched off by whole route families rather than by a
+# check repeated in 30 endpoints, because the check that gets forgotten is the
+# one written 30 times. Registered *before* the CORS middleware so CORS ends up
+# outermost and a 403 from here still carries the headers the browser needs to
+# read it instead of surfacing as an opaque network error.
+MODULE_ROUTE_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("/api/coding/", "coding"),
+    ("/api/study/coding/", "coding"),
+    ("/api/study/diverse", "diverse"),
+    ("/api/books", "books"),
+    ("/api/exams", "exams"),
+)
+MODULE_DISABLED_DETAIL = "Este modulo esta desligado. Ative em Configuracoes."
+
+
+def module_for_path(path: str) -> str | None:
+    for prefix, module_id in MODULE_ROUTE_PREFIXES:
+        if path == prefix.rstrip("/") or path.startswith(prefix):
+            return module_id
+    return None
+
+
+async def _module_gate(request: Request, call_next):
+    module_id = module_for_path(request.url.path)
+    if module_id is None:
+        return await call_next(request)
+    with Session(engine) as db:
+        user = get_request_user(request=request, session=db)
+        enabled = is_module_enabled(user.enabled_modules if user else None, module_id)
+    if not enabled:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": MODULE_DISABLED_DETAIL, "module": module_id},
+        )
+    return await call_next(request)
+
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=_module_gate)
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+# The account lock already slows down guessing at one password. These two rules
+# cover the rest: signing up in a loop, and one account spending the whole AI
+# budget in an afternoon.
+rate_limiter = SlidingWindowRateLimiter()
+AUTH_RATE_RULE = RateLimitRule(
+    name="auth",
+    limit=int(os.getenv("AUTH_RATE_LIMIT", "20")),
+    window_seconds=int(os.getenv("AUTH_RATE_WINDOW_SECONDS", str(15 * 60))),
+)
+AI_RATE_RULE = RateLimitRule(
+    name="ai",
+    limit=int(os.getenv("AI_RATE_LIMIT", "60")),
+    window_seconds=int(os.getenv("AI_RATE_WINDOW_SECONDS", str(60 * 60))),
+)
+# Behind Caddy the socket address is the proxy, so the real client only shows up
+# in the forwarded header. Trusting it when there is no proxy would let anyone
+# set their own address and walk around the limit, hence the switch.
+TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
+RATE_LIMITED_AUTH_PATHS = {
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/password/forgot",
+    "/api/auth/password/reset",
+    "/api/auth/email/resend",
+    "/api/parent/login",
+}
+RATE_LIMITED_AI_PATHS = {
+    "/api/chat",
+    "/api/audio/speak",
+    "/api/parent/generate-lesson",
+}
+
+
+def client_address(request: Request) -> str:
+    if TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _is_ai_request(request: Request) -> bool:
+    if request.method != "POST":
+        return False
+    path = request.url.path
+    return (
+        path in RATE_LIMITED_AI_PATHS
+        or "/generate" in path
+        or path.endswith("/reading/deepen")
+        or path.endswith("/summary")
+    )
+
+
+async def _rate_limit_gate(request: Request, call_next):
+    path = request.url.path
+    rule: RateLimitRule | None = None
+    key = ""
+    if request.method == "POST" and path in RATE_LIMITED_AUTH_PATHS:
+        rule, key = AUTH_RATE_RULE, client_address(request)
+    elif _is_ai_request(request):
+        # Keyed by account, so one noisy household cannot spend a shared budget,
+        # and a signed-out caller falls back to their address.
+        with Session(engine) as db:
+            user = get_request_user(request=request, session=db)
+            key = f"user:{user.id}" if user else f"ip:{client_address(request)}"
+        rule = AI_RATE_RULE
+
+    if rule is not None:
+        verdict = rate_limiter.check(rule, key)
+        if not verdict.allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Muitas requisicoes. Tente novamente em instantes."},
+                headers={"Retry-After": str(verdict.retry_after_seconds)},
+            )
+    return await call_next(request)
+
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=_rate_limit_gate)
+
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
@@ -370,13 +527,20 @@ app.add_middleware(
 
 audio_cache_dir = Path(os.getenv("AUDIO_CACHE_DIR", "./audio_cache"))
 audio_cache_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/api/audio/file", StaticFiles(directory=str(audio_cache_dir)), name="audio")
+
+# Cached speech used to be a plain StaticFiles mount: anybody who guessed or was
+# handed a filename could download it. An <audio> element cannot send an
+# Authorization header and the frontend is cross-site, so a session check would
+# break playback on mobile. A short-lived signature on the URL is the shape that
+# fits both: the link works in the tag and stops working soon after.
+AUDIO_URL_TTL_SECONDS = int(os.getenv("AUDIO_URL_TTL_SECONDS", str(60 * 60 * 6)))
 
 tts_service = TTSService(
     provider=os.getenv("TTS_PROVIDER", "kokoro"),
     default_voice=os.getenv("KOKORO_DEFAULT_VOICE", "af_bella"),
     cache_dir=str(audio_cache_dir),
 )
+email_service = EmailService()
 content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
 phrase_generation_service = PhraseGenerationService()
@@ -560,6 +724,22 @@ def _run_schema_migrations() -> None:
                     conn.execute(text(f"ALTER TABLE programmingquestion ADD COLUMN {col} {ddl}"))
                 except Exception:
                     pass
+        # Optional modules per account: Alembic 0015 owns the normal path.
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS enabled_modules JSON'))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN enabled_modules JSON'))
+            except Exception:
+                pass
+        # E-mail verification: Alembic 0016 owns the normal path.
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP'))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN email_verified_at TIMESTAMP'))
+            except Exception:
+                pass
         conn.commit()
 
 
@@ -683,6 +863,30 @@ def get_request_user_session(request: Request | None, session: Session) -> UserS
     return session_record
 
 
+def sign_audio_filename(filename: str, expires_at: int) -> str:
+    payload = f"audio:{filename}:{expires_at}".encode("utf-8")
+    return hmac.new(SESSION_SECRET.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def build_audio_url(file_path: str) -> str:
+    relative_url = tts_service.get_audio_url(file_path)
+    if not relative_url:
+        return ""
+    filename = relative_url.rsplit("/", 1)[-1]
+    expires_at = int(datetime.utcnow().timestamp()) + AUDIO_URL_TTL_SECONDS
+    signature = sign_audio_filename(filename, expires_at)
+    return f"{relative_url}?expires={expires_at}&signature={signature}"
+
+
+def get_request_user(request: Request | None, session: Session) -> User | None:
+    """The account behind the request, or None for a guest or legacy session."""
+
+    session_record = get_request_user_session(request=request, session=session)
+    if session_record is None or session_record.user_id is None:
+        return None
+    return session.get(User, session_record.user_id)
+
+
 def get_default_child(session: Session, user_id: int | None = None) -> ChildProfile:
     statement = select(ChildProfile).order_by(ChildProfile.id)
     if user_id is None:
@@ -692,6 +896,10 @@ def get_default_child(session: Session, user_id: int | None = None) -> ChildProf
 
     child = session.exec(statement).first()
     if child is None:
+        if user_id is None and not ALLOW_GUEST_ACCESS:
+            # Creating an owner-less profile here is how the shared guest bucket
+            # used to appear out of nowhere. Refuse instead.
+            raise HTTPException(status_code=401, detail=LOGIN_REQUIRED_DETAIL)
         child = ChildProfile(name="Kid", age_group="7-9", user_id=user_id)
         session.add(child)
         session.commit()
@@ -709,6 +917,8 @@ def child_belongs_to_parent_session(child: ChildProfile, parent_session: UserSes
 
 def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
     parent_session = get_request_user_session(request=request, session=session)
+    if parent_session is None and not ALLOW_GUEST_ACCESS:
+        raise HTTPException(status_code=401, detail=LOGIN_REQUIRED_DETAIL)
     logged_user_id = parent_session.user_id if parent_session is not None else None
 
     if request is not None:
@@ -1456,6 +1666,7 @@ def build_user_response(user: User) -> UserResponseSchema:
         created_at=user.created_at,
         status=effective_user_status(user),
         is_admin=user_is_admin(user),
+        modules=resolve_modules(user.enabled_modules),
     )
 
 
@@ -3365,9 +3576,27 @@ async def chat_with_tutor(
             child.voice_preference,
         )
         if audio_file:
-            audio_url = tts_service.get_audio_url(audio_file)
+            audio_url = build_audio_url(audio_file)
 
     return ChatResponseSchema(response=response_text, audio_url=audio_url)
+
+
+@app.get("/api/audio/file/{filename}")
+def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> FileResponse:
+    # Reject anything with a path separator before touching the filesystem: the
+    # name comes straight from the URL.
+    if filename != Path(filename).name or filename.startswith("."):
+        raise HTTPException(status_code=404, detail="Audio nao encontrado.")
+    if expires < int(datetime.utcnow().timestamp()):
+        raise HTTPException(status_code=403, detail="Link de audio expirado.")
+    expected = sign_audio_filename(filename, expires)
+    if not hmac.compare_digest(expected, signature or ""):
+        raise HTTPException(status_code=403, detail="Link de audio invalido.")
+
+    audio_path = (audio_cache_dir / filename).resolve()
+    if audio_cache_dir.resolve() not in audio_path.parents or not audio_path.is_file():
+        raise HTTPException(status_code=404, detail="Audio nao encontrado.")
+    return FileResponse(audio_path, media_type="audio/mpeg")
 
 
 @app.post("/api/audio/speak", response_model=SpeakResponseSchema)
@@ -3385,7 +3614,7 @@ async def speak_text(
     if not audio_file:
         return SpeakResponseSchema(audio_url=None, fallback_text=payload.text)
 
-    return SpeakResponseSchema(audio_url=tts_service.get_audio_url(audio_file))
+    return SpeakResponseSchema(audio_url=build_audio_url(audio_file))
 
 
 @app.post("/api/parent/login")
@@ -3452,7 +3681,7 @@ def verify_password(password: str, hashed: str) -> bool:
         return False
 
 
-# ── API key encryption (Fernet symmetric, key derived from SESSION_SECRET) ───
+# ── API key encryption (see services/key_vault.py for the envelope format) ───
 
 def account_lock_remaining_seconds(user: User) -> int:
     if user.locked_until is None:
@@ -3489,16 +3718,17 @@ def verify_admin_password_override(email: str, password: str) -> bool:
 
 
 def _derive_fernet_key() -> bytes:
-    raw = hashlib.sha256(SESSION_SECRET.encode()).digest()
-    return base64.urlsafe_b64encode(raw)
+    """Kept for the legacy envelope and for tests that assert the old shape."""
+
+    return derive_fernet_key(SESSION_SECRET)
 
 
 def encrypt_api_key(api_key: str) -> str:
-    return Fernet(_derive_fernet_key()).encrypt(api_key.encode()).decode()
+    return key_vault.encrypt(api_key)
 
 
 def decrypt_api_key(encrypted: str) -> str:
-    return Fernet(_derive_fernet_key()).decrypt(encrypted.encode()).decode()
+    return key_vault.decrypt(encrypted)
 
 
 def mask_api_key(api_key: str) -> str:
@@ -5974,6 +6204,237 @@ def delete_leetcode_method(
 
 # ── Auth endpoints ────────────────────────────────────────────────────────────
 
+# ── E-mail verification and password reset ────────────────────────────────────
+# Both flows answer the same way whether or not the address exists. Anything
+# else turns the endpoint into a way to ask "does this person have an account
+# here?", which is not a question a stranger gets to ask.
+AUTH_TOKEN_EMAIL_VERIFICATION = "email_verification"
+AUTH_TOKEN_PASSWORD_RESET = "password_reset"
+EMAIL_VERIFICATION_TTL_HOURS = int(os.getenv("EMAIL_VERIFICATION_TTL_HOURS", "48"))
+PASSWORD_RESET_TTL_MINUTES = int(os.getenv("PASSWORD_RESET_TTL_MINUTES", "60"))
+GENERIC_EMAIL_SENT_DETAIL = (
+    "Se existir uma conta com esse e-mail, enviamos as instrucoes para ela."
+)
+INVALID_TOKEN_DETAIL = "Link invalido ou expirado. Peca um novo."
+
+
+def hash_auth_token(token: str) -> str:
+    return hashlib.sha256(f"{SESSION_SECRET}:auth:{token}".encode("utf-8")).hexdigest()
+
+
+def issue_auth_token(*, user: User, purpose: str, ttl: timedelta, session: Session) -> str:
+    """Mint a one-time token, spending any earlier one for the same purpose."""
+
+    if user.id is None:
+        raise HTTPException(status_code=500, detail="Usuario sem id.")
+    now = datetime.utcnow()
+    session.exec(
+        update(AuthToken)
+        .where(
+            AuthToken.user_id == user.id,
+            AuthToken.purpose == purpose,
+            AuthToken.used_at == None,
+        )
+        .values(used_at=now)
+    )
+    raw_token = secrets.token_urlsafe(48)
+    session.add(
+        AuthToken(
+            user_id=user.id,
+            purpose=purpose,
+            token_hash=hash_auth_token(raw_token),
+            expires_at=now + ttl,
+            created_at=now,
+        )
+    )
+    session.commit()
+    return raw_token
+
+
+def consume_auth_token(*, raw_token: str, purpose: str, session: Session) -> User:
+    record = session.exec(
+        select(AuthToken).where(
+            AuthToken.token_hash == hash_auth_token(raw_token),
+            AuthToken.purpose == purpose,
+        )
+    ).first()
+    now = datetime.utcnow()
+    if record is None or record.used_at is not None or record.expires_at <= now:
+        raise HTTPException(status_code=400, detail=INVALID_TOKEN_DETAIL)
+    user = session.get(User, record.user_id)
+    if user is None:
+        raise HTTPException(status_code=400, detail=INVALID_TOKEN_DETAIL)
+    record.used_at = now
+    session.add(record)
+    session.commit()
+    return user
+
+
+def send_verification_email(user: User, session: Session) -> None:
+    token = issue_auth_token(
+        user=user,
+        purpose=AUTH_TOKEN_EMAIL_VERIFICATION,
+        ttl=timedelta(hours=EMAIL_VERIFICATION_TTL_HOURS),
+        session=session,
+    )
+    link = f"{FRONTEND_BASE_URL}/verify-email?token={token}"
+    email_service.send(
+        EmailMessageSpec(
+            to=user.email,
+            subject="Confirme seu e-mail — Tutor and Professor",
+            body=(
+                f"Ola, {user.first_name}!\n\n"
+                "Confirme seu e-mail para ativar sua conta:\n\n"
+                f"{link}\n\n"
+                f"O link vale por {EMAIL_VERIFICATION_TTL_HOURS} horas. "
+                "Se voce nao criou esta conta, ignore esta mensagem."
+            ),
+        )
+    )
+
+
+def send_password_reset_email(user: User, session: Session) -> None:
+    token = issue_auth_token(
+        user=user,
+        purpose=AUTH_TOKEN_PASSWORD_RESET,
+        ttl=timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
+        session=session,
+    )
+    link = f"{FRONTEND_BASE_URL}/reset-password?token={token}"
+    email_service.send(
+        EmailMessageSpec(
+            to=user.email,
+            subject="Redefinir sua senha — Tutor and Professor",
+            body=(
+                f"Ola, {user.first_name}!\n\n"
+                "Recebemos um pedido para redefinir sua senha:\n\n"
+                f"{link}\n\n"
+                f"O link vale por {PASSWORD_RESET_TTL_MINUTES} minutos. "
+                "Se nao foi voce, ignore esta mensagem: sua senha continua a mesma."
+            ),
+        )
+    )
+
+
+def revoke_all_sessions_for_user(user_id: int, session: Session) -> None:
+    for record in session.exec(select(UserSession).where(UserSession.user_id == user_id)).all():
+        session.delete(record)
+    session.commit()
+
+
+@app.post("/api/auth/email/resend", status_code=202)
+def resend_verification_email(
+    payload: EmailRequestSchema,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    user = session.exec(select(User).where(User.email == payload.email.lower().strip())).first()
+    if user is not None and user.email_verified_at is None:
+        send_verification_email(user, session)
+    return {"detail": GENERIC_EMAIL_SENT_DETAIL}
+
+
+@app.post("/api/auth/email/verify", response_model=UserResponseSchema)
+def verify_email(
+    payload: VerifyEmailSchema,
+    session: Session = Depends(get_session),
+) -> UserResponseSchema:
+    user = consume_auth_token(
+        raw_token=payload.token,
+        purpose=AUTH_TOKEN_EMAIL_VERIFICATION,
+        session=session,
+    )
+    if user.email_verified_at is None:
+        user.email_verified_at = datetime.utcnow()
+    # Open signup uses the verified address as the barrier; manual signup still
+    # leaves the account in the administrator's queue afterwards.
+    if SIGNUP_MODE == SIGNUP_MODE_OPEN and user.status == USER_STATUS_PENDING:
+        user.status = USER_STATUS_APPROVED
+        user.reviewed_at = datetime.utcnow()
+        user.review_note = "Aprovada automaticamente apos verificar o e-mail."
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return build_user_response(user)
+
+
+@app.post("/api/auth/password/forgot", status_code=202)
+def forgot_password(
+    payload: EmailRequestSchema,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    user = session.exec(select(User).where(User.email == payload.email.lower().strip())).first()
+    if user is not None and user.auth_provider == "password":
+        send_password_reset_email(user, session)
+    return {"detail": GENERIC_EMAIL_SENT_DETAIL}
+
+
+@app.post("/api/auth/password/reset", status_code=204)
+def reset_password(
+    payload: PasswordResetRequestSchema,
+    session: Session = Depends(get_session),
+) -> Response:
+    strength = validate_password_strength(payload.password)
+    if not strength.is_valid:
+        raise HTTPException(status_code=422, detail=password_policy_detail(strength))
+
+    user = consume_auth_token(
+        raw_token=payload.token,
+        purpose=AUTH_TOKEN_PASSWORD_RESET,
+        session=session,
+    )
+    user.password_hash = hash_password(payload.password)
+    # A reset is what somebody does when they suspect the old password leaked,
+    # so every session opened with it goes too.
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    if user.email_verified_at is None:
+        # Reaching the inbox proves the address as well as the verification link.
+        user.email_verified_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    if user.id is not None:
+        revoke_all_sessions_for_user(user.id, session)
+    return Response(status_code=204)
+
+
+@app.post("/api/account/password", status_code=204)
+def change_own_password(
+    request: Request,
+    payload: PasswordChangeSchema,
+    session: Session = Depends(get_session),
+) -> Response:
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Senha atual incorreta.")
+    strength = validate_password_strength(payload.new_password)
+    if not strength.is_valid:
+        raise HTTPException(status_code=422, detail=password_policy_detail(strength))
+    user.password_hash = hash_password(payload.new_password)
+    session.add(user)
+    session.commit()
+    if user.id is not None:
+        revoke_all_sessions_for_user(user.id, session)
+    return Response(status_code=204)
+
+
+@app.post("/api/account/sessions/revoke", status_code=204)
+def revoke_own_sessions(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> Response:
+    """Sign this account out everywhere, including here."""
+
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None or user.id is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+    revoke_all_sessions_for_user(user.id, session)
+    return Response(status_code=204)
+
+
 @app.post("/api/auth/register", response_model=UserResponseSchema, status_code=201)
 def user_register(
     payload: UserRegisterSchema,
@@ -5999,21 +6460,24 @@ def user_register(
     if payload.ai_api_key:
         validate_ai_provider(payload.ai_provider)
 
+    is_admin_signup = bool(ADMIN_EMAIL and email == ADMIN_EMAIL)
     user = User(
         first_name=payload.first_name.strip(),
         last_name=payload.last_name.strip(),
         email=email,
         cpf_hash=cpf_hash,
         password_hash=hash_password(payload.password),
-        status=(
-            USER_STATUS_APPROVED
-            if ADMIN_EMAIL and email == ADMIN_EMAIL
-            else USER_STATUS_PENDING
-        ),
+        status=USER_STATUS_APPROVED if is_admin_signup else USER_STATUS_PENDING,
+        email_verified_at=datetime.utcnow() if is_admin_signup else None,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    if not is_admin_signup:
+        # In open mode this is the barrier that replaces the approval queue; in
+        # manual mode it is still what makes a password reset possible later.
+        send_verification_email(user, session)
 
     child_name = (payload.child_name or payload.first_name).strip() or "Kid"
     child = ChildProfile(
@@ -6282,6 +6746,51 @@ def google_auth_callback(
         samesite=PARENT_COOKIE_SAMESITE,
     )
     return redirect
+
+
+def _module_settings_response(user: User | None) -> ModuleSettingsSchema:
+    enabled = resolve_modules(user.enabled_modules if user else None)
+    return ModuleSettingsSchema(
+        modules=[
+            ModuleSchema(
+                id=definition.id,
+                label=definition.label,
+                description=definition.description,
+                enabled=enabled.get(definition.id, definition.default_enabled),
+                locked=definition.locked,
+            )
+            for definition in MODULE_DEFINITIONS
+        ]
+    )
+
+
+@app.get("/api/account/modules", response_model=ModuleSettingsSchema)
+def get_account_modules(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ModuleSettingsSchema:
+    require_parent_session(request, session)
+    return _module_settings_response(get_request_user(request=request, session=session))
+
+
+@app.put("/api/account/modules", response_model=ModuleSettingsSchema)
+def update_account_modules(
+    request: Request,
+    payload: ModuleSettingsUpdateSchema,
+    session: Session = Depends(get_session),
+) -> ModuleSettingsSchema:
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+    try:
+        user.enabled_modules = apply_module_changes(user.enabled_modules, payload.modules)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _module_settings_response(user)
 
 
 @app.get("/api/parent/settings", response_model=ChildProfileSchema)

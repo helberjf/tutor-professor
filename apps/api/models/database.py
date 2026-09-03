@@ -35,6 +35,30 @@ class User(SQLModel, table=True):
     # their e-mail and failing on purpose.
     failed_login_attempts: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     locked_until: Optional[datetime] = Field(default=None)
+    # Optional product modules the account switched on or off. Empty means "use
+    # the defaults", which keeps the programming side out of the way until
+    # somebody asks for it. See services/modules.py.
+    enabled_modules: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    # Set once the person proves they own the address. Self-service signup uses
+    # this instead of the administrator's queue as the anti-spam barrier.
+    email_verified_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AuthToken(SQLModel, table=True):
+    """One-time token for e-mail verification and password reset.
+
+    Stored as a hash for the same reason session tokens are: a leaked database
+    should not hand over working links. A token is spent the moment it is used,
+    and every other token of the same purpose for that account is spent with it.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    purpose: str = Field(max_length=40, index=True)
+    token_hash: str = Field(unique=True, index=True)
+    expires_at: datetime
+    used_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
