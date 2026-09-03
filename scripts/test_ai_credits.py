@@ -104,7 +104,7 @@ async def register_and_login(client: httpx.AsyncClient, *, email: str, cpf: str,
                 "last_name": "Teste",
                 "email": email,
                 "cpf": cpf,
-                "password": "secret123",
+                "password": "Secret@123",
                 "child_name": f"Filho de {name}",
             },
         ),
@@ -113,7 +113,7 @@ async def register_and_login(client: httpx.AsyncClient, *, email: str, cpf: str,
     )
     approve_all_accounts(main)
     assert_status(
-        await client.post("/api/auth/login", json={"email": email, "password": "secret123"}),
+        await client.post("/api/auth/login", json={"email": email, "password": "Secret@123"}),
         200,
         f"login {email}",
     )

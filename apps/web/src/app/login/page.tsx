@@ -18,6 +18,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lockedOut, setLockedOut] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,12 +26,15 @@ function LoginForm() {
 
     setLoading(true);
     setError('');
+    setLockedOut(false);
 
     try {
       await api.userLogin(email.trim(), password);
       router.push(next);
       router.refresh();
     } catch (err) {
+      // 429 traz o tempo restante do bloqueio por tentativas; mostrar a mensagem
+      // do servidor em vez de "senha incorreta" evita a pessoa insistir à toa.
       const message =
         err instanceof ApiError && err.status === 401
           ? 'E-mail ou senha incorretos.'
@@ -38,6 +42,7 @@ function LoginForm() {
             ? (err.detail ?? 'Não foi possível entrar.')
             : 'Não foi possível entrar.';
       setError(message);
+      setLockedOut(err instanceof ApiError && err.status === 429);
     } finally {
       setLoading(false);
     }
@@ -163,14 +168,21 @@ function LoginForm() {
             </div>
 
             {error && (
-              <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              <div
+                role="alert"
+                className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                  lockedOut
+                    ? 'border-amber-100 bg-amber-50 text-amber-700'
+                    : 'border-red-100 bg-red-50 text-red-600'
+                }`}
+              >
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading || !email.trim() || !password}
+              disabled={loading || lockedOut || !email.trim() || !password}
               className="kid-button w-full bg-primary hover:bg-primary-dark"
             >
               {loading ? 'Entrando…' : 'Entrar'}

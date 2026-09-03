@@ -40,7 +40,7 @@ from services.diverse_question_service import validate_generated_question_batch
 
 
 EMAIL = "diverse-initial@example.com"
-PASSWORD = "secret123"
+PASSWORD = "Secret@123"
 
 
 def make_questions(prefix: str = "Question") -> list[dict[str, object]]:

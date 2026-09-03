@@ -34,6 +34,9 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 ### Parent Area
 
 - Account registration and login, with new accounts held until an administrator approves them.
+- Password policy enforced on both sides: the signup form shows a live strength meter and requirement checklist, and `services/password_policy.py` applies the same rules on the API, so a direct HTTP call cannot skip them.
+- Login has a brute-force brake: after `MAX_FAILED_LOGINS` wrong passwords the account is locked for `LOGIN_LOCK_MINUTES` and answers 429 with `Retry-After`. The lock clears itself, and a successful login resets the counter.
+- Passwords are stored as PBKDF2-HMAC-SHA256 with 260,000 iterations and a per-password random salt.
 - Parent dashboard for children, progress, settings, and AI provider configuration.
 - Child profile management, including target language and audio preferences.
 - AI-powered lesson, question, book, and flashcard generation.
@@ -227,6 +230,10 @@ PARENT_COOKIE_SAMESITE=none
 # password so the administrator can sign in even if the stored one is lost.
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD_HASH=
+
+# Brute-force brake on login. Defaults shown; the lock clears itself.
+MAX_FAILED_LOGINS=5
+LOGIN_LOCK_MINUTES=15
 ```
 
 ### Creating the Administrator Account
@@ -266,6 +273,7 @@ python scripts/test_programming_ai_flashcards.py
 python scripts/test_ai_flashcard_service.py
 python scripts/test_admin_account_approval.py
 python scripts/test_ai_credits.py
+python scripts/test_password_security.py
 ```
 
 ```powershell

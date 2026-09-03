@@ -133,7 +133,7 @@ async def run() -> None:
                     "last_name": "Teste",
                     "email": "pai@example.com",
                     "cpf": "11111111111",
-                    "password": "secret123",
+                    "password": "Secret@123",
                     "child_name": "Lia",
                 },
             ),
@@ -149,7 +149,7 @@ async def run() -> None:
                     "last_name": "Teste",
                     "email": "pai@example.com",
                     "cpf": VALID_CPF,
-                    "password": "secret123",
+                    "password": "Secret@123",
                     "child_name": "Lia",
                 },
             ),
@@ -164,14 +164,14 @@ async def run() -> None:
                     "last_name": "Teste",
                     "email": "pai@example.com",
                     "cpf": "39053344705",
-                    "password": "secret123",
+                    "password": "Secret@123",
                     "child_name": "Lia",
                 },
             ),
             409,
             "duplicate email",
         )
-        assert_status(await client.post("/api/auth/login", json={"email": "pai@example.com", "password": "secret123"}), 200, "login")
+        assert_status(await client.post("/api/auth/login", json={"email": "pai@example.com", "password": "Secret@123"}), 200, "login")
         assert_status(await client.get("/api/auth/me"), 200, "me")
 
         providers_response = await client.get("/api/ai/providers")

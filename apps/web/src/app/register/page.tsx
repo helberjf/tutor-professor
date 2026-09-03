@@ -6,6 +6,9 @@ import { useState } from 'react';
 import { ArrowLeft, Bot, CheckCircle2, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
+import { formatCpf, onlyDigits, validateCpf } from '@/lib/cpf';
+import { validatePasswordStrength } from '@/lib/password-validation';
+import { PasswordStrengthMeter } from '@/components/password-strength-meter';
 
 // ── Supported languages ──────────────────────────────────────────────────────────────────────────────
 const LANGUAGES = [
@@ -29,32 +32,6 @@ const AI_PROVIDERS = [
   { id: 'groq', label: 'Groq', defaultModel: 'llama-3.1-8b-instant' },
   { id: 'mistral', label: 'Mistral', defaultModel: 'mistral-small-latest' },
 ];
-
-// ── CPF validation ────────────────────────────────────────────────────────────
-function validateCPF(raw: string): boolean {
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length !== 11) return false;
-  if (/^(\d)\1{10}$/.test(digits)) return false;
-
-  const calc = (n: number) => {
-    const total = digits
-      .slice(0, n)
-      .split('')
-      .reduce((acc, d, i) => acc + parseInt(d) * (n + 1 - i), 0);
-    const r = total % 11;
-    return r < 2 ? 0 : 11 - r;
-  };
-
-  return calc(9) === parseInt(digits[9]) && calc(10) === parseInt(digits[10]);
-}
-
-function maskCPF(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
 
 // ── Field component ───────────────────────────────────────────────────────────
 interface FieldProps {
@@ -109,6 +86,13 @@ export default function RegisterPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const passwordCheck = validatePasswordStrength(form.password);
+  const cpfDigits = onlyDigits(form.cpf);
+  // Só reclama depois que a pessoa digitou algo, para o campo não nascer vermelho.
+  const cpfTouchedAndInvalid = cpfDigits.length > 0 && !validateCpf(form.cpf);
+  const confirmTouchedAndMismatched =
+    form.confirm.length > 0 && form.password !== form.confirm;
+
   function set(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: '' }));
@@ -138,19 +122,19 @@ export default function RegisterPage() {
       next.email = 'E-mail inválido.';
     }
 
-    const cpfDigits = form.cpf.replace(/\D/g, '');
+    const cpfDigits = onlyDigits(form.cpf);
     if (!cpfDigits) {
       next.cpf = 'Informe o CPF.';
     } else if (cpfDigits.length !== 11) {
       next.cpf = 'CPF incompleto.';
-    } else if (!validateCPF(form.cpf)) {
+    } else if (!validateCpf(form.cpf)) {
       next.cpf = 'CPF inválido.';
     }
 
     if (!form.password) {
       next.password = 'Informe a senha.';
-    } else if (form.password.length < 6) {
-      next.password = 'A senha deve ter no mínimo 6 caracteres.';
+    } else if (!passwordCheck.isValid) {
+      next.password = passwordCheck.feedback[0];
     }
 
     if (!form.confirm) {
@@ -176,7 +160,7 @@ export default function RegisterPage() {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
-        cpf: form.cpf.replace(/\D/g, ''),
+        cpf: onlyDigits(form.cpf),
         password: form.password,
         child_name: form.child_name.trim(),
         target_language: targetLanguage,
@@ -414,7 +398,20 @@ export default function RegisterPage() {
             </Field>
 
             {/* CPF */}
-            <Field id="cpf" label="CPF" icon={<span className="text-xs font-black text-slate-400">CPF</span>} error={errors.cpf} required>
+            <Field
+              id="cpf"
+              label="CPF"
+              icon={<span className="text-xs font-black text-slate-400">CPF</span>}
+              error={
+                errors.cpf ||
+                (cpfTouchedAndInvalid
+                  ? cpfDigits.length < 11
+                    ? 'CPF incompleto.'
+                    : 'CPF inválido.'
+                  : undefined)
+              }
+              required
+            >
               <input
                 id="cpf"
                 type="text"
@@ -423,7 +420,7 @@ export default function RegisterPage() {
                 required
                 placeholder="000.000.000-00"
                 value={form.cpf}
-                onChange={(e) => set('cpf', maskCPF(e.target.value))}
+                onChange={(e) => set('cpf', formatCpf(e.target.value))}
                 maxLength={14}
                 className={inputCls}
               />
@@ -436,7 +433,7 @@ export default function RegisterPage() {
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 required
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Crie uma senha forte"
                 value={form.password}
                 onChange={(e) => set('password', e.target.value)}
                 className={`${inputCls} pr-11`}
@@ -451,8 +448,16 @@ export default function RegisterPage() {
               </button>
             </Field>
 
+            <PasswordStrengthMeter password={form.password} />
+
             {/* Confirm */}
-            <Field id="confirm" label="Confirmar senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.confirm} required>
+            <Field
+              id="confirm"
+              label="Confirmar senha"
+              icon={<Lock size={16} className="text-slate-400" />}
+              error={errors.confirm || (confirmTouchedAndMismatched ? 'As senhas não coincidem.' : undefined)}
+              required
+            >
               <input
                 id="confirm"
                 type={showConfirm ? 'text' : 'password'}

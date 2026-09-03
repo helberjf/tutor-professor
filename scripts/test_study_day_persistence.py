@@ -53,13 +53,13 @@ async def auth_headers(client: httpx.AsyncClient) -> dict[str, str]:
             "last_name": "Persistencia",
             "email": "persistencia@example.com",
             "cpf": VALID_CPF,
-            "password": "senha-forte-123",
+            "password": "Senha@Forte123",
         },
     )
     approve_all_accounts(main)
     login = await client.post(
         "/api/auth/login",
-        json={"email": "persistencia@example.com", "password": "senha-forte-123"},
+        json={"email": "persistencia@example.com", "password": "Senha@Forte123"},
     )
     require(login.status_code == 200, f"login failed: {login.text}")
     return {"Authorization": f"Bearer {login.json()['token']}"}

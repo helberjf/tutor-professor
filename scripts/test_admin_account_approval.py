@@ -66,7 +66,7 @@ async def register(client: httpx.AsyncClient, *, email: str, cpf: str, name: str
             "last_name": "Teste",
             "email": email,
             "cpf": cpf,
-            "password": "secret123",
+            "password": "Secret@123",
             "child_name": f"Filho de {name}",
         },
     )
@@ -77,7 +77,7 @@ async def register(client: httpx.AsyncClient, *, email: str, cpf: str, name: str
 async def login(client: httpx.AsyncClient, email: str) -> dict:
     response = await client.post(
         "/api/auth/login",
-        json={"email": email, "password": "secret123"},
+        json={"email": email, "password": "Secret@123"},
     )
     assert_status(response, 200, f"login {email}")
     return response.json()

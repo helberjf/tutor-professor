@@ -30,6 +30,11 @@ class User(SQLModel, table=True):
     ai_credits: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     ai_credits_used: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     ai_unlimited: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+    # Brute-force brake. The lock is short and self-healing on purpose: a
+    # permanent one would let anybody lock a real person out just by guessing
+    # their e-mail and failing on purpose.
+    failed_login_attempts: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    locked_until: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -47,7 +47,7 @@ from services import coding_service
 
 PRIMARY_EMAIL = "flashcards@example.com"
 SECONDARY_EMAIL = "other-parent@example.com"
-PASSWORD = "secret123"
+PASSWORD = "Secret@123"
 VALID_AI_CONTENT = {
     "sections": [
         {

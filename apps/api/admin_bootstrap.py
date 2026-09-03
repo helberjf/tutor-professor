@@ -69,9 +69,14 @@ def run(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    from services.password_policy import password_policy_detail, validate_password_strength
+
     password = args.password or getpass.getpass("Senha do administrador: ")
-    if len(password) < 6:
-        print("A senha precisa de ao menos 6 caracteres.", file=sys.stderr)
+    # The administrator holds the keys to every other account, so the same
+    # policy the signup form enforces applies here too.
+    strength = validate_password_strength(password)
+    if not strength.is_valid:
+        print(password_policy_detail(strength), file=sys.stderr)
         return 2
 
     main.create_db_and_tables()

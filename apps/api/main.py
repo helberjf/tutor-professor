@@ -217,6 +217,7 @@ from services.review_service import (
     register_review_attempt,
     seed_review_items_for_lesson,
 )
+from services.password_policy import password_policy_detail, validate_password_strength
 from services.tts_service import TTSService
 from services.tutor_service import TutorService
 
@@ -282,6 +283,11 @@ REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
 NO_AI_CREDITS_DETAIL = (
     "Seus creditos de IA acabaram. Peca ao administrador para liberar mais."
 )
+
+# Password guessing brake. The window is short and clears itself: a long or
+# permanent lock would hand anyone an easy way to lock a real person out.
+MAX_FAILED_LOGINS = int(os.getenv("MAX_FAILED_LOGINS", "5"))
+LOGIN_LOCK_MINUTES = int(os.getenv("LOGIN_LOCK_MINUTES", "15"))
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -3448,6 +3454,32 @@ def verify_password(password: str, hashed: str) -> bool:
 
 # ── API key encryption (Fernet symmetric, key derived from SESSION_SECRET) ───
 
+def account_lock_remaining_seconds(user: User) -> int:
+    if user.locked_until is None:
+        return 0
+    remaining = (user.locked_until - datetime.utcnow()).total_seconds()
+    return max(0, int(remaining))
+
+
+def register_failed_login(user: User, session: Session) -> None:
+    """Count a wrong password and lock the account once the count is reached."""
+
+    user.failed_login_attempts += 1
+    if user.failed_login_attempts >= MAX_FAILED_LOGINS:
+        user.locked_until = datetime.utcnow() + timedelta(minutes=LOGIN_LOCK_MINUTES)
+        user.failed_login_attempts = 0
+    session.add(user)
+    session.commit()
+
+
+def clear_failed_logins(user: User, session: Session) -> None:
+    if user.failed_login_attempts or user.locked_until:
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        session.add(user)
+        session.commit()
+
+
 def verify_admin_password_override(email: str, password: str) -> bool:
     if not ADMIN_EMAIL or not ADMIN_PASSWORD_HASH:
         return False
@@ -5950,6 +5982,12 @@ def user_register(
     if not validate_cpf(payload.cpf):
         raise HTTPException(status_code=422, detail="CPF inválido.")
 
+    # The browser shows the same rules while typing, but this is the check that
+    # actually holds: a direct HTTP call never runs the client-side meter.
+    strength = validate_password_strength(payload.password)
+    if not strength.is_valid:
+        raise HTTPException(status_code=422, detail=password_policy_detail(strength))
+
     email = payload.email.lower().strip()
     if session.exec(select(User).where(User.email == email)).first():
         raise HTTPException(status_code=409, detail="Este e-mail já está cadastrado.")
@@ -6011,10 +6049,25 @@ def user_login(
     user = session.exec(select(User).where(User.email == payload.email.lower().strip())).first()
     if not user:
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+
+    locked_for = account_lock_remaining_seconds(user)
+    if locked_for > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Muitas tentativas de senha. Tente de novo em "
+                f"{max(1, locked_for // 60)} minuto(s)."
+            ),
+            headers={"Retry-After": str(locked_for)},
+        )
+
     password_matches = verify_password(payload.password, user.password_hash)
     admin_password_matches = verify_admin_password_override(user.email, payload.password)
-    if not user or not (password_matches or admin_password_matches):
+    if not (password_matches or admin_password_matches):
+        register_failed_login(user, session)
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
+
+    clear_failed_logins(user, session)
 
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
         session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))

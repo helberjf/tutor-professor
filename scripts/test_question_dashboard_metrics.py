@@ -50,7 +50,7 @@ async def register_parent(client: httpx.AsyncClient, email: str, child_name: str
                 "last_name": "Metricas",
                 "email": email,
                 "cpf": VALID_CPF,
-                "password": "secret123",
+                "password": "Secret@123",
                 "child_name": child_name,
             },
         ),
@@ -59,7 +59,7 @@ async def register_parent(client: httpx.AsyncClient, email: str, child_name: str
     )
     approve_all_accounts(main)
     assert_status(
-        await client.post("/api/auth/login", json={"email": email, "password": "secret123"}),
+        await client.post("/api/auth/login", json={"email": email, "password": "Secret@123"}),
         200,
         f"login {email}",
     )
