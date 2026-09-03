@@ -33,7 +33,10 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 
 ### Parent Area
 
-- Account registration and login, with new accounts held until an administrator approves them.
+- Account registration and login. `SIGNUP_MODE=manual` (the default) holds a new account in the administrator's queue; `SIGNUP_MODE=open` lets a verified e-mail address in on its own.
+- E-mail verification, forgotten-password reset, password change and sign-out-everywhere, all self-service. Both e-mail flows answer identically for an address that exists and one that does not, so they cannot be used to find out who has an account.
+- Optional modules per account: the programming curriculum, flashcard decks and LeetCode trainer ship switched off and are turned on in the parents area. The gate is one middleware over route families rather than a check repeated in thirty endpoints.
+- Data rights without asking anybody: `GET /api/account/export` downloads everything stored about the account, `POST /api/account/delete` erases it.
 - Password policy enforced on both sides: the signup form shows a live strength meter and requirement checklist, and `services/password_policy.py` applies the same rules on the API, so a direct HTTP call cannot skip them.
 - Login has a brute-force brake: after `MAX_FAILED_LOGINS` wrong passwords the account is locked for `LOGIN_LOCK_MINUTES` and answers 429 with `Retry-After`. The lock clears itself, and a successful login resets the counter.
 - Passwords are stored as PBKDF2-HMAC-SHA256 with 260,000 iterations and a per-password random salt.
@@ -48,6 +51,15 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 - AI access is a second, independent switch: approving an account grants no AI, and revoking AI leaves the account working. Both are set from the same queue card.
 - AI credits meter the administrator's own key at one credit per successful generation. A call the provider never answered is free, and an account using its own API key is never metered. Accounts can be topped up, zeroed, or marked unlimited.
 - Per-account AI authorization at `/admin/users`, plus the internal learning content editor at `/admin/learn`.
+
+### Plans and Billing
+
+- Plans live in `apps/api/services/billing_service.py` rather than in a table: a price changes through a reviewable deploy, not a row edited in production. An account with no subscription row is on the free plan, so signup creates nothing and the app runs with billing switched off.
+- One `Entitlement` decides everything: how many children a plan allows, and how much AI it includes. The AI allowance is credited into the balance the administrator already controlled, so there is one meter instead of two competing ones, and hand-granted credits are never taken away.
+- A 14-day trial needs no payment gateway at all. Paying does, and says so plainly rather than pretending to have taken the money.
+- `past_due` keeps working: a card that failed this morning should not take a child's lesson away before the gateway has finished retrying.
+- `POST /api/billing/webhook` verifies an HMAC signature over the raw body and ignores repeated deliveries by event id — the retry every gateway sends must not extend a period twice.
+- Every generation writes a usage line with an estimated cost in millionths of a currency unit, so "what did this account cost this month" has an answer. See `docs/saas-operacao.md`.
 
 ### Study Modes
 
@@ -274,7 +286,18 @@ python scripts/test_ai_flashcard_service.py
 python scripts/test_admin_account_approval.py
 python scripts/test_ai_credits.py
 python scripts/test_password_security.py
+python scripts/test_tenant_isolation.py
+python scripts/test_account_modules.py
+python scripts/test_account_self_service.py
+python scripts/test_billing_and_usage.py
 ```
+
+`test_tenant_isolation.py` is the one to run after touching any route. Besides
+driving two accounts against each other over HTTP, it audits every registered
+route: a data route that does not resolve its tenant through a known helper, or
+an `/api/admin` route that never reaches an admin check, turns it red. Adding an
+endpoint that answers with whatever id it was handed fails the build instead of
+shipping quietly.
 
 ```powershell
 node apps/web/scripts/test-api-offline-fallback.mjs
@@ -297,10 +320,14 @@ The test suite is a mix of service-level tests, API behavior checks, and lightwe
 
 ## Trade-offs and Current Limitations
 
-- The backend currently runs locally, so the public demo depends on the developer machine and Cloudflare Tunnel being active.
+- The backend currently runs locally, so the public demo depends on the developer machine and Cloudflare Tunnel being active. `docs/DEPLOY-VPS.md` is the way off that.
 - Temporary Cloudflare quick tunnels can expire; a named tunnel is the better long-term setup.
 - PostgreSQL is the intended local and production database.
 - Some tests are script-based rather than a single unified test runner.
+- No payment gateway is wired in. Plans, limits, trials, usage and the webhook all work; what is missing is the checkout call in `start_checkout` and the credentials.
+- Rate limiting counts in process memory, so the effective ceiling multiplies by the number of uvicorn workers. Fine for one worker, which is the current deployment; move it to a shared store before scaling out.
+- The per-generation AI cost is an estimate until the provider layer reports token counts.
+- `apps/api/main.py` is one large module. The route audit in `scripts/test_tenant_isolation.py` keeps the security properties honest, but splitting it into routers is still owed.
 - The app has grown beyond the original English-only scope into a broader personal tutor, so naming and documentation are being updated accordingly.
 
 ## Suggested Interview Walkthrough
@@ -315,6 +342,9 @@ If you are reviewing the project, start here:
 
 ## Documentation
 
+- `TODO-SAAS.md`: what is done and what is left to run this as a product.
+- `docs/saas-operacao.md`: operating it for other people — configuration, plans, cost per account, logs, backups, data rights.
+- `docs/privacidade.md` and `docs/termos.md`: privacy policy and terms drafts, written from what the software actually does and awaiting legal review.
 - `docs/architecture.md`: broader architecture notes.
 - `docs/setup-local.md`: local setup details.
 - `docs/cloudflare-tunnel.md`: named tunnel setup.
