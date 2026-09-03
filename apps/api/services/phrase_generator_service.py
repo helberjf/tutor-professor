@@ -7,7 +7,7 @@ import tempfile
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import certifi
 import requests
@@ -25,6 +25,11 @@ class AIProviderConfig:
     api_key: str
     model: str
     base_url: str | None = None
+    # Invoked once the provider has actually answered, so the caller can meter a
+    # generation it really got. Kept as a callback rather than a return value
+    # because every generation funnels through generate_json_text, which is the
+    # only place that knows the call succeeded.
+    on_success: Callable[[], None] | None = None
 
 
 AI_PROVIDER_DEFAULT_MODELS = {
@@ -196,30 +201,25 @@ class PhraseGenerationService:
         timeout = timeout_seconds or self.timeout_seconds
         provider = config.provider
         if provider == "gemini":
-            return self._generate_gemini_json_text(
-                system_text=system_text,
-                prompt=prompt,
-                temperature=temperature,
-                config=config,
-                timeout_seconds=timeout,
-            )
-        if provider == "anthropic":
-            return self._generate_anthropic_json_text(
-                system_text=system_text,
-                prompt=prompt,
-                temperature=temperature,
-                config=config,
-                timeout_seconds=timeout,
-            )
-        if provider in OPENAI_COMPATIBLE_BASE_URLS:
-            return self._generate_openai_compatible_json_text(
-                system_text=system_text,
-                prompt=prompt,
-                temperature=temperature,
-                config=config,
-                timeout_seconds=timeout,
-            )
-        raise RuntimeError(f"Provedor de IA nao suportado: {config.provider}")
+            generate = self._generate_gemini_json_text
+        elif provider == "anthropic":
+            generate = self._generate_anthropic_json_text
+        elif provider in OPENAI_COMPATIBLE_BASE_URLS:
+            generate = self._generate_openai_compatible_json_text
+        else:
+            raise RuntimeError(f"Provedor de IA nao suportado: {config.provider}")
+
+        text = generate(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=temperature,
+            config=config,
+            timeout_seconds=timeout,
+        )
+        # Only after the provider answered: a refused or failed call costs nothing.
+        if config.on_success is not None:
+            config.on_success()
+        return text
 
     def _resolve_config(self, ai_config: AIProviderConfig | None = None) -> AIProviderConfig:
         if ai_config is None:
@@ -237,6 +237,10 @@ class PhraseGenerationService:
             api_key=(ai_config.api_key or "").strip(),
             model=model or AI_PROVIDER_DEFAULT_MODELS.get(provider, ""),
             base_url=(ai_config.base_url or "").strip() or None,
+            # Carried through: generate_lesson_draft resolves first and then hands
+            # the resolved config back to generate_json_text, so dropping it here
+            # would silently stop metering every lesson draft.
+            on_success=ai_config.on_success,
         )
 
     def _generate_gemini_json_text(

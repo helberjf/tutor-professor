@@ -8,6 +8,7 @@ import re
 import secrets
 import threading
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Optional
@@ -29,6 +30,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from database_bootstrap import bootstrap_database
 from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
 from schemas.schemas import (
+    AdminAICreditsSchema,
     AdminUserReviewSchema,
     AIProviderSchema,
     BookOutlineSchema,
@@ -277,6 +279,9 @@ PENDING_ACCOUNT_DETAIL = (
     "Sua conta ainda esta aguardando a aprovacao do administrador."
 )
 REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
+NO_AI_CREDITS_DETAIL = (
+    "Seus creditos de IA acabaram. Peca ao administrador para liberar mais."
+)
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -3589,14 +3594,69 @@ def save_ai_settings_for_user(
     return record
 
 
+def user_has_ai_credit(user: User) -> bool:
+    return user.ai_unlimited or user_is_admin(user) or user.ai_credits > 0
+
+
+def build_ai_credits_schema(user: User | None) -> dict:
+    """The credit state as the account itself and the admin list both report it."""
+
+    if user is None:
+        return {"credits": 0, "used": 0, "unlimited": False, "metered": False}
+    unlimited = user.ai_unlimited or user_is_admin(user)
+    return {
+        "credits": user.ai_credits,
+        "used": user.ai_credits_used,
+        "unlimited": unlimited,
+        # Only the administrator's own key is metered; an account paying for its
+        # own key costs nothing and spends no credits.
+        "metered": not unlimited,
+    }
+
+
+def _consume_ai_credit(user_id: int, session: Session) -> None:
+    """Charge one credit for a generation the provider actually answered.
+
+    Deliberately on the request session rather than a second one: the request
+    already holds an open write transaction (the session row's last_seen_at), so
+    a separate connection would just deadlock against it on SQLite.
+
+    Committing here also commits whatever else that session has pending, which is
+    safe at this point because every caller generates first and only then builds
+    the rows it wants to store.
+    """
+
+    user = session.get(User, user_id)
+    if user is None or user.ai_unlimited or user_is_admin(user):
+        return
+    user.ai_credits = max(0, user.ai_credits - 1)
+    user.ai_credits_used += 1
+    session.add(user)
+    session.commit()
+
+
 def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AIProviderConfig | None:
     if user_id is None:
         return None
     record = get_user_ai_settings_record(user_id, session)
     if record is None:
         return None
+
     if record.use_global_key:
-        return _get_global_ai_config(record)
+        # The administrator's key is the metered one, so this is where the
+        # balance is enforced. Raising rather than returning None keeps the
+        # reason accurate: callers turn a None into "configure a key", which
+        # would be the wrong thing to tell someone who simply ran out.
+        user = session.get(User, user_id)
+        if user is None:
+            return None
+        if not user_has_ai_credit(user):
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+        config = _get_global_ai_config(record)
+        if config is None:
+            return None
+        return replace(config, on_success=lambda: _consume_ai_credit(user_id, session))
+
     try:
         api_key = decrypt_api_key(record.api_key_encrypted)
     except Exception:
@@ -6351,6 +6411,17 @@ def list_ai_providers() -> list[AIProviderSchema]:
     return [AIProviderSchema(**provider) for provider in AI_PROVIDER_OPTIONS]
 
 
+@app.get("/api/ai/credits")
+def get_my_ai_credits(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    session_record = require_parent_session(request, session)
+    if session_record.user_id is None:
+        return build_ai_credits_schema(None)
+    return build_ai_credits_schema(session.get(User, session_record.user_id))
+
+
 @app.get("/api/ai/settings", response_model=UserAISettingsSchema)
 @app.get("/api/user/ai-settings", response_model=UserAISettingsSchema)
 def get_user_ai_settings(
@@ -6992,6 +7063,7 @@ def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> 
         "reviewed_at": user.reviewed_at.isoformat() if user.reviewed_at else None,
         "review_note": user.review_note,
         "ai_settings": build_ai_settings_schema(ai_settings).model_dump(mode="json"),
+        "ai_credits": build_ai_credits_schema(user),
     }
 
 
@@ -7083,6 +7155,12 @@ def admin_overview(
         "signups_last_7_days": sum(1 for user in users if user.created_at >= week_ago),
         "children": len(session.exec(select(ChildProfile)).all()),
         "ai_authorized_users": len(session.exec(select(UserAISettings)).all()),
+        "out_of_credit_users": sum(
+            1
+            for user in users
+            if not user.ai_unlimited and not user_is_admin(user) and user.ai_credits <= 0
+        ),
+        "ai_credits_spent": sum(user.ai_credits_used for user in users),
     }
 
 
@@ -7135,6 +7213,37 @@ def admin_save_user_ai_settings(
         session=session,
     )
     return build_ai_settings_schema(record)
+
+
+@app.post("/api/admin/users/{user_id}/ai-credits")
+def admin_set_user_ai_credits(
+    user_id: int,
+    payload: AdminAICreditsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Set, top up, or uncap the AI credits of one account."""
+
+    _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+    if payload.credits is None and payload.add is None and payload.unlimited is None:
+        raise HTTPException(status_code=422, detail="Informe credits, add ou unlimited.")
+
+    if payload.credits is not None:
+        user.ai_credits = payload.credits
+    if payload.add is not None:
+        user.ai_credits = max(0, user.ai_credits + payload.add)
+    if payload.unlimited is not None:
+        user.ai_unlimited = payload.unlimited
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    ai_settings = get_user_ai_settings_record(user_id, session)
+    return _build_admin_user_schema(user, ai_settings)
 
 
 @app.delete("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   BookOpen,
+  Coins,
   KeyRound,
   LayoutDashboard,
   UserCheck,
@@ -67,6 +68,13 @@ export default function AdminDashboardPage() {
     { label: 'Contas aprovadas', value: overview?.approved_users ?? 0, icon: <Users size={18} /> },
     { label: 'Cadastros em 7 dias', value: overview?.signups_last_7_days ?? 0, icon: <UserPlus size={18} /> },
     { label: 'Contas com IA liberada', value: overview?.ai_authorized_users ?? 0, icon: <KeyRound size={18} /> },
+    {
+      label: 'Contas sem creditos',
+      value: overview?.out_of_credit_users ?? 0,
+      icon: <Coins size={18} />,
+      highlight: (overview?.out_of_credit_users ?? 0) > 0,
+    },
+    { label: 'Creditos de IA gastos', value: overview?.ai_credits_spent ?? 0, icon: <Coins size={18} /> },
   ];
 
   const cards = [

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { Check, Coins, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, X } from 'lucide-react';
 
 import { api, type AccountStatus, type AdminUser } from '@/lib/api';
 
@@ -124,6 +124,31 @@ export function AdminAccountQueue() {
       setMessage({
         tone: 'error',
         text: error instanceof Error ? error.message : 'Nao foi possivel mudar o acesso a IA.',
+      });
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function setCredits(
+    user: AdminUser,
+    payload: { credits?: number; add?: number; unlimited?: boolean },
+  ) {
+    setBusyUserId(user.id);
+    setMessage(null);
+    try {
+      const saved = await api.adminSetUserAICredits(user.id, payload);
+      setUsers((current) => current.map((item) => (item.id === user.id ? saved : item)));
+      setMessage({
+        tone: 'success',
+        text: saved.ai_credits.unlimited
+          ? `${user.email} passou a usar a IA sem limite.`
+          : `${user.email} ficou com ${saved.ai_credits.credits} creditos de IA.`,
+      });
+    } catch (error) {
+      setMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Nao foi possivel mudar os creditos.',
       });
     } finally {
       setBusyUserId(null);
@@ -311,6 +336,52 @@ export function AdminAccountQueue() {
                       ) : null}
                     </div>
                   </div>
+
+                  {user.ai_settings.use_global_key ? (
+                    <div className="mt-3 rounded-xl bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-black text-slate-700">
+                          {user.ai_credits.unlimited
+                            ? 'Creditos: ilimitado'
+                            : `Creditos: ${user.ai_credits.credits} restantes`}
+                          <span className="ml-2 text-xs font-bold text-slate-400">
+                            {user.ai_credits.used} ja usados
+                          </span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void setCredits(user, { unlimited: !user.ai_credits.unlimited })}
+                          disabled={busy}
+                          className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 transition hover:border-slate-300 disabled:opacity-60"
+                        >
+                          {user.ai_credits.unlimited ? 'Voltar a cobrar creditos' : 'Deixar ilimitado'}
+                        </button>
+                      </div>
+                      {!user.ai_credits.unlimited ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {[10, 50, 100].map((amount) => (
+                            <button
+                              key={amount}
+                              type="button"
+                              onClick={() => void setCredits(user, { add: amount })}
+                              disabled={busy}
+                              className="inline-flex items-center gap-1 rounded-lg border-2 border-sky-200 bg-sky-50 px-3 py-1 text-xs font-black text-sky-700 transition hover:border-sky-300 disabled:opacity-60"
+                            >
+                              <Coins size={13} /> +{amount}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => void setCredits(user, { credits: 0 })}
+                            disabled={busy || user.ai_credits.credits === 0}
+                            className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 transition hover:border-slate-300 disabled:opacity-60"
+                          >
+                            Zerar
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}

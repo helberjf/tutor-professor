@@ -680,6 +680,14 @@ export interface UserAISettingsPayload {
   use_global_key?: boolean;
 }
 
+export interface AICredits {
+  credits: number;
+  used: number;
+  unlimited: boolean;
+  /** False for the admin and for anyone on their own key: nothing to meter. */
+  metered: boolean;
+}
+
 export interface AdminUser {
   id: number;
   first_name: string;
@@ -692,6 +700,7 @@ export interface AdminUser {
   reviewed_at: string | null;
   review_note: string | null;
   ai_settings: UserAISettings;
+  ai_credits: AICredits;
 }
 
 export interface AdminOverview {
@@ -702,6 +711,8 @@ export interface AdminOverview {
   signups_last_7_days: number;
   children: number;
   ai_authorized_users: number;
+  out_of_credit_users: number;
+  ai_credits_spent: number;
 }
 
 // ── Coding Curriculum ──────────────────────────────────────────────────────
@@ -1442,6 +1453,15 @@ export const api = {
   adminSaveUserAISettings: (userId: number, payload: UserAISettingsPayload) =>
     fetchAPI<UserAISettings>(`/api/admin/users/${userId}/ai-settings`, {
       method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  getMyAICredits: () => fetchAPI<AICredits>('/api/ai/credits'),
+  adminSetUserAICredits: (
+    userId: number,
+    payload: { credits?: number; add?: number; unlimited?: boolean },
+  ) =>
+    fetchAPI<AdminUser>(`/api/admin/users/${userId}/ai-credits`, {
+      method: 'POST',
       body: JSON.stringify(payload),
     }),
   adminRevokeUserAI: (userId: number) =>

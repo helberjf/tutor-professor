@@ -1090,6 +1090,14 @@ class AdminUserReviewSchema(BaseModel):
     note: Optional[str] = Field(default=None, max_length=300)
 
 
+class AdminAICreditsSchema(BaseModel):
+    """Either set the balance outright or add to it, and/or flip unlimited."""
+
+    credits: Optional[int] = Field(default=None, ge=0, le=1_000_000)
+    add: Optional[int] = Field(default=None, ge=-1_000_000, le=1_000_000)
+    unlimited: Optional[bool] = None
+
+
 class AIProviderSchema(BaseModel):
     id: str
     label: str

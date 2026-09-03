@@ -42,6 +42,8 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 
 - Admin dashboard at `/admin` with counters for the approval queue, approved accounts, recent signups, and AI authorizations.
 - Account approval at `/admin/accounts`: every signup waits in a queue and only reaches the app once approved. Rejecting an account drops its open sessions immediately, and a rejection can be reversed later.
+- AI access is a second, independent switch: approving an account grants no AI, and revoking AI leaves the account working. Both are set from the same queue card.
+- AI credits meter the administrator's own key at one credit per successful generation. A call the provider never answered is free, and an account using its own API key is never metered. Accounts can be topped up, zeroed, or marked unlimited.
 - Per-account AI authorization at `/admin/users`, plus the internal learning content editor at `/admin/learn`.
 
 ### Study Modes
@@ -263,6 +265,7 @@ python scripts/test_language_ai_questions.py
 python scripts/test_programming_ai_flashcards.py
 python scripts/test_ai_flashcard_service.py
 python scripts/test_admin_account_approval.py
+python scripts/test_ai_credits.py
 ```
 
 ```powershell

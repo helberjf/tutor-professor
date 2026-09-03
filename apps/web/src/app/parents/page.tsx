@@ -8,7 +8,7 @@ import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link
 import { StatusCard } from '@/components/status-card';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
 import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
-import { ApiError, api, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
+import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
 const LANGUAGES = [
   { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
@@ -62,6 +62,7 @@ export default function ParentsPage() {
   const [showTokenWarning, setShowTokenWarning] = useState(false);
   const [aiProviders, setAiProviders] = useState<AIProvider[]>([]);
   const [aiSettings, setAiSettings] = useState<UserAISettings | null>(null);
+  const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
   const [aiForm, setAiForm] = useState({
     provider: 'gemini',
     api_key: '',
@@ -80,17 +81,21 @@ export default function ParentsPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const [settings, childList, progressList, providers, userAiSettings] = await Promise.all([
+      const [settings, childList, progressList, providers, userAiSettings, credits] = await Promise.all([
         api.getParentSettings(),
         api.listParentChildren(),
         api.getParentProgress(),
         api.getAIProviders(),
         api.getUserAISettings(),
+        // Only meaningful for an account on the administrator's key, so a
+        // failure here must not take the whole settings page down with it.
+        api.getMyAICredits().catch(() => null),
       ]);
       setChildren(childList);
       setProgressSummaries(progressList);
       setAiProviders(providers);
       setAiSettings(userAiSettings);
+      setAiCredits(credits);
       setAiForm({
         provider: userAiSettings.provider || 'gemini',
         api_key: '',
@@ -648,6 +653,27 @@ export default function ParentsPage() {
                 <Bot className="text-indigo-700" size={28} />
                 <h2 className="text-xl font-black text-slate-800 md:text-2xl">IA da conta</h2>
               </div>
+
+              {aiCredits?.metered ? (
+                <div
+                  className={`mt-4 rounded-[1.25rem] border-2 p-4 ${
+                    aiCredits.credits > 0
+                      ? 'border-slate-200 bg-slate-50'
+                      : 'border-amber-200 bg-amber-50'
+                  }`}
+                >
+                  <p className="text-sm font-black text-slate-700">
+                    {aiCredits.credits > 0
+                      ? `${aiCredits.credits} creditos de IA restantes`
+                      : 'Seus creditos de IA acabaram'}
+                  </p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                    Cada geracao usa 1 credito da chave do administrador. Voce ja usou{' '}
+                    {aiCredits.used}. Para nao depender disso, salve a sua propria chave abaixo:
+                    chave propria nao gasta credito.
+                  </p>
+                </div>
+              ) : null}
 
               <form onSubmit={handleSaveAISettings} className="mt-5 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">

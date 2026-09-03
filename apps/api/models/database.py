@@ -24,6 +24,12 @@ class User(SQLModel, table=True):
     reviewed_at: Optional[datetime] = Field(default=None)
     reviewed_by_user_id: Optional[int] = Field(default=None)
     review_note: Optional[str] = Field(default=None, max_length=300)
+    # AI credits meter the administrator's own key: one credit per successful
+    # generation. They are ignored for an account using its own API key, which
+    # costs the administrator nothing.
+    ai_credits: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_credits_used: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_unlimited: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
