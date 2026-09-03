@@ -59,6 +59,9 @@ services:
       # it is Secure and SameSite=None.
       PARENT_COOKIE_SECURE: 'true'
       PARENT_COOKIE_SAMESITE: none
+      # The administrator who approves new signups at /admin.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
     volumes:
       - audio_cache:/app/audio_cache
     depends_on:

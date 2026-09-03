@@ -34,6 +34,7 @@ sys.path.insert(0, str(API_DIR))
 import httpx  # noqa: E402
 
 import main  # noqa: E402
+from account_approval_support import approve_all_accounts  # noqa: E402
 
 VALID_CPF = "52998224725"
 TODAY = date.today().isoformat()
@@ -55,6 +56,7 @@ async def auth_headers(client: httpx.AsyncClient) -> dict[str, str]:
             "password": "senha-forte-123",
         },
     )
+    approve_all_accounts(main)
     login = await client.post(
         "/api/auth/login",
         json={"email": "persistencia@example.com", "password": "senha-forte-123"},

@@ -222,7 +222,11 @@ export default function RegisterPage() {
         <div className="kid-surface w-full max-w-md p-6 text-center sm:p-10">
           <CheckCircle2 size={48} className="mx-auto mb-4 text-emerald-500" />
           <h2 className="text-2xl font-black text-slate-800">Conta criada!</h2>
-          <p className="mt-2 text-slate-500">Redirecionando para o login…</p>
+          <p className="mt-2 text-slate-500">
+            Falta só o administrador liberar o acesso. Você já pode entrar para
+            acompanhar — a tela avisa assim que a conta for aprovada.
+          </p>
+          <p className="mt-3 text-sm font-bold text-slate-400">Redirecionando para o login…</p>
         </div>
       </div>
     );

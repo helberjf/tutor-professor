@@ -40,6 +40,7 @@ from pydantic import ValidationError
 from sqlmodel import Session, select
 
 import main
+from account_approval_support import approve_all_accounts  # noqa: E402
 from schemas.schemas import GenerateAdditionalFlashcardsSchema
 from services import coding_service
 
@@ -466,6 +467,7 @@ async def seed_accounts() -> None:
                 },
             )
             assert_status(response, 201, f"register {email}")
+        approve_all_accounts(main)
         login = await client.post(
             "/api/auth/login", json={"email": PRIMARY_EMAIL, "password": PASSWORD}
         )

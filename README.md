@@ -33,10 +33,16 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 
 ### Parent Area
 
-- Account registration and login.
+- Account registration and login, with new accounts held until an administrator approves them.
 - Parent dashboard for children, progress, settings, and AI provider configuration.
 - Child profile management, including target language and audio preferences.
 - AI-powered lesson, question, book, and flashcard generation.
+
+### Admin Area
+
+- Admin dashboard at `/admin` with counters for the approval queue, approved accounts, recent signups, and AI authorizations.
+- Account approval at `/admin/accounts`: every signup waits in a queue and only reaches the app once approved. Rejecting an account drops its open sessions immediately, and a rejection can be reversed later.
+- Per-account AI authorization at `/admin/users`, plus the internal learning content editor at `/admin/learn`.
 
 ### Study Modes
 
@@ -213,7 +219,25 @@ KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
 
 PARENT_COOKIE_SECURE=true
 PARENT_COOKIE_SAMESITE=none
+
+# The single administrator: the account with this e-mail owns /admin and never
+# waits in its own approval queue. ADMIN_PASSWORD_HASH is an optional recovery
+# password so the administrator can sign in even if the stored one is lost.
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD_HASH=
 ```
+
+### Creating the Administrator Account
+
+`ADMIN_EMAIL` names the administrator, but the account itself still has to exist
+in the database. Create it (or reset its password) with:
+
+```bash
+python scripts/create-admin-user.py --email admin@yourdomain.com
+```
+
+The script prints the `ADMIN_PASSWORD_HASH` line to store in the environment.
+Then sign in at `/login` with that e-mail and open `/admin`.
 
 ### Frontend
 
@@ -238,6 +262,7 @@ pnpm exec tsc --noEmit
 python scripts/test_language_ai_questions.py
 python scripts/test_programming_ai_flashcards.py
 python scripts/test_ai_flashcard_service.py
+python scripts/test_admin_account_approval.py
 ```
 
 ```powershell

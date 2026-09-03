@@ -540,12 +540,17 @@ export interface GenerateBookPayload {
   theme: string;      // contexto obrigatório do livro
 }
 
+// Uma conta nova fica em "pending" ate o administrador aprovar.
+export type AccountStatus = 'pending' | 'approved' | 'rejected';
+
 export interface UserProfile {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
   created_at: string;
+  status: AccountStatus;
+  is_admin: boolean;
 }
 
 export interface UserRegisterPayload {
@@ -682,7 +687,21 @@ export interface AdminUser {
   email: string;
   auth_provider: string;
   created_at: string;
+  status: AccountStatus;
+  is_admin: boolean;
+  reviewed_at: string | null;
+  review_note: string | null;
   ai_settings: UserAISettings;
+}
+
+export interface AdminOverview {
+  total_users: number;
+  pending_users: number;
+  approved_users: number;
+  rejected_users: number;
+  signups_last_7_days: number;
+  children: number;
+  ai_authorized_users: number;
 }
 
 // ── Coding Curriculum ──────────────────────────────────────────────────────
@@ -1297,7 +1316,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   userLogin: async (email: string, password: string) => {
-    const result = await fetchAPI<{ status: string; name: string; token?: string }>(
+    const result = await fetchAPI<{
+      status: string;
+      name: string;
+      token?: string;
+      account_status: AccountStatus;
+    }>(
       '/api/auth/login',
       {
         method: 'POST',
@@ -1321,6 +1345,15 @@ export const api = {
     userMeCache = { at: now, promise };
     // A rejected profile must not be cached, or a transient blip locks the user out
     // for the whole TTL.
+    promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
+    return promise;
+  },
+  // Skips the short /api/auth/me cache: used by the "aguardando aprovacao"
+  // screen, where the whole point is to see a status that just changed.
+  refreshUserMe: () => {
+    invalidateUserMeCache();
+    const promise = fetchAPI<UserProfile>('/api/auth/me');
+    userMeCache = { at: Date.now(), promise };
     promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
     return promise;
   },
@@ -1393,7 +1426,19 @@ export const api = {
   },
   // Admin Learn
   adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
-  adminListUsers: () => fetchAPI<AdminUser[]>('/api/admin/users'),
+  adminListUsers: (status?: AccountStatus) =>
+    fetchAPI<AdminUser[]>(status ? `/api/admin/users?status=${status}` : '/api/admin/users'),
+  adminOverview: () => fetchAPI<AdminOverview>('/api/admin/overview'),
+  adminApproveUser: (userId: number, note?: string) =>
+    fetchAPI<AdminUser>(`/api/admin/users/${userId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note ?? null }),
+    }),
+  adminRejectUser: (userId: number, note?: string) =>
+    fetchAPI<AdminUser>(`/api/admin/users/${userId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note ?? null }),
+    }),
   adminSaveUserAISettings: (userId: number, payload: UserAISettingsPayload) =>
     fetchAPI<UserAISettings>(`/api/admin/users/${userId}/ai-settings`, {
       method: 'PUT',

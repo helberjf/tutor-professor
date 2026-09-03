@@ -14,6 +14,16 @@ class User(SQLModel, table=True):
     password_hash: str
     google_sub: Optional[str] = Field(default=None, unique=True, index=True)
     auth_provider: str = Field(default="password", max_length=40)
+    # A new signup waits for the administrator: only "approved" reaches the app.
+    status: str = Field(
+        default="pending",
+        max_length=20,
+        index=True,
+        sa_column_kwargs={"server_default": "pending"},
+    )
+    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_by_user_id: Optional[int] = Field(default=None)
+    review_note: Optional[str] = Field(default=None, max_length=300)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

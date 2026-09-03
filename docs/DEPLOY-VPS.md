@@ -78,6 +78,9 @@ Chaves opcionais da aplicação (Gemini, Google OAuth, TTS) vão em
 `apps/api/.env` — copie de `apps/api/.env.example`. Se você não usa nenhuma,
 pode pular: o arquivo é opcional.
 
+Preencha também `ADMIN_EMAIL` no `.env.prod`: é a conta que aprova cadastros
+novos em `/admin`. Quem se cadastra fica aguardando até ela liberar.
+
 ## 4. Subir
 
 ```bash
@@ -100,6 +103,19 @@ Se `/health` não responder, veja os logs — o motivo quase sempre está ali:
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod logs -f api caddy
 ```
+
+### Criar a conta de administrador
+
+Com a stack no ar, crie a conta que aprova cadastros novos:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec api python admin_bootstrap.py --email admin@seudominio.com
+```
+
+O script pede a senha, cria a conta já aprovada e imprime o
+`ADMIN_PASSWORD_HASH` — cole-o no `.env.prod` como senha de recuperação e
+reinicie a stack. Depois entre em `/login` com esse e-mail e abra `/admin`,
+onde os cadastros novos ficam esperando aprovação.
 
 ## 5. Apontar o frontend
 

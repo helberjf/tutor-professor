@@ -35,6 +35,7 @@ import httpx
 from sqlmodel import Session, select
 
 import main
+from account_approval_support import approve_all_accounts  # noqa: E402
 from services.diverse_question_service import validate_generated_question_batch
 
 
@@ -143,6 +144,7 @@ async def seed_account() -> None:
         )
         if response.status_code != 201:
             raise AssertionError(f"register failed: {response.status_code} {response.text}")
+        approve_all_accounts(main)
         await client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD})
         settings = await client.put(
             "/api/ai/settings",

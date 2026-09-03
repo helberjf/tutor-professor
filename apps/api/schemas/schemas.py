@@ -1080,6 +1080,14 @@ class UserResponseSchema(FromAttributesModel):
     last_name: str
     email: str
     created_at: datetime
+    # "pending" until the administrator approves the account; the administrator
+    # themselves is always reported as approved.
+    status: str = "pending"
+    is_admin: bool = False
+
+
+class AdminUserReviewSchema(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=300)
 
 
 class AIProviderSchema(BaseModel):

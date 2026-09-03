@@ -3,7 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Loader2, RotateCcw } from 'lucide-react';
 
-import { api, type AdminUser, type AIProvider } from '@/lib/api';
+import { api, type AccountStatus, type AdminUser, type AIProvider } from '@/lib/api';
+
+// Mirrors the badge on /admin/accounts so the two lists read the same way.
+const ACCOUNT_STATUS_BADGE: Record<AccountStatus, { label: string; className: string }> = {
+  pending: { label: 'Aguardando aprovacao', className: 'bg-amber-50 text-amber-700' },
+  approved: { label: 'Conta aprovada', className: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Conta recusada', className: 'bg-rose-50 text-rose-700' },
+};
 
 function LoadingRows() {
   return (
@@ -204,6 +211,9 @@ export function AdminUsersPanel() {
                 <p className="break-all text-sm font-bold text-slate-500">{user.email}</p>
                 <p className="mt-1 text-xs font-bold text-slate-400">
                   Login: {user.auth_provider} - Criado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                </p>
+                <p className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-black ${ACCOUNT_STATUS_BADGE[user.status].className}`}>
+                  {ACCOUNT_STATUS_BADGE[user.status].label}
                 </p>
               </div>
               <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${

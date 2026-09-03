@@ -1,13 +1,14 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader2, WifiOff } from 'lucide-react';
 
-import { ApiError, api } from '@/lib/api';
+import { ApiError, api, type UserProfile } from '@/lib/api';
+import { AccountReviewNotice } from '@/components/account-review-notice';
 import { isPrivateAppPath } from '@/lib/private-routes';
 
-type GateStatus = 'checking' | 'allowed' | 'redirecting' | 'server_missing';
+type GateStatus = 'checking' | 'allowed' | 'awaiting_review' | 'redirecting' | 'server_missing';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -19,6 +20,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [pathname, searchParams]);
   const requiresAuth = isPrivateAppPath(currentPath);
   const [status, setStatus] = useState<GateStatus>(requiresAuth ? 'checking' : 'allowed');
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [recheckCount, setRecheckCount] = useState(0);
+
+  const recheck = useCallback(() => setRecheckCount((count) => count + 1), []);
 
   useEffect(() => {
     if (!requiresAuth) {
@@ -28,12 +33,13 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     setStatus('checking');
-    api
-      .getUserMe()
-      .then(() => {
-        if (!cancelled) {
-          setStatus('allowed');
-        }
+    // The first pass reuses the shared /api/auth/me cache; a manual recheck from
+    // the waiting screen must bypass it to notice a fresh approval.
+    (recheckCount === 0 ? api.getUserMe() : api.refreshUserMe())
+      .then((profile) => {
+        if (cancelled) return;
+        setUser(profile);
+        setStatus(profile.status === 'approved' ? 'allowed' : 'awaiting_review');
       })
       .catch((err) => {
         if (cancelled) return;
@@ -48,10 +54,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [currentPath, requiresAuth, router]);
+  }, [currentPath, recheckCount, requiresAuth, router]);
 
   if (!requiresAuth || status === 'allowed') {
     return <>{children}</>;
+  }
+
+  if (status === 'awaiting_review' && user) {
+    return <AccountReviewNotice user={user} onRecheck={recheck} />;
   }
 
   if (status === 'server_missing') {

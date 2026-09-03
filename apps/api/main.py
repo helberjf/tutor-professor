@@ -22,13 +22,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func, text, update
+from sqlalchemy import func, inspect, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
 from models.database import AdminFlashcard, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
 from schemas.schemas import (
+    AdminUserReviewSchema,
     AIProviderSchema,
     BookOutlineSchema,
     BookPageSchema,
@@ -266,6 +267,16 @@ def _resolve_session_secret() -> str:
 SESSION_SECRET = _resolve_session_secret()
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "").strip()
+
+# A registered account only reaches the app once the administrator approves it.
+USER_STATUS_PENDING = "pending"
+USER_STATUS_APPROVED = "approved"
+USER_STATUS_REJECTED = "rejected"
+USER_STATUSES = (USER_STATUS_PENDING, USER_STATUS_APPROVED, USER_STATUS_REJECTED)
+PENDING_ACCOUNT_DETAIL = (
+    "Sua conta ainda esta aguardando a aprovacao do administrador."
+)
+REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
 PARENT_COOKIE_DOMAIN = os.getenv("PARENT_COOKIE_DOMAIN") or None
@@ -474,6 +485,33 @@ def _run_schema_migrations() -> None:
             except Exception:
                 try:
                     conn.execute(text(f"ALTER TABLE codingdeckconfig ADD COLUMN {col} {ddl}"))
+                except Exception:
+                    pass
+        # Account approval: Alembic 0012 owns the normal path. These idempotent
+        # ALTERs keep older create_all-created local databases usable, and the
+        # backfill runs only when the column was missing so that accounts that
+        # already had access are never locked out by the new gate.
+        _inspector = inspect(conn)
+        if _inspector.has_table("user"):
+            _user_columns = {column["name"] for column in _inspector.get_columns("user")}
+            if "status" not in _user_columns:
+                for _statement in (
+                    'ALTER TABLE "user" ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT \'pending\'',
+                    "UPDATE \"user\" SET status = 'approved'",
+                ):
+                    try:
+                        conn.execute(text(_statement))
+                    except Exception:
+                        pass
+            for _col, _ddl in (
+                ("reviewed_at", "TIMESTAMP"),
+                ("reviewed_by_user_id", "INTEGER"),
+                ("review_note", "VARCHAR(300)"),
+            ):
+                if _col in _user_columns:
+                    continue
+                try:
+                    conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {_col} {_ddl}'))
                 except Exception:
                     pass
         # Allow admins to authorize a user to use the server-wide AI key
@@ -1386,10 +1424,54 @@ def clear_parent_session(request: Request, response: Response, session: Session)
     )
 
 
+def user_is_admin(user: User | None) -> bool:
+    return bool(user and ADMIN_EMAIL and user.email.lower() == ADMIN_EMAIL)
+
+
+def account_status_detail(status: str) -> str:
+    return REJECTED_ACCOUNT_DETAIL if status == USER_STATUS_REJECTED else PENDING_ACCOUNT_DETAIL
+
+
+def effective_user_status(user: User) -> str:
+    return USER_STATUS_APPROVED if user_is_admin(user) else user.status
+
+
+def build_user_response(user: User) -> UserResponseSchema:
+    return UserResponseSchema(
+        id=user.id or 0,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        created_at=user.created_at,
+        status=effective_user_status(user),
+        is_admin=user_is_admin(user),
+    )
+
+
+def user_can_use_app(user: User | None) -> bool:
+    """True once the administrator has approved the account.
+
+    The administrator is the exception: they never wait in their own queue, so a
+    fresh deployment cannot lock out the only person able to approve anyone.
+    """
+
+    if user is None:
+        return False
+    return user_is_admin(user) or user.status == USER_STATUS_APPROVED
+
+
 def require_parent_session(request: Request, session: Session) -> UserSession:
     session_record = get_request_user_session(request=request, session=session)
     if session_record is None:
         raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+    # A session may belong to the legacy shared parent password, which has no
+    # user row and so nothing to approve.
+    if session_record.user_id is not None:
+        user = session.get(User, session_record.user_id)
+        if user is None:
+            raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+        if not user_can_use_app(user):
+            raise HTTPException(status_code=403, detail=account_status_detail(user.status))
     return session_record
 
 
@@ -5825,6 +5907,11 @@ def user_register(
         email=email,
         cpf_hash=cpf_hash,
         password_hash=hash_password(payload.password),
+        status=(
+            USER_STATUS_APPROVED
+            if ADMIN_EMAIL and email == ADMIN_EMAIL
+            else USER_STATUS_PENDING
+        ),
     )
     session.add(user)
     session.commit()
@@ -5852,7 +5939,7 @@ def user_register(
             session=session,
         )
 
-    return UserResponseSchema.model_validate(user)
+    return build_user_response(user)
 
 
 @app.post("/api/auth/login")
@@ -5876,7 +5963,14 @@ def user_login(
     token = create_parent_session(response=response, session=session, user_id=user.id)
     # Devolve o token no corpo para clientes que usam Authorization (celular).
     # O cookie continua sendo setado por create_parent_session (desktop/local).
-    return {"status": "success", "name": user.first_name, "token": token}
+    # A conta pendente entra com sessao valida so para ver a tela de espera; o
+    # resto da API continua bloqueado por require_parent_session.
+    return {
+        "status": "success",
+        "name": user.first_name,
+        "token": token,
+        "account_status": effective_user_status(user),
+    }
 
 
 @app.get("/api/auth/me")
@@ -5884,14 +5978,19 @@ def user_me(
     request: Request,
     session: Session = Depends(get_session),
 ) -> UserResponseSchema:
-    session_record = require_parent_session(request, session)
+    # Deliberately not behind require_parent_session: a pending account must be
+    # able to read its own status so the app can explain the wait instead of
+    # bouncing the person back to the login screen.
+    session_record = get_request_user_session(request=request, session=session)
+    if session_record is None:
+        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
     user_id = session_record.user_id
     if user_id is None:
         raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-    return UserResponseSchema.model_validate(user)
+    return build_user_response(user)
 
 
 @app.post("/api/auth/logout")
@@ -5940,6 +6039,11 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
             password_hash=hash_password(secrets.token_urlsafe(32)),
             google_sub=google_sub,
             auth_provider="google",
+            status=(
+                USER_STATUS_APPROVED
+                if ADMIN_EMAIL and email == ADMIN_EMAIL
+                else USER_STATUS_PENDING
+            ),
         )
     else:
         user.google_sub = google_sub
@@ -6855,9 +6959,7 @@ def _require_admin(request: Request, session: Session) -> User:
     if session_record.user_id is None:
         raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
     user = session.get(User, session_record.user_id)
-    if user is None:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
-    if not ADMIN_EMAIL or user.email.lower() != ADMIN_EMAIL:
+    if user is None or not user_is_admin(user):
         raise HTTPException(status_code=403, detail="Acesso restrito ao administrador.")
     return user
 
@@ -6873,7 +6975,7 @@ def admin_check(
     user = session.get(User, session_record.user_id)
     if user is None:
         return {"is_admin": False}
-    is_admin = bool(ADMIN_EMAIL) and user.email.lower() == ADMIN_EMAIL
+    is_admin = user_is_admin(user)
     return {"is_admin": is_admin, "email": user.email if is_admin else ""}
 
 
@@ -6885,25 +6987,135 @@ def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> 
         "email": user.email,
         "auth_provider": user.auth_provider,
         "created_at": user.created_at.isoformat(),
+        "status": effective_user_status(user),
+        "is_admin": user_is_admin(user),
+        "reviewed_at": user.reviewed_at.isoformat() if user.reviewed_at else None,
+        "review_note": user.review_note,
         "ai_settings": build_ai_settings_schema(ai_settings).model_dump(mode="json"),
     }
+
+
+def _review_user_account(
+    *,
+    user_id: int,
+    status: str,
+    note: str | None,
+    request: Request,
+    session: Session,
+) -> dict:
+    admin = _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+    if user_is_admin(user):
+        raise HTTPException(
+            status_code=400,
+            detail="A conta do administrador nao passa pela fila de aprovacao.",
+        )
+
+    user.status = status
+    user.reviewed_at = datetime.utcnow()
+    user.reviewed_by_user_id = admin.id
+    user.review_note = (note or "").strip() or None
+    session.add(user)
+
+    if status != USER_STATUS_APPROVED:
+        # Drop every open session so a refused account stops working right away
+        # instead of keeping its cookie until the week-long expiry.
+        for open_session in session.exec(
+            select(UserSession).where(UserSession.user_id == user_id)
+        ).all():
+            session.delete(open_session)
+
+    session.commit()
+    session.refresh(user)
+
+    ai_settings = session.exec(
+        select(UserAISettings).where(UserAISettings.user_id == user_id)
+    ).first()
+    return _build_admin_user_schema(user, ai_settings)
 
 
 @app.get("/api/admin/users")
 def admin_list_users(
     request: Request,
+    status: str | None = None,
     session: Session = Depends(get_session),
 ) -> list[dict]:
     _require_admin(request, session)
+    if status is not None and status not in USER_STATUSES:
+        raise HTTPException(status_code=422, detail="Status invalido.")
+
     users = session.exec(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
     settings_by_user_id = {
         settings.user_id: settings
         for settings in session.exec(select(UserAISettings)).all()
     }
-    return [
+    rows = [
         _build_admin_user_schema(user, settings_by_user_id.get(user.id or 0))
         for user in users
     ]
+    if status is None:
+        return rows
+    return [row for row in rows if row["status"] == status]
+
+
+@app.get("/api/admin/overview")
+def admin_overview(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Counters for the admin dashboard, so the pending queue is visible up front."""
+
+    _require_admin(request, session)
+    users = session.exec(select(User)).all()
+    counts = {status: 0 for status in USER_STATUSES}
+    for user in users:
+        status = effective_user_status(user)
+        counts[status] = counts.get(status, 0) + 1
+
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    return {
+        "total_users": len(users),
+        "pending_users": counts[USER_STATUS_PENDING],
+        "approved_users": counts[USER_STATUS_APPROVED],
+        "rejected_users": counts[USER_STATUS_REJECTED],
+        "signups_last_7_days": sum(1 for user in users if user.created_at >= week_ago),
+        "children": len(session.exec(select(ChildProfile)).all()),
+        "ai_authorized_users": len(session.exec(select(UserAISettings)).all()),
+    }
+
+
+@app.post("/api/admin/users/{user_id}/approve")
+def admin_approve_user(
+    user_id: int,
+    request: Request,
+    payload: AdminUserReviewSchema | None = None,
+    session: Session = Depends(get_session),
+) -> dict:
+    return _review_user_account(
+        user_id=user_id,
+        status=USER_STATUS_APPROVED,
+        note=payload.note if payload else None,
+        request=request,
+        session=session,
+    )
+
+
+@app.post("/api/admin/users/{user_id}/reject")
+def admin_reject_user(
+    user_id: int,
+    request: Request,
+    payload: AdminUserReviewSchema | None = None,
+    session: Session = Depends(get_session),
+) -> dict:
+    return _review_user_account(
+        user_id=user_id,
+        status=USER_STATUS_REJECTED,
+        note=payload.note if payload else None,
+        request=request,
+        session=session,
+    )
 
 
 @app.put("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)
