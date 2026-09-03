@@ -49,6 +49,21 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 - AI credits meter the administrator's own key at one credit per successful generation. A call the provider never answered is free, and an account using its own API key is never metered. Accounts can be topped up, zeroed, or marked unlimited.
 - Per-account AI authorization at `/admin/users`, plus the internal learning content editor at `/admin/learn`.
 
+### Installable App (PWA)
+
+- Installable on phone, tablet and desktop: web app manifest, maskable icons, and an `apple-touch-icon` so iPhone and iPad get the real icon instead of a page thumbnail.
+- Opens without browser chrome (`display: standalone`), with both the standardised and the legacy `apple-mobile-web-app-capable` meta so iOS before 17 also goes full screen.
+- A small service worker caches the app shell and immutable `/_next/static/` assets, and shows `public/offline.html` when a navigation fails with no network. It never touches the backend or any `/api/` route, so the runtime backend URL is always read fresh.
+- Icons are generated from the app's own brand mark: `python scripts/generate-pwa-icons.py`.
+
+**Installing it**
+
+- iPhone / iPad: open the site in Safari (it must be Safari), tap Share, then "Adicionar a Tela de Início".
+- Android / Chrome: the browser offers "Instalar app", or use the menu's "Adicionar à tela inicial".
+- Desktop Chrome / Edge: the install icon appears at the right of the address bar.
+
+Installation needs HTTPS, which the Vercel deployment already provides.
+
 ### Study Modes
 
 - General study dashboard with planning, notes, distractions, and pomodoro count.
@@ -278,6 +293,7 @@ python scripts/test_password_security.py
 
 ```powershell
 node apps/web/scripts/test-api-offline-fallback.mjs
+node apps/web/scripts/test-pwa-manifest-and-sw.mjs
 node apps/web/scripts/test-runtime-backend-state.mjs
 node apps/web/scripts/test-lesson-question-state.mjs
 node apps/web/scripts/test-diverse-question-state.mjs
