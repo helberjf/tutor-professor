@@ -30,15 +30,36 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
 from services.key_vault import KeyVaultError, build_key_vault, derive_fernet_key
+from services import account_data, billing_service
+from services.billing_service import (
+    Entitlement,
+    Plan,
+    SUBSCRIPTION_ACTIVE,
+    SUBSCRIPTION_CANCELED,
+    SUBSCRIPTION_PAST_DUE,
+    SUBSCRIPTION_TRIALING,
+    UNLIMITED,
+    effective_status,
+    get_plan,
+    period_key,
+    public_plans,
+    upgrade_message,
+)
 from services.email_service import EmailMessageSpec, EmailService
 from services.rate_limit import RateLimitRule, SlidingWindowRateLimiter
+from services.request_logging import (
+    RequestLogEntry,
+    Stopwatch,
+    configure_logging,
+    new_request_id,
+)
 from services.modules import (
     MODULE_DEFINITIONS,
     apply_module_changes,
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AuthToken, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -70,13 +91,17 @@ from schemas.schemas import (
     LessonSummarySchema,
     ParentLoginSchema,
     AccountDeleteSchema,
+    CheckoutRequestSchema,
+    CheckoutResponseSchema,
     EmailRequestSchema,
     ModuleSchema,
     ModuleSettingsSchema,
     ModuleSettingsUpdateSchema,
     PasswordChangeSchema,
+    PlanSchema,
     PasswordResetRequestSchema,
     ParentSettingsUpdateSchema,
+    SubscriptionSchema,
     VerifyEmailSchema,
     UserAISettingsSchema,
     UserAISettingsUpdateSchema,
@@ -244,6 +269,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent.parent
 
+configure_logging()
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./kids_tutor.sqlite")
@@ -521,6 +547,64 @@ async def _rate_limit_gate(request: Request, call_next):
 
 app.add_middleware(BaseHTTPMiddleware, dispatch=_rate_limit_gate)
 
+# ── Access log ────────────────────────────────────────────────────────────────
+# Outermost of the application's own middlewares, so the line covers whatever
+# the ones underneath decided — a 429 from the rate limiter and a 403 from the
+# module gate both show up here with the account that got them.
+SLOW_REQUEST_MS = int(os.getenv("SLOW_REQUEST_MS", "2000"))
+
+
+async def _access_log(request: Request, call_next):
+    stopwatch = Stopwatch()
+    request_id = new_request_id()
+    request.state.request_id = request_id
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "request failed",
+            extra={
+                "request": RequestLogEntry(
+                    request_id=request_id,
+                    method=request.method,
+                    path=request.url.path,
+                    status=500,
+                    duration_ms=stopwatch.elapsed_ms,
+                    client=client_address(request),
+                )
+            },
+        )
+        raise
+
+    account_id: int | None = None
+    # Health checks and static-ish routes are not worth a database round trip
+    # just to label a log line.
+    if request.url.path.startswith("/api") and request.url.path != "/api/audio/file":
+        try:
+            with Session(engine) as db:
+                session_record = get_request_user_session(request=request, session=db)
+                account_id = session_record.user_id if session_record else None
+        except Exception:  # pragma: no cover - logging must never break a response
+            account_id = None
+
+    entry = RequestLogEntry(
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        duration_ms=stopwatch.elapsed_ms,
+        account_id=account_id,
+        client=client_address(request),
+    )
+    level = logging.WARNING if entry.duration_ms >= SLOW_REQUEST_MS or entry.status >= 500 else logging.INFO
+    logger.log(level, "request", extra={"request": entry})
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+if os.getenv("ACCESS_LOG", "true").lower() == "true":
+    app.add_middleware(BaseHTTPMiddleware, dispatch=_access_log)
+
 raw_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
@@ -741,6 +825,14 @@ def _run_schema_migrations() -> None:
         except Exception:
             try:
                 conn.execute(text('ALTER TABLE "user" ADD COLUMN enabled_modules JSON'))
+            except Exception:
+                pass
+        # Plan credit period: Alembic 0017 owns the normal path.
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS ai_credits_period VARCHAR(7)'))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN ai_credits_period VARCHAR(7)'))
             except Exception:
                 pass
         # E-mail verification: Alembic 0016 owns the normal path.
@@ -3908,6 +4000,123 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
     session.commit()
 
 
+# ── Entitlements and usage ────────────────────────────────────────────────────
+# One AI call costs a fraction of a cent, so the per-call price is stored in
+# millionths: rounding each call to a cent would turn a real monthly bill into
+# zero. This is an estimate until the provider layer reports token counts — it
+# is here so the number exists and can be corrected, rather than not existing.
+AI_GENERATION_COST_MICROS = int(os.getenv("AI_GENERATION_COST_MICROS", "3000"))
+USAGE_AI_GENERATION = "ai_generation"
+USAGE_AI_GENERATION_OWN_KEY = "ai_generation_own_key"
+
+
+def record_usage(
+    *,
+    session: Session,
+    user_id: int,
+    kind: str,
+    provider: str = "",
+    model: str = "",
+    cost_micros: int = 0,
+) -> None:
+    session.add(
+        UsageRecord(
+            user_id=user_id,
+            kind=kind,
+            provider=provider or "",
+            model=model or "",
+            cost_micros=cost_micros,
+            period_key=period_key(),
+        )
+    )
+    session.commit()
+
+
+def count_metered_generations(session: Session, user_id: int, *, period: str | None = None) -> int:
+    """Generations charged to the platform key in the current period."""
+
+    return int(
+        session.exec(
+            select(func.count(UsageRecord.id)).where(
+                UsageRecord.user_id == user_id,
+                UsageRecord.kind == USAGE_AI_GENERATION,
+                UsageRecord.period_key == (period or period_key()),
+            )
+        ).one()
+    )
+
+
+def top_up_plan_credits(session: Session, user: User) -> None:
+    """Give the account the credits its plan includes, once per period.
+
+    Idempotent by design: the period the balance was last filled for is stored
+    on the account, so calling this on every generation costs one comparison and
+    fills nothing twice. Credits the administrator granted by hand are never
+    taken away — the top-up raises the balance, it does not overwrite it.
+    """
+
+    if user.id is None or user.ai_unlimited:
+        return
+    entitlement = get_entitlement(session, user)
+    allowance = entitlement.plan.monthly_ai_generations
+    if allowance <= 0 or not entitlement.is_entitled:
+        return
+    current_period = period_key()
+    if user.ai_credits_period == current_period:
+        return
+    user.ai_credits = max(user.ai_credits, allowance)
+    user.ai_credits_period = current_period
+    session.add(user)
+    session.commit()
+
+
+def get_subscription(session: Session, user_id: int) -> Subscription | None:
+    return session.exec(select(Subscription).where(Subscription.user_id == user_id)).first()
+
+
+def get_entitlement(session: Session, user: User | None) -> Entitlement:
+    """What this account may do right now.
+
+    An account with no subscription row is on the free plan. That is a valid
+    state rather than a missing one, so signup creates nothing and the whole app
+    works with billing switched off.
+    """
+
+    if user is None or user.id is None:
+        return Entitlement(plan=billing_service.DEFAULT_PLAN, status=SUBSCRIPTION_ACTIVE)
+
+    # The administrator is never limited by a plan: they would otherwise be able
+    # to lock themselves out of their own instance.
+    if user_is_admin(user):
+        return Entitlement(plan=get_plan(billing_service.PLAN_STUDY), status=SUBSCRIPTION_ACTIVE)
+
+    record = get_subscription(session, user.id)
+    plan = get_plan(record.plan_code if record else None)
+    status = effective_status(
+        stored_status=record.status if record else SUBSCRIPTION_ACTIVE,
+        trial_ends_at=record.trial_ends_at if record else None,
+    )
+    # A trial that ran out drops the account to the free plan rather than to
+    # nothing: they keep reading what they already have.
+    if status == SUBSCRIPTION_CANCELED:
+        plan = billing_service.DEFAULT_PLAN
+        status = SUBSCRIPTION_ACTIVE
+
+    children = int(
+        session.exec(
+            select(func.count(ChildProfile.id)).where(ChildProfile.user_id == user.id)
+        ).one()
+    )
+    return Entitlement(
+        plan=plan,
+        status=status,
+        trial_ends_at=record.trial_ends_at if record else None,
+        current_period_end=record.current_period_end if record else None,
+        generations_used=count_metered_generations(session, user.id),
+        children_count=children,
+    )
+
+
 def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AIProviderConfig | None:
     if user_id is None:
         return None
@@ -3923,22 +4132,64 @@ def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AI
         user = session.get(User, user_id)
         if user is None:
             return None
+        # The plan's monthly allowance arrives as credits (see
+        # top_up_plan_credits), so there is one meter rather than two competing
+        # ones: whatever the administrator granted by hand and whatever the plan
+        # includes end up in the same balance.
+        top_up_plan_credits(session, user)
         if not user_has_ai_credit(user):
-            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+            entitlement = get_entitlement(session, user)
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    NO_AI_CREDITS_DETAIL
+                    if entitlement.plan.monthly_ai_generations == 0
+                    else upgrade_message(
+                        entitlement.plan,
+                        "generations" if entitlement.is_entitled else "inactive",
+                    )
+                ),
+            )
         config = _get_global_ai_config(record)
         if config is None:
             return None
-        return replace(config, on_success=lambda: _consume_ai_credit(user_id, session))
+
+        def charge_platform_key() -> None:
+            _consume_ai_credit(user_id, session)
+            record_usage(
+                session=session,
+                user_id=user_id,
+                kind=USAGE_AI_GENERATION,
+                provider=config.provider,
+                model=config.model,
+                cost_micros=AI_GENERATION_COST_MICROS,
+            )
+
+        return replace(config, on_success=charge_platform_key)
 
     try:
         api_key = decrypt_api_key(record.api_key_encrypted)
     except Exception:
         return None
+
+    def note_own_key_call() -> None:
+        # Costs the platform nothing and is not counted against the plan, but
+        # recording it is what makes "how much is this account using" answerable
+        # for every account rather than only the metered ones.
+        record_usage(
+            session=session,
+            user_id=user_id,
+            kind=USAGE_AI_GENERATION_OWN_KEY,
+            provider=record.provider,
+            model=record.model,
+        )
+
     return AIProviderConfig(
         provider=record.provider,
         api_key=api_key,
         model=record.model,
         base_url=record.base_url,
+        on_success=note_own_key_call,
     )
 
 
@@ -6431,6 +6682,50 @@ def change_own_password(
     return Response(status_code=204)
 
 
+@app.get("/api/account/export")
+def export_own_account(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """A copy of everything stored about this account (LGPD art. 18)."""
+
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+    return account_data.export_account(session, user)
+
+
+@app.post("/api/account/delete", status_code=200)
+def delete_own_account(
+    request: Request,
+    payload: AccountDeleteSchema,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Erase the account and every row under it (LGPD art. 18).
+
+    The password is asked for again because this cannot be undone and a stolen
+    open session should not be enough to destroy a family's history.
+    """
+
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+    if user_is_admin(user):
+        raise HTTPException(
+            status_code=409,
+            detail="A conta do administrador nao pode ser apagada por aqui.",
+        )
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Senha incorreta.")
+
+    email = user.email
+    deleted = account_data.delete_account(session, user)
+    logger.info("account %s deleted itself: %s", email, deleted)
+    return {"status": "deleted", "removed": deleted}
+
+
 @app.post("/api/account/sessions/revoke", status_code=204)
 def revoke_own_sessions(
     request: Request,
@@ -6804,6 +7099,226 @@ def update_account_modules(
     return _module_settings_response(user)
 
 
+# ── Billing ───────────────────────────────────────────────────────────────────
+# The gateway is deliberately not wired in: an app that only works once someone
+# has a Stripe account is an app nobody can run. What is here is everything that
+# does not depend on one — the catalogue, the account's entitlement, the usage
+# it has run up, and the webhook that a gateway will call. Turning a gateway on
+# means filling in BILLING_PROVIDER and the checkout call, not rewriting limits.
+BILLING_PROVIDER = os.getenv("BILLING_PROVIDER", "none").strip().lower()
+BILLING_WEBHOOK_SECRET = os.getenv("BILLING_WEBHOOK_SECRET", "").strip()
+BILLING_NOT_CONFIGURED_DETAIL = (
+    "O pagamento ainda nao esta disponivel. Fale com o suporte para mudar de plano."
+)
+
+
+def _plan_schema(plan: Plan) -> PlanSchema:
+    return PlanSchema(
+        code=plan.code,
+        name=plan.name,
+        description=plan.description,
+        price_cents=plan.price_cents,
+        currency=plan.currency,
+        interval=plan.interval,
+        max_children=plan.max_children,
+        monthly_ai_generations=plan.monthly_ai_generations,
+        trial_days=plan.trial_days,
+    )
+
+
+def month_cost_cents(session: Session, user_id: int) -> int:
+    total_micros = session.exec(
+        select(func.coalesce(func.sum(UsageRecord.cost_micros), 0)).where(
+            UsageRecord.user_id == user_id,
+            UsageRecord.period_key == period_key(),
+        )
+    ).one()
+    return int(total_micros or 0) // 10_000
+
+
+@app.get("/api/billing/plans", response_model=list[PlanSchema])
+def list_plans() -> list[PlanSchema]:
+    return [_plan_schema(plan) for plan in public_plans()]
+
+
+@app.get("/api/billing/subscription", response_model=SubscriptionSchema)
+def get_my_subscription(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> SubscriptionSchema:
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    entitlement = get_entitlement(session, user)
+    record = get_subscription(session, user.id) if user and user.id else None
+    return SubscriptionSchema(
+        plan=_plan_schema(entitlement.plan),
+        status=entitlement.status,
+        trial_ends_at=entitlement.trial_ends_at,
+        current_period_end=entitlement.current_period_end,
+        cancel_at_period_end=bool(record.cancel_at_period_end) if record else False,
+        children_used=entitlement.children_count,
+        generations_used=entitlement.generations_used,
+        generations_remaining=entitlement.generations_remaining,
+        month_cost_cents=month_cost_cents(session, user.id) if user and user.id else 0,
+        provider=record.provider if record else "none",
+    )
+
+
+@app.post("/api/billing/checkout", response_model=CheckoutResponseSchema)
+def start_checkout(
+    request: Request,
+    payload: CheckoutRequestSchema,
+    session: Session = Depends(get_session),
+) -> CheckoutResponseSchema:
+    require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    if user is None or user.id is None:
+        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+
+    plan = get_plan(payload.plan_code)
+    if plan.code == billing_service.PLAN_FREE or not plan.is_public:
+        raise HTTPException(status_code=422, detail="Este plano nao pode ser assinado aqui.")
+
+    # The trial asks for no card, so it needs no gateway. An account gets one:
+    # the check is for any previous subscription, not for a previous trial of
+    # this plan, or cancelling and re-subscribing would renew it forever.
+    if plan.trial_days > 0 and get_subscription(session, user.id) is None:
+        now = datetime.utcnow()
+        session.add(
+            Subscription(
+                user_id=user.id,
+                plan_code=plan.code,
+                status=SUBSCRIPTION_TRIALING,
+                provider=BILLING_PROVIDER,
+                trial_ends_at=now + timedelta(days=plan.trial_days),
+                current_period_start=now,
+                current_period_end=now + timedelta(days=plan.trial_days),
+            )
+        )
+        session.commit()
+        return CheckoutResponseSchema(
+            detail=(
+                f"Teste do plano {plan.name} liberado por {plan.trial_days} dias. "
+                "O pagamento sera pedido quando o teste terminar."
+            )
+        )
+
+    # Paying is where a gateway becomes unavoidable. Until one is configured this
+    # says so plainly instead of pretending to have taken the money.
+    raise HTTPException(status_code=503, detail=BILLING_NOT_CONFIGURED_DETAIL)
+
+
+def _webhook_signature_is_valid(raw_body: bytes, signature: str) -> bool:
+    """Constant-time check of the gateway's signature over the raw body.
+
+    The body must be the bytes as received: re-serializing the parsed JSON
+    changes whitespace and key order, and the signature stops matching for
+    reasons that look like an attack and are not.
+    """
+
+    expected = hmac.new(
+        BILLING_WEBHOOK_SECRET.encode("utf-8"), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, (signature or "").strip())
+
+
+@app.post("/api/billing/webhook", status_code=202)
+async def billing_webhook(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    if not BILLING_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail=BILLING_NOT_CONFIGURED_DETAIL)
+
+    raw_body = await request.body()
+    signature = request.headers.get("x-webhook-signature", "")
+    if not _webhook_signature_is_valid(raw_body, signature):
+        raise HTTPException(status_code=401, detail="Assinatura invalida.")
+
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Corpo invalido.") from exc
+
+    event_id = str(event.get("id") or "").strip()
+    event_type = str(event.get("type") or "").strip()
+    if not event_id or not event_type:
+        raise HTTPException(status_code=400, detail="Evento sem id ou tipo.")
+
+    provider = BILLING_PROVIDER or "unknown"
+    # Gateways retry. A repeated "payment succeeded" that extends the period
+    # twice is a free month nobody paid for, so the id is the guard.
+    already_seen = session.exec(
+        select(BillingEvent).where(
+            BillingEvent.provider == provider,
+            BillingEvent.provider_event_id == event_id,
+        )
+    ).first()
+    if already_seen is not None:
+        return {"status": "duplicate"}
+
+    session.add(
+        BillingEvent(provider=provider, provider_event_id=event_id, event_type=event_type)
+    )
+    session.commit()
+
+    applied = _apply_billing_event(event=event, event_type=event_type, session=session)
+    return {"status": "applied" if applied else "ignored"}
+
+
+def _apply_billing_event(*, event: dict, event_type: str, session: Session) -> bool:
+    """Move an account's subscription to match what the gateway says.
+
+    The webhook is the source of truth, not the browser coming back from
+    checkout: the browser can close, and a card can fail an hour later.
+    """
+
+    data = event.get("data") or {}
+    email = str(data.get("customer_email") or "").lower().strip()
+    user = (
+        session.exec(select(User).where(User.email == email)).first() if email else None
+    )
+    if user is None or user.id is None:
+        logger.warning("Billing event %s for an unknown account", event_type)
+        return False
+
+    record = get_subscription(session, user.id)
+    if record is None:
+        record = Subscription(user_id=user.id, plan_code=billing_service.PLAN_FREE)
+
+    status_by_event = {
+        "subscription.created": SUBSCRIPTION_ACTIVE,
+        "subscription.updated": SUBSCRIPTION_ACTIVE,
+        "payment.succeeded": SUBSCRIPTION_ACTIVE,
+        "payment.failed": SUBSCRIPTION_PAST_DUE,
+        "subscription.canceled": SUBSCRIPTION_CANCELED,
+        "trial.started": SUBSCRIPTION_TRIALING,
+    }
+    if event_type not in status_by_event:
+        return False
+
+    record.status = status_by_event[event_type]
+    record.provider = BILLING_PROVIDER or record.provider
+    if data.get("plan_code"):
+        record.plan_code = get_plan(str(data["plan_code"])).code
+    if data.get("customer_id"):
+        record.provider_customer_id = str(data["customer_id"])
+    if data.get("subscription_id"):
+        record.provider_subscription_id = str(data["subscription_id"])
+    if data.get("current_period_end"):
+        try:
+            record.current_period_end = datetime.fromisoformat(
+                str(data["current_period_end"]).replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+        except ValueError:
+            logger.warning("Billing event %s carried an unreadable period end", event_type)
+    record.cancel_at_period_end = bool(data.get("cancel_at_period_end", False))
+    record.updated_at = datetime.utcnow()
+    session.add(record)
+    session.commit()
+    return True
+
+
 @app.get("/api/parent/settings", response_model=ChildProfileSchema)
 def get_parent_settings(
     request: Request,
@@ -6865,6 +7380,15 @@ def create_parent_child(
 ) -> ChildProfileSchema:
     session_record = require_parent_session(request, session)
     user_id = session_record.user_id
+    entitlement = get_entitlement(session, get_request_user(request=request, session=session))
+    if not entitlement.may_add_child():
+        raise HTTPException(
+            status_code=402,
+            detail=upgrade_message(
+                entitlement.plan,
+                "children" if entitlement.is_entitled else "inactive",
+            ),
+        )
     child = ChildProfile(
         name=payload.name.strip(),
         age_group=payload.age_group.strip(),

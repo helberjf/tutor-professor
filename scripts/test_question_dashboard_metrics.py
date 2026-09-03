@@ -28,7 +28,11 @@ import httpx  # noqa: E402
 from sqlmodel import Session  # noqa: E402
 
 import main  # noqa: E402
-from account_approval_support import approve_all_accounts, enable_all_modules  # noqa: E402
+from account_approval_support import (  # noqa: E402
+    approve_all_accounts,
+    enable_all_modules,
+    put_accounts_on_paid_plan,
+)
 
 
 VALID_CPF = "52998224725"
@@ -59,6 +63,7 @@ async def register_parent(client: httpx.AsyncClient, email: str, child_name: str
     )
     approve_all_accounts(main)
     enable_all_modules(main)
+    put_accounts_on_paid_plan(main)
     assert_status(
         await client.post("/api/auth/login", json={"email": email, "password": "Secret@123"}),
         200,

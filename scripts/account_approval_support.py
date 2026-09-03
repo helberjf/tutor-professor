@@ -42,3 +42,37 @@ def enable_all_modules(main_module: Any) -> None:
             user.enabled_modules = {module_id: True for module_id in MODULE_IDS}
             session.add(user)
         session.commit()
+
+
+def put_accounts_on_paid_plan(main_module: Any) -> None:
+    """Give every test account a plan with room for what the test does.
+
+    The free plan allows one child and no included AI generations, which is a
+    product decision, not something most fixtures are testing. A fixture that
+    needs a second child subscribes the way a customer would instead of having
+    the limit quietly weakened for it.
+    """
+
+    from models.database import Subscription, User
+    from services.billing_service import PLAN_STUDY, SUBSCRIPTION_ACTIVE
+
+    with Session(main_module.engine) as session:
+        for user in session.exec(select(User)).all():
+            if user.id is None:
+                continue
+            existing = session.exec(
+                select(Subscription).where(Subscription.user_id == user.id)
+            ).first()
+            if existing is None:
+                session.add(
+                    Subscription(
+                        user_id=user.id,
+                        plan_code=PLAN_STUDY,
+                        status=SUBSCRIPTION_ACTIVE,
+                    )
+                )
+            else:
+                existing.plan_code = PLAN_STUDY
+                existing.status = SUBSCRIPTION_ACTIVE
+                session.add(existing)
+        session.commit()

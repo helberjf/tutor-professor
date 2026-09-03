@@ -30,6 +30,9 @@ class User(SQLModel, table=True):
     ai_credits: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     ai_credits_used: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     ai_unlimited: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+    # "YYYY-MM" the plan allowance was last credited for, so a paid plan tops
+    # the balance up once a period instead of on every generation.
+    ai_credits_period: Optional[str] = Field(default=None, max_length=7)
     # Brute-force brake. The lock is short and self-healing on purpose: a
     # permanent one would let anybody lock a real person out just by guessing
     # their e-mail and failing on purpose.
@@ -60,6 +63,81 @@ class AuthToken(SQLModel, table=True):
     expires_at: datetime
     used_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Subscription(SQLModel, table=True):
+    """What an account is entitled to, and who is paying for it.
+
+    One row per account. An account with no row is on the free plan: the
+    absence of a subscription is a valid state, not a missing one, so nothing
+    has to be created at signup for the app to work.
+    """
+
+    __table_args__ = (UniqueConstraint("user_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    plan_code: str = Field(max_length=40, index=True)
+    # trialing | active | past_due | canceled
+    status: str = Field(default="active", max_length=20, index=True)
+    # "none" while the gateway is not configured: the plan still applies, it is
+    # simply not being charged for yet.
+    provider: str = Field(default="none", max_length=40)
+    provider_customer_id: Optional[str] = Field(default=None, max_length=120, index=True)
+    provider_subscription_id: Optional[str] = Field(default=None, max_length=120, index=True)
+    trial_ends_at: Optional[datetime] = Field(default=None)
+    current_period_start: Optional[datetime] = Field(default=None)
+    current_period_end: Optional[datetime] = Field(default=None)
+    cancel_at_period_end: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UsageRecord(SQLModel, table=True):
+    """One line per billable thing an account did.
+
+    Without this there is no answer to "what did this account cost us", which is
+    the number that decides whether a plan price is a business or a donation.
+    Kept as raw lines rather than a running total so a wrong price or a bad
+    month can be recomputed instead of argued about.
+    """
+
+    __table_args__ = (
+        Index("ix_usagerecord_user_period", "user_id", "period_key"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    # ai_generation | tts
+    kind: str = Field(max_length=40, index=True)
+    provider: str = Field(default="", max_length=40)
+    model: str = Field(default="", max_length=120)
+    tokens_in: int = Field(default=0)
+    tokens_out: int = Field(default=0)
+    # Millionths of a currency unit: an AI call can cost less than a cent, and
+    # rounding each one to a cent turns a real bill into zero.
+    cost_micros: int = Field(default=0)
+    # "YYYY-MM" of the account's billing period, so a month's usage is one index
+    # lookup rather than a date range scan.
+    period_key: str = Field(max_length=7, index=True)
+    occurred_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BillingEvent(SQLModel, table=True):
+    """Gateway webhooks already handled.
+
+    Gateways retry, and a retried "subscription canceled" that runs twice is
+    harmless while a retried "payment succeeded" that extends the period twice
+    is not. The unique id is what makes handling idempotent.
+    """
+
+    __table_args__ = (UniqueConstraint("provider", "provider_event_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    provider: str = Field(max_length=40)
+    provider_event_id: str = Field(max_length=200, index=True)
+    event_type: str = Field(max_length=80)
+    received_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class UserAISettings(SQLModel, table=True):

@@ -70,6 +70,8 @@ TENANT_FREE_ROUTES = {
     "/api/account/modules",
     "/api/account/password",
     "/api/account/sessions/revoke",
+    "/api/account/export",
+    "/api/account/delete",
     "/api/parent/login",
     "/api/parent/logout",
     "/api/parent/children",
@@ -79,6 +81,10 @@ TENANT_FREE_ROUTES = {
     "/api/ai/settings",
     "/api/user/ai-settings",
     "/api/audio/file/{filename}",
+    "/api/billing/plans",
+    "/api/billing/webhook",
+    "/api/billing/subscription",
+    "/api/billing/checkout",
 }
 
 # Any one of these in a route body means the route resolved its own tenant.

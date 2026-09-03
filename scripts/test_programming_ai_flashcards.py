@@ -732,14 +732,18 @@ class ProgrammingAIFlashcardRouteTests(unittest.TestCase):
                 captured["existing_fronts"], [existing_before["front"]]
             )
             self.assertEqual(captured["user_context"], "Focus on debugging callbacks")
-            self.assertEqual(
-                captured["ai_config"],
-                main.AIProviderConfig(
-                    provider="gemini",
-                    api_key="fake-test-key",
-                    model="gemini-2.5-flash",
-                    base_url=None,
-                ),
+            # Compared field by field rather than as a whole object: the config
+            # also carries an on_success callback, which records the call for
+            # per-account cost, and comparing function identity would make this
+            # assertion about the wrong thing.
+            ai_config = captured["ai_config"]
+            self.assertEqual(ai_config.provider, "gemini")
+            self.assertEqual(ai_config.api_key, "fake-test-key")
+            self.assertEqual(ai_config.model, "gemini-2.5-flash")
+            self.assertIsNone(ai_config.base_url)
+            self.assertIsNotNone(
+                ai_config.on_success,
+                "an own-key call should still be recorded as usage",
             )
             listed = (
                 await client.get(f"/api/coding/topics/{topic_id}/flashcards")

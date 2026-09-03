@@ -8,6 +8,8 @@ import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link
 import { StatusCard } from '@/components/status-card';
 import { AccountModulesSection } from '@/components/account-modules-section';
 import { AccountSecuritySection } from '@/components/account-security-section';
+import { AccountDataSection } from '@/components/account-data-section';
+import { BillingSection } from '@/components/billing-section';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
 import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
 import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
@@ -456,9 +458,13 @@ export default function ParentsPage() {
           </div>
         </section>
 
+        <BillingSection />
+
         <AccountModulesSection />
 
         <AccountSecuritySection />
+
+        <AccountDataSection />
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="kid-surface border-primary/40 p-5 md:p-10">

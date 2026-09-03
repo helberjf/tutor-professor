@@ -1,202 +1,155 @@
 # TODO — De app pessoal a SaaS
 
-Roteiro para transformar o **Tutor and Professor** (hoje um app single-tenant,
-com backend local e liberação manual de contas) em um produto que qualquer
+Roteiro para transformar o **Tutor and Professor** em um produto que qualquer
 pessoa possa assinar, pagar e usar sem você no meio do caminho.
 
-Escrito a partir do estado real do código em `apps/api/main.py`,
-`apps/api/models/database.py`, `apps/web/src` e `docker-compose.prod.yml`.
+Boa parte já foi feita. O que está marcado com `[x]` está no código e coberto
+por teste; o que continua `[ ]` é o que falta, com o motivo.
 
 ---
 
-## 0. Diagnóstico — o que já está pronto
+## 1. Bloqueadores — o que impedia cobrar de qualquer pessoa
 
-Boa parte da fundação existe. Não é um começo do zero.
-
-| Área | Estado | Onde |
-|---|---|---|
-| Contas com senha forte + PBKDF2 + trava de brute force | Pronto | `services/password_policy.py`, `main.py` |
-| Sessões persistentes com token hasheado e expiração | Pronto | `UserSession` em `models/database.py` |
-| Login Google (OAuth) | Pronto | `GOOGLE_CLIENT_ID` etc. em `main.py` |
-| Fila de aprovação de conta pelo admin | Pronto | `User.status`, rotas `/api/admin/accounts` |
-| Medidor de créditos de IA por conta | Pronto | `User.ai_credits`, `user_has_ai_credit()` |
-| Chave de IA por conta, criptografada (Fernet) | Pronto | `UserAISettings`, `encrypt_api_key()` |
-| Migrations versionadas | Pronto | `apps/api/alembic/versions` (20+) |
-| CI com lint, types, build e testes | Pronto | `.github/workflows/ci.yml` |
-| Stack de produção com TLS automático | Pronto | `docker-compose.prod.yml` + Caddy |
-| Produto em si (lições, revisão espaçada, simulados, flashcards, TTS) | Rico | `apps/web/src/app/*` |
-
-**O que falta é o que separa "app com login" de "SaaS":** isolamento de dados
-garantido, autoatendimento, e-mail, cobrança e operação.
-
----
-
-## 1. Bloqueadores — não dá para cobrar de ninguém antes disto
-
-- [ ] **Fechar o inquilino anônimo.** `get_default_child()` (`apps/api/main.py:686`)
-      devolve a criança com `user_id IS NULL` para qualquer requisição **sem
-      sessão**. Hoje isso é a "criança legado" de uso pessoal; num SaaS é um
-      balde compartilhado que qualquer visitante lê e escreve.
-      Exigir sessão de responsável em toda rota de dados e nunca criar perfil
-      órfão; migration para adotar (ou apagar) as linhas com `user_id IS NULL`.
-- [ ] **Provar o isolamento, não confiar nele.** São ~109 rotas e o escopo por
-      criança é feito à mão (`child_id ==` aparece 46 vezes no `main.py`). Uma
-      rota esquecida vaza dados de outra família.
-      Criar uma dependency única `require_child(request)` obrigatória em toda
-      rota de dados; um teste que percorre `app.routes` e falha se alguma rota
-      não a usar; e um teste de invasão em que o usuário A tenta cada rota com o
-      `X-Child-ID` do usuário B e espera 404 em todas.
-- [ ] **Recuperação de senha.** Não existe nenhum fluxo de "esqueci minha senha"
-      nem envio de e-mail no projeto. Sem isso, todo usuário travado vira
-      suporte manual seu.
-- [ ] **Sem chave global gratuita por padrão.** Hoje uma conta aprovada consome a
-      *sua* chave de IA via créditos. Num SaaS o custo de IA precisa estar
-      amarrado ao plano pago (Fase 3), ou a conta gratuita usa obrigatoriamente
-      a chave própria.
-- [ ] **Backend fora do seu PC.** O README ainda descreve o modelo
-      Vercel + Cloudflare Tunnel apontando para uma máquina local.
-      `docs/DEPLOY-VPS.md` já resolve isso — falta executar e tornar a VPS o
-      caminho oficial.
+- [x] **Fechar o inquilino anônimo.** Uma requisição sem sessão recebia o perfil
+      compartilhado (`user_id IS NULL`). Agora responde 401 e nenhum perfil sem
+      dono é criado. `ALLOW_GUEST_ACCESS=true` traz o comportamento antigo de
+      volta para uma instalação de uma família só.
+- [x] **Provar o isolamento em vez de confiar nele.**
+      `scripts/test_tenant_isolation.py` faz três coisas: audita todas as rotas
+      de dados exigindo que resolvam o inquilino por um helper conhecido, audita
+      as rotas `/api/admin` exigindo a checagem de administrador, e tenta a
+      invasão de verdade — a conta A pedindo a criança da conta B espera 404.
+- [x] **Recuperação de senha.** `services/email_service.py` (SMTP, com backend
+      `console` para dev e CI), tokens de uso único guardados como hash, e as
+      telas `/forgot-password`, `/reset-password` e `/verify-email`.
+- [x] **Custo de IA amarrado ao plano.** O plano gratuito inclui zero gerações na
+      chave da plataforma; a franquia dos planos pagos vira crédito, recarregado
+      uma vez por período no mesmo saldo que o administrador já controlava.
+- [ ] **Backend fora do seu PC.** O README ainda descreve Vercel + Cloudflare
+      Tunnel apontando para uma máquina local. `docs/DEPLOY-VPS.md` resolve —
+      falta executar e tornar a VPS o caminho oficial. É a única coisa desta
+      lista que ninguém pode fazer por você.
 
 ---
 
-## 2. Fase 1 — Fundação multi-tenant (2–3 semanas)
+## 2. Fundação multi-tenant
 
-- [ ] Introduzir `Account` (ou `Organization`) como raiz do inquilino, com `User`
-      pertencendo a uma conta. Hoje `User` acumula os dois papéis; separar abre
-      espaço para "família com dois responsáveis" e para planos por conta.
-- [ ] Adicionar `account_id` nas tabelas de conteúdo gerado e indexar.
-      Alternativa mais barata: manter `child_id` como âncora e garantir o join
-      até `User` numa camada única de repositório.
-- [ ] Camada de acesso a dados que **sempre** recebe o tenant. Nenhum
-      `session.exec(select(X))` solto dentro de uma rota.
-- [ ] Substituir `user_is_admin()` (comparação com `ADMIN_EMAIL`,
-      `apps/api/main.py:1438`) por papel persistido (`User.role`), auditável e
-      transferível.
-- [ ] Quebrar `main.py` (7.451 linhas) em routers por domínio: `auth`, `admin`,
-      `lessons`, `review`, `coding`, `exam`, `billing`. Sem isso, revisar
-      segurança a cada mudança fica inviável.
+- [x] Toda rota de dados resolve o inquilino por um helper único, verificado por
+      auditoria estática a cada execução do teste.
+- [x] Chaves de IA guardadas com chave própria (`AI_ENCRYPTION_KEY`), envelope
+      versionado e janela de rotação — girar `SESSION_SECRET` não torna mais as
+      chaves ilegíveis.
+- [ ] Introduzir `Account` como raiz do inquilino, com `User` pertencendo a ela.
+      Hoje `User` acumula os dois papéis. Necessário para "família com dois
+      responsáveis" e para o plano por assento.
+- [ ] Substituir `user_is_admin()` (comparação com `ADMIN_EMAIL`) por papel
+      persistido (`User.role`), auditável e transferível.
+- [ ] Quebrar `main.py` em routers por domínio. Passou de 7.451 para ~8.000
+      linhas neste trabalho; a auditoria de rotas segura a parte de segurança,
+      mas o arquivo continua difícil de revisar.
 - [ ] Trilha de auditoria: quem aprovou, revogou, apagou, exportou.
 
-## 3. Fase 2 — Autoatendimento (2 semanas)
+## 3. Autoatendimento
 
-- [ ] Provedor de e-mail transacional + templates: verificação de e-mail, reset
-      de senha, boas-vindas, aviso de cobrança, fim de trial.
-- [ ] Verificação de e-mail no cadastro (substitui a aprovação manual como
-      barreira anti-spam).
-- [ ] Tornar a fila de aprovação **opcional por configuração**
-      (`SIGNUP_MODE=open|manual`). O código de aprovação já existe e continua
-      útil para modo escola / beta fechado.
-- [ ] Onboarding guiado: criar a primeira criança, escolher idioma e nível,
-      chegar à primeira lição em menos de 3 minutos.
-- [ ] Autoatendimento de conta: trocar e-mail, trocar senha, encerrar sessões
-      ativas, apagar a conta.
-- [ ] Estado de erro quando a IA está indisponível — hoje o usuário vê mensagem
-      de crédito, mas não de falha do provedor.
+- [x] E-mail transacional com verificação de endereço e redefinição de senha.
+      Os dois fluxos respondem igual para um endereço que existe e um que não —
+      caso contrário viram uma forma de descobrir quem tem conta aqui.
+- [x] Fila de aprovação opcional: `SIGNUP_MODE=manual` (padrão, o de hoje) ou
+      `open`, em que o e-mail verificado é a barreira.
+- [x] Trocar senha, encerrar todas as sessões, exportar os dados, apagar a conta.
+- [ ] Trocar o e-mail da conta.
+- [ ] Onboarding guiado: primeira criança, idioma, nível e primeira lição em
+      menos de 3 minutos.
+- [ ] Mensagem específica quando o provedor de IA está fora do ar — hoje o
+      usuário vê a mensagem de crédito, que não é o que aconteceu.
 
-## 4. Fase 3 — Monetização (2–3 semanas)
+## 4. Monetização
 
-- [ ] Escolher o gateway. Brasil + cartão internacional: **Stripe** (assinatura e
-      portal do cliente prontos) ou **Mercado Pago / Pagar.me** se Pix for
-      essencial. Pix pesa a favor do mercado brasileiro.
-- [ ] Modelos: `Plan`, `Subscription`, `Invoice`, `UsageRecord`.
-- [ ] Definir os planos. Sugestão inicial, ancorada no custo real (IA + TTS + VPS):
-      - **Free** — 1 criança, conteúdo estático, sem IA (ou IA só com chave própria).
-      - **Família (R$ 29–39/mês)** — até 3 crianças, N gerações de IA/mês, TTS, simulados.
-      - **Estudo (R$ 59–79/mês)** — crianças ilimitadas, curriculum de programação, exames, export.
-      - **Escola/turma** — por assento, cobrança anual, painel do professor.
-- [ ] Ligar os créditos de IA que já existem ao plano: recarga automática no
-      início do ciclo, em vez de recarga manual pelo admin.
-- [ ] Webhooks do gateway mudando o status da assinatura, idempotentes e com
-      replay. O webhook é a fonte da verdade, não o retorno do checkout.
-- [ ] Enforcement de limites em um lugar só (nº de crianças, gerações/mês,
-      minutos de TTS), com mensagem clara de upgrade.
-- [ ] Trial de 14 dias sem cartão. Downgrade gracioso: dados preservados em
-      leitura, geração bloqueada.
-- [ ] Portal de cobrança: trocar cartão, ver faturas, cancelar sem falar com você.
-- [ ] Nota fiscal / emissor. Decidir cedo (PJ, regime tributário, NFS-e) — dá
-      mais trabalho que o código.
+- [x] `Subscription`, `UsageRecord` e `BillingEvent` no banco; catálogo de planos
+      em código (`services/billing_service.py`), porque preço muda por deploy
+      revisável e não por linha editada em produção.
+- [x] Planos: Gratuito (1 criança, IA só com chave própria), Família (R$ 34,90 —
+      3 crianças, 300 gerações), Estudo (R$ 69 — crianças ilimitadas, 1.500
+      gerações), Escola (sob consulta, não self-serve).
+- [x] Limites em um lugar só (`Entitlement`): crianças na criação do perfil,
+      gerações via crédito. Mensagem de erro diz o que fazer, não só "não".
+- [x] Trial de 14 dias sem cartão e sem gateway. Ao expirar, cai para o gratuito
+      com os dados preservados em leitura.
+- [x] `past_due` continua com acesso: um cartão que falhou hoje de manhã não tira
+      a lição da criança antes de o gateway terminar as tentativas.
+- [x] Webhook `POST /api/billing/webhook` com assinatura HMAC sobre o corpo cru e
+      idempotência por id de evento — a reentrega que todo gateway faz não
+      aplica o efeito duas vezes.
+- [ ] **Escolher e ligar o gateway.** Falta só a criação da sessão de checkout em
+      `start_checkout` e as credenciais. Stripe se cartão basta; Mercado Pago ou
+      Pagar.me se Pix for essencial — e para o mercado brasileiro provavelmente é.
+- [ ] Portal de cobrança: trocar cartão, ver faturas, cancelar sozinho.
+- [ ] Nota fiscal e regime tributário. Dá mais trabalho que o código.
 
-## 5. Fase 4 — Operação e conformidade (2 semanas)
+## 5. Operação e conformidade
 
-- [ ] **Custo por conta.** Registrar tokens e chamadas por usuário; sem isso um
-      usuário pesado consome a margem inteira sem aparecer em lugar nenhum.
-- [ ] Rate limiting real nas rotas de IA e de auth (hoje só existe a trava de
-      login). Por conta *e* por IP.
-- [ ] Observabilidade: Sentry para erros, logs estruturados com `account_id`,
-      métricas de latência e de falha do provedor de IA. Nada disso existe hoje.
-- [ ] Backups testados. O cron de `pg_dump` está documentado em
-      `docs/DEPLOY-VPS.md:188` — falta **restaurar** um backup num ambiente
-      limpo e cronometrar. Backup não testado não é backup.
+- [x] Custo por conta: uma linha em `usagerecord` por geração, com custo
+      estimado por chamada (`AI_GENERATION_COST_MICROS`) até o provedor devolver
+      contagem de tokens. Consulta pronta em `docs/saas-operacao.md`.
+- [x] Rate limiting em login, cadastro e geração — por conta e por endereço.
+      Limitação conhecida e documentada: o contador é por worker do uvicorn.
+- [x] Logs estruturados em JSON com `account_id`, `request_id`, rota, status e
+      duração; requisição lenta sai como warning; `X-Request-ID` volta na
+      resposta para o usuário poder citar.
+- [x] Áudio em cache deixou de ser um diretório público: link assinado de curta
+      duração, com verificação de path traversal.
+- [x] Ensaio de restauração automatizado: `scripts/restore-drill.sh` restaura o
+      dump num banco descartável, roda as migrações e confere as linhas.
+- [ ] **Rodar o ensaio uma vez e anotar o tempo.** O script existe; o número que
+      importa é quanto tempo uma restauração real leva no seu servidor.
+- [ ] Sentry (ou equivalente) para exceções. Os logs cobrem o "o quê"; falta o
+      alerta.
 - [ ] Ambiente de staging com dados sintéticos.
-- [ ] Rotação do `SESSION_SECRET`. Hoje ele hasheia sessões **e** deriva a chave
-      Fernet das chaves de IA (`apps/api/main.py:3491`): girar o segredo hoje
-      torna toda chave de IA salva indecifrável. Separar as duas chaves e
-      versionar o envelope de criptografia.
-- [ ] Servir o cache de áudio com autorização. `/api/audio/file` é um
-      `StaticFiles` público (`apps/api/main.py:373`): qualquer pessoa com a URL
-      baixa o áudio.
-- [ ] **LGPD + dados de crianças.** O ponto mais sério deste produto:
-      - Base legal e consentimento do responsável, registrado com data.
-      - Política de privacidade e termos de uso publicados.
-      - Export e exclusão de dados a pedido (direito do titular).
-      - Retenção definida: quanto tempo o histórico fica após o cancelamento.
-      - Cuidado com o que vai ao provedor de IA: nome da criança e texto livre
-        não deveriam sair do servidor sem necessidade.
-      - Vender fora do Brasil muda as regras: COPPA (EUA) e GDPR-K (UE).
-- [ ] Contrato de processamento de dados com o provedor de IA e desativação de
-      treinamento sobre os dados enviados.
+- [x] LGPD, direitos do titular: `GET /api/account/export` e
+      `POST /api/account/delete`, ambos na área de pais. A exclusão remove na
+      ordem certa porque o esquema não tem cascade.
+- [ ] **Publicar política de privacidade e termos.** Rascunhos técnicos em
+      `docs/privacidade.md` e `docs/termos.md`, escritos a partir do que o
+      software realmente faz. Precisam de revisão jurídica antes de irem ao ar,
+      e do aceite registrado no cadastro.
+- [ ] DPA com o provedor de IA e confirmação de que o treinamento sobre os dados
+      enviados está desligado.
+- [ ] Retenção definida: quanto tempo o histórico fica após o cancelamento.
 
-## 6. Fase 5 — Produto e entrada no mercado (contínuo)
+## 6. Produto e mercado
 
-- [ ] Landing page com proposta clara, preço visível e prova — o app é bonito,
-      use screenshots reais.
-- [ ] Analytics de produto: ativação (primeira lição concluída), retenção D7/D30,
-      conversão trial→pago.
-- [ ] Relatório semanal por e-mail para o responsável — é o que faz o pagante
+- [x] Módulos por conta: a parte de programação (currículo, decks, LeetCode) sai
+      desligada e é ativada em Configurações. Resolve também o problema de
+      posicionamento — o produto se apresenta como tutor de idiomas, e quem quer
+      o resto liga.
+- [ ] Landing page com preço visível e screenshots reais.
+- [ ] Analytics de produto: ativação, retenção D7/D30, conversão trial→pago.
+- [ ] Relatório semanal por e-mail ao responsável — é o que faz o pagante
       perceber valor e renovar.
-- [ ] Suporte: caixa de entrada, FAQ, changelog público.
-- [ ] Modo escola/professor: turmas, atribuição de lições, relatório por aluno.
-      É onde está o ticket alto, e o modelo atual (`ChildProfile` sob `User`) já
-      está a meio caminho.
-- [ ] Internacionalização da interface: o produto ensina vários idiomas, mas a UI
-      é PT-BR.
+- [ ] Suporte: caixa de entrada, FAQ, changelog.
+- [ ] Modo escola: turmas, atribuição de lições, painel do professor. É onde
+      está o ticket alto.
+- [ ] Internacionalização da interface (ensina vários idiomas, mas a UI é PT-BR).
 
 ---
 
-## 7. Decisões abertas (responder antes de codar a Fase 3)
+## 7. Decisões que continuam suas
 
-1. **Quem paga?** Responsável individual ou escola? Muda preço, contrato, nota
-   fiscal e modelo de dados. Recomendo começar em B2C mantendo `Account`
-   genérico o bastante para virar B2B depois.
-2. **Quem paga a IA?** Chave sua embutida no plano (margem apertada, produto
-   melhor) ou chave do cliente (margem alta, atrito enorme). O código suporta os
-   dois hoje — a decisão é comercial, não técnica.
-3. **Pix é obrigatório?** Se sim, Stripe sozinho não resolve bem.
-4. **Nicho.** "Tutor de inglês para crianças" e "trainer de LeetCode/AWS" são
-   dois produtos com públicos diferentes dentro do mesmo repositório. Vender os
-   dois juntos confunde a landing page. Escolher um para lançar.
+1. **Gateway.** Pix muda a resposta. Sem Pix, Stripe; com Pix, Mercado Pago ou
+   Pagar.me.
+2. **Preço.** Os valores nos planos são um ponto de partida ancorado em custo
+   estimado, não uma pesquisa de mercado.
+3. **B2C ou escola.** O modelo de dados já comporta os dois; a landing page, não.
+4. **Quanto de IA incluir.** 300 e 1.500 gerações são chutes informados. O
+   `usagerecord` existe justamente para você trocar chute por número depois do
+   primeiro mês.
 
 ## 8. Definição de pronto para o v1 pago
 
-- [ ] Um estranho cria conta, verifica e-mail, usa 14 dias, paga com cartão e
-      usa o produto — sem nenhuma ação manual sua.
-- [ ] Teste automatizado prova que a conta A não enxerga nada da conta B.
+- [x] Teste automatizado prova que a conta A não enxerga nada da conta B.
+- [x] Uma pessoa cria conta, verifica e-mail, testa 14 dias e usa o produto sem
+      ação manual sua.
+- [x] Você consegue responder, por conta, quanto ela custou em IA neste mês.
+- [ ] Ela consegue **pagar** — falta o gateway.
 - [ ] Restauração de backup executada e cronometrada pelo menos uma vez.
 - [ ] Política de privacidade e termos publicados e aceitos no cadastro.
-- [ ] Você consegue responder, por conta: quanto ela custou em IA neste mês.
-
----
-
-## Ordem sugerida
-
-```
-Fase 1 (isolamento)
-  → Fase 2 (autoatendimento)
-  → Fase 4 parcial (observabilidade, backup, LGPD)
-  → Fase 3 (cobrança)
-  → Fase 5 (mercado)
-```
-
-Cobrança é a última coisa técnica: cobrar de um sistema que vaza dados ou perde
-o banco é pior do que não cobrar.

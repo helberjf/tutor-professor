@@ -556,6 +556,32 @@ export interface UserProfile {
   modules?: Record<string, boolean>;
 }
 
+export interface BillingPlan {
+  code: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  interval: string;
+  // -1 means unlimited, in both fields.
+  max_children: number;
+  monthly_ai_generations: number;
+  trial_days: number;
+}
+
+export interface BillingSubscription {
+  plan: BillingPlan;
+  status: string;
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  children_used: number;
+  generations_used: number;
+  generations_remaining: number;
+  month_cost_cents: number;
+  provider: string;
+}
+
 export interface ModuleInfo {
   id: string;
   label: string;
@@ -1410,6 +1436,19 @@ export const api = {
     }),
   revokeOwnSessions: () =>
     fetchAPI<void>('/api/account/sessions/revoke', { method: 'POST' }),
+  exportOwnAccount: () => fetchAPI<Record<string, unknown>>('/api/account/export'),
+  deleteOwnAccount: (password: string) =>
+    fetchAPI<{ status: string; removed: Record<string, number> }>('/api/account/delete', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+  listBillingPlans: () => fetchAPI<BillingPlan[]>('/api/billing/plans'),
+  getMySubscription: () => fetchAPI<BillingSubscription>('/api/billing/subscription'),
+  startCheckout: (planCode: string) =>
+    fetchAPI<{ checkout_url: string | null; detail: string }>('/api/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ plan_code: planCode }),
+    }),
   getAccountModules: () => fetchAPI<ModuleSettings>('/api/account/modules'),
   updateAccountModules: async (modules: Record<string, boolean>) => {
     const result = await fetchAPI<ModuleSettings>('/api/account/modules', {

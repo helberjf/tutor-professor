@@ -1091,6 +1091,42 @@ class UserResponseSchema(FromAttributesModel):
     modules: dict[str, bool] = {}
 
 
+class PlanSchema(BaseModel):
+    code: str
+    name: str
+    description: str
+    price_cents: int
+    currency: str
+    interval: str
+    # -1 means unlimited, in both fields.
+    max_children: int
+    monthly_ai_generations: int
+    trial_days: int
+
+
+class SubscriptionSchema(BaseModel):
+    plan: PlanSchema
+    status: str
+    trial_ends_at: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    cancel_at_period_end: bool = False
+    children_used: int = 0
+    generations_used: int = 0
+    generations_remaining: int = 0
+    # What the account has cost so far this month, in the platform's currency.
+    month_cost_cents: int = 0
+    provider: str = "none"
+
+
+class CheckoutRequestSchema(BaseModel):
+    plan_code: str
+
+
+class CheckoutResponseSchema(BaseModel):
+    checkout_url: Optional[str] = None
+    detail: str
+
+
 class EmailRequestSchema(BaseModel):
     email: str
 
