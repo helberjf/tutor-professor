@@ -1157,7 +1157,14 @@ def build_audio_url(file_path: str) -> str:
         return ""
     filename = relative_url.rsplit("/", 1)[-1]
 
-    if audio_store is not None:
+    # The store is used only when this instance does not have the file. That
+    # ordering is what makes a dead link impossible: a local file is known to
+    # exist, and the absence of one means the audio came from the store in the
+    # first place. Signing a path the store never received would produce a URL
+    # that resolves to nothing — and signing succeeds whether or not the object
+    # is there, so it cannot be relied on as proof that an upload worked.
+    local_file_present = (audio_cache_dir / filename).is_file()
+    if audio_store is not None and not local_file_present:
         # An absolute URL straight to the object store. The frontend's
         # getAudioUrl passes any http(s) URL through untouched, so this needs no
         # change on that side. Same TTL as the signed local link, so the two

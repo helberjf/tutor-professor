@@ -164,6 +164,47 @@ def test_audio_store_is_off_unless_fully_configured() -> None:
         require(build_audio_store() is not None, "all three present must enable it")
 
 
+def test_audio_url_never_points_at_a_file_that_may_not_be_there() -> None:
+    """A store URL is only used when this instance has no local copy.
+
+    Signing succeeds whether or not the object exists, so a signed URL is no
+    proof that an upload worked. Returning one for a file we just wrote locally
+    would hand the browser a dead link whenever an upload had failed; returning
+    the local link instead cannot, because the route falls back to the store on
+    a miss anyway.
+    """
+
+    import types
+
+    calls: list[str] = []
+
+    class SigningStore:
+        def signed_url(self, filename: str, ttl: int) -> str:
+            calls.append(filename)
+            return f"https://storage.example.com/{filename}"
+
+    original_store = main.audio_store
+    main.audio_store = SigningStore()
+    try:
+        present = main.audio_cache_dir / "present.mp3"
+        main.audio_cache_dir.mkdir(parents=True, exist_ok=True)
+        present.write_bytes(b"local audio")
+
+        local_url = main.build_audio_url(str(present))
+        require(
+            local_url.startswith("/api/audio/file/") and not calls,
+            f"a file that is here must be served from here, got {local_url}",
+        )
+
+        missing_url = main.build_audio_url(str(main.audio_cache_dir / "absent.mp3"))
+        require(
+            missing_url.startswith("https://storage.example.com/"),
+            f"a file that is not here must come from the store, got {missing_url}",
+        )
+    finally:
+        main.audio_store = original_store
+
+
 def test_kokoro_url_prefers_a_static_setting() -> None:
     with with_env(KOKORO_URL="https://kokoro.example.com/v1/audio/speech"):
         require(
@@ -229,6 +270,7 @@ def main_entry() -> None:
     test_advisory_keys_are_stable_and_namespaced()
     test_rate_limiter_stays_in_process_on_sqlite()
     test_audio_store_is_off_unless_fully_configured()
+    test_audio_url_never_points_at_a_file_that_may_not_be_there()
     test_kokoro_url_prefers_a_static_setting()
     test_generation_budget_defaults_match_the_old_behaviour()
     asyncio.run(run_publisher_checks())
