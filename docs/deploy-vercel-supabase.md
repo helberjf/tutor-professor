@@ -163,6 +163,25 @@ Novo projeto, **Root Directory = `apps/api`**. Os arquivos já estão no reposit
 Se você migrar para o plano Pro, suba `maxDuration` para 300 no `vercel.json` e
 afrouxe os valores da tabela em §5.
 
+### Duas armadilhas que custaram tempo na primeira vez
+
+**Não use `rewrites` no `vercel.json`.** A Vercel detecta o FastAPI e roteia tudo
+para o app sozinha. Um rewrite catch-all faz o oposto do esperado: ela entrega ao
+app o caminho **reescrito** (`/api/index`), não o original, então toda rota
+responde 404 — com o app rodando perfeitamente, o que torna o sintoma confuso.
+
+**Cuidado com CRLF ao definir variáveis pelo CLI no Windows.** Um arquivo de
+variáveis salvo com quebras de linha do Windows faz cada valor chegar na Vercel
+com um `` no fim. `PGSSLMODE=require` é inválido para o psycopg2 e o nome do
+banco vira `postgres`, então **só as rotas que não tocam o banco funcionam** —
+`/health` e a lista de planos respondem 200 e o login devolve 500. Confira depois
+de subir:
+
+```bash
+vercel env pull .env.check --environment=production
+grep -c $'' .env.check    # tem que ser 0
+```
+
 ### Variáveis de ambiente
 
 **Obrigatórias — sem elas o app não funciona ou não é seguro:**
