@@ -12,6 +12,8 @@ from typing import Any, Callable
 import certifi
 import requests
 
+from services.tls import get_requests_verify
+
 from schemas.schemas import GeneratedLessonDraftSchema
 from services.language_question_service import (
     ALLOWED_LANGUAGE_QUESTION_TYPES,
@@ -51,53 +53,6 @@ OPENAI_COMPATIBLE_BASE_URLS = {
 
 ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 MAX_INITIAL_LANGUAGE_PROMPT_CHARS = 40_000
-
-
-@lru_cache(maxsize=1)
-def get_requests_verify() -> str | bool:
-    custom_ca_bundle = os.getenv("GEMINI_CA_BUNDLE", "").strip()
-    if custom_ca_bundle:
-        return custom_ca_bundle
-
-    if os.name != "nt":
-        return True
-
-    certifi_path = Path(certifi.where())
-    if not certifi_path.exists():
-        return True
-
-    bundle_path = Path(tempfile.gettempdir()) / "english_kids_tutor_windows_ca_bundle.pem"
-    seen_blocks: set[str] = set()
-    bundle_parts: list[str] = []
-
-    for block in certifi_path.read_text(encoding="ascii", errors="ignore").split("-----END CERTIFICATE-----"):
-        block = block.strip()
-        if not block:
-            continue
-        pem = f"{block}\n-----END CERTIFICATE-----\n"
-        seen_blocks.add(pem)
-        bundle_parts.append(pem)
-
-    for store_name in ("ROOT", "CA"):
-        try:
-            certificates = ssl.enum_certificates(store_name)
-        except Exception:
-            continue
-
-        for certificate, encoding, _trust in certificates:
-            if encoding != "x509_asn":
-                continue
-            pem = ssl.DER_cert_to_PEM_cert(certificate)
-            if pem in seen_blocks:
-                continue
-            seen_blocks.add(pem)
-            bundle_parts.append(pem)
-
-    if not bundle_parts:
-        return True
-
-    bundle_path.write_text("\n".join(bundle_parts), encoding="ascii")
-    return str(bundle_path)
 
 
 def format_provider_request_error(provider_label: str, exc: requests.RequestException) -> str:

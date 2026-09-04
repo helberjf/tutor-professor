@@ -26,6 +26,8 @@ import os
 
 import requests
 
+from services.tls import get_requests_verify
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 10
@@ -72,6 +74,7 @@ class SupabaseAudioStore:
                 self._object_url(filename),
                 headers=self._headers,
                 timeout=self.timeout_seconds,
+                verify=get_requests_verify(),
             )
         except requests.RequestException:
             logger.warning("Audio store HEAD failed for %s", filename, exc_info=True)
@@ -92,6 +95,7 @@ class SupabaseAudioStore:
                 },
                 data=data,
                 timeout=self.timeout_seconds,
+                verify=get_requests_verify(),
             )
         except requests.RequestException as exc:
             raise AudioStoreError(f"Could not upload {filename}") from exc
@@ -109,6 +113,7 @@ class SupabaseAudioStore:
                 headers={**self._headers, "Content-Type": "application/json"},
                 json={"expiresIn": ttl_seconds},
                 timeout=self.timeout_seconds,
+                verify=get_requests_verify(),
             )
         except requests.RequestException as exc:
             raise AudioStoreError(f"Could not sign {filename}") from exc
