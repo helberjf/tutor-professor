@@ -157,8 +157,7 @@ Dockerfile já roda o bootstrap antes do uvicorn.
 ## 4. Projeto da API na Vercel
 
 Novo projeto, **Root Directory = `apps/api`**. Os arquivos já estão no repositório:
-`api/index.py` (entrypoint), `vercel.json` (rewrite catch-all + `maxDuration`) e
-`.vercelignore`.
+`api/index.py` (entrypoint), `vercel.json` (só `maxDuration`) e `.vercelignore`.
 
 Se você migrar para o plano Pro, suba `maxDuration` para 300 no `vercel.json` e
 afrouxe os valores da tabela em §5.
@@ -172,14 +171,15 @@ responde 404 — com o app rodando perfeitamente, o que torna o sintoma confuso.
 
 **Cuidado com CRLF ao definir variáveis pelo CLI no Windows.** Um arquivo de
 variáveis salvo com quebras de linha do Windows faz cada valor chegar na Vercel
-com um `` no fim. `PGSSLMODE=require` é inválido para o psycopg2 e o nome do
-banco vira `postgres`, então **só as rotas que não tocam o banco funcionam** —
-`/health` e a lista de planos respondem 200 e o login devolve 500. Confira depois
-de subir:
+com um **carriage return** no fim. Um `PGSSLMODE` terminado em CR é inválido para
+o psycopg2, e o nome do banco na connection string vira `postgres` mais o CR —
+então **só as rotas que não tocam o banco funcionam**: `/health` e a lista de
+planos respondem 200, e o login devolve 500. Confira depois de subir:
 
 ```bash
 vercel env pull .env.check --environment=production
-grep -c $'' .env.check    # tem que ser 0
+grep -c $'
+' .env.check    # tem que ser 0
 ```
 
 ### Variáveis de ambiente
