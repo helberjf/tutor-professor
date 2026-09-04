@@ -47,6 +47,7 @@ const {
   mergeGeneratedDiverseQuestions,
   generateAndSynchronizeDiverseQuestions,
   isUncertainDiverseGenerationError,
+  removeDiverseSubjectById,
   updateItemById,
   updateSubjectById,
   reconcileStudyQueueByTopicIds,
@@ -84,6 +85,14 @@ const updated = updateSubjectById(reordered, 'subject-target', (subject) => ({
 }));
 assert.strictEqual(updated[0], replacement, 'reordering must not redirect a preview to the old index');
 assert.deepEqual(updated[1].topics, [{ id: 'question-new' }]);
+
+const subjectsAfterRemoval = removeDiverseSubjectById(reordered, 'subject-target');
+assert.deepEqual(subjectsAfterRemoval, [replacement], 'deletion follows the canonical subject ID after reordering');
+assert.strictEqual(
+  removeDiverseSubjectById(reordered, 'subject-missing'),
+  reordered,
+  'deleting a missing subject must not replace the current list',
+);
 
 const removed = Object.freeze([replacement]);
 assert.equal(findItemIndexById(removed, 'subject-target'), -1);

@@ -14,7 +14,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, removeDiverseSubjectById, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useModules } from '@/hooks/use-modules';
 import {
@@ -590,13 +590,14 @@ export default function StudyPage() {
     setDiverseDay({ ...diverseDay, custom_subjects: subjects });
   }
 
-  async function removeDiverseSubject(index: number) {
+  async function removeDiverseSubject(subjectId: string) {
     if (diverseMutationLockRef.current) return;
     if (!diverseDay) return;
+    const index = findItemIndexById(diverseDay.custom_subjects, subjectId);
+    if (index < 0) return;
     const removedSubject = diverseDay.custom_subjects[index];
-    if (!removedSubject) return;
     const removedSlug = getDiverseSubjectSlug(removedSubject, index, diverseDay.custom_subjects);
-    const subjects = diverseDay.custom_subjects.filter((_, i) => i !== index);
+    const subjects = removeDiverseSubjectById(diverseDay.custom_subjects, subjectId);
     const nextDay = { ...diverseDay, custom_subjects: subjects };
     diverseDayRef.current = nextDay;
     setDiverseDay(nextDay);

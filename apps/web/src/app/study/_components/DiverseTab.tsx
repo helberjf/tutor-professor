@@ -112,7 +112,7 @@ export function DiverseTab({
   onSelectOverview: () => void;
   onSelectCoding: () => void;
   codingEnabled?: boolean;
-  onRemoveSubject: (i: number) => void | Promise<void>;
+  onRemoveSubject: (subjectId: string) => void | Promise<void>;
   onToggleTopic: (si: number, ti: number) => void;
   onUpdateTopicText: (si: number, ti: number, v: string) => void;
   onUpdateTopicAnswer: (si: number, ti: number, v: string) => void;
@@ -169,7 +169,7 @@ export function DiverseTab({
           selectedDate={selectedDate}
           subject={selectedSubject.subject}
           onBack={onSelectOverview}
-          onRemove={() => void onRemoveSubject(selectedSubject.index)}
+          onRemove={() => void onRemoveSubject(selectedSubject.subject.id)}
           onToggleTopic={(ti) => onToggleTopic(selectedSubject.index, ti)}
           onUpdateTopicText={(ti, v) => onUpdateTopicText(selectedSubject.index, ti, v)}
           onUpdateTopicAnswer={(ti, v) => onUpdateTopicAnswer(selectedSubject.index, ti, v)}
@@ -287,7 +287,7 @@ export function DiverseTab({
                       </div>
                       <button
                         type="button"
-                        onClick={() => void onRemoveSubject(item.index)}
+                        onClick={() => void onRemoveSubject(item.subject.id)}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
                         title="Apagar matéria"
                       >

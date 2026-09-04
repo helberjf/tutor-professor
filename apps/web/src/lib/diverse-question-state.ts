@@ -212,6 +212,14 @@ export function updateSubjectById<T extends { id: string }>(
   return subjects.map((subject) => subject.id === subjectId ? updater(subject) : subject);
 }
 
+export function removeDiverseSubjectById<T extends { id: string }>(
+  subjects: T[],
+  subjectId: string,
+): T[] {
+  if (!subjects.some((subject) => subject.id === subjectId)) return subjects;
+  return subjects.filter((subject) => subject.id !== subjectId);
+}
+
 export function appendTopicToSubjectById<
   TTopic,
   TSubject extends { id: string; topics: TTopic[] },

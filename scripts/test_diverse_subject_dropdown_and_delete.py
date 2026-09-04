@@ -1,8 +1,10 @@
 from pathlib import Path
+import unicodedata
 
 
 ROOT = Path(__file__).resolve().parents[1]
 STUDY_PAGE = ROOT / "apps" / "web" / "src" / "app" / "study" / "page.tsx"
+DIVERSE_TAB = ROOT / "apps" / "web" / "src" / "app" / "study" / "_components" / "DiverseTab.tsx"
 
 
 def require(condition: bool, message: str) -> None:
@@ -10,14 +12,23 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def main() -> None:
-    source = STUDY_PAGE.read_text(encoding="utf-8")
+def without_accents(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", value)
+        if not unicodedata.combining(character)
+    )
 
-    require("Selecione a materia" in source, "diverse overview should offer a subject dropdown")
-    require("removeDiverseSubjectById" in source, "diverse subjects should be removable by canonical id")
-    require("Ja existe uma materia com esse nome" in source, "adding duplicate subject should show explicit feedback")
-    require("Materia adicionada. Nao esqueca de salvar" in source, "adding a subject should show save hint")
-    require("Apagar materia" in source, "UI should expose an explicit delete subject action")
+
+def main() -> None:
+    page_source = without_accents(STUDY_PAGE.read_text(encoding="utf-8"))
+    tab_source = without_accents(DIVERSE_TAB.read_text(encoding="utf-8"))
+
+    require("Selecionar materia" in tab_source, "diverse overview should offer a subject dropdown")
+    require("removeDiverseSubjectById" in page_source, "diverse subjects should be removable by canonical id")
+    require("Essa materia ja existe para esta data" in page_source, "adding duplicate subject should show explicit feedback")
+    require("Materia criada com 3 topicos iniciais da IA" in page_source, "adding a subject should confirm its automatic save")
+    require("Apagar materia" in tab_source, "UI should expose an explicit delete subject action")
 
     print("Diverse dropdown/delete checks passed.")
 
