@@ -92,7 +92,7 @@ This script will:
 
 *   Create the SQLite database file (`kids_tutor.sqlite`) in `apps/api/`.
 *   Set up the necessary database tables.
-*   Populate the database with initial child profile and lesson content from `content/lessons/`.
+*   Populate the database with initial child profile and lesson content from `apps/api/content/lessons/`.
 
 #### Run the Backend Server
 

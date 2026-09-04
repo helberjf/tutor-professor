@@ -1,18 +1,25 @@
 fastapi==0.109.2
+# Kept for the container and local paths (Dockerfile CMD, scripts/run-api.ps1).
+# A serverless host provides its own server and ignores this.
 uvicorn==0.27.1
 pydantic==2.6.1
 pydantic-settings==2.1.0
 sqlalchemy==2.0.27
 sqlmodel==0.0.14
-python-multipart==0.0.9
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-apscheduler==3.10.4
 requests==2.31.0
 aiofiles==23.2.1
+# Fallback voice when Kokoro is unreachable. Only useful where the process can
+# write to disk, so a serverless deployment sets TTS_PROVIDER=kokoro and never
+# reaches it — but local and container runs do.
 edge-tts>=6.1.9
-jinja2==3.1.3
 python-dotenv==1.0.1
 psycopg2-binary==2.9.9
+# Imported at module scope by database_bootstrap, so it ships even where startup
+# migrations are switched off.
 alembic==1.13.1
 httpx==0.28.1
+# Used directly by services/key_vault.py. It used to arrive only as a transitive
+# dependency of python-jose[cryptography]; naming it here is what makes dropping
+# python-jose safe. A floor rather than a pin so the installed 46.x is not
+# downgraded on an existing machine.
+cryptography>=42.0.5

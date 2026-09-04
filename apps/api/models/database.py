@@ -123,6 +123,20 @@ class UsageRecord(SQLModel, table=True):
     occurred_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class AppConfig(SQLModel, table=True):
+    """Small pieces of configuration that change while the app is running.
+
+    Environment variables are fixed for the life of a deployment, which is fine
+    for almost everything and wrong for one thing: the address of a tunnel that
+    rotates every time it is restarted. That value has to be writable by the
+    machine hosting the tunnel and readable by the server, so it lives here.
+    """
+
+    key: str = Field(primary_key=True, max_length=64)
+    value: str = Field(max_length=1000)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class RateLimitCounter(SQLModel, table=True):
     """One row per (rule, subject, time bucket) so the limit is shared.
 

@@ -5,8 +5,14 @@ import {
   type RuntimeBackendConfig,
 } from '@/lib/runtime-backend';
 
-const API_BASE_URL_STORAGE_KEY = 'english-kids-tutor.api-base-url';
-const API_BASE_URL_SAVED_AT_STORAGE_KEY = 'english-kids-tutor.api-base-url-saved-at';
+// Bumped when the backend moved to a permanent address. A saved URL outranks the
+// build-time one by design (see getPreferredConfiguredConnection below), which is
+// right while the backend is a rotating tunnel and wrong the moment it stops
+// being one: everybody who ever connected to a tunnel would keep hitting the dead
+// address with no sign why. A new key retires those saves without touching the
+// precedence rule, and anyone who genuinely wants an override can set one again.
+const API_BASE_URL_STORAGE_KEY = 'english-kids-tutor.api-base-url.v2';
+const API_BASE_URL_SAVED_AT_STORAGE_KEY = 'english-kids-tutor.api-base-url-saved-at.v2';
 const RUNTIME_BACKEND_STORAGE_KEY = 'english-kids-tutor.runtime-backend';
 const API_BASE_URL_CHANGE_EVENT = 'english-kids-tutor:api-base-url-change';
 

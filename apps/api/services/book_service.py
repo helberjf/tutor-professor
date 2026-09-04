@@ -66,7 +66,7 @@ class BookGenerationService:
         num_pages: int,
         theme: str | None = None,
         age_group: str = "7-9",
-        max_retries: int = 3,
+        max_retries: int | None = None,
         target_language: str = "English",
         ai_config: AIProviderConfig | None = None,
     ) -> GeneratedBookDraftSchema:
@@ -81,6 +81,8 @@ class BookGenerationService:
         )
 
         last_error: Exception | None = None
+        if max_retries is None:
+            max_retries = int(os.getenv("BOOK_GENERATION_MAX_RETRIES", "3"))
         for attempt in range(1, max_retries + 1):
             prompt = self._build_prompt(
                 level=level,

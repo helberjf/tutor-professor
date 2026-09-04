@@ -34,17 +34,36 @@ _EDGE_DEFAULT_VOICE = "en-US-JennyNeural"
 
 
 class TTSService:
-    def __init__(self, provider: str = "kokoro", default_voice: str = "af_bella", cache_dir: str = "./audio_cache"):
+    def __init__(
+        self,
+        provider: str = "kokoro",
+        default_voice: str = "af_bella",
+        cache_dir: str = "./audio_cache",
+        audio_store=None,
+    ):
         self.provider = provider
         self.default_voice = self._normalize_voice(default_voice)
         self.model = os.getenv("KOKORO_MODEL", "kokoro")
+        # Optional shared cache, so an instance can reuse what another one
+        # already synthesised. None means local-directory only.
+        self.audio_store = audio_store
         self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            self.cache_writable = True
+        except OSError:
+            # Read-only filesystem (a serverless bundle). Synthesis still works;
+            # only the on-disk cache is unavailable.
+            self.cache_writable = False
 
         configured_url = os.getenv("KOKORO_URL", "").strip()
         self.kokoro_url = configured_url or "http://127.0.0.1:8880/v1/audio/speech"
         self.kokoro_urls = self._build_kokoro_urls(configured_url)
         self.request_timeout = float(os.getenv("KOKORO_TIMEOUT_SECONDS", "8"))
+        # Sent to the small auth proxy that stands in front of Kokoro when it
+        # is reachable over a tunnel (scripts/kokoro_auth_proxy.py). Empty for
+        # a localhost Kokoro, which needs no door.
+        self.auth_token = os.getenv("KOKORO_AUTH_TOKEN", "").strip()
 
     def _build_kokoro_urls(self, configured_url: str) -> list[str]:
         if configured_url:
@@ -73,7 +92,9 @@ class TTSService:
     def _kokoro_voice_to_edge(self, voice: str) -> str:
         return _EDGE_VOICE_MAP.get(voice, _EDGE_DEFAULT_VOICE)
 
-    async def generate_speech(self, text: str, voice: Optional[str] = None) -> Optional[str]:
+    async def generate_speech(
+        self, text: str, voice: Optional[str] = None, *, kokoro_url: str | None = None
+    ) -> Optional[str]:
         voice = self._normalize_voice(voice or self.default_voice)
         if not text.strip():
             return None
@@ -84,13 +105,37 @@ class TTSService:
         if file_path.exists():
             return str(file_path)
 
+        # Somebody else may already have synthesised this exact phrase. The path
+        # is returned without a local file on purpose: the caller turns it into a
+        # URL, and the store signs that URL itself.
+        if self.audio_store is not None and self.audio_store.exists(file_path.name):
+            return str(file_path)
+
         if self.provider == "edge":
-            return await self._generate_with_edge_tts(text, voice, file_path)
+            generated = await self._generate_with_edge_tts(text, voice, file_path)
+        elif self.provider == "kokoro":
+            generated = await self._generate_with_kokoro(text, voice, file_path, kokoro_url)
+        else:
+            return None
 
-        if self.provider == "kokoro":
-            return await self._generate_with_kokoro(text, voice, file_path)
+        if generated:
+            await self._publish_to_store(Path(generated))
+        return generated
 
-        return None
+    async def _publish_to_store(self, file_path: Path) -> None:
+        """Copy a freshly synthesised file into the shared cache, best effort.
+
+        A store that is down must not turn a successful synthesis into a failed
+        request — the audio already exists locally and the caller can use it.
+        """
+
+        if self.audio_store is None or not file_path.is_file():
+            return
+        try:
+            data = await asyncio.to_thread(file_path.read_bytes)
+            await asyncio.to_thread(self.audio_store.put, file_path.name, data)
+        except Exception as exc:  # noqa: BLE001 - see docstring
+            print(f"Audio store upload failed for {file_path.name}: {exc}")
 
     async def _generate_with_edge_tts(self, text: str, voice: str, file_path: Path) -> Optional[str]:
         if not _EDGE_TTS_AVAILABLE:
@@ -106,7 +151,9 @@ class TTSService:
             print(f"Edge TTS Error: {e}")
             return None
 
-    async def _generate_with_kokoro(self, text: str, voice: str, file_path: Path) -> Optional[str]:
+    async def _generate_with_kokoro(
+        self, text: str, voice: str, file_path: Path, kokoro_url: str | None = None
+    ) -> Optional[str]:
         try:
             payload = {
                 "model": self.model,
@@ -114,7 +161,10 @@ class TTSService:
                 "voice": voice,
                 "response_format": "mp3"
             }
-            audio_bytes = await asyncio.to_thread(self._request_audio, payload)
+            # An explicit address wins over the probed defaults: on a host with
+            # no Kokoro sidecar, probing localhost is four guaranteed failures.
+            urls = [kokoro_url] if kokoro_url else self.kokoro_urls
+            audio_bytes = await asyncio.to_thread(self._request_audio, payload, urls)
             if not audio_bytes:
                 return None
 
@@ -125,15 +175,20 @@ class TTSService:
             print(f"Kokoro TTS unavailable ({e}), falling back to edge-tts...")
             return await self._generate_with_edge_tts(text, voice, file_path)
 
-    def _request_audio(self, payload: dict[str, str]) -> Optional[bytes]:
+    def _request_audio(
+        self, payload: dict[str, str], urls: list[str] | None = None
+    ) -> Optional[bytes]:
         last_error: Exception | None = None
 
-        for kokoro_url in self.kokoro_urls:
+        for kokoro_url in (urls or self.kokoro_urls):
             try:
                 response = requests.post(
                     kokoro_url,
                     json=payload,
                     timeout=self.request_timeout,
+                    headers=(
+                        {"X-Kokoro-Token": self.auth_token} if self.auth_token else None
+                    ),
                 )
                 response.raise_for_status()
                 if not response.content:

@@ -1,0 +1,12 @@
+# The bundle filesystem is read-only and ephemeral; the cache lives in /tmp at
+# runtime (AUDIO_CACHE_DIR) or in object storage.
+audio_cache/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+*.sqlite
+*.sqlite-journal
+# Container-only. Note alembic/ is deliberately NOT ignored: database_bootstrap
+# imports alembic at module scope even when startup migrations are switched off.
+Dockerfile

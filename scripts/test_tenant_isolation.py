@@ -83,6 +83,7 @@ TENANT_FREE_ROUTES = {
     "/api/audio/file/{filename}",
     "/api/billing/plans",
     "/api/billing/webhook",
+    "/api/runtime/tts-backend",
     "/api/billing/subscription",
     "/api/billing/checkout",
 }

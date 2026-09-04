@@ -119,12 +119,12 @@ FastAPI backend on the developer machine
 english-kids-tutor/
   apps/
     api/                  FastAPI backend
+      content/            Seed content, inside the deployable unit
+        lessons/          Seed lesson JSON
+        quizzes/          Seed quiz JSON
+        stories/          Story content
+        admin-learn/      Admin learning modules
     web/                  Next.js frontend
-  content/
-    lessons/              Seed lesson JSON
-    quizzes/              Seed quiz JSON
-    stories/              Story content
-    admin-learn/          Admin learning modules
   docs/                   Architecture, setup, deployment notes
   infra/cloudflare/       Cloudflare Tunnel config example
   scripts/                Local automation and test scripts

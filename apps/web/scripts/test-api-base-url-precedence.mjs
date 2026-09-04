@@ -42,8 +42,8 @@ const TUNNEL_URL = 'https://stale-tunnel.trycloudflare.com';
 const MANUAL_URL = 'https://manual-override.example.com';
 
 const RUNTIME_BACKEND_KEY = 'english-kids-tutor.runtime-backend';
-const SAVED_URL_KEY = 'english-kids-tutor.api-base-url';
-const SAVED_AT_KEY = 'english-kids-tutor.api-base-url-saved-at';
+const SAVED_URL_KEY = 'english-kids-tutor.api-base-url.v2';
+const SAVED_AT_KEY = 'english-kids-tutor.api-base-url-saved-at.v2';
 
 /** Loads api-config with a given env and localStorage seed. */
 function load({ env = {}, storage = {} } = {}) {

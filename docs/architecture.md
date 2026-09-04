@@ -18,9 +18,9 @@ english-kids-tutor/
   apps/             # Contains independent applications
     web/            # Next.js Frontend
     api/            # FastAPI Backend
+      content/      # Educational content (lessons, quizzes, stories), shipped with the API
   packages/         # Reusable packages/libraries (e.g., shared types, UI components)
     shared/         # Currently empty, ready for common code
-  content/          # Educational content (lessons, quizzes, stories)
   infra/            # Infrastructure configurations (Docker, Cloudflare)
   docs/             # Project documentation
   scripts/          # Automation scripts

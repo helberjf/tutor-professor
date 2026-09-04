@@ -39,7 +39,7 @@ def init_db():
             print(f"Created child profile with ID: {child.id}")
 
         # Seed lessons from content/lessons
-        lessons_dir = Path(__file__).parent.parent / "content" / "lessons"
+        lessons_dir = Path(__file__).parent.parent / "apps" / "api" / "content" / "lessons"
         for lesson_file in lessons_dir.glob("*.json"):
             print(f"Processing lesson: {lesson_file.name}")
             with open(lesson_file, 'r', encoding='utf-8') as f:

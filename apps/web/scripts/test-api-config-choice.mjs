@@ -67,8 +67,8 @@ globalThis.fetch = async (url) => {
   });
 };
 
-window.localStorage.setItem('english-kids-tutor.api-base-url', savedTunnel);
-window.localStorage.setItem('english-kids-tutor.api-base-url-saved-at', '2026-07-14T09:00:00.000Z');
+window.localStorage.setItem('english-kids-tutor.api-base-url.v2', savedTunnel);
+window.localStorage.setItem('english-kids-tutor.api-base-url-saved-at.v2', '2026-07-14T09:00:00.000Z');
 
 const { getApiConnectionDetails, resolveApiBaseUrl } = loadApiConfig();
 

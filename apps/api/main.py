@@ -8,6 +8,7 @@ import random
 import re
 import secrets
 import threading
+import time
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, datetime, timedelta
@@ -32,6 +33,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from database_bootstrap import bootstrap_database
 from services.key_vault import KeyVaultError, build_key_vault, derive_fernet_key
 from services import account_data, billing_service
+from services.audio_store import AudioStoreError, build_audio_store
 from services.billing_service import (
     Entitlement,
     Plan,
@@ -60,7 +62,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -102,6 +104,7 @@ from schemas.schemas import (
     PlanSchema,
     PasswordResetRequestSchema,
     ParentSettingsUpdateSchema,
+    RuntimeTtsBackendSchema,
     SubscriptionSchema,
     VerifyEmailSchema,
     UserAISettingsSchema,
@@ -745,7 +748,18 @@ app.add_middleware(
 )
 
 audio_cache_dir = Path(os.getenv("AUDIO_CACHE_DIR", "./audio_cache"))
-audio_cache_dir.mkdir(parents=True, exist_ok=True)
+try:
+    audio_cache_dir.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # A read-only filesystem is a real deployment shape, not a failure: a
+    # serverless bundle is read-only and only /tmp is writable. Refusing to boot
+    # here would take the whole app down before the app object even exists, so
+    # the cache degrades to "no local cache" instead.
+    logger.warning(
+        "Audio cache directory %s is not writable; falling back to no local cache. "
+        "Set AUDIO_CACHE_DIR to a writable path (e.g. /tmp/audio_cache).",
+        audio_cache_dir,
+    )
 
 # Cached speech used to be a plain StaticFiles mount: anybody who guessed or was
 # handed a filename could download it. An <audio> element cannot send an
@@ -754,13 +768,23 @@ audio_cache_dir.mkdir(parents=True, exist_ok=True)
 # fits both: the link works in the tag and stops working soon after.
 AUDIO_URL_TTL_SECONDS = int(os.getenv("AUDIO_URL_TTL_SECONDS", str(60 * 60 * 6)))
 
+# None unless the three Supabase settings are all present, in which case every
+# audio branch falls back to the local directory.
+audio_store = build_audio_store()
 tts_service = TTSService(
     provider=os.getenv("TTS_PROVIDER", "kokoro"),
     default_voice=os.getenv("KOKORO_DEFAULT_VOICE", "af_bella"),
     cache_dir=str(audio_cache_dir),
+    audio_store=audio_store,
 )
 email_service = EmailService()
-content_service = ContentService(PROJECT_ROOT / "content" / "quizzes")
+# Inside apps/api so it ships with the code. It used to live at the repository
+# root, which meant it reached neither a Vercel bundle (rooted at apps/api) nor
+# the Docker image (build context is apps/api) — and it failed silently, because
+# Path.glob on a missing directory returns nothing and the quiz feature just
+# stopped producing quizzes. CONTENT_DIR overrides it for an unusual layout.
+CONTENT_DIR = Path(os.getenv("CONTENT_DIR") or (BASE_DIR / "content"))
+content_service = ContentService(CONTENT_DIR / "quizzes")
 tutor_service = TutorService(BASE_DIR / "prompts" / "tutor_system_prompt.txt")
 phrase_generation_service = PhraseGenerationService()
 book_generation_service = BookGenerationService()
@@ -1125,6 +1149,17 @@ def build_audio_url(file_path: str) -> str:
     if not relative_url:
         return ""
     filename = relative_url.rsplit("/", 1)[-1]
+
+    if audio_store is not None:
+        # An absolute URL straight to the object store. The frontend's
+        # getAudioUrl passes any http(s) URL through untouched, so this needs no
+        # change on that side. Same TTL as the signed local link, so the two
+        # backends expire on the same schedule.
+        try:
+            return audio_store.signed_url(filename, AUDIO_URL_TTL_SECONDS)
+        except AudioStoreError:
+            logger.warning("Could not sign %s in the audio store; serving locally", filename)
+
     expires_at = int(datetime.utcnow().timestamp()) + AUDIO_URL_TTL_SECONDS
     signature = sign_audio_filename(filename, expires_at)
     return f"{relative_url}?expires={expires_at}&signature={signature}"
@@ -2712,7 +2747,7 @@ def _coding_seed_key(value: str) -> str:
 def _load_admin_learn_module(slug: str) -> Optional[dict]:
     if slug in _ADMIN_LEARN_MODULE_CACHE:
         return _ADMIN_LEARN_MODULE_CACHE[slug]
-    learn_dir = PROJECT_ROOT / "content" / "admin-learn"
+    learn_dir = CONTENT_DIR / "admin-learn"
     if not learn_dir.exists():
         _ADMIN_LEARN_MODULE_CACHE[slug] = None
         return None
@@ -3828,6 +3863,7 @@ async def chat_with_tutor(
         audio_file = await tts_service.generate_speech(
             response_text,
             child.voice_preference,
+            kokoro_url=resolve_kokoro_url(),
         )
         if audio_file:
             audio_url = build_audio_url(audio_file)
@@ -3836,7 +3872,7 @@ async def chat_with_tutor(
 
 
 @app.get("/api/audio/file/{filename}")
-def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> FileResponse:
+def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> Response:
     # Reject anything with a path separator before touching the filesystem: the
     # name comes straight from the URL.
     if filename != Path(filename).name or filename.startswith("."):
@@ -3848,9 +3884,57 @@ def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> File
         raise HTTPException(status_code=403, detail="Link de audio invalido.")
 
     audio_path = (audio_cache_dir / filename).resolve()
-    if audio_cache_dir.resolve() not in audio_path.parents or not audio_path.is_file():
-        raise HTTPException(status_code=404, detail="Audio nao encontrado.")
-    return FileResponse(audio_path, media_type="audio/mpeg")
+    if audio_cache_dir.resolve() in audio_path.parents and audio_path.is_file():
+        return FileResponse(audio_path, media_type="audio/mpeg")
+
+    # Not on this instance's disk. It may still be in shared storage — written by
+    # another instance, or by this one before it was recycled.
+    if audio_store is not None:
+        try:
+            return RedirectResponse(audio_store.signed_url(filename, AUDIO_URL_TTL_SECONDS))
+        except AudioStoreError:
+            logger.warning("Audio %s is in neither the local cache nor the store", filename)
+    raise HTTPException(status_code=404, detail="Audio nao encontrado.")
+
+
+@app.post("/api/runtime/tts-backend", status_code=204)
+def publish_tts_backend(
+    payload: RuntimeTtsBackendSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> Response:
+    """Record where Kokoro can be reached right now.
+
+    Called by the machine that owns the tunnel, every time the tunnel comes up
+    with a new address. Guarded by a shared token rather than a user session:
+    the caller is a script, not a person, and it has no account.
+    """
+
+    if not RUNTIME_SYNC_TOKEN:
+        raise HTTPException(status_code=503, detail="Sincronizacao de TTS nao configurada.")
+    provided = request.headers.get("authorization", "")
+    if not hmac.compare_digest(provided, f"Bearer {RUNTIME_SYNC_TOKEN}"):
+        raise HTTPException(status_code=401, detail="Nao autorizado.")
+
+    base_url = payload.base_url.strip()
+    if not base_url.startswith("https://"):
+        # The address crosses the internet and carries the shared secret with it.
+        raise HTTPException(status_code=422, detail="A URL do TTS precisa ser https.")
+
+    row = session.get(AppConfig, KOKORO_URL_CONFIG_KEY)
+    if row is None:
+        row = AppConfig(key=KOKORO_URL_CONFIG_KEY, value=base_url)
+    else:
+        row.value = base_url
+        row.updated_at = datetime.utcnow()
+    session.add(row)
+    session.commit()
+    # Drop this instance's cache so the change is visible immediately here; the
+    # other instances pick it up when their own TTL runs out.
+    global _kokoro_url_cache
+    _kokoro_url_cache = (0.0, "")
+    logger.info("Kokoro address updated")
+    return Response(status_code=204)
 
 
 @app.post("/api/audio/speak", response_model=SpeakResponseSchema)
@@ -3864,6 +3948,7 @@ async def speak_text(
     audio_file = await tts_service.generate_speech(
         payload.text,
         payload.voice or child.voice_preference,
+        kokoro_url=resolve_kokoro_url(),
     )
     if not audio_file:
         return SpeakResponseSchema(audio_url=None, fallback_text=payload.text)
@@ -4157,6 +4242,52 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
 # zero. This is an estimate until the provider layer reports token counts — it
 # is here so the number exists and can be corrected, rather than not existing.
 AI_GENERATION_COST_MICROS = int(os.getenv("AI_GENERATION_COST_MICROS", "3000"))
+
+# How much work one request may take on. A long-running server can afford the
+# old ceiling of ten sequential AI calls; a host that cuts the request off at 60
+# seconds cannot, and a truncated response is worse than a smaller honest one.
+# Both are environment variables so the ceiling moves with the host rather than
+# with a deploy.
+# ── Where Kokoro is right now ─────────────────────────────────────────────────
+# A named tunnel has a fixed hostname and KOKORO_URL just works. A quick tunnel
+# does not: its address changes every restart, and environment variables are
+# fixed for the life of a deployment. So the current address lives in a config
+# row that the machine running the tunnel publishes and the server reads, cached
+# briefly so this does not become a query per sentence.
+KOKORO_URL_CONFIG_KEY = "kokoro_url"
+KOKORO_URL_CACHE_TTL_SECONDS = int(os.getenv("KOKORO_URL_CACHE_TTL_SECONDS", "60"))
+RUNTIME_SYNC_TOKEN = os.getenv("RUNTIME_SYNC_TOKEN", "").strip()
+_kokoro_url_cache: tuple[float, str] = (0.0, "")
+
+
+def resolve_kokoro_url(*, force_refresh: bool = False) -> str:
+    """The address to send synthesis to, or "" to let the service use its own default."""
+
+    static_url = os.getenv("KOKORO_URL", "").strip()
+    if static_url:
+        # A fixed address short-circuits everything below, which is what makes
+        # the named-tunnel and quick-tunnel setups the same code path.
+        return static_url
+
+    global _kokoro_url_cache
+    cached_at, cached_url = _kokoro_url_cache
+    now = time.monotonic()
+    if not force_refresh and cached_url and now - cached_at < KOKORO_URL_CACHE_TTL_SECONDS:
+        return cached_url
+    try:
+        with Session(engine) as db:
+            row = db.get(AppConfig, KOKORO_URL_CONFIG_KEY)
+        resolved = (row.value if row else "").strip()
+    except Exception:
+        # A database hiccup should not silence audio: keep whatever we had.
+        logger.warning("Could not read the Kokoro address; keeping the cached one", exc_info=True)
+        return cached_url
+    _kokoro_url_cache = (now, resolved)
+    return resolved
+
+
+MAX_LESSONS_PER_REQUEST = int(os.getenv("MAX_LESSONS_PER_REQUEST", "10"))
+REQUEST_TIME_BUDGET_SECONDS = int(os.getenv("REQUEST_TIME_BUDGET_SECONDS", "600"))
 USAGE_AI_GENERATION = "ai_generation"
 USAGE_AI_GENERATION_OWN_KEY = "ai_generation_own_key"
 
@@ -7596,11 +7727,18 @@ def generate_parent_lesson(
 
     child = get_requested_child(request=request, session=session)
     level = compute_and_update_child_level(session=session, child=child)
-    quantity = max(1, min(10, payload.quantity or 1))
+    quantity = max(1, min(MAX_LESSONS_PER_REQUEST, payload.quantity or 1))
 
     generated_lessons: list[LessonSchema] = []
+    deadline = time.monotonic() + REQUEST_TIME_BUDGET_SECONDS
 
     for i in range(quantity):
+        # Do not start a call that cannot finish inside the host's request limit.
+        # The loop below already returns what it has when a later call fails, so
+        # this reuses that exit rather than inventing a second one. The first
+        # iteration is always attempted: callers rely on the 502 it raises.
+        if i > 0 and deadline - time.monotonic() < phrase_generation_service.timeout_seconds + 10:
+            break
         next_day = get_next_lesson_day(session=session)
         existing_phrases = [
             item.word_en
@@ -8269,7 +8407,7 @@ def generate_and_add_book_page(
 # Admin Learn endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 
-ADMIN_LEARN_DIR = PROJECT_ROOT / "content" / "admin-learn"
+ADMIN_LEARN_DIR = CONTENT_DIR / "admin-learn"
 
 
 def _require_admin(request: Request, session: Session) -> User:

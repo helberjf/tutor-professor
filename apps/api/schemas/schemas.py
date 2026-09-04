@@ -1127,6 +1127,12 @@ class CheckoutResponseSchema(BaseModel):
     detail: str
 
 
+class RuntimeTtsBackendSchema(BaseModel):
+    """Where Kokoro is reachable, published by the machine hosting the tunnel."""
+
+    base_url: str
+
+
 class EmailRequestSchema(BaseModel):
     email: str
 
