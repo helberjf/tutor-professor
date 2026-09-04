@@ -4,17 +4,55 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
+  ArrowRight,
+  Bell,
   BookOpen,
+  CheckCircle2,
+  Clock3,
   Coins,
   KeyRound,
   LayoutDashboard,
+  ShieldAlert,
   UserCheck,
   UserPlus,
   Users,
 } from 'lucide-react';
 
-import { api, type AdminOverview } from '@/lib/api';
+import { api, type AdminNotificationType, type AdminOverview } from '@/lib/api';
 import { StatusCard } from '@/components/status-card';
+
+const NOTIFICATION_META: Record<
+  AdminNotificationType,
+  { label: string; icon: typeof Bell; className: string; iconClassName: string }
+> = {
+  account_approval_requested: {
+    label: 'Nova conta aguardando aprovação',
+    icon: Clock3,
+    className: 'border-amber-100 bg-amber-50/70',
+    iconClassName: 'bg-amber-100 text-amber-700',
+  },
+  account_approved: {
+    label: 'Conta aprovada',
+    icon: CheckCircle2,
+    className: 'border-emerald-100 bg-emerald-50/70',
+    iconClassName: 'bg-emerald-100 text-emerald-700',
+  },
+  account_rejected: {
+    label: 'Acesso recusado',
+    icon: ShieldAlert,
+    className: 'border-rose-100 bg-rose-50/70',
+    iconClassName: 'bg-rose-100 text-rose-700',
+  },
+};
+
+function formatNotificationDate(value: string) {
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function AdminDashboardPage() {
   const [checkDone, setCheckDone] = useState(false);
@@ -81,7 +119,7 @@ export default function AdminDashboardPage() {
     {
       href: '/admin/accounts',
       title: 'Aprovacao de contas',
-      description: 'Liberar ou recusar quem se cadastrou para usar o app.',
+      description: 'Liberar, recusar ou apagar contas e seus dados relacionados.',
       icon: <UserCheck size={22} />,
       badge: pending > 0 ? `${pending} na fila` : null,
     },
@@ -122,7 +160,15 @@ export default function AdminDashboardPage() {
             Area separada para aprovar contas novas, gerenciar usuarios, autorizacao de IA e conteudos internos.
           </p>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-dark">Resumo da operação</p>
+              <h2 className="mt-1 text-xl font-black text-slate-800">Visão geral</h2>
+            </div>
+            <span className="text-xs font-bold text-slate-400">Dados atuais</span>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.map((metric) => (
               <div
                 key={metric.label}
@@ -152,6 +198,58 @@ export default function AdminDashboardPage() {
               Revisar {pending} {pending === 1 ? 'conta' : 'contas'} agora
             </Link>
           ) : null}
+        </section>
+
+        <section className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-light text-primary-dark">
+                <Bell size={19} />
+              </span>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Acompanhe o movimento</p>
+                <h2 className="text-xl font-black text-slate-800">Últimas notificações</h2>
+              </div>
+            </div>
+            <Link
+              href="/admin/accounts"
+              className="inline-flex items-center gap-1 text-sm font-black text-primary-dark hover:text-primary"
+            >
+              Ver contas <ArrowRight size={15} />
+            </Link>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {(overview?.recent_notifications ?? []).map((notification) => {
+              const meta = NOTIFICATION_META[notification.type];
+              const Icon = meta.icon;
+              return (
+                <Link
+                  key={notification.id}
+                  href="/admin/accounts"
+                  className={`flex items-center gap-3 rounded-xl border-2 px-3 py-3 transition hover:border-primary ${meta.className}`}
+                >
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${meta.iconClassName}`}>
+                    <Icon size={17} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-black text-slate-700">{meta.label}</span>
+                    <span className="block truncate text-xs font-bold text-slate-500">
+                      {notification.user_name} · {notification.user_email}
+                    </span>
+                  </span>
+                  <time dateTime={notification.occurred_at} className="shrink-0 text-xs font-bold text-slate-400">
+                    {formatNotificationDate(notification.occurred_at)}
+                  </time>
+                </Link>
+              );
+            })}
+            {(overview?.recent_notifications ?? []).length === 0 ? (
+              <p className="rounded-xl border-2 border-dashed border-slate-200 px-4 py-5 text-center text-sm font-bold text-slate-500">
+                Nenhuma movimentação de conta recente.
+              </p>
+            ) : null}
+          </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-2">

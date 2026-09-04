@@ -167,6 +167,20 @@ async def run() -> None:
             f"expected one pending and one approved account, got {overview}",
         )
         require(overview["total_users"] == 2, f"expected two accounts, got {overview}")
+        notifications = overview.get("recent_notifications")
+        require(
+            isinstance(notifications, list) and len(notifications) == 1,
+            f"expected one recent account notification, got {overview}",
+        )
+        require(
+            notifications[0]["type"] == "account_approval_requested"
+            and notifications[0]["user_id"] == family_id
+            and notifications[0]["user_name"] == "Familia Teste"
+            and notifications[0]["user_email"] == "familia@example.com"
+            and notifications[0]["status"] == "pending"
+            and notifications[0]["occurred_at"] == pending[0]["created_at"],
+            f"expected the pending signup as the latest notification, got {notifications}",
+        )
 
         approve_response = await admin_client.post(
             f"/api/admin/users/{family_id}/approve",
@@ -297,6 +311,38 @@ async def run() -> None:
             await admin_client.post("/api/admin/users/9999/approve"),
             404,
             "approving an unknown account is a 404",
+        )
+
+        # The administrator can permanently erase any regular account, using
+        # the same complete cleanup as the account owner's LGPD self-service.
+        assert_status(
+            await admin_client.delete("/api/admin/users/9999"),
+            404,
+            "deleting an unknown account is a 404",
+        )
+        assert_status(
+            await admin_client.delete(f"/api/admin/users/{admin_row['id']}"),
+            409,
+            "the administrator account cannot be deleted",
+        )
+        delete_response = await admin_client.delete(f"/api/admin/users/{family_id}")
+        assert_status(delete_response, 200, "admin deletes a regular account")
+        deletion = delete_response.json()
+        require(deletion["status"] == "deleted", f"expected deletion status, got {deletion}")
+        require(
+            deletion["removed"].get("User") == 1
+            and deletion["removed"].get("ChildProfile") == 1,
+            f"expected the account and its child data removed, got {deletion}",
+        )
+        assert_status(
+            await family_client.get("/api/auth/me"),
+            401,
+            "deleting an account revokes its open sessions",
+        )
+        users_after_delete = (await admin_client.get("/api/admin/users")).json()
+        require(
+            all(row["id"] != family_id for row in users_after_delete),
+            f"deleted account must disappear from the admin list, got {users_after_delete}",
         )
 
         # The legacy shared parent password has no user row and stays unaffected.

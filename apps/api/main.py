@@ -8532,6 +8532,46 @@ def admin_list_users(
     return [row for row in rows if row["status"] == status]
 
 
+def _build_admin_recent_notifications(users: list[User], limit: int = 5) -> list[dict]:
+    """Build the admin feed from account state already stored on each user."""
+
+    notifications: list[tuple[datetime, dict]] = []
+    for user in users:
+        if user_is_admin(user) or user.id is None:
+            continue
+
+        status = effective_user_status(user)
+        if status == USER_STATUS_PENDING:
+            notification_type = "account_approval_requested"
+            occurred_at = user.created_at
+        elif user.reviewed_at and status == USER_STATUS_APPROVED:
+            notification_type = "account_approved"
+            occurred_at = user.reviewed_at
+        elif user.reviewed_at and status == USER_STATUS_REJECTED:
+            notification_type = "account_rejected"
+            occurred_at = user.reviewed_at
+        else:
+            continue
+
+        notifications.append(
+            (
+                occurred_at,
+                {
+                    "id": f"user-{user.id}-{notification_type}-{occurred_at.isoformat()}",
+                    "type": notification_type,
+                    "user_id": user.id,
+                    "user_name": f"{user.first_name} {user.last_name}".strip(),
+                    "user_email": user.email,
+                    "status": status,
+                    "occurred_at": occurred_at.isoformat(),
+                },
+            )
+        )
+
+    notifications.sort(key=lambda item: item[0], reverse=True)
+    return [notification for _, notification in notifications[:limit]]
+
+
 @app.get("/api/admin/overview")
 def admin_overview(
     request: Request,
@@ -8561,6 +8601,7 @@ def admin_overview(
             if not user.ai_unlimited and not user_is_admin(user) and user.ai_credits <= 0
         ),
         "ai_credits_spent": sum(user.ai_credits_used for user in users),
+        "recent_notifications": _build_admin_recent_notifications(users),
     }
 
 
@@ -8594,6 +8635,30 @@ def admin_reject_user(
         request=request,
         session=session,
     )
+
+
+@app.delete("/api/admin/users/{user_id}")
+def admin_delete_user(
+    user_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Permanently erase a regular account and all of its related data."""
+
+    _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+    if user_is_admin(user):
+        raise HTTPException(
+            status_code=409,
+            detail="A conta do administrador nao pode ser apagada.",
+        )
+
+    email = user.email
+    deleted = account_data.delete_account(session, user)
+    logger.info("account %s deleted by administrator: %s", email, deleted)
+    return {"status": "deleted", "removed": deleted}
 
 
 @app.put("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)

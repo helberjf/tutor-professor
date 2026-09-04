@@ -744,6 +744,21 @@ export interface AdminUser {
   ai_credits: AICredits;
 }
 
+export type AdminNotificationType =
+  | 'account_approval_requested'
+  | 'account_approved'
+  | 'account_rejected';
+
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  status: AccountStatus;
+  occurred_at: string;
+}
+
 export interface AdminOverview {
   total_users: number;
   pending_users: number;
@@ -754,6 +769,7 @@ export interface AdminOverview {
   ai_authorized_users: number;
   out_of_credit_users: number;
   ai_credits_spent: number;
+  recent_notifications: AdminNotification[];
 }
 
 // ── Coding Curriculum ──────────────────────────────────────────────────────
@@ -1541,6 +1557,10 @@ export const api = {
     fetchAPI<AdminUser>(`/api/admin/users/${userId}/reject`, {
       method: 'POST',
       body: JSON.stringify({ note: note ?? null }),
+    }),
+  adminDeleteUser: (userId: number) =>
+    fetchAPI<{ status: string; removed: Record<string, number> }>(`/api/admin/users/${userId}`, {
+      method: 'DELETE',
     }),
   adminSaveUserAISettings: (userId: number, payload: UserAISettingsPayload) =>
     fetchAPI<UserAISettings>(`/api/admin/users/${userId}/ai-settings`, {

@@ -60,7 +60,7 @@ export default function AdminAccountsPage() {
           <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprovacao de contas</h1>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
             Quem se cadastra fica aguardando aqui e so entra no app depois que voce aprovar.
-            Recusar uma conta derruba as sessoes abertas dela na hora.
+            Recusar uma conta derruba as sessoes abertas dela na hora; a area de risco permite apagar uma conta e seus dados permanentemente.
           </p>
         </section>
 

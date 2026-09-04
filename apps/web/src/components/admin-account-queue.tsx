@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Coins, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, X } from 'lucide-react';
+import { Check, Coins, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, Trash2, X } from 'lucide-react';
 
 import { api, type AccountStatus, type AdminUser } from '@/lib/api';
 
@@ -149,6 +149,33 @@ export function AdminAccountQueue() {
       setMessage({
         tone: 'error',
         text: error instanceof Error ? error.message : 'Nao foi possivel mudar os creditos.',
+      });
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function deleteUser(user: AdminUser) {
+    const confirmed = window.confirm(
+      `Apagar permanentemente a conta ${user.email}?\n\nEsta ação remove filhos, estudos, sessões e todos os dados relacionados. Não pode ser desfeita.`,
+    );
+    if (!confirmed) return;
+
+    setBusyUserId(user.id);
+    setMessage(null);
+    try {
+      await api.adminDeleteUser(user.id);
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      setNotes((current) => {
+        const next = { ...current };
+        delete next[user.id];
+        return next;
+      });
+      setMessage({ tone: 'success', text: `${user.email} foi apagada permanentemente.` });
+    } catch (error) {
+      setMessage({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'Nao foi possivel apagar a conta.',
       });
     } finally {
       setBusyUserId(null);
@@ -382,6 +409,26 @@ export function AdminAccountQueue() {
                       ) : null}
                     </div>
                   ) : null}
+                </div>
+
+                <div className="border-t-2 border-rose-100 pt-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wide text-rose-500">Área de risco</p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                        Remove a conta e todos os dados relacionados de forma permanente.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void deleteUser(user)}
+                      disabled={busy}
+                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                      Apagar conta
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
