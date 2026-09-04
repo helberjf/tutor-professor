@@ -25,7 +25,8 @@ assert.doesNotMatch(listUsersBlock, /api_key_encrypted["']?\s*:/);
 assert.doesNotMatch(listUsersBlock, /decrypt_api_key/);
 
 assert.match(apiTypes, /export interface AdminUser/);
-assert.match(apiTypes, /adminListUsers: \(\) => fetchAPI<AdminUser\[\]>\('\/api\/admin\/users'\)/);
+assert.match(apiTypes, /adminListUsers: \(status\?: AccountStatus\) =>/);
+assert.match(apiTypes, /fetchAPI<AdminUser\[\]>\(status \? `\/api\/admin\/users\?status=\$\{status\}` : '\/api\/admin\/users'\)/);
 assert.match(apiTypes, /adminSaveUserAISettings: \(userId: number, payload: UserAISettingsPayload\) =>/);
 assert.match(adminPage, /type Tab = 'modules' \| 'flashcards' \| 'users' \| 'editor'/);
 assert.match(adminPage, /function UsersTab\(\)/);

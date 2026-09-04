@@ -61,6 +61,21 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 - `POST /api/billing/webhook` verifies an HMAC signature over the raw body and ignores repeated deliveries by event id — the retry every gateway sends must not extend a period twice.
 - Every generation writes a usage line with an estimated cost in millionths of a currency unit, so "what did this account cost this month" has an answer. See `docs/saas-operacao.md`.
 
+### Installable App (PWA)
+
+- Installable on phone, tablet and desktop: web app manifest, maskable icons, and an `apple-touch-icon` so iPhone and iPad get the real icon instead of a page thumbnail.
+- Opens without browser chrome (`display: standalone`), with both the standardised and the legacy `apple-mobile-web-app-capable` meta so iOS before 17 also goes full screen.
+- A small service worker caches the app shell and immutable `/_next/static/` assets, and shows `public/offline.html` when a navigation fails with no network. It never touches the backend or any `/api/` route, so the runtime backend URL is always read fresh.
+- Icons are generated from the app's own brand mark: `python scripts/generate-pwa-icons.py`.
+
+**Installing it**
+
+- iPhone / iPad: open the site in Safari (it must be Safari), tap Share, then "Adicionar a Tela de Início".
+- Android / Chrome: the browser offers "Instalar app", or use the menu's "Adicionar à tela inicial".
+- Desktop Chrome / Edge: the install icon appears at the right of the address bar.
+
+Installation needs HTTPS, which the Vercel deployment already provides.
+
 ### Study Modes
 
 - General study dashboard with planning, notes, distractions, and pomodoro count.
@@ -301,6 +316,7 @@ shipping quietly.
 
 ```powershell
 node apps/web/scripts/test-api-offline-fallback.mjs
+node apps/web/scripts/test-pwa-manifest-and-sw.mjs
 node apps/web/scripts/test-runtime-backend-state.mjs
 node apps/web/scripts/test-lesson-question-state.mjs
 node apps/web/scripts/test-diverse-question-state.mjs
