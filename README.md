@@ -343,6 +343,7 @@ If you are reviewing the project, start here:
 ## Documentation
 
 - `TODO-SAAS.md`: what is done and what is left to run this as a product.
+- `docs/deploy-vercel-supabase.md`: hosting the database on Supabase and the API on Vercel, and what changes when the request has a time limit.
 - `docs/saas-operacao.md`: operating it for other people — configuration, plans, cost per account, logs, backups, data rights.
 - `docs/privacidade.md` and `docs/termos.md`: privacy policy and terms drafts, written from what the software actually does and awaiting legal review.
 - `docs/architecture.md`: broader architecture notes.

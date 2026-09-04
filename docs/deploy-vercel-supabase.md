@@ -10,6 +10,25 @@ código — a diferença é só quais variáveis de ambiente estão ligadas.
 
 ---
 
+## 0. As três credenciais do Supabase, e qual é qual
+
+Confundir as duas chaves é o erro mais fácil de cometer aqui:
+
+| | O que é | Onde fica | Serve para |
+|---|---|---|---|
+| `SUPABASE_URL` | endereço do projeto | Settings → API | tudo |
+| chave **publicável** (`sb_publishable_…`) | pública por desenho, respeita row level security | Settings → API | nada neste app — o frontend fala com a nossa API, nunca com o Supabase direto |
+| chave **service_role** | **secreta**, ignora row level security | Settings → API → `service_role` | gravar no bucket privado de áudio (`SUPABASE_SERVICE_ROLE_KEY`) |
+
+A chave publicável **não** consegue escrever num bucket privado. Se ela for
+colocada em `SUPABASE_SERVICE_ROLE_KEY`, os uploads de áudio falham e o app cai
+no cache local — silenciosamente, porque a falha é tratada como "sem cache
+compartilhado" e não como erro.
+
+O projeto deste repositório é `hmimoqtoztlozqtvpwsb`.
+
+---
+
 ## 1. As duas connection strings do Supabase
 
 Você vai usar **duas**, e usar a errada no lugar errado é a causa mais comum de
