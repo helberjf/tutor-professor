@@ -23,6 +23,12 @@ session secret and decrypts every row again. If that passes, the old secret is
 genuinely no longer needed. Nothing is written unless every row re-encrypts, and
 the script is safe to run twice — a row already carrying the current envelope is
 reported as "already current" and left alone.
+
+A row can also be unreadable because it was written under a secret nobody has any
+more, which makes it dead weight: no rotation can save it, since it is already
+lost. Refusing to touch the rest because of it helps nobody, so --skip-unreadable
+clears those rows and names them. The account is then simply asked to configure
+its key again, which is what it would have to do anyway.
 """
 from __future__ import annotations
 
@@ -50,6 +56,8 @@ WRONG_SECRET = "deliberately-not-the-old-session-secret"
 
 
 def main_entry() -> int:
+    skip_unreadable = "--skip-unreadable" in sys.argv
+
     if not os.getenv("AI_ENCRYPTION_KEY", "").strip():
         print(
             "AI_ENCRYPTION_KEY is not set. Without it this would re-encrypt the rows "
@@ -62,6 +70,7 @@ def main_entry() -> int:
     upgraded = 0
     already_current = 0
     empty = 0
+    unreadable: list[int] = []
 
     with Session(main.engine) as session:
         records = list(session.exec(select(UserAISettings)).all())
@@ -72,12 +81,21 @@ def main_entry() -> int:
             try:
                 rewritten = vault.reencrypt_if_stale(record.api_key_encrypted)
             except KeyVaultError as exc:
-                print(
-                    f"Row {record.id} (user {record.user_id}) could not be read: {exc}\n"
-                    "Nothing was written. Check that SESSION_SECRET is the OLD value.",
-                    file=sys.stderr,
-                )
-                return 1
+                if not skip_unreadable:
+                    print(
+                        f"Row {record.id} (user {record.user_id}) could not be read: {exc}\n"
+                        "Nothing was written. Check that SESSION_SECRET is the OLD value, "
+                        "or re-run with --skip-unreadable to clear rows nobody can decrypt.",
+                        file=sys.stderr,
+                    )
+                    return 1
+                # Already lost whatever we do: no rotation can recover a row
+                # written under a secret nobody has. Clearing it turns an
+                # undecryptable blob into an honest "no key configured".
+                unreadable.append(record.user_id)
+                record.api_key_encrypted = ""
+                session.add(record)
+                continue
             if rewritten is None:
                 already_current += 1
                 continue
@@ -88,8 +106,14 @@ def main_entry() -> int:
 
     print(
         f"{len(records)} stored key rows: {upgraded} re-encrypted, "
-        f"{already_current} already current, {empty} empty."
+        f"{already_current} already current, {empty} empty, "
+        f"{len(unreadable)} cleared as unreadable."
     )
+    if unreadable:
+        print(
+            "These accounts must configure their AI key again: "
+            + ", ".join(str(user_id) for user_id in unreadable)
+        )
 
     # The proof. A vault that cannot possibly know the old secret must still be
     # able to read every row; otherwise something is still tied to it.

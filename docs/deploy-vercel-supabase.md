@@ -34,19 +34,26 @@ O projeto deste repositório é `hmimoqtoztlozqtvpwsb`.
 Você vai usar **duas**, e usar a errada no lugar errado é a causa mais comum de
 problema nesta migração:
 
-| Uso | String | Porta |
+| Uso | Host | Porta |
 |---|---|---|
-| Runtime (Vercel) | `postgresql://postgres.<ref>:<SENHA>@aws-0-<região>.pooler.supabase.com:6543/postgres` | **6543**, pooler em modo transação |
-| Migrations, dump/restore | `postgresql://postgres:<SENHA>@db.<ref>.supabase.co:5432/postgres` | **5432**, conexão direta |
+| Runtime (Vercel) | `aws-0-us-west-2.pooler.supabase.com` | **6543**, pooler em modo transação |
+| Migrations, dump/restore | `aws-0-us-west-2.pooler.supabase.com` | **5432**, pooler em modo sessão |
+
+Usuário `postgres.hmimoqtoztlozqtvpwsb` nos dois. A senha tem `@`, que numa URL
+precisa ir escrito como `%40`.
 
 O pooler em modo transação não preserva estado de sessão, e `pg_advisory_lock` (usado
 pelo `database_bootstrap`) e `pg_restore --single-transaction` dependem disso. Por
-isso migrations e restore vão **sempre** pela direta.
+isso migrations e restore vão **sempre** pela porta 5432.
 
-**Se a direta não conectar:** projetos novos do Supabase têm o host direto só em IPv6.
-Teste antes com `psql "<url direta>" -c "select 1"`. Se falhar com "network
-unreachable", use o **session pooler** (mesmo host do pooler, porta **5432**) — ele é
-escopo de sessão e portanto serve para restore e migrations.
+> **A conexão direta não é usável a partir daqui.** `db.hmimoqtoztlozqtvpwsb.supabase.co`
+> tem **só registro AAAA** (IPv6), sem IPv4 — verificado durante a migração, quando o
+> container Docker não conseguiu nem resolver o nome. O session pooler é o substituto
+> correto: também é escopo de sessão, e é IPv4.
+
+**Como a região foi descoberta**, caso precise repetir isso num projeto novo: conecte
+no pooler de cada região com o usuário `postgres.<ref>`. A região errada responde
+`tenant/user not found`; a certa responde sobre a senha. Este projeto é `us-west-2`.
 
 ---
 
@@ -83,10 +90,21 @@ pg_dump "postgresql://kids_tutor:<PW>@127.0.0.1:5433/kids_tutor" \
 **2.3 Restore na conexão direta:**
 
 ```bash
-pg_restore --dbname="postgresql://postgres:<PW>@db.<ref>.supabase.co:5432/postgres" \
+pg_restore --dbname="postgresql://postgres.<ref>:<SENHA>@aws-0-us-west-2.pooler.supabase.com:5432/postgres" \
   --no-owner --no-privileges --schema=public \
   --single-transaction --exit-on-error \
   kids_tutor.dump
+```
+
+**A versão do cliente importa.** O Supabase roda PostgreSQL **17**. Se o seu Postgres
+local é 16, o `pg_dump`/`pg_restore` do container local também é 16, e restaurar num
+servidor mais novo com cliente mais velho não é garantido. Um container descartável
+com o cliente 17 resolve as duas pontas:
+
+```bash
+docker run --rm -e PGPASSWORD='<SENHA_LOCAL>' -v "$PWD/tmp/backups:/backup" postgres:17-alpine \
+  pg_dump -h host.docker.internal -p 5433 -U kids_tutor -d kids_tutor \
+  --format=custom --no-owner --no-privileges --no-acl --schema=public -f /backup/migration.dump
 ```
 
 **2.4 Conferir — os três que importam:**

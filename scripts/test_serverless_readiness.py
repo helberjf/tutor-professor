@@ -109,6 +109,11 @@ def test_engine_settings_leave_sqlite_alone() -> None:
         pooled["connect_args"]["keepalives"] == 1,
         "keepalives matter: a frozen instance leaves a half-open socket behind",
     )
+    require(
+        pooled["connect_args"]["sslmode"] == "prefer",
+        "the default must be prefer: a Postgres on a private network has no TLS, "
+        "and requiring it there refuses to connect at all",
+    )
 
     with with_env(DB_POOL_MODE="null"):
         unpooled = main._engine_kwargs("postgresql://u:p@host/db")

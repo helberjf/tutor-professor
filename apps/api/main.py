@@ -517,7 +517,14 @@ def _engine_kwargs(database_url: str) -> dict:
         return {"connect_args": {"check_same_thread": False}}
 
     connect_args = {
-        "sslmode": os.getenv("PGSSLMODE", "require"),
+        # "prefer", not "require": a Postgres on the same private network — the
+        # compose stack, or one on localhost — has no TLS configured, and
+        # requiring it there would refuse to connect at all. prefer still
+        # negotiates TLS with any server that offers it, which includes every
+        # hosted provider. A deployment reaching a database across the internet
+        # should set PGSSLMODE=require so a downgrade is refused rather than
+        # silently accepted.
+        "sslmode": os.getenv("PGSSLMODE", "prefer"),
         "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "10")),
         "application_name": os.getenv("DB_APPLICATION_NAME", "kids-tutor-api"),
         "keepalives": 1,
