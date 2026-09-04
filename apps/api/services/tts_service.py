@@ -1,4 +1,5 @@
 import asyncio
+import importlib
 import os
 import hashlib
 import requests
@@ -6,12 +7,14 @@ import aiofiles
 from typing import Optional
 from pathlib import Path
 
-# edge-tts is optional — only imported when TTS_PROVIDER=edge
-try:
-    import edge_tts
-    _EDGE_TTS_AVAILABLE = True
-except ImportError:
-    _EDGE_TTS_AVAILABLE = False
+
+def _load_edge_tts():
+    """Import the optional fallback only when a request actually needs it."""
+
+    try:
+        return importlib.import_module("edge_tts")
+    except ImportError:
+        return None
 
 # Maps Kokoro voice names to Microsoft Edge TTS voice names
 _EDGE_VOICE_MAP: dict[str, str] = {
@@ -138,7 +141,8 @@ class TTSService:
             print(f"Audio store upload failed for {file_path.name}: {exc}")
 
     async def _generate_with_edge_tts(self, text: str, voice: str, file_path: Path) -> Optional[str]:
-        if not _EDGE_TTS_AVAILABLE:
+        edge_tts = _load_edge_tts()
+        if edge_tts is None:
             print("TTS Error: edge-tts is not installed. Run: pip install edge-tts")
             return None
 

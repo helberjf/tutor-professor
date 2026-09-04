@@ -35,6 +35,7 @@ os.environ["TTS_PROVIDER"] = "none"
 os.environ["AUDIO_CACHE_DIR"] = str(TMP_DIR / "audio")
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
+os.environ["PARENT_COOKIE_SECURE"] = "false"
 # The point of the suite: the guest fallback stays off, as it is in production.
 os.environ.pop("ALLOW_GUEST_ACCESS", None)
 # Registration is rate limited; this suite registers a handful of accounts.

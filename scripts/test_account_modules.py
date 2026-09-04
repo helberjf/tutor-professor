@@ -25,6 +25,7 @@ os.environ["TTS_PROVIDER"] = "none"
 os.environ["AUDIO_CACHE_DIR"] = str(TMP_DIR / "audio")
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
+os.environ["PARENT_COOKIE_SECURE"] = "false"
 
 sys.path.insert(0, str(API_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))

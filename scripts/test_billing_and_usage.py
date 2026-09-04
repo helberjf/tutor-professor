@@ -34,6 +34,7 @@ os.environ["TTS_PROVIDER"] = "none"
 os.environ["AUDIO_CACHE_DIR"] = str(TMP_DIR / "audio")
 os.environ["ADMIN_EMAIL"] = "admin@example.com"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
+os.environ["PARENT_COOKIE_SECURE"] = "false"
 os.environ["BILLING_WEBHOOK_SECRET"] = WEBHOOK_SECRET
 os.environ["BILLING_PROVIDER"] = "test-gateway"
 

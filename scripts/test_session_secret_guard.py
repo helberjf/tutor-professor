@@ -18,7 +18,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 API_DIR = REPO_ROOT / "apps" / "api"
 
-BOOT = "import main; print('BOOTED', main.SESSION_SECRET)"
+# The test owns the complete environment for each subprocess. Prevent an
+# ignored local apps/api/.env (often production-shaped) from filling values the
+# case intentionally leaves absent.
+BOOT = (
+    "import dotenv; "
+    "dotenv.load_dotenv = lambda *args, **kwargs: False; "
+    "import main; print('BOOTED', main.SESSION_SECRET)"
+)
 
 POSTGRES_URL = "postgresql://user:pass@db:5432/app"
 SQLITE_URL = "sqlite:///./local.sqlite"
