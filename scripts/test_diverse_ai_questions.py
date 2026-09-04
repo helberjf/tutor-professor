@@ -36,9 +36,10 @@ assert "_is_technical_diverse_subject" not in main
 assert "Determine from the subject whether it is technical" in endpoint
 assert "PRIORITIZE technical-interview questions" in endpoint
 assert "otherwise create exam-style" in endpoint
-assert "_diverse_question_lock" in endpoint
+assert '_generation_lock(session, "diverse_question"' in endpoint
+# The lock must not be held while an external provider is being waited on.
 assert endpoint.index("phrase_generation_service.generate_json_text") < endpoint.index(
-    "with _diverse_question_lock"
+    'with _generation_lock(session, "diverse_question"'
 )
 assert "@contextmanager" in main
 assert "entry.users += 1" in main
@@ -57,7 +58,7 @@ assert endpoint.count("_ensure_diverse_question_capacity") == 2
 assert "selected_subject_id" in endpoint
 assert 'subject.get("id") == selected_subject_id' in endpoint
 assert 'lesson.get("id") == selected_lesson_id' in endpoint
-post_ai = endpoint.split("with _diverse_question_lock", 1)[1]
+post_ai = endpoint.split('with _generation_lock(session, "diverse_question"', 1)[1]
 assert "current_subjects[payload.subject_index]" not in post_ai
 assert "has_canonical_subject_identities" in endpoint
 assert endpoint.index("_cas_update_diverse_day") < endpoint.index(

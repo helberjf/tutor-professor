@@ -25,7 +25,8 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func, inspect, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
@@ -46,7 +47,7 @@ from services.billing_service import (
     upgrade_message,
 )
 from services.email_service import EmailMessageSpec, EmailService
-from services.rate_limit import RateLimitRule, SlidingWindowRateLimiter
+from services.rate_limit import RateLimitRule, build_rate_limiter
 from services.request_logging import (
     RequestLogEntry,
     Stopwatch,
@@ -411,8 +412,131 @@ def _lesson_question_lock(child_id: int, lesson_id: int) -> Iterator[None]:
             if entry.users == 0 and _lesson_question_locks.get(key) is entry:
                 _lesson_question_locks.pop(key, None)
 
-_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=_connect_args)
+
+# ── Generation locks that survive more than one process ───────────────────────
+# The locks above are exact for a single server and worthless for several: two
+# requests for the same topic landing on different instances would both pass the
+# read-check and both insert. On PostgreSQL the lock therefore lives in the
+# database. It is the transaction-scoped form on purpose — it is released by the
+# commit that ends the block, so there is no unlock path to forget and nothing
+# can be stranded on a pooled connection. (The session-scoped pg_advisory_lock
+# that database_bootstrap.py uses would be wrong here for exactly that reason.)
+ADVISORY_LOCK_TIMEOUT = os.getenv("ADVISORY_LOCK_TIMEOUT", "20s")
+
+GENERATION_LOCK_BUSY_DETAIL = (
+    "Outra geracao para este item esta em andamento. Tente novamente em instantes."
+)
+
+
+def _advisory_key(namespace: str, *parts: object) -> int:
+    """A stable signed bigint for pg_advisory_xact_lock.
+
+    One bigint rather than the two-int form: two ints leave no room for a
+    namespace, so lesson 7 and topic 7 would take the same lock. A collision
+    between namespaces here only means two unrelated generations wait for each
+    other, which is a slowdown rather than a wrong answer.
+    """
+
+    raw = "|".join([namespace, *(str(part) for part in parts)]).encode("utf-8")
+    return int.from_bytes(hashlib.blake2b(raw, digest_size=8).digest(), "big", signed=True)
+
+
+@contextmanager
+def _topic_question_fallback_lock(topic_id: int) -> Iterator[None]:
+    with _get_topic_question_lock(topic_id):
+        yield
+
+
+@contextmanager
+def _topic_flashcard_fallback_lock(topic_id: int) -> Iterator[None]:
+    with _get_topic_flashcard_lock(topic_id):
+        yield
+
+
+@contextmanager
+def _generation_lock(session: Session, namespace: str, *parts: object) -> Iterator[None]:
+    """Serialise a read-check-then-insert section across every instance.
+
+    Binds to the caller's own session deliberately: the lock has to be held by
+    the same transaction that does the read, the insert and the commit, or it
+    protects nothing. Callers must therefore not roll back inside the block — a
+    rollback ends the transaction and silently releases the lock.
+
+    On SQLite (tests, local development) it falls through to the in-process
+    locks, which are exact for a single process.
+    """
+
+    if session.get_bind().dialect.name != "postgresql":
+        # Resolved here rather than in a module-level dict because three of the
+        # four fallbacks are defined further down the file.
+        fallback = {
+            "lesson_question": _lesson_question_lock,
+            "diverse_question": _diverse_question_lock,
+            "topic_question": _topic_question_fallback_lock,
+            "topic_flashcard": _topic_flashcard_fallback_lock,
+        }[namespace]
+        with fallback(*parts):
+            yield
+        return
+
+    # SET LOCAL is transaction-scoped, so it is safe under transaction pooling.
+    session.execute(text("SET LOCAL lock_timeout = :timeout"), {"timeout": ADVISORY_LOCK_TIMEOUT})
+    try:
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(:key)"),
+            {"key": _advisory_key(namespace, *parts)},
+        )
+    except OperationalError as exc:
+        # Waited past lock_timeout: somebody else is generating the same thing.
+        session.rollback()
+        raise HTTPException(status_code=409, detail=GENERATION_LOCK_BUSY_DETAIL) from exc
+    yield
+
+
+def _engine_kwargs(database_url: str) -> dict:
+    """Engine settings for the host this process happens to be running on.
+
+    SQLite keeps exactly the settings it always had, so local development and the
+    test scripts are unaffected. Postgres gains the two things a remote database
+    needs and a local one does not: TLS, and keepalives — a serverless instance
+    that gets frozen mid-connection leaves a half-open socket behind, and without
+    keepalives the next request inherits it and waits for the OS to give up.
+
+    The pool is deliberately a small QueuePool rather than NullPool, even on
+    serverless. One request opens two to four connections today (the access log,
+    the route's own session, the module gate and the rate limiter each open one),
+    so NullPool would mean up to four TLS handshakes on the critical path. A warm
+    instance with pool_size=1 reuses a single connection instead. DB_POOL_MODE=null
+    is the escape hatch if the pooler ever runs out of slots.
+    """
+
+    if database_url.startswith("sqlite"):
+        return {"connect_args": {"check_same_thread": False}}
+
+    connect_args = {
+        "sslmode": os.getenv("PGSSLMODE", "require"),
+        "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "10")),
+        "application_name": os.getenv("DB_APPLICATION_NAME", "kids-tutor-api"),
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 3,
+    }
+    if os.getenv("DB_POOL_MODE", "queue").strip().lower() == "null":
+        return {"connect_args": connect_args, "poolclass": NullPool}
+    return {
+        "connect_args": connect_args,
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "1")),
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "2")),
+        # Under the pooler's idle timeout, so a recycled connection is our
+        # choice rather than a surprise mid-query disconnect.
+        "pool_recycle": int(os.getenv("DB_POOL_RECYCLE_SECONDS", "270")),
+        "pool_timeout": int(os.getenv("DB_POOL_TIMEOUT_SECONDS", "10")),
+        "pool_pre_ping": True,
+    }
+
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs(DATABASE_URL))
 app = FastAPI(title="Tutor and Professor API", version="1.0.0")
 
 # ── Module gate ───────────────────────────────────────────────────────────────
@@ -470,7 +594,7 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=_module_gate)
 # The account lock already slows down guessing at one password. These two rules
 # cover the rest: signing up in a loop, and one account spending the whole AI
 # budget in an afternoon.
-rate_limiter = SlidingWindowRateLimiter()
+rate_limiter = build_rate_limiter(engine)
 AUTH_RATE_RULE = RateLimitRule(
     name="auth",
     limit=int(os.getenv("AUTH_RATE_LIMIT", "20")),
@@ -920,8 +1044,33 @@ def cleanup_legacy_flashcards_subject() -> None:
             session.commit()
 
 
+def _startup_schema_work_enabled() -> bool:
+    """Whether this process should manage the schema when it boots.
+
+    A long-running server (local, Docker, a VPS) is the only place where doing it
+    at boot makes sense: it happens once, before traffic. On a serverless host the
+    same code would run on every cold start, putting a full migration behind
+    somebody's first request while several instances fight over the same advisory
+    lock. There the schema is applied out of band instead.
+
+    The default is on, and only an explicit opt-out or the platform's own marker
+    turns it off — so no test and no existing deployment can lose its schema by
+    forgetting to set something.
+    """
+
+    configured = os.getenv("RUN_STARTUP_MIGRATIONS", "").strip().lower()
+    if configured in {"true", "1", "yes"}:
+        return True
+    if configured in {"false", "0", "no"}:
+        return False
+    return not os.getenv("VERCEL")
+
+
 @app.on_event("startup")
 def on_startup() -> None:
+    if not _startup_schema_work_enabled():
+        logger.info("Startup schema work is disabled; the schema is managed out of band.")
+        return
     bootstrap_database(DATABASE_URL)
     create_db_and_tables()
     _run_schema_migrations()
@@ -1970,10 +2119,12 @@ def generate_lesson_questions(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     created: list[LessonQuestion] = []
-    with _lesson_question_lock(child_id, lesson_id):
+    # Outside the lock on purpose: a rollback ends the transaction, and the
+    # advisory lock is held by that transaction.
+    session.rollback()
+    session.expire_all()
+    with _generation_lock(session, "lesson_question", child_id, lesson_id):
         try:
-            session.rollback()
-            session.expire_all()
             current_child = get_requested_child(request=request, session=session)
             current_lesson = session.get(Lesson, lesson_id)
             current_accessible_ids = {
@@ -3499,9 +3650,9 @@ def generate_diverse_questions(
     # Serialize only the persistence phase. AI requests remain concurrent and do not
     # hold this lock while waiting on an external provider.
     created_topics: list[dict] = []
-    with _diverse_question_lock(child_id, payload.study_date):
-        session.rollback()
-        session.expire_all()
+    session.rollback()
+    session.expire_all()
+    with _generation_lock(session, "diverse_question", child_id, payload.study_date):
         current_record = session.exec(
             select(DiverseDay).where(
                 DiverseDay.child_id == child_id,
@@ -5427,7 +5578,7 @@ def generate_topic_questions(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     created: list[ProgrammingQuestion] = []
-    with _get_topic_question_lock(topic_id):
+    with _generation_lock(session, "topic_question", topic_id):
         try:
             current_topic = session.get(ProgrammingTopic, topic_id)
             if current_topic is None:
@@ -5919,7 +6070,7 @@ def generate_additional_coding_flashcards(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     created: list[ProgrammingFlashcard] = []
-    with _get_topic_flashcard_lock(topic_id):
+    with _generation_lock(session, "topic_flashcard", topic_id):
         try:
             current_topic = session.get(ProgrammingTopic, topic_id)
             if current_topic is None:

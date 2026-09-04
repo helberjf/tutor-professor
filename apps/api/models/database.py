@@ -123,6 +123,24 @@ class UsageRecord(SQLModel, table=True):
     occurred_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class RateLimitCounter(SQLModel, table=True):
+    """One row per (rule, subject, time bucket) so the limit is shared.
+
+    The bucket start is an epoch integer rather than a timestamp: it keeps the
+    arithmetic in Python, makes the composite key cheap, and sidesteps every
+    timezone question. See services/rate_limit.py for how two adjacent buckets
+    are weighted into a sliding window.
+    """
+
+    __table_args__ = (Index("ix_ratelimitcounter_expires_at", "expires_at"),)
+
+    rule: str = Field(primary_key=True, max_length=40)
+    subject: str = Field(primary_key=True, max_length=200)
+    window_start: int = Field(primary_key=True)
+    hits: int = Field(default=0)
+    expires_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class BillingEvent(SQLModel, table=True):
     """Gateway webhooks already handled.
 
