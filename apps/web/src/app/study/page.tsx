@@ -1119,8 +1119,8 @@ export default function StudyPage() {
   }
   if (authState.status === 'server_missing') {
     return (
-      <StatusCard tone="offline" title="Servidor nao disponivel" message="Ative o backend para acompanhar os estudos."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+      <StatusCard tone="offline" title="Servidor nao disponivel" message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }
@@ -1130,7 +1130,7 @@ export default function StudyPage() {
   if (error?.isUnconfigured || error?.isOffline) {
     return (
       <StatusCard tone="offline" title="Nao consegui conectar" message={error.message}
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }

@@ -77,8 +77,8 @@ export default function DashboardPage() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para ver o dashboard e os activity logs."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />

@@ -54,8 +54,8 @@ PLANS: tuple[Plan, ...] = (
         code=PLAN_FREE,
         name="Gratuito",
         description=(
-            "Uma crianca, licoes e revisao. Todos os modulos podem ser ligados; "
-            "a IA funciona com a sua propria chave, configurada na area de pais."
+            "Uma crianca, licoes e revisao. A IA com Gemini usa o limite diario "
+            "definido para a conta."
         ),
         price_cents=0,
         max_children=1,
@@ -64,7 +64,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_FAMILY,
         name="Familia",
-        description="Ate 3 criancas e 300 geracoes por IA inclusas por mes.",
+        description="Ate 3 criancas, com o mesmo controle diario de IA da conta.",
         price_cents=3490,
         max_children=3,
         monthly_ai_generations=300,
@@ -73,7 +73,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_STUDY,
         name="Estudo",
-        description="Criancas ilimitadas e a maior franquia de geracao por IA.",
+        description="Criancas ilimitadas e controle diario de IA pelo administrador.",
         price_cents=6900,
         max_children=UNLIMITED,
         monthly_ai_generations=1500,

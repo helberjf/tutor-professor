@@ -333,7 +333,7 @@ PENDING_ACCOUNT_DETAIL = (
 )
 REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
 NO_AI_CREDITS_DETAIL = (
-    "Seus creditos de IA acabaram. Peca ao administrador para liberar mais."
+    "Seus creditos de IA de hoje acabaram. Eles voltam amanha, ou o administrador pode ajustar o seu limite."
 )
 
 # Password guessing brake. The window is short and clears itself: a long or
@@ -1007,6 +1007,18 @@ def _run_schema_migrations() -> None:
                 conn.execute(text('ALTER TABLE "user" ADD COLUMN ai_credits_period VARCHAR(7)'))
             except Exception:
                 pass
+        for _column, _definition in (
+            ("ai_credits_used_today", "INTEGER NOT NULL DEFAULT 0"),
+            ("ai_daily_credit_limit", "INTEGER NOT NULL DEFAULT 3"),
+            ("ai_credits_reset_date", "DATE"),
+        ):
+            try:
+                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {_column} {_definition}'))
+            except Exception:
+                try:
+                    conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {_column} {_definition}'))
+                except Exception:
+                    pass
         # E-mail verification: Alembic 0016 owns the normal path.
         try:
             conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP'))
@@ -4245,15 +4257,40 @@ def user_has_ai_credit(user: User) -> bool:
     return user.ai_unlimited or user_is_admin(user) or user.ai_credits > 0
 
 
+DEFAULT_DAILY_AI_CREDITS = 3
+
+
+def refresh_daily_ai_credits(session: Session, user: User) -> None:
+    """Refill one account once per local calendar day."""
+
+    today = activity_today()
+    if user.ai_credits_reset_date == today:
+        return
+    user.ai_credits = max(0, user.ai_daily_credit_limit)
+    user.ai_credits_used_today = 0
+    user.ai_credits_reset_date = today
+    session.add(user)
+    session.commit()
+
+
 def build_ai_credits_schema(user: User | None) -> dict:
     """The credit state as the account itself and the admin list both report it."""
 
     if user is None:
-        return {"credits": 0, "used": 0, "unlimited": False, "metered": False}
+        return {
+            "credits": 0,
+            "used": 0,
+            "total_used": 0,
+            "daily_limit": 0,
+            "unlimited": False,
+            "metered": False,
+        }
     unlimited = user.ai_unlimited or user_is_admin(user)
     return {
         "credits": user.ai_credits,
-        "used": user.ai_credits_used,
+        "used": user.ai_credits_used_today,
+        "total_used": user.ai_credits_used,
+        "daily_limit": user.ai_daily_credit_limit,
         "unlimited": unlimited,
         # Only the administrator's own key is metered; an account paying for its
         # own key costs nothing and spends no credits.
@@ -4278,6 +4315,7 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
         return
     user.ai_credits = max(0, user.ai_credits - 1)
     user.ai_credits_used += 1
+    user.ai_credits_used_today += 1
     session.add(user)
     session.commit()
 
@@ -4460,24 +4498,9 @@ def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AI
         user = session.get(User, user_id)
         if user is None:
             return None
-        # The plan's monthly allowance arrives as credits (see
-        # top_up_plan_credits), so there is one meter rather than two competing
-        # ones: whatever the administrator granted by hand and whatever the plan
-        # includes end up in the same balance.
-        top_up_plan_credits(session, user)
+        refresh_daily_ai_credits(session, user)
         if not user_has_ai_credit(user):
-            entitlement = get_entitlement(session, user)
-            raise HTTPException(
-                status_code=402,
-                detail=(
-                    NO_AI_CREDITS_DETAIL
-                    if entitlement.plan.monthly_ai_generations == 0
-                    else upgrade_message(
-                        entitlement.plan,
-                        "generations" if entitlement.is_entitled else "inactive",
-                    )
-                ),
-            )
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
         config = _get_global_ai_config(record)
         if config is None:
             return None
@@ -7173,6 +7196,9 @@ def user_register(
         password_hash=hash_password(payload.password),
         status=USER_STATUS_APPROVED if is_admin_signup else USER_STATUS_PENDING,
         email_verified_at=datetime.utcnow() if is_admin_signup else None,
+        ai_credits=DEFAULT_DAILY_AI_CREDITS,
+        ai_daily_credit_limit=DEFAULT_DAILY_AI_CREDITS,
+        ai_credits_reset_date=activity_today(),
     )
     session.add(user)
     session.commit()
@@ -7193,7 +7219,7 @@ def user_register(
     session.add(child)
     session.commit()
 
-    if payload.ai_api_key and user.id is not None:
+    if user.id is not None:
         save_ai_settings_for_user(
             user_id=user.id,
             payload=UserAISettingsUpdateSchema(
@@ -7201,6 +7227,7 @@ def user_register(
                 api_key=payload.ai_api_key,
                 model=payload.ai_model,
                 base_url=payload.ai_base_url,
+                use_global_key=not bool(payload.ai_api_key),
             ),
             session=session,
         )
@@ -7325,6 +7352,9 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
                 if ADMIN_EMAIL and email == ADMIN_EMAIL
                 else USER_STATUS_PENDING
             ),
+            ai_credits=DEFAULT_DAILY_AI_CREDITS,
+            ai_daily_credit_limit=DEFAULT_DAILY_AI_CREDITS,
+            ai_credits_reset_date=activity_today(),
         )
     else:
         user.google_sub = google_sub
@@ -7341,6 +7371,17 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
         session.add(ChildProfile(name=user.first_name or "Kid", age_group="7-9", user_id=user.id))
         session.commit()
+
+    if user.id is not None and get_user_ai_settings_record(user.id, session) is None:
+        save_ai_settings_for_user(
+            user_id=user.id,
+            payload=UserAISettingsUpdateSchema(
+                provider="gemini",
+                model=AI_PROVIDER_DEFAULT_MODELS["gemini"],
+                use_global_key=True,
+            ),
+            session=session,
+        )
 
     return user
 
@@ -7921,7 +7962,10 @@ def get_my_ai_credits(
     session_record = require_parent_session(request, session)
     if session_record.user_id is None:
         return build_ai_credits_schema(None)
-    return build_ai_credits_schema(session.get(User, session_record.user_id))
+    user = session.get(User, session_record.user_id)
+    if user is not None:
+        refresh_daily_ai_credits(session, user)
+    return build_ai_credits_schema(user)
 
 
 @app.get("/api/ai/settings", response_model=UserAISettingsSchema)
@@ -8656,6 +8700,22 @@ def admin_check(
     return {"is_admin": is_admin, "email": user.email if is_admin else ""}
 
 
+@app.get("/api/admin/health")
+def admin_system_health(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    """Operational health exposed to the administrator UI."""
+
+    _require_admin(request, session)
+    session.exec(select(func.count(User.id))).one()
+    return {
+        "status": "ok",
+        "database": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
 def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> dict:
     return {
         "id": user.id,
@@ -8725,6 +8785,8 @@ def admin_list_users(
         raise HTTPException(status_code=422, detail="Status invalido.")
 
     users = session.exec(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
+    for user in users:
+        refresh_daily_ai_credits(session, user)
     settings_by_user_id = {
         settings.user_id: settings
         for settings in session.exec(select(UserAISettings)).all()
@@ -8787,6 +8849,8 @@ def admin_overview(
 
     _require_admin(request, session)
     users = session.exec(select(User)).all()
+    for user in users:
+        refresh_daily_ai_credits(session, user)
     counts = {status: 0 for status in USER_STATUSES}
     for user in users:
         status = effective_user_status(user)
@@ -8899,9 +8963,19 @@ def admin_set_user_ai_credits(
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
-    if payload.credits is None and payload.add is None and payload.unlimited is None:
-        raise HTTPException(status_code=422, detail="Informe credits, add ou unlimited.")
+    if (
+        payload.credits is None
+        and payload.add is None
+        and payload.daily_limit is None
+        and payload.unlimited is None
+    ):
+        raise HTTPException(status_code=422, detail="Informe credits, add, daily_limit ou unlimited.")
 
+    refresh_daily_ai_credits(session, user)
+    if payload.daily_limit is not None:
+        user.ai_daily_credit_limit = payload.daily_limit
+        if payload.credits is None and payload.add is None:
+            user.ai_credits = max(0, payload.daily_limit - user.ai_credits_used_today)
     if payload.credits is not None:
         user.ai_credits = payload.credits
     if payload.add is not None:

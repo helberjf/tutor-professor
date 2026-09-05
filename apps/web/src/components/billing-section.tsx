@@ -145,9 +145,7 @@ export function BillingSection() {
                   <p className="mt-2 text-sm font-semibold text-slate-500">{plan.description}</p>
                   <p className="mt-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                     {formatLimit(plan.max_children, 'crianca', 'criancas')} ·{' '}
-                    {plan.monthly_ai_generations === UNLIMITED
-                      ? 'IA ilimitada'
-                      : `${plan.monthly_ai_generations} geracoes/mes`}
+                    Creditos de IA definidos diariamente pelo administrador
                   </p>
                   {isCurrent ? (
                     <p className="mt-4 text-sm font-black text-primary-dark">Plano atual</p>

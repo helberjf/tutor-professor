@@ -132,7 +132,7 @@ export function AdminAccountQueue() {
 
   async function setCredits(
     user: AdminUser,
-    payload: { credits?: number; add?: number; unlimited?: boolean },
+    payload: { credits?: number; add?: number; daily_limit?: number; unlimited?: boolean },
   ) {
     setBusyUserId(user.id);
     setMessage(null);
@@ -385,7 +385,29 @@ export function AdminAccountQueue() {
                         </button>
                       </div>
                       {!user.ai_credits.unlimited ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-3 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-black text-slate-500">
+                              Limite diario: {user.ai_credits.daily_limit}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void setCredits(user, { daily_limit: Math.max(0, user.ai_credits.daily_limit - 1) })}
+                              disabled={busy || user.ai_credits.daily_limit === 0}
+                              className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 disabled:opacity-60"
+                            >
+                              -1 por dia
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void setCredits(user, { daily_limit: user.ai_credits.daily_limit + 1 })}
+                              disabled={busy}
+                              className="rounded-lg border-2 border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 disabled:opacity-60"
+                            >
+                              +1 por dia
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                           {[10, 50, 100].map((amount) => (
                             <button
                               key={amount}
@@ -405,6 +427,7 @@ export function AdminAccountQueue() {
                           >
                             Zerar
                           </button>
+                          </div>
                         </div>
                       ) : null}
                     </div>

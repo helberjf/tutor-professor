@@ -62,13 +62,10 @@ export default function HomePage() {
 
         {/* Server notice */}
         {serverMissing && (
-          <Link
-            href="/connect"
-            className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-100"
-          >
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
             <WifiOff size={16} className="shrink-0" />
-            <span>Servidor ainda não ativado — toque aqui para conectar</span>
-          </Link>
+            <span>O tutor esta temporariamente indisponivel. Tente novamente em instantes.</span>
+          </div>
         )}
 
         {/* Login notice for unauthenticated users */}
@@ -126,11 +123,11 @@ export default function HomePage() {
             {/* CTA principal */}
             {serverMissing ? (
               <Link
-                href="/connect"
+                href="/offline"
                 className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-amber-300 px-6 text-lg font-black text-slate-950 shadow-[0_14px_30px_rgba(251,191,36,0.24)] transition hover:scale-[1.02] hover:bg-amber-200 sm:w-auto sm:px-8"
               >
                 <WifiOff size={24} />
-                Conectar o tutor
+                Ver status
               </Link>
             ) : isUnauthenticated ? (
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">

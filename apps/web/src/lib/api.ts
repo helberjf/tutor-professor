@@ -728,6 +728,8 @@ export interface UserAISettingsPayload {
 export interface AICredits {
   credits: number;
   used: number;
+  total_used: number;
+  daily_limit: number;
   unlimited: boolean;
   /** False for the admin and for anyone on their own key: nothing to meter. */
   metered: boolean;
@@ -1549,6 +1551,8 @@ export const api = {
   },
   // Admin Learn
   adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
+  adminSystemHealth: () =>
+    fetchAPI<{ status: string; database: string; timestamp: string }>('/api/admin/health'),
   adminListUsers: (status?: AccountStatus) =>
     fetchAPI<AdminUser[]>(status ? `/api/admin/users?status=${status}` : '/api/admin/users'),
   adminOverview: () => fetchAPI<AdminOverview>('/api/admin/overview'),
@@ -1574,7 +1578,7 @@ export const api = {
   getMyAICredits: () => fetchAPI<AICredits>('/api/ai/credits'),
   adminSetUserAICredits: (
     userId: number,
-    payload: { credits?: number; add?: number; unlimited?: boolean },
+    payload: { credits?: number; add?: number; daily_limit?: number; unlimited?: boolean },
   ) =>
     fetchAPI<AdminUser>(`/api/admin/users/${userId}/ai-credits`, {
       method: 'POST',

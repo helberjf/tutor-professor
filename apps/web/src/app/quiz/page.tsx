@@ -121,9 +121,9 @@ function QuizPageContent() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar o quiz."
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Conectar
           </Link>
         }
@@ -149,10 +149,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Este aparelho precisa da URL atual do backend antes de carregar os quizzes. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
+        title="Tutor temporariamente indisponivel"
+        message="Nao foi possivel carregar os quizzes agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
           </Link>
         }
@@ -167,13 +167,13 @@ function QuizPageContent() {
       <StatusCard
         tone="offline"
         title="O quiz nao conseguiu se conectar"
-        message="O backend esta offline agora. Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo."
+        message="Nao foi possivel carregar o quiz agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadQuiz()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
+        secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
     );

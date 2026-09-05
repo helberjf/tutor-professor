@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Link2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { StatusCard } from '@/components/status-card';
+import { api } from '@/lib/api';
 
 import {
   clearSavedApiBaseUrl,
@@ -56,6 +58,8 @@ function describeConnection() {
 }
 
 export default function ConnectPage() {
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [connection, setConnection] = useState(describeConnection);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -64,6 +68,14 @@ export default function ConnectPage() {
   const autoConnectHandledRef = useRef(false);
 
   useEffect(() => {
+    api.adminCheck()
+      .then((result) => setIsAdmin(result.is_admin))
+      .catch(() => setIsAdmin(false))
+      .finally(() => setAccessChecked(true));
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
     const sync = () => {
       const nextConnection = describeConnection();
       setConnection(nextConnection);
@@ -72,10 +84,10 @@ export default function ConnectPage() {
     sync();
     void refreshRuntimeBackendConfig().then(sync);
     return subscribeToApiBaseUrlChange(sync);
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (autoConnectHandledRef.current || typeof window === 'undefined') {
+    if (!isAdmin || autoConnectHandledRef.current || typeof window === 'undefined') {
       return;
     }
 
@@ -126,7 +138,7 @@ export default function ConnectPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAdmin]);
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,6 +166,22 @@ export default function ConnectPage() {
     setMessage('A conexao salva foi removida. O app vai usar a configuracao global ou a URL padrao, se existir.');
     setError('');
     setConnection(describeConnection());
+  }
+
+  if (!accessChecked) {
+    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando permissoes de administrador..." />;
+  }
+
+  if (!isAdmin) {
+    return (
+      <StatusCard
+        tone="error"
+        title="Acesso restrito"
+        message="A configuracao tecnica do backend esta disponivel somente para o administrador."
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
+      />
+    );
   }
 
   return (

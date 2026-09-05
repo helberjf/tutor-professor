@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -42,6 +43,7 @@ import httpx  # noqa: E402
 
 import main  # noqa: E402
 from account_approval_support import approve_all_accounts  # noqa: E402
+from models.database import User  # noqa: E402
 
 
 ADMIN_CPF = "52998224725"
@@ -138,6 +140,18 @@ async def run() -> None:
         family_id = next(row["id"] for row in users if row["email"] == "familia@example.com")
         own_key_id = next(row["id"] for row in users if row["email"] == "propria@example.com")
 
+        health = await admin_client.get("/api/admin/health")
+        assert_status(health, 200, "admin system health")
+        require(
+            health.json()["status"] == "ok" and health.json()["database"] == "ok",
+            f"admin health must include API and database state, got {health.text}",
+        )
+        assert_status(
+            await family_client.get("/api/admin/health"),
+            403,
+            "system health is restricted to admin",
+        )
+
         # The administrator is never metered on their own key.
         admin_credits = await credits_of(admin_client)
         require(
@@ -145,37 +159,40 @@ async def run() -> None:
             f"the administrator must not be metered, got {admin_credits}",
         )
 
-        # Authorized for the global key, but with no credits yet.
-        assert_status(
-            await admin_client.put(
-                f"/api/admin/users/{family_id}/ai-settings",
-                json={"provider": "gemini", "use_global_key": True},
-            ),
-            200,
-            "authorize the global key",
-        )
+        # Every normal account starts on the global Gemini key with three daily credits.
         starting = await credits_of(family_client)
         require(
-            starting == {"credits": 0, "used": 0, "unlimited": False, "metered": True},
-            f"a newly authorized account starts metered at zero, got {starting}",
+            starting["credits"] == 3
+            and starting["used"] == 0
+            and starting["daily_limit"] == 3
+            and starting["metered"],
+            f"a new account must start with three daily credits, got {starting}",
+        )
+        users = (await admin_client.get("/api/admin/users")).json()
+        family_row = next(row for row in users if row["id"] == family_id)
+        require(
+            family_row["ai_settings"]["provider"] == "gemini"
+            and family_row["ai_settings"]["use_global_key"],
+            f"new accounts must use the global Gemini key, got {family_row}",
         )
 
         with stub_provider() as provider:
             assert_status(
                 await family_client.post(GENERATE_URL, json={"subject": "Historia", "count": 2}),
-                402,
-                "no credits means no generation",
+                200,
+                "default daily credit allows generation",
             )
-            require(not provider.called, "the provider must not be called without credits")
+            require(provider.called, "the provider must be called while daily credits remain")
 
-        # Granting credits opens it up.
+        # The admin can change the recurring daily allowance and today's balance.
         grant = await admin_client.post(
-            f"/api/admin/users/{family_id}/ai-credits", json={"credits": 2}
+            f"/api/admin/users/{family_id}/ai-credits", json={"daily_limit": 5, "credits": 2}
         )
         assert_status(grant, 200, "grant credits")
         require(
-            grant.json()["ai_credits"]["credits"] == 2,
-            f"expected two credits granted, got {grant.text}",
+            grant.json()["ai_credits"]["credits"] == 2
+            and grant.json()["ai_credits"]["daily_limit"] == 5,
+            f"expected a five-credit daily limit and two today, got {grant.text}",
         )
 
         with stub_provider():
@@ -186,7 +203,7 @@ async def run() -> None:
             )
         after_one = await credits_of(family_client)
         require(
-            after_one["credits"] == 1 and after_one["used"] == 1,
+            after_one["credits"] == 1 and after_one["used"] == 2,
             f"one generation costs exactly one credit, got {after_one}",
         )
 
@@ -199,7 +216,7 @@ async def run() -> None:
             )
         after_failure = await credits_of(family_client)
         require(
-            after_failure["credits"] == 1 and after_failure["used"] == 1,
+            after_failure["credits"] == 1 and after_failure["used"] == 2,
             f"a failed call must not be charged, got {after_failure}",
         )
 
@@ -211,7 +228,7 @@ async def run() -> None:
                 "spend the last credit",
             )
         drained = await credits_of(family_client)
-        require(drained["credits"] == 0 and drained["used"] == 2, f"expected an empty balance, got {drained}")
+        require(drained["credits"] == 0 and drained["used"] == 3, f"expected an empty balance, got {drained}")
         with stub_provider():
             assert_status(
                 await family_client.post(GENERATE_URL, json={"subject": "Historia", "count": 2}),
@@ -227,6 +244,43 @@ async def run() -> None:
         )
         topped = await credits_of(family_client)
         require(topped["credits"] == 3, f"expected three credits after topping up, got {topped}")
+
+        # Books use the same pool: a successful outline is one AI generation.
+        book_outline = json.dumps({
+            "title": "A aventura azul",
+            "theme": "cores",
+            "synopsis": "Uma aventura curta sobre cores.",
+            "characters": ["Lia"],
+            "page_outlines": [{"page_number": 1, "scene": "Lia encontra uma bola azul.", "key_vocabulary": ["blue"]}],
+            "level": 1,
+            "num_pages": 1,
+            "target_language": "English",
+        })
+        with patch.object(
+            main.book_generation_service.text_generation_service,
+            "_generate_gemini_json_text",
+            return_value=book_outline,
+        ):
+            assert_status(
+                await family_client.post("/api/books/outline", json={"level": 1, "num_pages": 1, "theme": "cores"}),
+                200,
+                "book outline generation",
+            )
+        after_book = await credits_of(family_client)
+        require(after_book["credits"] == 2, f"a book outline must spend one shared AI credit, got {after_book}")
+
+        # A new local day refills to the per-user limit selected by the admin.
+        with main.Session(main.engine) as session:
+            family = session.get(User, family_id)
+            family.ai_credits = 0
+            family.ai_credits_reset_date = main.activity_today() - timedelta(days=1)
+            session.add(family)
+            session.commit()
+        refilled = await credits_of(family_client)
+        require(
+            refilled["credits"] == 5 and refilled["used"] == 0,
+            f"the next day must refill the configured daily limit, got {refilled}",
+        )
 
         # Unlimited stops the metering without touching the balance.
         assert_status(
@@ -244,7 +298,7 @@ async def run() -> None:
             )
         unlimited = await credits_of(family_client)
         require(
-            unlimited["unlimited"] and not unlimited["metered"] and unlimited["credits"] == 3,
+            unlimited["unlimited"] and not unlimited["metered"] and unlimited["credits"] == 5,
             f"unlimited must not spend credits, got {unlimited}",
         )
 
@@ -276,13 +330,13 @@ async def run() -> None:
             )
         own = await credits_of(own_key_client)
         require(
-            own["credits"] == 0 and own["used"] == 0,
+            own["credits"] == 3 and own["used"] == 0,
             f"an own-key account must not spend credits, got {own}",
         )
 
         overview = (await admin_client.get("/api/admin/overview")).json()
         require(
-            overview["ai_credits_spent"] == 2,
+            overview["ai_credits_spent"] == 4,
             f"the overview must count every credit spent, got {overview}",
         )
 

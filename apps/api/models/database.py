@@ -27,8 +27,11 @@ class User(SQLModel, table=True):
     # AI credits meter the administrator's own key: one credit per successful
     # generation. They are ignored for an account using its own API key, which
     # costs the administrator nothing.
-    ai_credits: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_credits: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
     ai_credits_used: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_credits_used_today: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_daily_credit_limit: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
+    ai_credits_reset_date: Optional[date] = Field(default=None)
     ai_unlimited: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
     # "YYYY-MM" the plan allowance was last credited for, so a paid plan tops
     # the balance up once a period instead of on every generation.

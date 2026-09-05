@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, CheckCircle2, KeyRound, Link2, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
+import { ArrowLeft, Baby, BarChart3, BookOpen, Bot, KeyRound, Save, ShieldCheck, Sparkles, UserPlus, Users, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { AccountModulesSection } from '@/components/account-modules-section';
@@ -11,7 +11,6 @@ import { AccountSecuritySection } from '@/components/account-security-section';
 import { AccountDataSection } from '@/components/account-data-section';
 import { BillingSection } from '@/components/billing-section';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
-import { getApiConnectionDetails, saveApiBaseUrl, verifySavedApiBaseUrl } from '@/lib/api-config';
 import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
 const LANGUAGES = [
@@ -75,13 +74,6 @@ export default function ParentsPage() {
   });
   const [aiSaving, setAiSaving] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
-
-  // Tunnel URL state
-  const [tunnelDraft, setTunnelDraft] = useState(() => getApiConnectionDetails().baseUrl ?? '');
-  const [tunnelSaving, setTunnelSaving] = useState(false);
-  const [tunnelMessage, setTunnelMessage] = useState('');
-  const [tunnelError, setTunnelError] = useState('');
-  const tunnelConnection = getApiConnectionDetails();
 
   const loadSettings = useCallback(async () => {
     try {
@@ -279,23 +271,6 @@ export default function ParentsPage() {
     }
   }
 
-  async function handleSaveTunnel(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setTunnelSaving(true);
-    setTunnelMessage('');
-    setTunnelError('');
-    const result = await verifySavedApiBaseUrl(tunnelDraft.trim());
-    if (!result.ok) {
-      setTunnelError(result.message);
-      setTunnelSaving(false);
-      return;
-    }
-    saveApiBaseUrl(result.baseUrl);
-    setTunnelDraft(result.baseUrl);
-    setTunnelMessage('URL salva! O app ja esta usando este backend.');
-    setTunnelSaving(false);
-  }
-
   async function handleGenerateLesson() {
     setGeneratingLesson(true);
     setGeneratorMessage('');
@@ -308,6 +283,7 @@ export default function ParentsPage() {
       setGeneratorMessage(response.message);
       setGeneratorTone('success');
       setGeneratorTopic('');
+      setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
     } catch (err) {
       const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel gerar novas frases.');
       if (nextError.status === 401) {
@@ -338,12 +314,10 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte a area de pais primeiro"
-        message="Este aparelho precisa da URL atual do backend antes de carregar a area de pais. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
+        title="Area de pais indisponivel"
+        message="Nao foi possivel carregar a configuracao do aplicativo agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Abrir configuracao de conexao
-          </Link>
+          <button onClick={() => void loadSettings()} className="kid-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -356,14 +330,14 @@ export default function ParentsPage() {
       <StatusCard
         tone="offline"
         title="A area de pais esta offline"
-        message="O backend nao esta respondendo agora. Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo."
+        message="O sistema nao esta respondendo agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadSettings()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
-        secondaryLabel="Trocar conexao"
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }
@@ -680,9 +654,8 @@ export default function ParentsPage() {
                       : 'Seus creditos de IA acabaram'}
                   </p>
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                    Cada geracao usa 1 credito da chave do administrador. Voce ja usou{' '}
-                    {aiCredits.used}. Para nao depender disso, salve a sua propria chave abaixo:
-                    chave propria nao gasta credito.
+                    Seu limite e de {aiCredits.daily_limit} por dia. Cada geracao concluida usa 1
+                    credito, inclusive livros. Hoje voce ja usou {aiCredits.used}.
                   </p>
                 </div>
               ) : null}
@@ -733,7 +706,9 @@ export default function ParentsPage() {
                   {aiSettings?.has_api_key ? (
                     <p className="mt-2 text-xs font-bold text-slate-500">Chave salva: {aiSettings.api_key_preview ?? '****'}</p>
                   ) : (
-                    <p className="mt-2 text-xs font-bold text-kid-pink">Chave obrigatoria para gerar conteudo.</p>
+                    <p className="mt-2 text-xs font-bold text-slate-500">
+                      O Gemini padrao ja esta ativo. Preencha somente se quiser usar sua propria chave.
+                    </p>
                   )}
                 </div>
 
@@ -845,52 +820,6 @@ export default function ParentsPage() {
                   </div>
                 </div>
               ) : null}
-            </div>
-
-            {/* Tunnel URL */}
-            <div className="kid-surface border-slate-200 p-5 md:p-8">
-              <div className="flex items-center gap-3">
-                <Link2 className="text-primary-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">URL do Tunnel</h2>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                Cole aqui a URL HTTPS do Cloudflare Tunnel para conectar o app ao backend local.
-              </p>
-
-              {/* Status atual */}
-              {tunnelConnection.baseUrl ? (
-                <div className="mt-4 flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3">
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
-                  <p className="break-all text-xs font-bold text-emerald-700">{tunnelConnection.baseUrl}</p>
-                </div>
-              ) : (
-                <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-3">
-                  <p className="text-xs font-bold text-amber-700">Nenhum tunnel configurado neste aparelho.</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSaveTunnel} className="mt-5 space-y-3">
-                <input
-              aria-label="https://xxxx.trycloudflare.com"
-                  type="url"
-                  value={tunnelDraft}
-                  onChange={(e) => setTunnelDraft(e.target.value)}
-                  placeholder="https://xxxx.trycloudflare.com"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3 text-base outline-none transition focus:border-primary"
-                />
-                {tunnelError && <p className="text-xs font-bold text-kid-pink">{tunnelError}</p>}
-                {tunnelMessage && <p className="text-xs font-bold text-emerald-600">{tunnelMessage}</p>}
-                <button
-                  type="submit"
-                  disabled={tunnelSaving || !tunnelDraft.trim()}
-                  className="kid-button bg-primary hover:bg-primary-dark"
-                >
-                  <Link2 className="mr-2" size={16} />
-                  {tunnelSaving ? 'Verificando...' : 'Salvar URL do tunnel'}
-                </button>
-              </form>
             </div>
 
             <div className="kid-surface border-accent/50 p-5 md:p-8">

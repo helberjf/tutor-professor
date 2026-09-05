@@ -29,8 +29,8 @@ export default function ExamsPage() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar os simulados."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/dashboard"
         secondaryLabel="Voltar ao dashboard"
       />

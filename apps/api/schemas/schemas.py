@@ -1185,6 +1185,7 @@ class AdminAICreditsSchema(BaseModel):
 
     credits: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     add: Optional[int] = Field(default=None, ge=-1_000_000, le=1_000_000)
+    daily_limit: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     unlimited: Optional[bool] = None
 
 
