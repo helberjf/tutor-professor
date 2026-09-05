@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, BookOpen, CheckCircle2, Code2, Clock, Loader2, HelpCircle, RefreshCw } from 'lucide-react';
 import { api, type DailyActivitySummarySchema } from '@/lib/api';
+import { ActivityDetails } from './activity-details';
 
 const ACTIVITY_ICONS = {
   lesson: <BookOpen className="text-blue-500" size={16} />,
@@ -145,6 +146,7 @@ export function DailyActivityWidget() {
             </div>
             <div className="flex-grow">
               <p className="truncate text-xs font-medium text-slate-800">{activity.activity_title}</p>
+              <ActivityDetails details={activity.result_details} compact />
             </div>
             {activity.result_score !== null && (
               <div className="flex-shrink-0 text-right">

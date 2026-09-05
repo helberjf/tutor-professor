@@ -1355,7 +1355,17 @@ export const api = {
   }),
   getTodayQuiz: (lessonId?: number) =>
     fetchAPI<Quiz>(lessonId ? `/api/quiz/today?lesson_id=${lessonId}` : '/api/quiz/today'),
-  submitQuiz: (payload: { lesson_id: number; score: number; total_questions: number }) =>
+  submitQuiz: (payload: {
+    lesson_id: number;
+    score: number;
+    total_questions: number;
+    answers?: Array<{
+      question_number: number;
+      question: string;
+      selected_option: string;
+      correct: boolean;
+    }>;
+  }) =>
     fetchAPI<QuizSubmitResponse>('/api/quiz/submit', {
       method: 'POST',
       body: JSON.stringify(payload),

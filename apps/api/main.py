@@ -115,6 +115,7 @@ from schemas.schemas import (
     UserResponseSchema,
     ProgressSchema,
     QuizQuestionSchema,
+    QuizAnswerSchema,
     QuizSchema,
     QuizSubmitResponseSchema,
     QuizSubmitSchema,
@@ -2399,6 +2400,7 @@ def submit_quiz(
             "score": payload.score,
             "total": payload.total_questions,
             "percentage": score_percentage,
+            "answers": [answer.model_dump() for answer in payload.answers],
         },
     )
 
@@ -5635,6 +5637,18 @@ def finish_exam_attempt(
                 "total": len(answers),
                 "passed": attempt.passed,
                 "passing_percent": exam.passing_percent,
+                "questions": [
+                    {
+                        "question_number": answer.order_index + 1,
+                        "question_id": answer.exam_question_id,
+                        "question": questions_by_id[answer.exam_question_id].question,
+                        "domain": questions_by_id[answer.exam_question_id].domain,
+                        "selected_options": list(answer.selected_options or []),
+                        "correct": bool(answer.correct),
+                    }
+                    for answer in answers
+                    if answer.exam_question_id in questions_by_id
+                ],
             },
             duration_seconds=attempt.duration_seconds,
         )
@@ -5743,6 +5757,8 @@ def submit_topic_question_attempt(
             "subject_name": subject.name,
             "topic_id": question.topic_id,
             "question_id": question.id,
+            "question": question.question,
+            "selected_option": selected_option,
             "correct": correct,
         },
     )
@@ -6050,6 +6066,8 @@ def submit_study_question_attempt(
             "subject_name": question.subject_name,
             "topic_key": question.topic_key,
             "question_id": question.id,
+            "question": question.question,
+            "selected_option": selected_option,
             "correct": correct,
         },
     )

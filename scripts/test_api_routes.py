@@ -300,11 +300,33 @@ async def run() -> None:
             await client.post(
                 "/api/quiz/submit",
                 headers=child_headers,
-                json={"lesson_id": 1, "score": 1, "total_questions": 1},
+                json={
+                    "lesson_id": 1,
+                    "score": 1,
+                    "total_questions": 1,
+                    "answers": [
+                        {
+                            "question_number": 1,
+                            "question": "Como se diz Ola em ingles?",
+                            "selected_option": "Hello",
+                            "correct": True,
+                        }
+                    ],
+                },
             ),
             200,
             "submit quiz",
         )
+        quiz_activity_response = await client.get("/api/activity/today", headers=child_headers)
+        assert_status(quiz_activity_response, 200, "quiz activity details")
+        quiz_activity = next(
+            activity
+            for activity in quiz_activity_response.json()["activities"]
+            if activity["activity_type"] == "question"
+            and activity.get("result_details", {}).get("answers")
+        )
+        if quiz_activity["result_details"]["answers"][0]["selected_option"] != "Hello":
+            raise AssertionError(f"quiz answer should be stored in activity details, got {quiz_activity}")
         assert_status(await client.get("/api/review", headers=child_headers), 200, "review session")
         progress_response = await client.get("/api/progress", headers=child_headers)
         assert_status(progress_response, 200, "progress")

@@ -37,6 +37,12 @@ function QuizPageContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<number, {
+    question_number: number;
+    question: string;
+    selected_option: string;
+    correct: boolean;
+  }>>({});
   const [finished, setFinished] = useState(false);
   const [savingResult, setSavingResult] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<QuizSubmitResponse | null>(null);
@@ -59,6 +65,7 @@ function QuizPageContent() {
       setCurrentIndex(0);
       setSelectedOption(null);
       setScore(0);
+      setAnsweredQuestions({});
       setFinished(false);
       setSubmitMessage(null);
       setError(null);
@@ -79,7 +86,18 @@ function QuizPageContent() {
     }
 
     const question = quiz.questions[currentIndex];
-    const nextScore = selectedOption === question.correct_option ? score + 1 : score;
+    const correct = selectedOption === question.correct_option;
+    const nextScore = correct ? score + 1 : score;
+    const answer = {
+      question_number: currentIndex + 1,
+      question: question.question,
+      selected_option: selectedOption,
+      correct,
+    };
+    const allAnswers = [...Object.values(answeredQuestions), answer].sort(
+      (left, right) => left.question_number - right.question_number,
+    );
+    setAnsweredQuestions((current) => ({ ...current, [question.id]: answer }));
     setScore(nextScore);
 
     if (currentIndex < quiz.questions.length - 1) {
@@ -94,6 +112,7 @@ function QuizPageContent() {
         lesson_id: quiz.lesson_id,
         score: nextScore,
         total_questions: quiz.questions.length,
+        answers: allAnswers,
       });
       setSubmitMessage(response);
       setFinished(true);

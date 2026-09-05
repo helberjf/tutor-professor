@@ -225,6 +225,9 @@ async def run() -> None:
             raise AssertionError(f"quiz title should be presented as lesson questions, got {question_titles}")
         if summary["activities_by_type"].get("exam", 0) != 1:
             raise AssertionError(f"finished exam should be logged once, got {summary}")
+        exam_activity = next(activity for activity in summary["activities"] if activity["activity_type"] == "exam")
+        if exam_activity["result_details"]["questions"][0]["question"] != "Qual tipo representa texto?":
+            raise AssertionError(f"exam questions should be visible in activity details, got {exam_activity}")
         if summary["total_activities"] != 7 or summary["total_duration_seconds"] != 150:
             raise AssertionError(f"hidden coding activity must not affect aggregates, got {summary}")
         if summary["average_score"] != 85.0:

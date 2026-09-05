@@ -112,10 +112,21 @@ class QuizSchema(BaseModel):
     lesson_id: int
     questions: List[QuizQuestionSchema] = Field(default_factory=list)
 
+
+class QuizAnswerSchema(BaseModel):
+    """One answer sent when a quiz is finished, for the activity timeline."""
+
+    question_number: int = Field(ge=1, le=200)
+    question: str = Field(min_length=1, max_length=1000)
+    selected_option: str = Field(min_length=1, max_length=500)
+    correct: bool
+
+
 class QuizSubmitSchema(BaseModel):
     lesson_id: int
     score: int
     total_questions: int
+    answers: List[QuizAnswerSchema] = Field(default_factory=list, max_length=200)
 
 class QuizSubmitResponseSchema(BaseModel):
     status: str

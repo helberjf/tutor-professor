@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
+import { ActivityDetails } from './activity-details';
 
 // Utility functions to replace date-fns
 const formatDate = (date: Date, format: string): string => {
@@ -246,6 +247,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
                   </span>
                 )}
               </div>
+              <ActivityDetails details={activity.result_details} />
             </div>
 
             {/* Time */}
