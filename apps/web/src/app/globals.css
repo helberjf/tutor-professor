@@ -86,6 +86,45 @@ textarea {
   font: inherit;
 }
 
+/* Keep keyboard users oriented even on controls that use Tailwind's
+ * focus:outline-none utility. The important declaration is intentional: a
+ * transparent outline is worse than a consistent, high-contrast focus ring. */
+:focus-visible {
+  outline: 3px solid #38bdf8 !important;
+  outline-offset: 3px !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 1rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border-radius: 9999px;
+  background: #0369a1;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(3, 105, 161, 0.3);
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .kid-button {
   @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-base font-bold text-white shadow-[0_18px_40px_rgba(14,165,233,0.22)] transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:px-6 md:py-4 md:text-lg;
 }

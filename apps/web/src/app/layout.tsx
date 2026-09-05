@@ -49,13 +49,16 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body>
+        <a href="#main-content" className="skip-link">
+          Pular para o conteúdo
+        </a>
         <ThemeScript />
         <ServiceWorkerRegistrar />
         <ThemeProvider>
           <Navbar />
           <Suspense fallback={<div className="pt-16" />}>
             <AuthGate>
-              <div className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
+              <div id="main-content" className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
             </AuthGate>
           </Suspense>
           <BottomNav />
