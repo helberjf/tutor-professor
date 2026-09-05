@@ -319,14 +319,25 @@ async def run() -> None:
         )
         quiz_activity_response = await client.get("/api/activity/today", headers=child_headers)
         assert_status(quiz_activity_response, 200, "quiz activity details")
+        quiz_activity_summary = quiz_activity_response.json()
+        if quiz_activity_summary["questions_answered"] < 1:
+            raise AssertionError(f"quiz questions should count in daily metrics, got {quiz_activity_summary}")
+        if "Saudacoes" not in quiz_activity_summary["subject_names"]:
+            raise AssertionError(f"lesson subject should appear in daily metrics, got {quiz_activity_summary}")
         quiz_activity = next(
             activity
-            for activity in quiz_activity_response.json()["activities"]
+            for activity in quiz_activity_summary["activities"]
             if activity["activity_type"] == "question"
             and activity.get("result_details", {}).get("answers")
         )
         if quiz_activity["result_details"]["answers"][0]["selected_option"] != "Hello":
             raise AssertionError(f"quiz answer should be stored in activity details, got {quiz_activity}")
+        for period in ("day", "month", "year", "all"):
+            period_response = await client.get(f"/api/activity/summary?period={period}", headers=child_headers)
+            assert_status(period_response, 200, f"activity summary {period}")
+            period_payload = period_response.json()
+            if period_payload["period"] != period or period_payload["questions_answered"] < 1:
+                raise AssertionError(f"activity period summary should count quiz questions for {period}, got {period_payload}")
         assert_status(await client.get("/api/review", headers=child_headers), 200, "review session")
         progress_response = await client.get("/api/progress", headers=child_headers)
         assert_status(progress_response, 200, "progress")

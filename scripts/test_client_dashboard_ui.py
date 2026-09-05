@@ -19,6 +19,7 @@ def require(condition: bool, message: str) -> None:
 
 def main() -> None:
     require("getActivityMonth" in API, "monthly activity endpoint is exposed")
+    require("getActivitySummary" in API and "ActivityPeriodSummary" in API, "period activity summary endpoint is exposed")
     require("question" in WIDGET and "exam" in WIDGET, "widget supports question and exam activity types")
     require("total_duration_seconds" in WIDGET, "widget shows registered study time")
     require("average_score" in WIDGET, "widget shows average score")
@@ -26,6 +27,8 @@ def main() -> None:
     require("slice(-3)" not in WIDGET, "dashboard timeline is not limited to three items")
     require("activityCount" in OVERVIEW, "30-day overview uses daily activity counts")
     require("getActivityMonth" in OVERVIEW, "overview loads the monthly activity feed")
+    require("activityPeriod" in OVERVIEW and 'value="year"' in OVERVIEW, "overview defaults to the annual activity period")
+    require("questions_answered" in OVERVIEW and "topics_studied" in OVERVIEW and "subject_names" in OVERVIEW, "overview shows granular study metrics")
     require("previousWeekActivities" in OVERVIEW and "Comparativo semanal" in OVERVIEW, "overview compares current and previous week")
     require("question" in LOG and "exam" in LOG, "full log labels new activity types")
     require("question" in CHART and "exam" in CHART, "weekly chart colors new activity types")

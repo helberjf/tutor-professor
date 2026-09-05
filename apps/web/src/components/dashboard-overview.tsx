@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BookOpen, ClipboardList, Clock, Flame, Timer } from 'lucide-react';
-import { api, type DailyActivitySummarySchema, type StudyDashboard, type StudyDay } from '@/lib/api';
+import { api, type ActivityPeriod, type ActivityPeriodSummary, type DailyActivitySummarySchema, type StudyDashboard, type StudyDay } from '@/lib/api';
 
 function getLocalDateValue(date = new Date()) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -25,6 +25,9 @@ export function DashboardOverview({
   pomodoroState: { completedByDate: Record<string, number> };
 }) {
   const [activityMonth, setActivityMonth] = useState<DailyActivitySummarySchema[] | null>(null);
+  const [activityPeriod, setActivityPeriod] = useState<ActivityPeriod>('year');
+  const [periodSummary, setPeriodSummary] = useState<ActivityPeriodSummary | null>(null);
+  const [periodLoading, setPeriodLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +52,24 @@ export function DashboardOverview({
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setPeriodLoading(true);
+    api.getActivitySummary(activityPeriod)
+      .then((data) => {
+        if (!cancelled) setPeriodSummary(data);
+      })
+      .catch(() => {
+        if (!cancelled) setPeriodSummary(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPeriodLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activityPeriod]);
+
   const allDays = useMemo(() => {
     const backendMap = new Map<string, StudyDay>();
     const activityMap = new Map<string, DailyActivitySummarySchema>();
@@ -64,7 +85,6 @@ export function DashboardOverview({
       isStudyDay: boolean;
       activityCount: number;
       activityDuration: number;
-      questionCount: number;
     }> = [];
     const fallbackDates = Array.from({ length: 30 }, (_, index) => {
       const d = new Date();
@@ -78,14 +98,12 @@ export function DashboardOverview({
       const localCount = pomodoroState.completedByDate[key] ?? 0;
       const backendCount = backend?.pomodoro_count ?? 0;
       const activityCount = activity?.total_activities ?? 0;
-      const questionCount = activity?.activities_by_type['question'] ?? 0;
       result.push({
         date: key,
         pomodoroCount: Math.max(localCount, backendCount),
         isStudyDay: activityMonth === null ? (backend?.is_study_day ?? false) : activityCount > 0,
         activityCount,
         activityDuration: activity?.total_duration_seconds ?? 0,
-        questionCount,
       });
     }
     return result;
@@ -97,12 +115,15 @@ export function DashboardOverview({
   const pomodoroToday = allDays[allDays.length - 1]?.pomodoroCount ?? 0;
   const totalActivityDuration = useMemo(() => allDays.reduce((sum, day) => sum + day.activityDuration, 0), [allDays]);
   const activityToday = allDays[allDays.length - 1]?.activityCount ?? 0;
-  const questionsCompleted = useMemo(() => allDays.reduce((sum, day) => sum + day.questionCount, 0), [allDays]);
-  const questionsToday = allDays[allDays.length - 1]?.questionCount ?? 0;
   const thisWeekActivities = useMemo(() => allDays.slice(-7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const previousWeekActivities = useMemo(() => allDays.slice(-14, -7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const weeklyDelta = thisWeekActivities - previousWeekActivities;
   const questionMetrics = dashboard?.question_metrics ?? [];
+  const periodLabels: Record<ActivityPeriod, string> = { day: 'Hoje', month: 'Este mês', year: 'Este ano', all: 'Todo o período' };
+  const currentPeriodLabel = periodLabels[activityPeriod];
+  const periodDateLabel = periodSummary?.start_date
+    ? `${formatDateLabel(periodSummary.start_date)} até ${formatDateLabel(periodSummary.end_date)}`
+    : 'Nenhuma atividade registrada ainda';
 
   return (
     <div className="space-y-5">
@@ -112,7 +133,56 @@ export function DashboardOverview({
         <SummaryCard icon={<Timer size={22} />} value={`${totalPomodoros}`} label="Pomodoros (30 dias)" tone="violet" />
         <SummaryCard icon={<BookOpen size={22} />} value={`${studyDays}`} label="Dias ativos (30 dias)" tone="emerald" />
         <SummaryCard icon={<Clock size={22} />} value={formatDurationCompact(totalActivityDuration)} label={`Tempo registrado · ${activityToday} hoje`} tone="sky" />
-        <SummaryCard icon={<ClipboardList size={22} />} value={`${questionsCompleted}`} label={`Questões · ${questionsToday} hoje`} tone="amber" />
+        <SummaryCard icon={<ClipboardList size={22} />} value={periodLoading ? '…' : `${periodSummary?.questions_answered ?? 0}`} label={`Questões · ${currentPeriodLabel.toLowerCase()}`} tone="amber" />
+      </div>
+
+      <div className="rounded-[1.4rem] border-2 border-emerald-100 bg-emerald-50/60 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-600">Atividade por período</p>
+            <h2 className="mt-1 text-xl font-black text-slate-800">O que você fez · {currentPeriodLabel}</h2>
+            <p className="mt-1 text-xs font-bold text-emerald-700">{periodDateLabel}</p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-black text-slate-600">
+            Período
+            <select
+              value={activityPeriod}
+              onChange={(event) => setActivityPeriod(event.target.value as ActivityPeriod)}
+              className="rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-black text-slate-700 outline-none focus:border-emerald-400"
+            >
+              <option value="day">Dia</option>
+              <option value="month">Mês</option>
+              <option value="year">Ano</option>
+              <option value="all">Geral</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
+            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.questions_answered ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500">Questões feitas</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
+            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.topics_studied ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500">Tópicos estudados</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
+            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.subjects_studied ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500">Matérias</p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl border border-emerald-100 bg-white px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Matérias estudadas no período</p>
+          {(periodSummary?.subject_names ?? []).length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(periodSummary?.subject_names ?? []).map((name) => (
+                <span key={name} className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-800">{name}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm font-bold text-slate-500">As matérias aparecerão aqui assim que você responder ou concluir uma atividade neste período.</p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-[1.4rem] border-2 border-sky-100 bg-sky-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">

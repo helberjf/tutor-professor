@@ -998,6 +998,27 @@ class DailyActivitySummarySchema(BaseModel):
     average_score: Optional[float] = None
     first_activity_at: Optional[datetime] = None
     last_activity_at: Optional[datetime] = None
+    questions_answered: int = 0
+    topics_studied: int = 0
+    subjects_studied: int = 0
+    subject_names: List[str] = Field(default_factory=list)
+    topic_names: List[str] = Field(default_factory=list)
+
+
+class ActivityPeriodSummarySchema(BaseModel):
+    """Aggregated activity for a selectable calendar period."""
+
+    period: Literal["day", "month", "year", "all"]
+    start_date: Optional[date] = None
+    end_date: date
+    total_activities: int = 0
+    questions_answered: int = 0
+    topics_studied: int = 0
+    subjects_studied: int = 0
+    subject_names: List[str] = Field(default_factory=list)
+    topic_names: List[str] = Field(default_factory=list)
+    activities_by_type: Dict[str, int] = Field(default_factory=dict)
+    total_duration_seconds: int = 0
 
 
 class DeckStatsSchema(BaseModel):

@@ -193,6 +193,7 @@ from schemas.schemas import (
     DailyActivitySchema,
     DailyActivityCreateSchema,
     DailyActivitySummarySchema,
+    ActivityPeriodSummarySchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -1822,6 +1823,7 @@ def summarize_study_activity(record: StudyDay | None) -> dict:
 
 def summarize_coding_activity(subjects: dict | None) -> dict:
     subject_names: list[str] = []
+    topic_names: list[str] = []
     topic_count = 0
     completed_topic_count = 0
     for raw_name, raw_topics in (subjects or {}).items():
@@ -1837,6 +1839,8 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
                 continue
             subject_has_content = True
             topic_count += 1
+            if topic_text:
+                topic_names.append(f"{name}: {topic_text}" if name else topic_text)
             if is_done:
                 completed_topic_count += 1
         if name and subject_has_content:
@@ -1844,6 +1848,7 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
 
     return {
         "subject_names": subject_names,
+        "topic_names": topic_names,
         "subject_count": len(subject_names),
         "topic_count": topic_count,
         "completed_topic_count": completed_topic_count,
@@ -1852,13 +1857,14 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
 
 def summarize_diverse_activity(subjects: list | None) -> dict:
     subject_names: list[str] = []
+    topic_names: list[str] = []
     topic_count = 0
     completed_topic_count = 0
     answered_topic_count = 0
     reviewed_topic_count = 0
     lesson_count = 0
 
-    def count_topic(raw_topic: dict) -> bool:
+    def count_topic(raw_topic: dict, subject_name: str = "") -> bool:
         nonlocal topic_count, completed_topic_count, answered_topic_count, reviewed_topic_count
         topic_text = str(raw_topic.get("topic") or "").strip()
         answer_text = str(raw_topic.get("answer") or "").strip()
@@ -1867,6 +1873,8 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
         if not topic_text and not answer_text and not is_done and review_count <= 0:
             return False
         topic_count += 1
+        if topic_text:
+            topic_names.append(f"{subject_name}: {topic_text}" if subject_name else topic_text)
         if is_done:
             completed_topic_count += 1
         if answer_text:
@@ -1881,7 +1889,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
         name = str(raw_subject.get("name") or "").strip()
         subject_has_content = False
         for raw_topic in raw_subject.get("topics") or []:
-            if isinstance(raw_topic, dict) and count_topic(raw_topic):
+            if isinstance(raw_topic, dict) and count_topic(raw_topic, name):
                 subject_has_content = True
         for raw_lesson in raw_subject.get("lessons") or []:
             if not isinstance(raw_lesson, dict):
@@ -1889,7 +1897,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
             lesson_topics = raw_lesson.get("topics") or []
             has_lesson_content = bool(str(raw_lesson.get("title") or "").strip())
             for raw_topic in lesson_topics:
-                if isinstance(raw_topic, dict) and count_topic(raw_topic):
+                if isinstance(raw_topic, dict) and count_topic(raw_topic, name):
                     has_lesson_content = True
             if has_lesson_content:
                 lesson_count += 1
@@ -1899,6 +1907,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
 
     return {
         "subject_names": subject_names,
+        "topic_names": topic_names,
         "subject_count": len(subject_names),
         "topic_count": topic_count,
         "completed_topic_count": completed_topic_count,
@@ -2325,6 +2334,10 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
         activity_title=lesson.title,
         activity_id=lesson.id,
         result_score=100.0,  # Lição completada = 100%
+        result_details={
+            "subject_name": lesson.theme,
+            "topic_name": lesson.title,
+        },
     )
 
     session.add(child)
@@ -2401,6 +2414,8 @@ def submit_quiz(
             "total": payload.total_questions,
             "percentage": score_percentage,
             "answers": [answer.model_dump() for answer in payload.answers],
+            "subject_name": lesson.theme if lesson else None,
+            "topic_name": lesson.title if lesson else quiz_title,
         },
     )
 
@@ -2461,10 +2476,14 @@ def submit_review_attempt(
             raise HTTPException(status_code=404, detail="Pergunta da licao nao encontrada.") from exc
         card_id = reviewed_item.id or 0
         activity_title = f"Review: {reviewed_item.front}"
+        lesson = session.get(Lesson, reviewed_item.lesson_id)
         activity_details = {
             "card_type": "lesson_question",
             "lesson_question_id": card_id,
             "lesson_id": reviewed_item.lesson_id,
+            "question": reviewed_item.front,
+            "subject_name": lesson.theme if lesson else "Inglês",
+            "topic_name": lesson.title if lesson else "Revisão de vocabulário",
             "correct": payload.correct,
         }
     else:
@@ -2486,6 +2505,8 @@ def submit_review_attempt(
             "review_item_id": card_id,
             "word_en": reviewed_item.word_en,
             "word_pt": reviewed_item.word_pt,
+            "subject_name": "Inglês",
+            "topic_name": "Vocabulário",
             "correct": payload.correct,
         }
     child.last_activity = datetime.utcnow()
@@ -5614,6 +5635,7 @@ def finish_exam_attempt(
 
     if attempt.status == "in_progress":
         finished_at = datetime.utcnow()
+        exam_subject = session.get(ProgrammingSubject, exam.subject_id) if exam.subject_id else None
         percent = score_percent(len(correct_ids), len(answers))
         attempt.status = "finished"
         attempt.finished_at = finished_at
@@ -5633,6 +5655,7 @@ def finish_exam_attempt(
             result_details={
                 "exam_id": exam.id,
                 "exam_name": exam.name,
+                "subject_name": exam_subject.name if exam_subject else None,
                 "correct": len(correct_ids),
                 "total": len(answers),
                 "passed": attempt.passed,
@@ -8232,6 +8255,79 @@ def activity_view_title(activity: DailyActivity) -> str:
     return activity.activity_title
 
 
+def build_activity_metrics(activities: list[DailyActivity]) -> dict:
+    """Count granular work while keeping the feed itself compact.
+
+    A quiz and a simulado are one timeline event, but their saved answer lists
+    still count every question. Topic and subject names come from the metadata
+    attached by the write endpoints, so the dashboard never has to infer them
+    from translated display labels.
+    """
+
+    questions_answered = 0
+    explicit_topics: set[str] = set()
+    anonymous_topics = 0
+    subjects: set[str] = set()
+    topic_names: dict[str, str] = {}
+
+    def add_subject(value: object) -> None:
+        if isinstance(value, str) and value.strip():
+            subjects.add(value.strip())
+
+    def add_topic(value: object) -> None:
+        if not isinstance(value, str) or not value.strip():
+            return
+        normalized = " ".join(value.split()).strip()
+        key = normalized.casefold()
+        explicit_topics.add(key)
+        topic_names[key] = normalized
+
+    for activity in activities:
+        details = activity.result_details if isinstance(activity.result_details, dict) else {}
+        raw_type = activity.activity_type
+        if raw_type == "question":
+            questions_answered += 1
+        elif raw_type == "quiz":
+            answers = details.get("answers")
+            questions_answered += len(answers) if isinstance(answers, list) else max(1, to_nonnegative_int(details.get("total")))
+        elif raw_type == "exam":
+            exam_questions = details.get("questions")
+            questions_answered += len(exam_questions) if isinstance(exam_questions, list) else max(1, to_nonnegative_int(details.get("total")))
+
+        add_subject(details.get("subject_name"))
+        raw_subjects = details.get("subject_names")
+        if isinstance(raw_subjects, list):
+            for subject_name in raw_subjects:
+                add_subject(subject_name)
+
+        add_topic(details.get("topic_name"))
+        add_topic(details.get("topic_title"))
+        add_topic(details.get("topic_key"))
+        raw_topics = details.get("topic_names")
+        if isinstance(raw_topics, list):
+            for topic_name in raw_topics:
+                add_topic(topic_name)
+
+        # Coding/Diverse saves already contain an exact topic count, but older
+        # rows do not have individual names. Preserve that count without
+        # pretending we know names that were never stored.
+        if raw_type in {"coding", "diverse"}:
+            try:
+                aggregate_count = max(0, int(details.get("topic_count", 0) or 0))
+            except (TypeError, ValueError):
+                aggregate_count = 0
+            named_count = len(raw_topics) if isinstance(raw_topics, list) else 0
+            anonymous_topics += max(0, aggregate_count - named_count)
+
+    return {
+        "questions_answered": questions_answered,
+        "topics_studied": len(explicit_topics) + anonymous_topics,
+        "subjects_studied": len(subjects),
+        "subject_names": sorted(subjects, key=str.casefold),
+        "topic_names": sorted(topic_names.values(), key=str.casefold),
+    }
+
+
 def account_has_coding_enabled(request: Request, session: Session) -> bool:
     user = get_request_user(request=request, session=session)
     return is_module_enabled(user.enabled_modules if user else None, "coding")
@@ -8245,10 +8341,12 @@ def build_daily_activity_summary(
     include_activities: bool = True,
 ) -> DailyActivitySummarySchema:
     visible_activities: list[DailyActivitySchema] = []
+    visible_raw_activities: list[DailyActivity] = []
     for activity in activities:
         normalized_type = activity_view_type(activity, coding_enabled=coding_enabled)
         if normalized_type is None:
             continue
+        visible_raw_activities.append(activity)
         visible_activities.append(
             DailyActivitySchema.model_validate(activity).model_copy(
                 update={
@@ -8267,6 +8365,8 @@ def build_daily_activity_summary(
             scored_values.append(float(activity.result_score))
         total_duration_seconds += max(0, int(activity.duration_seconds or 0))
 
+    activity_metrics = build_activity_metrics(visible_raw_activities)
+
     return DailyActivitySummarySchema(
         activity_date=activity_date,
         total_activities=len(visible_activities),
@@ -8276,6 +8376,7 @@ def build_daily_activity_summary(
         average_score=(sum(scored_values) / len(scored_values)) if scored_values else None,
         first_activity_at=visible_activities[0].created_at if visible_activities else None,
         last_activity_at=visible_activities[-1].created_at if visible_activities else None,
+        **activity_metrics,
     )
 
 @app.post("/api/activity/log", response_model=DailyActivitySchema)
@@ -8406,6 +8507,65 @@ def get_month_activities(
         )
         for current_date in (start_date + timedelta(days=offset) for offset in range(30))
     ]
+
+
+@app.get("/api/activity/summary", response_model=ActivityPeriodSummarySchema)
+def get_activity_period_summary(
+    request: Request,
+    period: str = Query(default="year"),
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+) -> ActivityPeriodSummarySchema:
+    """Return counters for day, month, year, or the complete history.
+
+    DailyActivity remains the source of truth and is already persisted with a
+    local calendar date. This endpoint only aggregates those immutable events,
+    so changing the selected period cannot create a second or stale counter.
+    """
+
+    normalized_period = period.strip().lower()
+    if normalized_period not in {"day", "month", "year", "all"}:
+        raise HTTPException(status_code=422, detail="Periodo invalido. Use day, month, year ou all.")
+
+    today = activity_today()
+    if normalized_period == "day":
+        start_date = today
+    elif normalized_period == "month":
+        start_date = today.replace(day=1)
+    elif normalized_period == "year":
+        start_date = today.replace(month=1, day=1)
+    else:
+        start_date = None
+
+    statement = select(DailyActivity).where(DailyActivity.child_id == child_id)
+    if start_date is not None:
+        statement = statement.where(DailyActivity.activity_date >= start_date)
+    activities = session.exec(
+        statement.where(DailyActivity.activity_date <= today).order_by(DailyActivity.created_at.asc())
+    ).all()
+    coding_enabled = account_has_coding_enabled(request, session)
+    visible = [
+        activity
+        for activity in activities
+        if activity_view_type(activity, coding_enabled=coding_enabled) is not None
+    ]
+    normalized_types: dict[str, int] = {}
+    total_duration_seconds = 0
+    for activity in visible:
+        activity_type = activity_view_type(activity, coding_enabled=coding_enabled)
+        if activity_type is not None:
+            normalized_types[activity_type] = normalized_types.get(activity_type, 0) + 1
+        total_duration_seconds += max(0, int(activity.duration_seconds or 0))
+    metrics = build_activity_metrics(visible)
+    return ActivityPeriodSummarySchema(
+        period=normalized_period,
+        start_date=start_date or (min((activity.activity_date for activity in visible), default=None)),
+        end_date=today,
+        total_activities=len(visible),
+        activities_by_type=normalized_types,
+        total_duration_seconds=total_duration_seconds,
+        **metrics,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

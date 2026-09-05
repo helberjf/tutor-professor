@@ -253,6 +253,27 @@ export interface DailyActivitySummarySchema {
   average_score: number | null;
   first_activity_at: string | null;
   last_activity_at: string | null;
+  questions_answered: number;
+  topics_studied: number;
+  subjects_studied: number;
+  subject_names: string[];
+  topic_names: string[];
+}
+
+export type ActivityPeriod = 'day' | 'month' | 'year' | 'all';
+
+export interface ActivityPeriodSummary {
+  period: ActivityPeriod;
+  start_date: string | null;
+  end_date: string;
+  total_activities: number;
+  questions_answered: number;
+  topics_studied: number;
+  subjects_studied: number;
+  subject_names: string[];
+  topic_names: string[];
+  activities_by_type: Record<string, number>;
+  total_duration_seconds: number;
 }
 
 export type DiverseRating = 'knew' | 'partial' | 'unknown';
@@ -1757,4 +1778,6 @@ export const api = {
     fetchAPI<DailyActivitySummarySchema[]>('/api/activity/week'),
   getActivityMonth: () =>
     fetchAPI<DailyActivitySummarySchema[]>('/api/activity/month'),
+  getActivitySummary: (period: ActivityPeriod = 'year') =>
+    fetchAPI<ActivityPeriodSummary>(`/api/activity/summary?period=${period}`),
 };
