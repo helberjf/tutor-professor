@@ -18,9 +18,34 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "apps" / "web" / "src"
 GLOBALS_CSS = SRC / "app" / "globals.css"
 
-# Shades that are dark ink on a light surface. Anything lighter (slate-100/200)
-# is used intentionally on already-dark surfaces and must NOT be remapped.
+# Every coloured Tailwind text utility used by the app needs an explicit dark
+# counterpart. Several of these are fine on a light card but become too dark
+# when the card is remapped to the dark surface. 100/200 are intentionally
+# excluded because they are already light enough for dark surfaces.
 DARK_TEXT_SHADES = {"300", "400", "500", "600", "700", "800", "900", "950"}
+TAILWIND_COLOR_FAMILIES = {
+    "amber",
+    "blue",
+    "cyan",
+    "emerald",
+    "green",
+    "indigo",
+    "orange",
+    "red",
+    "rose",
+    "sky",
+    "slate",
+    "teal",
+    "violet",
+}
+CUSTOM_TEXT_CLASSES = {
+    "text-primary",
+    "text-primary-dark",
+    "text-secondary-dark",
+    "text-accent-dark",
+    "text-kid-pink",
+    "text-kid-orange",
+}
 
 # Light surfaces that need a dark counterpart.
 LIGHT_SURFACE_CLASSES = {"bg-white", "bg-slate-50", "bg-slate-100"}
@@ -30,9 +55,13 @@ def used_classes() -> set[str]:
     found: set[str] = set()
     for path in SRC.rglob("*.tsx"):
         text = path.read_text(encoding="utf-8")
-        for shade in re.findall(r"(?<![\w-])text-slate-(\d{2,3})(?![\w-])", text):
-            if shade in DARK_TEXT_SHADES:
-                found.add(f"text-slate-{shade}")
+        for family in TAILWIND_COLOR_FAMILIES:
+            for shade in re.findall(rf"(?<![\w-])text-{family}-(\d{{2,3}}(?:/\d+)?)(?![\w-])", text):
+                if shade.split("/", 1)[0] in DARK_TEXT_SHADES:
+                    found.add(f"text-{family}-{shade}")
+        for cls in CUSTOM_TEXT_CLASSES:
+            if re.search(rf"(?<![\w-]){re.escape(cls)}(?![\w-])", text):
+                found.add(cls)
         for cls in re.findall(r"(?<![\w-])(bg-white|bg-slate-50|bg-slate-100)(?![\w/-])", text):
             found.add(cls)
     return found
@@ -42,7 +71,9 @@ def covered_classes() -> set[str]:
     css = GLOBALS_CSS.read_text(encoding="utf-8")
     covered: set[str] = set()
     for block in re.findall(r"html\[data-theme='dark'\][^{]*\{", css):
-        for cls in re.findall(r"\.((?:text|bg)-(?:slate-\d{2,3}|white))", block):
+        for cls in re.findall(r"\.((?:text|bg)-[a-z0-9/-]+)", block):
+            covered.add(cls)
+        for cls in re.findall(r"\[class~='((?:text|bg)-[a-z0-9/-]+)'\]", block):
             covered.add(cls)
     return covered
 
