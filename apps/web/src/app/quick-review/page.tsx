@@ -117,9 +117,9 @@ export default function QuickReviewPage() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar a revisao rapida."
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -145,10 +145,10 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Este aparelho precisa da URL do backend. Abra a pagina de conexao e salve a URL do tunnel."
+        title="Tutor temporariamente indisponivel"
+        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -161,13 +161,13 @@ export default function QuickReviewPage() {
       <StatusCard
         tone="offline"
         title="Sem conexao com o tutor"
-        message="Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo."
+        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadSession()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
+        secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
     );

@@ -12,7 +12,7 @@ export function ActivityLogSection() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Hoje</p>
           <h2 className="mt-1 text-2xl font-black text-slate-800">Controle do que foi estudado</h2>
-          <p className="mt-1 text-sm font-medium text-slate-500">Tudo que foi salvo ou concluído aparece aqui automaticamente.</p>
+          <p className="mt-1 text-sm font-medium text-slate-500">Ações relevantes de estudo aparecem aqui automaticamente.</p>
         </div>
         <Link
           href="/activity-log"
@@ -29,7 +29,7 @@ export function ActivityLogSection() {
 
       <div className="flex items-center gap-2 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-medium text-sky-700">
         <ClipboardList size={16} />
-        O dashboard registra lições, quizzes, revisões, programação, flashcards e outras matérias.
+        Metodo Feynman como guia: licoes, questoes, revisoes e simulados podem ser feitos em qualquer ordem. Programacao aparece quando o modulo esta ativo.
       </div>
     </section>
   );

@@ -13,6 +13,7 @@ import {
   KeyRound,
   LayoutDashboard,
   ShieldAlert,
+  Server,
   UserCheck,
   UserPlus,
   Users,
@@ -58,13 +59,19 @@ export default function AdminDashboardPage() {
   const [checkDone, setCheckDone] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [systemHealth, setSystemHealth] = useState<{ status: string; database: string; timestamp: string } | null>(null);
 
   useEffect(() => {
     api.adminCheck()
       .then(async (res) => {
         setIsAdmin(res.is_admin);
         if (res.is_admin) {
-          setOverview(await api.adminOverview().catch(() => null));
+          const [nextOverview, nextHealth] = await Promise.all([
+            api.adminOverview().catch(() => null),
+            api.adminSystemHealth().catch(() => null),
+          ]);
+          setOverview(nextOverview);
+          setSystemHealth(nextHealth);
         }
       })
       .catch(() => setIsAdmin(false))
@@ -198,6 +205,30 @@ export default function AdminDashboardPage() {
               Revisar {pending} {pending === 1 ? 'conta' : 'contas'} agora
             </Link>
           ) : null}
+        </section>
+
+        <section className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex items-center gap-3">
+            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+              systemHealth?.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+            }`}>
+              <Server size={19} />
+            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Saude do sistema</p>
+              <h2 className="text-xl font-black text-slate-800">
+                {systemHealth?.status === 'ok' ? 'API e banco operacionais' : 'Nao foi possivel confirmar o sistema'}
+              </h2>
+            </div>
+          </div>
+          <p className="mt-3 text-sm font-semibold text-slate-500">
+            {systemHealth
+              ? `Banco: ${systemHealth.database}. Verificado em ${formatNotificationDate(systemHealth.timestamp)}.`
+              : 'Atualize a pagina ou confira os logs do servidor.'}
+          </p>
+          <Link href="/connect" className="mt-4 inline-flex text-sm font-black text-primary-dark hover:text-primary">
+            Configuracao tecnica do backend
+          </Link>
         </section>
 
         <section className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-5 shadow-sm md:p-6">

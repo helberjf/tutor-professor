@@ -27,8 +27,11 @@ class User(SQLModel, table=True):
     # AI credits meter the administrator's own key: one credit per successful
     # generation. They are ignored for an account using its own API key, which
     # costs the administrator nothing.
-    ai_credits: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_credits: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
     ai_credits_used: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_credits_used_today: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    ai_daily_credit_limit: int = Field(default=3, sa_column_kwargs={"server_default": "3"})
+    ai_credits_reset_date: Optional[date] = Field(default=None)
     ai_unlimited: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
     # "YYYY-MM" the plan allowance was last credited for, so a paid plan tops
     # the balance up once a period instead of on every generation.
@@ -604,13 +607,13 @@ class CodingDeckConfig(SQLModel, table=True):
 
 
 class DailyActivity(SQLModel, table=True):
-    """Registra cada atividade estudada no dia (aulas, reviews, quizzes, codificação)."""
+    """Registra cada atividade estudada no dia, incluindo questões e simulados."""
     __table_args__ = (Index("ix_daily_activity_child_id_activity_date", "child_id", "activity_date"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="childprofile.id", index=True)
     activity_date: date = Field(index=True)  # data da atividade
-    activity_type: str = Field(max_length=40, index=True)  # lesson | review | quiz | coding
+    activity_type: str = Field(max_length=40, index=True)  # lesson | review | quiz | coding | question | exam
     activity_title: str = Field(max_length=200)  # ex: "Lesson 1: Colors", "Quiz: Day 5"
     activity_id: Optional[int] = Field(default=None)  # ID da lição/quiz/item relacionado
     result_score: Optional[float] = Field(default=None)  # pontuação (0-100) ou tempo gasto

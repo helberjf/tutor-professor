@@ -37,6 +37,12 @@ function QuizPageContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [score, setScore] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<number, {
+    question_number: number;
+    question: string;
+    selected_option: string;
+    correct: boolean;
+  }>>({});
   const [finished, setFinished] = useState(false);
   const [savingResult, setSavingResult] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<QuizSubmitResponse | null>(null);
@@ -59,6 +65,7 @@ function QuizPageContent() {
       setCurrentIndex(0);
       setSelectedOption(null);
       setScore(0);
+      setAnsweredQuestions({});
       setFinished(false);
       setSubmitMessage(null);
       setError(null);
@@ -79,7 +86,18 @@ function QuizPageContent() {
     }
 
     const question = quiz.questions[currentIndex];
-    const nextScore = selectedOption === question.correct_option ? score + 1 : score;
+    const correct = selectedOption === question.correct_option;
+    const nextScore = correct ? score + 1 : score;
+    const answer = {
+      question_number: currentIndex + 1,
+      question: question.question,
+      selected_option: selectedOption,
+      correct,
+    };
+    const allAnswers = [...Object.values(answeredQuestions), answer].sort(
+      (left, right) => left.question_number - right.question_number,
+    );
+    setAnsweredQuestions((current) => ({ ...current, [question.id]: answer }));
     setScore(nextScore);
 
     if (currentIndex < quiz.questions.length - 1) {
@@ -94,6 +112,7 @@ function QuizPageContent() {
         lesson_id: quiz.lesson_id,
         score: nextScore,
         total_questions: quiz.questions.length,
+        answers: allAnswers,
       });
       setSubmitMessage(response);
       setFinished(true);
@@ -121,9 +140,9 @@ function QuizPageContent() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar o quiz."
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Conectar
           </Link>
         }
@@ -149,10 +168,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Este aparelho precisa da URL atual do backend antes de carregar os quizzes. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
+        title="Tutor temporariamente indisponivel"
+        message="Nao foi possivel carregar os quizzes agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
           </Link>
         }
@@ -167,13 +186,13 @@ function QuizPageContent() {
       <StatusCard
         tone="offline"
         title="O quiz nao conseguiu se conectar"
-        message="O backend esta offline agora. Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo."
+        message="Nao foi possivel carregar o quiz agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadQuiz()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
+        secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
     );

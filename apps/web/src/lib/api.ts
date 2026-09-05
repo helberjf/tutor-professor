@@ -249,6 +249,31 @@ export interface DailyActivitySummarySchema {
   total_activities: number;
   activities_by_type: Record<string, number>;
   activities: DailyActivity[];
+  total_duration_seconds: number;
+  average_score: number | null;
+  first_activity_at: string | null;
+  last_activity_at: string | null;
+  questions_answered: number;
+  topics_studied: number;
+  subjects_studied: number;
+  subject_names: string[];
+  topic_names: string[];
+}
+
+export type ActivityPeriod = 'day' | 'month' | 'year' | 'all';
+
+export interface ActivityPeriodSummary {
+  period: ActivityPeriod;
+  start_date: string | null;
+  end_date: string;
+  total_activities: number;
+  questions_answered: number;
+  topics_studied: number;
+  subjects_studied: number;
+  subject_names: string[];
+  topic_names: string[];
+  activities_by_type: Record<string, number>;
+  total_duration_seconds: number;
 }
 
 export type DiverseRating = 'knew' | 'partial' | 'unknown';
@@ -724,6 +749,8 @@ export interface UserAISettingsPayload {
 export interface AICredits {
   credits: number;
   used: number;
+  total_used: number;
+  daily_limit: number;
   unlimited: boolean;
   /** False for the admin and for anyone on their own key: nothing to meter. */
   metered: boolean;
@@ -1033,6 +1060,7 @@ export interface CodingSubjectSummary {
   topic_count: number;
   summarized_count: number;
   pending: PendingSummaryTopic[];
+  estimated_credits: number;
 }
 
 export interface CodingReviewCard {
@@ -1348,7 +1376,17 @@ export const api = {
   }),
   getTodayQuiz: (lessonId?: number) =>
     fetchAPI<Quiz>(lessonId ? `/api/quiz/today?lesson_id=${lessonId}` : '/api/quiz/today'),
-  submitQuiz: (payload: { lesson_id: number; score: number; total_questions: number }) =>
+  submitQuiz: (payload: {
+    lesson_id: number;
+    score: number;
+    total_questions: number;
+    answers?: Array<{
+      question_number: number;
+      question: string;
+      selected_option: string;
+      correct: boolean;
+    }>;
+  }) =>
     fetchAPI<QuizSubmitResponse>('/api/quiz/submit', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -1545,6 +1583,8 @@ export const api = {
   },
   // Admin Learn
   adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
+  adminSystemHealth: () =>
+    fetchAPI<{ status: string; database: string; timestamp: string }>('/api/admin/health'),
   adminListUsers: (status?: AccountStatus) =>
     fetchAPI<AdminUser[]>(status ? `/api/admin/users?status=${status}` : '/api/admin/users'),
   adminOverview: () => fetchAPI<AdminOverview>('/api/admin/overview'),
@@ -1570,7 +1610,7 @@ export const api = {
   getMyAICredits: () => fetchAPI<AICredits>('/api/ai/credits'),
   adminSetUserAICredits: (
     userId: number,
-    payload: { credits?: number; add?: number; unlimited?: boolean },
+    payload: { credits?: number; add?: number; daily_limit?: number; unlimited?: boolean },
   ) =>
     fetchAPI<AdminUser>(`/api/admin/users/${userId}/ai-credits`, {
       method: 'POST',
@@ -1736,4 +1776,8 @@ export const api = {
     fetchAPI<DailyActivitySummarySchema>(`/api/activity/day/${date}`),
   getWeekActivities: () =>
     fetchAPI<DailyActivitySummarySchema[]>('/api/activity/week'),
+  getActivityMonth: () =>
+    fetchAPI<DailyActivitySummarySchema[]>('/api/activity/month'),
+  getActivitySummary: (period: ActivityPeriod = 'year') =>
+    fetchAPI<ActivityPeriodSummary>(`/api/activity/summary?period=${period}`),
 };

@@ -6,12 +6,15 @@ O sistema de rastreamento de atividades diárias foi implementado para registrar
 
 ## Features
 
-### ✅ Atividades Rastreadas
+### ✅ Atividades apresentadas
 
-- **Lições**: Registra quando uma lição é completada
-- **Revisões**: Registra cada palavra revisada (correto/incorreto)
-- **Quizzes**: Registra submissões de quiz com pontuação
-- **Programação**: Registra atividades de codificação (pronto para expansão)
+- **Lições**: reúne lições de idioma, estudo guiado e matérias livres
+- **Questões**: reúne questões individuais e quizzes vinculados a uma lição
+- **Revisões**: registra a prática das lacunas identificadas
+- **Simulados**: registra resultado final, percentual, aprovação e duração
+- **Programação e LeetCode**: aparecem somente quando o módulo de programação da conta está ativo
+
+Os tipos detalhados continuam armazenados no banco. A API de leitura os projeta no fluxo Feynman **Lições → Questões → Revisões → Simulados**, sem migrar nem apagar o histórico.
 
 ### 📊 Informações Registradas
 
@@ -31,7 +34,7 @@ POST /api/activity/log
 Content-Type: application/json
 
 {
-  "activity_type": "lesson|review|quiz|coding",
+  "activity_type": "lesson|review|quiz|coding|question|exam|leetcode",
   "activity_title": "Lesson 1: Colors",
   "activity_id": 123,
   "result_score": 95.5,
@@ -53,7 +56,7 @@ Retorna:
   "activities_by_type": {
     "lesson": 1,
     "review": 3,
-    "quiz": 1
+    "question": 1
   },
   "activities": [...]
 }
@@ -71,24 +74,35 @@ GET /api/activity/week
 
 Retorna array com resumo de cada dia dos últimos 7 dias.
 
+#### Obter Atividades do Mês
+```bash
+GET /api/activity/month
+```
+
+Retorna 30 resumos diários, incluindo total de tempo registrado e média de pontuação. Todos os endpoints de leitura normalizam as categorias e excluem dados de programação dos totais enquanto o módulo estiver desligado.
+
 ## Como Funciona
 
 ### Backend (FastAPI)
 
 1. **Modelo**: `DailyActivity` em `models/database.py`
-   - Armazena todas as atividades com timestamps
+   - Armazena todas as atividades com timestamps UTC e data agrupada no fuso local configurado
    - Relacionada com `ChildProfile` por `child_id`
 
-2. **Endpoints**: Em `main.py` linhas ~3330+
-   - POST `/api/activity/log` - registra atividade manualmente
+2. **Endpoints**: Em `main.py`
+   - POST `/api/activity/log` - registra atividade manualmente (por exemplo, sessão do LeetCode)
    - GET `/api/activity/today` - atividades de hoje
    - GET `/api/activity/day/{date}` - atividades de data específica
    - GET `/api/activity/week` - atividades dos últimos 7 dias
+   - GET `/api/activity/month` - atividades dos últimos 30 dias
 
 3. **Auto-registro**: Modificado em:
    - `POST /api/lesson/complete` - registra quando lição é completada
    - `POST /api/quiz/submit` - registra submissão de quiz
    - `POST /api/review/attempt` - registra tentativa de review
+   - tentativas de questões - registra cada acerto ou erro
+   - conclusão de simulado - registra resultado e duração uma única vez
+   - geração/sessão de LeetCode - registra apenas para a experiência opcional de programação
 
 ### Frontend (React/Next.js)
 
@@ -107,6 +121,7 @@ Retorna array com resumo de cada dia dos últimos 7 dias.
    - `getTodayActivities()` - busca atividades de hoje
    - `getDayActivities(date)` - busca atividades de data
    - `getWeekActivities()` - busca semana
+   - `getActivityMonth()` - busca os 30 dias do dashboard
 
 ## Banco de Dados
 
@@ -140,7 +155,7 @@ CREATE INDEX idx_activity_child_date
 
 ### 1. DailyActivityWidget (`apps/web/src/components/daily-activity-widget.tsx`)
 Widget compacto mostrando:
-- Últimas 3 atividades do dia
+- Linha do tempo completa do dia em uma área com rolagem
 - Contadores por tipo de atividade
 - Ícones coloridos e scores
 - Link para histórico completo
@@ -214,15 +229,12 @@ Backend armazena em DailyActivity
          ↓
 Componente DailyActivityWidget busca dados via GET /api/activity/today
          ↓
-Widget exibe últimas 3 atividades
+Widget exibe a linha do tempo completa do dia
          ↓
 WeeklyActivityChart busca GET /api/activity/week
          ↓
 Gráfico exibe evolução dos últimos 7 dias com filtros
 
-## Fluxo de Dados
-
-```
 Criança completa uma lição
          ↓
 Aplicação frontend chama POST /api/lesson/complete
@@ -241,10 +253,12 @@ Frontend exibe histórico com timestamp, tipo e pontuação
 - [x] Widget de histórico na página principal de estudo
 - [x] Gráficos de evolução semanal  
 - [x] Filtros por tipo de atividade
+- [x] Categorias simplificadas para o fluxo Feynman
+- [x] Programação condicionada ao módulo da conta
 - [ ] Notificações quando meta diária é atingida
 - [ ] Exportar histórico em PDF
-- [ ] Comparação com semana anterior
-- [ ] Análise de tendências mensais
+- [x] Comparação com semana anterior
+- [x] Visão de atividade dos últimos 30 dias
 - [ ] Badges/Achievements por consistência
 
 ## Migração

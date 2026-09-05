@@ -94,8 +94,8 @@ export default function ChatPage() {
         <div className="text-center">
           <WifiOff size={32} className="mx-auto mb-3 text-slate-400" />
           <p className="font-bold text-slate-700">Servidor nao disponivel</p>
-          <p className="mt-1 text-sm text-slate-500">Ative o backend para usar o chat.</p>
-          <Link href="/connect" className="mt-4 inline-block font-bold text-primary hover:underline">Conectar</Link>
+          <p className="mt-1 text-sm text-slate-500">O sistema esta temporariamente indisponivel.</p>
+          <Link href="/offline" className="mt-4 inline-block font-bold text-primary hover:underline">Ver status</Link>
         </div>
       </main>
     );
@@ -157,9 +157,9 @@ export default function ChatPage() {
                   <p className="text-xl font-black">Conecte o tutor primeiro.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Este aparelho precisa da URL atual do backend antes de usar o chat. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador.
+                  O chat esta temporariamente indisponivel. Tente novamente em instantes.
                 </p>
-                <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
+                <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
                   Abrir configuracao de conexao
                 </Link>
               </div>
@@ -170,9 +170,9 @@ export default function ChatPage() {
                   <p className="text-xl font-black">O backend esta offline agora.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Inicie a API e o Cloudflare Tunnel no seu computador e tente de novo. Voce tambem pode abrir a pagina de conexao para ver as instrucoes.
+                  Nao foi possivel acessar o chat agora. Tente novamente em instantes.
                 </p>
-                <Link href="/connect" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
+                <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
                   Abrir configuracao de conexao
                 </Link>
               </div>

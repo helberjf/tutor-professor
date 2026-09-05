@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, Link2, LogIn, LogOut, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, LogIn, LogOut, Menu, Settings, Trophy, UserPlus, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { api } from '@/lib/api';
 
@@ -31,6 +31,7 @@ export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
+  const [firstName, setFirstName] = useState('');
 
   useEffect(() => {
     setOpen(false);
@@ -40,11 +41,17 @@ export function Navbar() {
     let cancelled = false;
 
     api.getUserMe()
-      .then(() => {
-        if (!cancelled) setAuthStatus('authenticated');
+      .then((profile) => {
+        if (!cancelled) {
+          setAuthStatus('authenticated');
+          setFirstName(profile.first_name.trim());
+        }
       })
       .catch(() => {
-        if (!cancelled) setAuthStatus('unauthenticated');
+        if (!cancelled) {
+          setAuthStatus('unauthenticated');
+          setFirstName('');
+        }
       });
 
     return () => {
@@ -54,6 +61,7 @@ export function Navbar() {
 
   async function handleLogout() {
     setAuthStatus('unauthenticated');
+    setFirstName('');
     setOpen(false);
     try {
       await api.userLogout();
@@ -103,7 +111,11 @@ export function Navbar() {
             <div className="flex shrink-0 items-start justify-between gap-4 p-5 pb-0">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Menu</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-800">Navegação</h2>
+                <h2 className="mt-2 text-2xl font-black text-slate-800">
+                  {authStatus === 'authenticated' && firstName
+                    ? `Vamos estudar ${firstName}!`
+                    : 'Navegação'}
+                </h2>
               </div>
               <button
                 type="button"
@@ -189,27 +201,7 @@ export function Navbar() {
               </ul>
             </div>
 
-            <div className="mt-8 rounded-[1.6rem] border border-sky-100 bg-sky-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">Suporte</p>
-              <Link
-                href="/connect"
-                className="mt-3 flex items-start gap-3 rounded-[1.2rem] bg-white px-4 py-3 text-slate-700 transition hover:text-primary-dark"
-              >
-                <Link2 className="mt-0.5 text-primary-dark" size={19} />
-                <span>
-                  <span className="block text-base font-black">Conexao com o backend</span>
-                  <span className="mt-1 block text-sm leading-6 text-slate-500">
-                    Configure ou troque a URL do tunnel somente por aqui.
-                  </span>
-                </span>
-              </Link>
-            </div>
-
             </div>{/* end scrollable */}
-
-            <p className="shrink-0 px-5 pb-5 pt-4 text-sm leading-6 text-slate-500">
-              Se o site nao carregar as licoes, abra este menu e toque em <span className="font-bold text-slate-700">Conexao com o backend</span>.
-            </p>
           </aside>
         </>
       ) : null}

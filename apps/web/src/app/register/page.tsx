@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, Bot, CheckCircle2, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
+import { ArrowLeft, Bot, CheckCircle2, ChevronDown, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
 import { formatCpf, onlyDigits, validateCpf } from '@/lib/cpf';
@@ -330,58 +330,75 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Email */}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="ai_provider" label="IA" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_provider}>
-                <select
-                  id="ai_provider"
-                  value={form.ai_provider}
-                  onChange={(e) => setAIProvider(e.target.value)}
-                  className={inputCls}
-                >
-                  {AI_PROVIDERS.map((provider) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field id="ai_model" label="Modelo" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_model}>
-                <input
-                  id="ai_model"
-                  type="text"
-                  autoComplete="off"
-                  placeholder="gemini-3.1-flash-lite"
-                  value={form.ai_model}
-                  onChange={(e) => set('ai_model', e.target.value)}
-                  className={inputCls}
-                />
-              </Field>
-            </div>
+            <details className="group rounded-2xl border-2 border-slate-100 bg-slate-50/60 p-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-slate-700 [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                  <Bot size={16} className="text-primary-dark" />
+                  Configuração de IA (opcional)
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
+                  Gemini padrão
+                  <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
+                </span>
+              </summary>
+              <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+                Você pode deixar tudo em branco e criar a conta normalmente. Esses campos só são necessários se você quiser usar uma chave própria de IA.
+              </p>
 
-            <Field id="ai_api_key" label="Chave API da IA" icon={<KeyRound size={16} className="text-slate-400" />} error={errors.ai_api_key}>
-              <input
-                id="ai_api_key"
-                type="password"
-                autoComplete="off"
-                placeholder="Cole sua chave"
-                value={form.ai_api_key}
-                onChange={(e) => set('ai_api_key', e.target.value)}
-                className={inputCls}
-              />
-            </Field>
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field id="ai_provider" label="IA" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_provider}>
+                    <select
+                      id="ai_provider"
+                      value={form.ai_provider}
+                      onChange={(e) => setAIProvider(e.target.value)}
+                      className={inputCls}
+                    >
+                      {AI_PROVIDERS.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field id="ai_model" label="Modelo" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_model}>
+                    <input
+                      id="ai_model"
+                      type="text"
+                      autoComplete="off"
+                      placeholder="gemini-3.1-flash-lite"
+                      value={form.ai_model}
+                      onChange={(e) => set('ai_model', e.target.value)}
+                      className={inputCls}
+                    />
+                  </Field>
+                </div>
 
-            <Field id="ai_base_url" label="URL base opcional" icon={<Globe size={16} className="text-slate-400" />} error={errors.ai_base_url}>
-              <input
-                id="ai_base_url"
-                type="url"
-                autoComplete="off"
-                placeholder="https://api.exemplo.com/v1"
-                value={form.ai_base_url}
-                onChange={(e) => set('ai_base_url', e.target.value)}
-                className={inputCls}
-              />
-            </Field>
+                <Field id="ai_api_key" label="Chave API da IA" icon={<KeyRound size={16} className="text-slate-400" />} error={errors.ai_api_key}>
+                  <input
+                    id="ai_api_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="Cole sua chave"
+                    value={form.ai_api_key}
+                    onChange={(e) => set('ai_api_key', e.target.value)}
+                    className={inputCls}
+                  />
+                </Field>
+
+                <Field id="ai_base_url" label="URL base opcional" icon={<Globe size={16} className="text-slate-400" />} error={errors.ai_base_url}>
+                  <input
+                    id="ai_base_url"
+                    type="url"
+                    autoComplete="off"
+                    placeholder="https://api.exemplo.com/v1"
+                    value={form.ai_base_url}
+                    onChange={(e) => set('ai_base_url', e.target.value)}
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            </details>
 
             {/* Email */}
             <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email} required>

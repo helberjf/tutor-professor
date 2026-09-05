@@ -19,10 +19,12 @@ export function StudyQuestionsPanel({
   target,
   tone = 'amber',
   emptyHint,
+  generationContext,
 }: {
   target: StudyQuestionTarget;
   tone?: 'amber' | 'sky';
   emptyHint?: string;
+  generationContext?: string;
 }) {
   const [questions, setQuestions] = useState<StudyQuestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,8 @@ export function StudyQuestionsPanel({
   const mountedRef = useRef(true);
 
   const { area, subject_name: subjectName, topic_key: topicKey, topic_title: topicTitle } = target;
+  const generationContextPrefix = generationContext?.trim() ?? '';
+  const contextMaxLength = Math.max(0, 1000 - (generationContextPrefix ? generationContextPrefix.length + 2 : 0));
 
   useEffect(() => {
     mountedRef.current = true;
@@ -78,9 +82,13 @@ export function StudyQuestionsPanel({
     setActionError('');
     setSuccess('');
     try {
+      const resolvedContext = [generationContextPrefix, context]
+        .map((item) => item?.trim())
+        .filter(Boolean)
+        .join('\n\n');
       const created = await api.generateStudyQuestions(
         { area, subject_name: subjectName, topic_key: topicKey, topic_title: topicTitle },
-        context,
+        resolvedContext,
       );
       if (!mountedRef.current) return;
       setQuestions((current) => [...current, ...created]);
@@ -198,7 +206,7 @@ export function StudyQuestionsPanel({
               value={context}
               onChange={(event) => setContext(event.target.value)}
               placeholder="Ex.: questões estilo prova, cenários práticos, pegadinhas comuns..."
-              maxLength={1000}
+              maxLength={contextMaxLength}
               rows={3}
               className={`mt-2 w-full resize-none rounded-2xl border-2 px-3 py-2 text-sm text-slate-700 outline-none ${palette.field}`}
             />
@@ -226,6 +234,11 @@ export function StudyQuestionsPanel({
               {generating ? 'Gerando questões...' : 'Criar 5 questões'}
             </button>
           </div>
+          {generationContextPrefix ? (
+            <p className={`text-xs font-bold ${palette.helper}`}>
+              Este modo ja inclui uma orientacao automatica. Voce ainda pode acrescentar ate {contextMaxLength} caracteres.
+            </p>
+          ) : null}
         </div>
       )}
 

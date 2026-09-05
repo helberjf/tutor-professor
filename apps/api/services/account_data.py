@@ -116,6 +116,11 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
             "enabled_modules": user.enabled_modules or {},
             "ai_credits": user.ai_credits,
             "ai_credits_used": user.ai_credits_used,
+            "ai_credits_used_today": user.ai_credits_used_today,
+            "ai_daily_credit_limit": user.ai_daily_credit_limit,
+            "ai_credits_reset_date": (
+                user.ai_credits_reset_date.isoformat() if user.ai_credits_reset_date else None
+            ),
         },
         "ai_settings": (
             {

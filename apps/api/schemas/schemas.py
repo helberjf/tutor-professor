@@ -112,10 +112,21 @@ class QuizSchema(BaseModel):
     lesson_id: int
     questions: List[QuizQuestionSchema] = Field(default_factory=list)
 
+
+class QuizAnswerSchema(BaseModel):
+    """One answer sent when a quiz is finished, for the activity timeline."""
+
+    question_number: int = Field(ge=1, le=200)
+    question: str = Field(min_length=1, max_length=1000)
+    selected_option: str = Field(min_length=1, max_length=500)
+    correct: bool
+
+
 class QuizSubmitSchema(BaseModel):
     lesson_id: int
     score: int
     total_questions: int
+    answers: List[QuizAnswerSchema] = Field(default_factory=list, max_length=200)
 
 class QuizSubmitResponseSchema(BaseModel):
     status: str
@@ -824,6 +835,9 @@ class SubjectSummaryResponseSchema(BaseModel):
     topic_count: int
     summarized_count: int
     pending: List[PendingSummaryTopicSchema] = Field(default_factory=list)
+    # Number of AI calls needed to complete the sheet right now. Existing
+    # topic summaries are reused and therefore do not consume credits.
+    estimated_credits: int = 0
 
 
 class ProgrammingFlashcardSchema(FromAttributesModel):
@@ -956,7 +970,7 @@ class DailyActivitySchema(FromAttributesModel):
     id: int
     child_id: int
     activity_date: date
-    activity_type: str  # lesson | review | quiz | coding
+    activity_type: str  # read API: lesson | question | review | exam | coding | leetcode
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -966,7 +980,7 @@ class DailyActivitySchema(FromAttributesModel):
 
 
 class DailyActivityCreateSchema(BaseModel):
-    activity_type: str  # lesson | review | quiz | coding
+    activity_type: str  # raw storage type; read endpoints normalize it for the dashboard
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -977,9 +991,34 @@ class DailyActivityCreateSchema(BaseModel):
 class DailyActivitySummarySchema(BaseModel):
     activity_date: date
     total_activities: int
-    activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "review": 3, "quiz": 1}
+    activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "question": 3, "review": 1}
     activities: List[DailyActivitySchema] = Field(default_factory=list)
     fsrs_parameters: Optional[str] = Field(default=None, max_length=400)
+    total_duration_seconds: int = 0
+    average_score: Optional[float] = None
+    first_activity_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
+    questions_answered: int = 0
+    topics_studied: int = 0
+    subjects_studied: int = 0
+    subject_names: List[str] = Field(default_factory=list)
+    topic_names: List[str] = Field(default_factory=list)
+
+
+class ActivityPeriodSummarySchema(BaseModel):
+    """Aggregated activity for a selectable calendar period."""
+
+    period: Literal["day", "month", "year", "all"]
+    start_date: Optional[date] = None
+    end_date: date
+    total_activities: int = 0
+    questions_answered: int = 0
+    topics_studied: int = 0
+    subjects_studied: int = 0
+    subject_names: List[str] = Field(default_factory=list)
+    topic_names: List[str] = Field(default_factory=list)
+    activities_by_type: Dict[str, int] = Field(default_factory=dict)
+    total_duration_seconds: int = 0
 
 
 class DeckStatsSchema(BaseModel):
@@ -1181,6 +1220,7 @@ class AdminAICreditsSchema(BaseModel):
 
     credits: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     add: Optional[int] = Field(default=None, ge=-1_000_000, le=1_000_000)
+    daily_limit: Optional[int] = Field(default=None, ge=0, le=1_000_000)
     unlimited: Optional[bool] = None
 
 

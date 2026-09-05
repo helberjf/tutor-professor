@@ -149,6 +149,20 @@ export default function StudyPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || authState.status !== 'authenticated' || loading || activeTab !== 'english') {
+      return;
+    }
+    const targetId = window.location.hash.slice(1);
+    if (targetId !== 'english-questions' && targetId !== 'english-grammar') {
+      return;
+    }
+    const scrollTimer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
+    return () => window.clearTimeout(scrollTimer);
+  }, [activeTab, authState.status, loading]);
+
   // A saved link to ?tab=coding still opens the tab for an account that has the
   // module on; this only steps in once the answer says it is off.
   useEffect(() => {
@@ -1105,8 +1119,8 @@ export default function StudyPage() {
   }
   if (authState.status === 'server_missing') {
     return (
-      <StatusCard tone="offline" title="Servidor nao disponivel" message="Ative o backend para acompanhar os estudos."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+      <StatusCard tone="offline" title="Servidor nao disponivel" message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }
@@ -1116,7 +1130,7 @@ export default function StudyPage() {
   if (error?.isUnconfigured || error?.isOffline) {
     return (
       <StatusCard tone="offline" title="Nao consegui conectar" message={error.message}
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }

@@ -344,9 +344,9 @@ function LessonPageContent() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar as licoes."
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Conectar
           </Link>
         }
@@ -418,10 +418,10 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Este aparelho ainda nao tem a URL atual do backend. Abra a pagina de conexao e salve a URL HTTPS do tunnel do seu computador."
+        title="Tutor temporariamente indisponivel"
+        message="Nao foi possivel carregar esta licao agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
           </Link>
         }
@@ -436,13 +436,13 @@ function LessonPageContent() {
       <StatusCard
         tone="offline"
         title="A licao nao conseguiu se conectar"
-        message="O backend parece offline. Inicie a API e o Cloudflare Tunnel no seu computador e depois toque em tentar de novo."
+        message="Nao foi possivel carregar esta licao agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadLesson()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
+        secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
     );
@@ -453,7 +453,7 @@ function LessonPageContent() {
       <StatusCard
         tone="error"
         title="Chave Gemini nao configurada"
-        message="O backend nao encontrou licoes e o GEMINI_API_KEY nao esta configurado. Adicione a chave no arquivo .env do backend e reinicie a API para gerar licoes automaticamente."
+        message="Nao foi possivel gerar uma licao agora. Tente novamente mais tarde."
         primaryAction={
           <button onClick={() => void loadLesson()} className="kid-button bg-kid-pink hover:bg-pink-500">
             Tentar de novo

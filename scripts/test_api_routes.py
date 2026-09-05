@@ -11,7 +11,7 @@ import asyncio
 import tempfile
 import threading
 import time
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -212,7 +212,7 @@ async def run() -> None:
             200,
             "parent settings update",
         )
-        today = date.today()
+        today = main.activity_today()
         starter_child_response = await client.post(
             "/api/parent/children",
             json={"name": "Starter", "age_group": "7-9"},
@@ -300,11 +300,44 @@ async def run() -> None:
             await client.post(
                 "/api/quiz/submit",
                 headers=child_headers,
-                json={"lesson_id": 1, "score": 1, "total_questions": 1},
+                json={
+                    "lesson_id": 1,
+                    "score": 1,
+                    "total_questions": 1,
+                    "answers": [
+                        {
+                            "question_number": 1,
+                            "question": "Como se diz Ola em ingles?",
+                            "selected_option": "Hello",
+                            "correct": True,
+                        }
+                    ],
+                },
             ),
             200,
             "submit quiz",
         )
+        quiz_activity_response = await client.get("/api/activity/today", headers=child_headers)
+        assert_status(quiz_activity_response, 200, "quiz activity details")
+        quiz_activity_summary = quiz_activity_response.json()
+        if quiz_activity_summary["questions_answered"] < 1:
+            raise AssertionError(f"quiz questions should count in daily metrics, got {quiz_activity_summary}")
+        if "Saudacoes" not in quiz_activity_summary["subject_names"]:
+            raise AssertionError(f"lesson subject should appear in daily metrics, got {quiz_activity_summary}")
+        quiz_activity = next(
+            activity
+            for activity in quiz_activity_summary["activities"]
+            if activity["activity_type"] == "question"
+            and activity.get("result_details", {}).get("answers")
+        )
+        if quiz_activity["result_details"]["answers"][0]["selected_option"] != "Hello":
+            raise AssertionError(f"quiz answer should be stored in activity details, got {quiz_activity}")
+        for period in ("day", "month", "year", "all"):
+            period_response = await client.get(f"/api/activity/summary?period={period}", headers=child_headers)
+            assert_status(period_response, 200, f"activity summary {period}")
+            period_payload = period_response.json()
+            if period_payload["period"] != period or period_payload["questions_answered"] < 1:
+                raise AssertionError(f"activity period summary should count quiz questions for {period}, got {period_payload}")
         assert_status(await client.get("/api/review", headers=child_headers), 200, "review session")
         progress_response = await client.get("/api/progress", headers=child_headers)
         assert_status(progress_response, 200, "progress")
@@ -2359,18 +2392,12 @@ async def run() -> None:
         assert_status(activity_response, 200, "today activity log")
         activity_payload = activity_response.json()
         activity_types = activity_payload["activities_by_type"]
-        for expected_type in [
-            "lesson",
-            "quiz",
-            "review",
-            "study",
-            "coding",
-            "diverse",
-            "coding_review",
-            "flashcard",
-        ]:
+        for expected_type in ["lesson", "question", "review", "coding"]:
             if activity_types.get(expected_type, 0) < 1:
                 raise AssertionError(f"expected {expected_type} in activity log, got {activity_payload}")
+        raw_activity_types = {"quiz", "study", "diverse", "coding_review", "flashcard"}
+        if raw_activity_types.intersection(activity_types):
+            raise AssertionError(f"activity log should expose normalized groups, got {activity_payload}")
 
         modules_response = await client.get("/api/admin/learn/modules")
         assert_status(modules_response, 200, "admin learn modules")

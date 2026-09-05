@@ -11,10 +11,11 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator, Optional
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
@@ -114,6 +115,7 @@ from schemas.schemas import (
     UserResponseSchema,
     ProgressSchema,
     QuizQuestionSchema,
+    QuizAnswerSchema,
     QuizSchema,
     QuizSubmitResponseSchema,
     QuizSubmitSchema,
@@ -191,6 +193,7 @@ from schemas.schemas import (
     DailyActivitySchema,
     DailyActivityCreateSchema,
     DailyActivitySummarySchema,
+    ActivityPeriodSummarySchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -332,7 +335,7 @@ PENDING_ACCOUNT_DETAIL = (
 )
 REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
 NO_AI_CREDITS_DETAIL = (
-    "Seus creditos de IA acabaram. Peca ao administrador para liberar mais."
+    "Seus creditos de IA de hoje acabaram. Eles voltam amanha, ou o administrador pode ajustar o seu limite."
 )
 
 # Password guessing brake. The window is short and clears itself: a long or
@@ -353,6 +356,22 @@ SIGNUP_MODE_OPEN = "open"
 SIGNUP_MODE_MANUAL = "manual"
 if SIGNUP_MODE not in (SIGNUP_MODE_OPEN, SIGNUP_MODE_MANUAL):
     SIGNUP_MODE = SIGNUP_MODE_MANUAL
+
+# Activity dates are user-facing calendar dates, so they must not depend on the
+# host/container timezone. Keep timestamps in UTC and bucket activity in the
+# configured local timezone (Brazil is the product default).
+ACTIVITY_TIMEZONE_NAME = os.getenv("ACTIVITY_TIMEZONE", "America/Sao_Paulo").strip() or "UTC"
+try:
+    ACTIVITY_TIMEZONE = ZoneInfo(ACTIVITY_TIMEZONE_NAME)
+except ZoneInfoNotFoundError:
+    logger.warning("Unknown ACTIVITY_TIMEZONE=%s; falling back to UTC", ACTIVITY_TIMEZONE_NAME)
+    ACTIVITY_TIMEZONE_NAME = "UTC"
+    ACTIVITY_TIMEZONE = timezone.utc
+try:
+    POMODORO_FOCUS_SECONDS = max(60, int(os.getenv("POMODORO_FOCUS_SECONDS", str(25 * 60))))
+except ValueError:
+    logger.warning("Invalid POMODORO_FOCUS_SECONDS; falling back to 1500 seconds")
+    POMODORO_FOCUS_SECONDS = 25 * 60
 
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
@@ -990,6 +1009,18 @@ def _run_schema_migrations() -> None:
                 conn.execute(text('ALTER TABLE "user" ADD COLUMN ai_credits_period VARCHAR(7)'))
             except Exception:
                 pass
+        for _column, _definition in (
+            ("ai_credits_used_today", "INTEGER NOT NULL DEFAULT 0"),
+            ("ai_daily_credit_limit", "INTEGER NOT NULL DEFAULT 3"),
+            ("ai_credits_reset_date", "DATE"),
+        ):
+            try:
+                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS {_column} {_definition}'))
+            except Exception:
+                try:
+                    conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {_column} {_definition}'))
+                except Exception:
+                    pass
         # E-mail verification: Alembic 0016 owns the normal path.
         try:
             conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP'))
@@ -1751,7 +1782,7 @@ def add_daily_activity(
 ) -> DailyActivity:
     activity = DailyActivity(
         child_id=child_id,
-        activity_date=activity_date or date.today(),
+        activity_date=activity_date or activity_today(),
         activity_type=activity_type[:40],
         activity_title=activity_title[:200],
         activity_id=activity_id,
@@ -1761,6 +1792,19 @@ def add_daily_activity(
     )
     session.add(activity)
     return activity
+
+
+def activity_date_for(value: datetime | None = None) -> date:
+    """Return the local calendar date for a UTC (usually naive) timestamp."""
+
+    current = value or datetime.utcnow()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(ACTIVITY_TIMEZONE).date()
+
+
+def activity_today() -> date:
+    return activity_date_for()
 
 
 def to_nonnegative_int(value: object) -> int:
@@ -1779,6 +1823,7 @@ def summarize_study_activity(record: StudyDay | None) -> dict:
 
 def summarize_coding_activity(subjects: dict | None) -> dict:
     subject_names: list[str] = []
+    topic_names: list[str] = []
     topic_count = 0
     completed_topic_count = 0
     for raw_name, raw_topics in (subjects or {}).items():
@@ -1794,6 +1839,8 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
                 continue
             subject_has_content = True
             topic_count += 1
+            if topic_text:
+                topic_names.append(f"{name}: {topic_text}" if name else topic_text)
             if is_done:
                 completed_topic_count += 1
         if name and subject_has_content:
@@ -1801,6 +1848,7 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
 
     return {
         "subject_names": subject_names,
+        "topic_names": topic_names,
         "subject_count": len(subject_names),
         "topic_count": topic_count,
         "completed_topic_count": completed_topic_count,
@@ -1809,13 +1857,14 @@ def summarize_coding_activity(subjects: dict | None) -> dict:
 
 def summarize_diverse_activity(subjects: list | None) -> dict:
     subject_names: list[str] = []
+    topic_names: list[str] = []
     topic_count = 0
     completed_topic_count = 0
     answered_topic_count = 0
     reviewed_topic_count = 0
     lesson_count = 0
 
-    def count_topic(raw_topic: dict) -> bool:
+    def count_topic(raw_topic: dict, subject_name: str = "") -> bool:
         nonlocal topic_count, completed_topic_count, answered_topic_count, reviewed_topic_count
         topic_text = str(raw_topic.get("topic") or "").strip()
         answer_text = str(raw_topic.get("answer") or "").strip()
@@ -1824,6 +1873,8 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
         if not topic_text and not answer_text and not is_done and review_count <= 0:
             return False
         topic_count += 1
+        if topic_text:
+            topic_names.append(f"{subject_name}: {topic_text}" if subject_name else topic_text)
         if is_done:
             completed_topic_count += 1
         if answer_text:
@@ -1838,7 +1889,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
         name = str(raw_subject.get("name") or "").strip()
         subject_has_content = False
         for raw_topic in raw_subject.get("topics") or []:
-            if isinstance(raw_topic, dict) and count_topic(raw_topic):
+            if isinstance(raw_topic, dict) and count_topic(raw_topic, name):
                 subject_has_content = True
         for raw_lesson in raw_subject.get("lessons") or []:
             if not isinstance(raw_lesson, dict):
@@ -1846,7 +1897,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
             lesson_topics = raw_lesson.get("topics") or []
             has_lesson_content = bool(str(raw_lesson.get("title") or "").strip())
             for raw_topic in lesson_topics:
-                if isinstance(raw_topic, dict) and count_topic(raw_topic):
+                if isinstance(raw_topic, dict) and count_topic(raw_topic, name):
                     has_lesson_content = True
             if has_lesson_content:
                 lesson_count += 1
@@ -1856,6 +1907,7 @@ def summarize_diverse_activity(subjects: list | None) -> dict:
 
     return {
         "subject_names": subject_names,
+        "topic_names": topic_names,
         "subject_count": len(subject_names),
         "topic_count": topic_count,
         "completed_topic_count": completed_topic_count,
@@ -2282,6 +2334,10 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
         activity_title=lesson.title,
         activity_id=lesson.id,
         result_score=100.0,  # Lição completada = 100%
+        result_details={
+            "subject_name": lesson.theme,
+            "topic_name": lesson.title,
+        },
     )
 
     session.add(child)
@@ -2357,6 +2413,9 @@ def submit_quiz(
             "score": payload.score,
             "total": payload.total_questions,
             "percentage": score_percentage,
+            "answers": [answer.model_dump() for answer in payload.answers],
+            "subject_name": lesson.theme if lesson else None,
+            "topic_name": lesson.title if lesson else quiz_title,
         },
     )
 
@@ -2417,10 +2476,14 @@ def submit_review_attempt(
             raise HTTPException(status_code=404, detail="Pergunta da licao nao encontrada.") from exc
         card_id = reviewed_item.id or 0
         activity_title = f"Review: {reviewed_item.front}"
+        lesson = session.get(Lesson, reviewed_item.lesson_id)
         activity_details = {
             "card_type": "lesson_question",
             "lesson_question_id": card_id,
             "lesson_id": reviewed_item.lesson_id,
+            "question": reviewed_item.front,
+            "subject_name": lesson.theme if lesson else "Inglês",
+            "topic_name": lesson.title if lesson else "Revisão de vocabulário",
             "correct": payload.correct,
         }
     else:
@@ -2442,6 +2505,8 @@ def submit_review_attempt(
             "review_item_id": card_id,
             "word_en": reviewed_item.word_en,
             "word_pt": reviewed_item.word_pt,
+            "subject_name": "Inglês",
+            "topic_name": "Vocabulário",
             "correct": payload.correct,
         }
     child.last_activity = datetime.utcnow()
@@ -2636,7 +2701,7 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
-    today = date.today()
+    today = activity_today()
     today_record = get_study_day_record(session=session, child_id=child_id, target_date=today)
     recent_records = session.exec(
         select(StudyDay)
@@ -2702,6 +2767,7 @@ def upsert_study_day(
         (new_summary["studied_text"] or new_summary["pomodoro_count"] > 0)
         and new_summary != old_summary
     ):
+        pomodoro_delta = max(0, new_summary["pomodoro_count"] - old_summary["pomodoro_count"])
         add_daily_activity(
             session,
             child_id=child_id,
@@ -2709,6 +2775,7 @@ def upsert_study_day(
             activity_type="study",
             activity_title="Estudo registrado",
             result_details=new_summary,
+            duration_seconds=pomodoro_delta * POMODORO_FOCUS_SECONDS or None,
         )
 
     record.updated_at = now
@@ -4213,15 +4280,40 @@ def user_has_ai_credit(user: User) -> bool:
     return user.ai_unlimited or user_is_admin(user) or user.ai_credits > 0
 
 
+DEFAULT_DAILY_AI_CREDITS = 3
+
+
+def refresh_daily_ai_credits(session: Session, user: User) -> None:
+    """Refill one account once per local calendar day."""
+
+    today = activity_today()
+    if user.ai_credits_reset_date == today:
+        return
+    user.ai_credits = max(0, user.ai_daily_credit_limit)
+    user.ai_credits_used_today = 0
+    user.ai_credits_reset_date = today
+    session.add(user)
+    session.commit()
+
+
 def build_ai_credits_schema(user: User | None) -> dict:
     """The credit state as the account itself and the admin list both report it."""
 
     if user is None:
-        return {"credits": 0, "used": 0, "unlimited": False, "metered": False}
+        return {
+            "credits": 0,
+            "used": 0,
+            "total_used": 0,
+            "daily_limit": 0,
+            "unlimited": False,
+            "metered": False,
+        }
     unlimited = user.ai_unlimited or user_is_admin(user)
     return {
         "credits": user.ai_credits,
-        "used": user.ai_credits_used,
+        "used": user.ai_credits_used_today,
+        "total_used": user.ai_credits_used,
+        "daily_limit": user.ai_daily_credit_limit,
         "unlimited": unlimited,
         # Only the administrator's own key is metered; an account paying for its
         # own key costs nothing and spends no credits.
@@ -4246,6 +4338,7 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
         return
     user.ai_credits = max(0, user.ai_credits - 1)
     user.ai_credits_used += 1
+    user.ai_credits_used_today += 1
     session.add(user)
     session.commit()
 
@@ -4428,24 +4521,9 @@ def _get_user_ai_config_for_user_id(user_id: int | None, session: Session) -> AI
         user = session.get(User, user_id)
         if user is None:
             return None
-        # The plan's monthly allowance arrives as credits (see
-        # top_up_plan_credits), so there is one meter rather than two competing
-        # ones: whatever the administrator granted by hand and whatever the plan
-        # includes end up in the same balance.
-        top_up_plan_credits(session, user)
+        refresh_daily_ai_credits(session, user)
         if not user_has_ai_credit(user):
-            entitlement = get_entitlement(session, user)
-            raise HTTPException(
-                status_code=402,
-                detail=(
-                    NO_AI_CREDITS_DETAIL
-                    if entitlement.plan.monthly_ai_generations == 0
-                    else upgrade_message(
-                        entitlement.plan,
-                        "generations" if entitlement.is_entitled else "inactive",
-                    )
-                ),
-            )
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
         config = _get_global_ai_config(record)
         if config is None:
             return None
@@ -5156,6 +5234,7 @@ def get_coding_subject_summary(
         topic_count=len(summarisable),
         summarized_count=len(entries),
         pending=pending,
+        estimated_credits=len(pending),
     )
 
 # ── Exam simulado ─────────────────────────────────────────────────────────────
@@ -5556,6 +5635,7 @@ def finish_exam_attempt(
 
     if attempt.status == "in_progress":
         finished_at = datetime.utcnow()
+        exam_subject = session.get(ProgrammingSubject, exam.subject_id) if exam.subject_id else None
         percent = score_percent(len(correct_ids), len(answers))
         attempt.status = "finished"
         attempt.finished_at = finished_at
@@ -5564,6 +5644,37 @@ def finish_exam_attempt(
         attempt.score_percent = percent
         attempt.passed = has_passed(percent, exam.passing_percent)
         attempt.domain_breakdown = build_domain_breakdown(drawn, correct_ids)
+        add_daily_activity(
+            session,
+            child_id=child.id or 0,
+            activity_type="exam",
+            activity_title=f"Simulado: {exam.name}",
+            activity_date=activity_date_for(finished_at),
+            activity_id=exam.id,
+            result_score=float(percent),
+            result_details={
+                "exam_id": exam.id,
+                "exam_name": exam.name,
+                "subject_name": exam_subject.name if exam_subject else None,
+                "correct": len(correct_ids),
+                "total": len(answers),
+                "passed": attempt.passed,
+                "passing_percent": exam.passing_percent,
+                "questions": [
+                    {
+                        "question_number": answer.order_index + 1,
+                        "question_id": answer.exam_question_id,
+                        "question": questions_by_id[answer.exam_question_id].question,
+                        "domain": questions_by_id[answer.exam_question_id].domain,
+                        "selected_options": list(answer.selected_options or []),
+                        "correct": bool(answer.correct),
+                    }
+                    for answer in answers
+                    if answer.exam_question_id in questions_by_id
+                ],
+            },
+            duration_seconds=attempt.duration_seconds,
+        )
         session.add(attempt)
         session.commit()
         session.refresh(attempt)
@@ -5655,6 +5766,25 @@ def submit_topic_question_attempt(
         question.error_count = (question.error_count or 0) + 1
     question.last_selected_option = selected_option
     question.last_answered_at = answered_at
+    topic = session.get(ProgrammingTopic, question.topic_id)
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="question",
+        activity_title=f"Questao: {topic.title if topic else subject.name}",
+        activity_id=question.id,
+        result_score=100.0 if correct else 0.0,
+        result_details={
+            "area": "coding",
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "topic_id": question.topic_id,
+            "question_id": question.id,
+            "question": question.question,
+            "selected_option": selected_option,
+            "correct": correct,
+        },
+    )
     session.add(question)
     session.commit()
     session.refresh(question)
@@ -5840,11 +5970,18 @@ def _diverse_lesson_source_content(
     raise HTTPException(status_code=404, detail="Licao nao encontrada para esta materia.")
 
 
-def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
+def resolve_english_lesson_topic_key(topic_key: str) -> int:
+    normalized_key = str(topic_key or "").strip()
+    if normalized_key.startswith("grammar:"):
+        normalized_key = normalized_key.removeprefix("grammar:").strip()
     try:
-        lesson_id = int(topic_key)
+        return int(normalized_key)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Licao de ingles invalida.") from exc
+
+
+def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
+    lesson_id = resolve_english_lesson_topic_key(topic_key)
     lesson = session.get(Lesson, lesson_id)
     if lesson is None or (lesson.child_id is not None and lesson.child_id != child_id):
         raise HTTPException(status_code=404, detail="Licao de ingles nao encontrada.")
@@ -5940,6 +6077,23 @@ def submit_study_question_attempt(
         question.error_count = (question.error_count or 0) + 1
     question.last_selected_option = selected_option
     question.last_answered_at = answered_at
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="question",
+        activity_title=f"Questao: {question.topic_title}",
+        activity_id=question.id,
+        result_score=100.0 if correct else 0.0,
+        result_details={
+            "area": question.area,
+            "subject_name": question.subject_name,
+            "topic_key": question.topic_key,
+            "question_id": question.id,
+            "question": question.question,
+            "selected_option": selected_option,
+            "correct": correct,
+        },
+    )
     session.add(question)
     session.commit()
     session.refresh(question)
@@ -6740,6 +6894,19 @@ def generate_leetcode_method_endpoint(
         created_at=datetime.utcnow(),
     )
     session.add(method)
+    session.flush()
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="leetcode",
+        activity_title=f"LeetCode: {method.name}",
+        activity_id=method.id,
+        result_details={
+            "action": "method_generated",
+            "language": method.language,
+            "category": method.category,
+        },
+    )
     session.commit()
     session.refresh(method)
     return _build_leetcode_method_schema(method)
@@ -7071,6 +7238,9 @@ def user_register(
         password_hash=hash_password(payload.password),
         status=USER_STATUS_APPROVED if is_admin_signup else USER_STATUS_PENDING,
         email_verified_at=datetime.utcnow() if is_admin_signup else None,
+        ai_credits=DEFAULT_DAILY_AI_CREDITS,
+        ai_daily_credit_limit=DEFAULT_DAILY_AI_CREDITS,
+        ai_credits_reset_date=activity_today(),
     )
     session.add(user)
     session.commit()
@@ -7091,7 +7261,7 @@ def user_register(
     session.add(child)
     session.commit()
 
-    if payload.ai_api_key and user.id is not None:
+    if user.id is not None:
         save_ai_settings_for_user(
             user_id=user.id,
             payload=UserAISettingsUpdateSchema(
@@ -7099,6 +7269,7 @@ def user_register(
                 api_key=payload.ai_api_key,
                 model=payload.ai_model,
                 base_url=payload.ai_base_url,
+                use_global_key=not bool(payload.ai_api_key),
             ),
             session=session,
         )
@@ -7223,6 +7394,9 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
                 if ADMIN_EMAIL and email == ADMIN_EMAIL
                 else USER_STATUS_PENDING
             ),
+            ai_credits=DEFAULT_DAILY_AI_CREDITS,
+            ai_daily_credit_limit=DEFAULT_DAILY_AI_CREDITS,
+            ai_credits_reset_date=activity_today(),
         )
     else:
         user.google_sub = google_sub
@@ -7239,6 +7413,17 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
         session.add(ChildProfile(name=user.first_name or "Kid", age_group="7-9", user_id=user.id))
         session.commit()
+
+    if user.id is not None and get_user_ai_settings_record(user.id, session) is None:
+        save_ai_settings_for_user(
+            user_id=user.id,
+            payload=UserAISettingsUpdateSchema(
+                provider="gemini",
+                model=AI_PROVIDER_DEFAULT_MODELS["gemini"],
+                use_global_key=True,
+            ),
+            session=session,
+        )
 
     return user
 
@@ -7819,7 +8004,10 @@ def get_my_ai_credits(
     session_record = require_parent_session(request, session)
     if session_record.user_id is None:
         return build_ai_credits_schema(None)
-    return build_ai_credits_schema(session.get(User, session_record.user_id))
+    user = session.get(User, session_record.user_id)
+    if user is not None:
+        refresh_daily_ai_credits(session, user)
+    return build_ai_credits_schema(user)
 
 
 @app.get("/api/ai/settings", response_model=UserAISettingsSchema)
@@ -8030,6 +8218,167 @@ def generate_diverse_flashcards(
 # DAILY ACTIVITY TRACKING
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+FEYNMAN_ACTIVITY_TYPES = {
+    "lesson": "lesson",
+    "study": "lesson",
+    "diverse": "lesson",
+    "quiz": "question",
+    "question": "question",
+    "review": "review",
+    "exam": "exam",
+}
+CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard"}
+
+
+def activity_view_type(activity: DailyActivity, *, coding_enabled: bool) -> str | None:
+    """Project a stored event into the small set of dashboard categories."""
+
+    activity_type = activity.activity_type
+    details = activity.result_details if isinstance(activity.result_details, dict) else {}
+    is_coding_question = activity_type == "question" and details.get("area") == "coding"
+    if activity_type == "leetcode":
+        return "leetcode" if coding_enabled else None
+    if activity_type in CODING_ACTIVITY_TYPES or is_coding_question:
+        return "coding" if coding_enabled else None
+    return FEYNMAN_ACTIVITY_TYPES.get(activity_type)
+
+
+def activity_view_title(activity: DailyActivity) -> str:
+    if activity.activity_type != "quiz":
+        return activity.activity_title
+    prefix, separator, lesson_title = activity.activity_title.partition(":")
+    if separator and prefix.strip().casefold() == "quiz":
+        return f"Questões da lição: {lesson_title.strip()}"
+    if activity.activity_title.strip().casefold() == "quiz":
+        return "Questões da lição"
+    return activity.activity_title
+
+
+def build_activity_metrics(activities: list[DailyActivity]) -> dict:
+    """Count granular work while keeping the feed itself compact.
+
+    A quiz and a simulado are one timeline event, but their saved answer lists
+    still count every question. Topic and subject names come from the metadata
+    attached by the write endpoints, so the dashboard never has to infer them
+    from translated display labels.
+    """
+
+    questions_answered = 0
+    explicit_topics: set[str] = set()
+    anonymous_topics = 0
+    subjects: set[str] = set()
+    topic_names: dict[str, str] = {}
+
+    def add_subject(value: object) -> None:
+        if isinstance(value, str) and value.strip():
+            subjects.add(value.strip())
+
+    def add_topic(value: object) -> None:
+        if not isinstance(value, str) or not value.strip():
+            return
+        normalized = " ".join(value.split()).strip()
+        key = normalized.casefold()
+        explicit_topics.add(key)
+        topic_names[key] = normalized
+
+    for activity in activities:
+        details = activity.result_details if isinstance(activity.result_details, dict) else {}
+        raw_type = activity.activity_type
+        if raw_type == "question":
+            questions_answered += 1
+        elif raw_type == "quiz":
+            answers = details.get("answers")
+            questions_answered += len(answers) if isinstance(answers, list) else max(1, to_nonnegative_int(details.get("total")))
+        elif raw_type == "exam":
+            exam_questions = details.get("questions")
+            questions_answered += len(exam_questions) if isinstance(exam_questions, list) else max(1, to_nonnegative_int(details.get("total")))
+
+        add_subject(details.get("subject_name"))
+        raw_subjects = details.get("subject_names")
+        if isinstance(raw_subjects, list):
+            for subject_name in raw_subjects:
+                add_subject(subject_name)
+
+        add_topic(details.get("topic_name"))
+        add_topic(details.get("topic_title"))
+        add_topic(details.get("topic_key"))
+        raw_topics = details.get("topic_names")
+        if isinstance(raw_topics, list):
+            for topic_name in raw_topics:
+                add_topic(topic_name)
+
+        # Coding/Diverse saves already contain an exact topic count, but older
+        # rows do not have individual names. Preserve that count without
+        # pretending we know names that were never stored.
+        if raw_type in {"coding", "diverse"}:
+            try:
+                aggregate_count = max(0, int(details.get("topic_count", 0) or 0))
+            except (TypeError, ValueError):
+                aggregate_count = 0
+            named_count = len(raw_topics) if isinstance(raw_topics, list) else 0
+            anonymous_topics += max(0, aggregate_count - named_count)
+
+    return {
+        "questions_answered": questions_answered,
+        "topics_studied": len(explicit_topics) + anonymous_topics,
+        "subjects_studied": len(subjects),
+        "subject_names": sorted(subjects, key=str.casefold),
+        "topic_names": sorted(topic_names.values(), key=str.casefold),
+    }
+
+
+def account_has_coding_enabled(request: Request, session: Session) -> bool:
+    user = get_request_user(request=request, session=session)
+    return is_module_enabled(user.enabled_modules if user else None, "coding")
+
+
+def build_daily_activity_summary(
+    activity_date: date,
+    activities: list[DailyActivity],
+    *,
+    coding_enabled: bool = False,
+    include_activities: bool = True,
+) -> DailyActivitySummarySchema:
+    visible_activities: list[DailyActivitySchema] = []
+    visible_raw_activities: list[DailyActivity] = []
+    for activity in activities:
+        normalized_type = activity_view_type(activity, coding_enabled=coding_enabled)
+        if normalized_type is None:
+            continue
+        visible_raw_activities.append(activity)
+        visible_activities.append(
+            DailyActivitySchema.model_validate(activity).model_copy(
+                update={
+                    "activity_type": normalized_type,
+                    "activity_title": activity_view_title(activity),
+                }
+            )
+        )
+
+    activities_by_type: dict[str, int] = {}
+    scored_values: list[float] = []
+    total_duration_seconds = 0
+    for activity in visible_activities:
+        activities_by_type[activity.activity_type] = activities_by_type.get(activity.activity_type, 0) + 1
+        if activity.result_score is not None:
+            scored_values.append(float(activity.result_score))
+        total_duration_seconds += max(0, int(activity.duration_seconds or 0))
+
+    activity_metrics = build_activity_metrics(visible_raw_activities)
+
+    return DailyActivitySummarySchema(
+        activity_date=activity_date,
+        total_activities=len(visible_activities),
+        activities_by_type=activities_by_type,
+        activities=visible_activities if include_activities else [],
+        total_duration_seconds=total_duration_seconds,
+        average_score=(sum(scored_values) / len(scored_values)) if scored_values else None,
+        first_activity_at=visible_activities[0].created_at if visible_activities else None,
+        last_activity_at=visible_activities[-1].created_at if visible_activities else None,
+        **activity_metrics,
+    )
+
 @app.post("/api/activity/log", response_model=DailyActivitySchema)
 def log_daily_activity(
     activity: DailyActivityCreateSchema,
@@ -8037,9 +8386,7 @@ def log_daily_activity(
     session: Session = Depends(get_session),
 ):
     """Registra uma atividade estudada no dia."""
-    from datetime import date as date_class
-    
-    today = date_class.today()
+    today = activity_today()
     
     new_activity = DailyActivity(
         child_id=child_id,
@@ -8062,6 +8409,7 @@ def log_daily_activity(
 @app.get("/api/activity/day/{activity_date}", response_model=DailyActivitySummarySchema)
 def get_daily_activities(
     activity_date: date,
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
@@ -8075,42 +8423,35 @@ def get_daily_activities(
         .order_by(DailyActivity.created_at.asc())
     ).all()
     
-    # Contar por tipo de atividade
-    activities_by_type = {}
-    for act in activities:
-        activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
-    
-    return DailyActivitySummarySchema(
-        activity_date=activity_date,
-        total_activities=len(activities),
-        activities_by_type=activities_by_type,
-        activities=[DailyActivitySchema.model_validate(act) for act in activities],
+    return build_daily_activity_summary(
+        activity_date,
+        list(activities),
+        coding_enabled=account_has_coding_enabled(request, session),
     )
 
 
 @app.get("/api/activity/today", response_model=DailyActivitySummarySchema)
 def get_today_activities(
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
     """Retorna as atividades de hoje."""
-    from datetime import date as date_class
-    
-    today = date_class.today()
-    return get_daily_activities(today, child_id, session)
+    today = activity_today()
+    return get_daily_activities(today, request, child_id, session)
 
 
 @app.get("/api/activity/week", response_model=list[DailyActivitySummarySchema])
 def get_week_activities(
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
     """Retorna as atividades dos últimos 7 dias."""
-    from datetime import date as date_class, timedelta
-    
-    today = date_class.today()
+    today = activity_today()
     start_date = today - timedelta(days=6)
     
+    coding_enabled = account_has_coding_enabled(request, session)
     summaries = []
     for i in range(7):
         current_date = start_date + timedelta(days=i)
@@ -8123,20 +8464,108 @@ def get_week_activities(
             .order_by(DailyActivity.created_at.asc())
         ).all()
         
-        activities_by_type = {}
-        for act in activities:
-            activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
-        
         summaries.append(
-            DailyActivitySummarySchema(
-                activity_date=current_date,
-                total_activities=len(activities),
-                activities_by_type=activities_by_type,
-                activities=[DailyActivitySchema.model_validate(act) for act in activities],
+            build_daily_activity_summary(
+                current_date,
+                list(activities),
+                coding_enabled=coding_enabled,
             )
         )
     
     return summaries
+
+
+@app.get("/api/activity/month", response_model=list[DailyActivitySummarySchema])
+def get_month_activities(
+    request: Request,
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+) -> list[DailyActivitySummarySchema]:
+    """Return one complete activity summary for each of the last 30 local days."""
+
+    today = activity_today()
+    start_date = today - timedelta(days=29)
+    activities = session.exec(
+        select(DailyActivity)
+        .where(
+            (DailyActivity.child_id == child_id)
+            & (DailyActivity.activity_date >= start_date)
+            & (DailyActivity.activity_date <= today)
+        )
+        .order_by(DailyActivity.activity_date.asc(), DailyActivity.created_at.asc())
+    ).all()
+    by_date: dict[date, list[DailyActivity]] = {}
+    for activity in activities:
+        by_date.setdefault(activity.activity_date, []).append(activity)
+    coding_enabled = account_has_coding_enabled(request, session)
+    return [
+        build_daily_activity_summary(
+            current_date,
+            by_date.get(current_date, []),
+            coding_enabled=coding_enabled,
+            include_activities=False,
+        )
+        for current_date in (start_date + timedelta(days=offset) for offset in range(30))
+    ]
+
+
+@app.get("/api/activity/summary", response_model=ActivityPeriodSummarySchema)
+def get_activity_period_summary(
+    request: Request,
+    period: str = Query(default="year"),
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+) -> ActivityPeriodSummarySchema:
+    """Return counters for day, month, year, or the complete history.
+
+    DailyActivity remains the source of truth and is already persisted with a
+    local calendar date. This endpoint only aggregates those immutable events,
+    so changing the selected period cannot create a second or stale counter.
+    """
+
+    normalized_period = period.strip().lower()
+    if normalized_period not in {"day", "month", "year", "all"}:
+        raise HTTPException(status_code=422, detail="Periodo invalido. Use day, month, year ou all.")
+
+    today = activity_today()
+    if normalized_period == "day":
+        start_date = today
+    elif normalized_period == "month":
+        start_date = today.replace(day=1)
+    elif normalized_period == "year":
+        start_date = today.replace(month=1, day=1)
+    else:
+        start_date = None
+
+    statement = select(DailyActivity).where(DailyActivity.child_id == child_id)
+    if start_date is not None:
+        statement = statement.where(DailyActivity.activity_date >= start_date)
+    activities = session.exec(
+        statement.where(DailyActivity.activity_date <= today).order_by(DailyActivity.created_at.asc())
+    ).all()
+    coding_enabled = account_has_coding_enabled(request, session)
+    visible = [
+        activity
+        for activity in activities
+        if activity_view_type(activity, coding_enabled=coding_enabled) is not None
+    ]
+    normalized_types: dict[str, int] = {}
+    total_duration_seconds = 0
+    for activity in visible:
+        activity_type = activity_view_type(activity, coding_enabled=coding_enabled)
+        if activity_type is not None:
+            normalized_types[activity_type] = normalized_types.get(activity_type, 0) + 1
+        total_duration_seconds += max(0, int(activity.duration_seconds or 0))
+    metrics = build_activity_metrics(visible)
+    return ActivityPeriodSummarySchema(
+        period=normalized_period,
+        start_date=start_date or (min((activity.activity_date for activity in visible), default=None)),
+        end_date=today,
+        total_activities=len(visible),
+        activities_by_type=normalized_types,
+        total_duration_seconds=total_duration_seconds,
+        **metrics,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -8450,6 +8879,22 @@ def admin_check(
     return {"is_admin": is_admin, "email": user.email if is_admin else ""}
 
 
+@app.get("/api/admin/health")
+def admin_system_health(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> dict[str, str]:
+    """Operational health exposed to the administrator UI."""
+
+    _require_admin(request, session)
+    session.exec(select(func.count(User.id))).one()
+    return {
+        "status": "ok",
+        "database": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
 def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> dict:
     return {
         "id": user.id,
@@ -8519,6 +8964,8 @@ def admin_list_users(
         raise HTTPException(status_code=422, detail="Status invalido.")
 
     users = session.exec(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
+    for user in users:
+        refresh_daily_ai_credits(session, user)
     settings_by_user_id = {
         settings.user_id: settings
         for settings in session.exec(select(UserAISettings)).all()
@@ -8581,6 +9028,8 @@ def admin_overview(
 
     _require_admin(request, session)
     users = session.exec(select(User)).all()
+    for user in users:
+        refresh_daily_ai_credits(session, user)
     counts = {status: 0 for status in USER_STATUSES}
     for user in users:
         status = effective_user_status(user)
@@ -8693,9 +9142,19 @@ def admin_set_user_ai_credits(
     user = session.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
-    if payload.credits is None and payload.add is None and payload.unlimited is None:
-        raise HTTPException(status_code=422, detail="Informe credits, add ou unlimited.")
+    if (
+        payload.credits is None
+        and payload.add is None
+        and payload.daily_limit is None
+        and payload.unlimited is None
+    ):
+        raise HTTPException(status_code=422, detail="Informe credits, add, daily_limit ou unlimited.")
 
+    refresh_daily_ai_credits(session, user)
+    if payload.daily_limit is not None:
+        user.ai_daily_credit_limit = payload.daily_limit
+        if payload.credits is None and payload.add is None:
+            user.ai_credits = max(0, payload.daily_limit - user.ai_credits_used_today)
     if payload.credits is not None:
         user.ai_credits = payload.credits
     if payload.add is not None:

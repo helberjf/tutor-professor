@@ -390,8 +390,8 @@ export default function ReviewPage() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar a revisao."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>}
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -412,9 +412,9 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Este aparelho precisa da URL atual do backend."
-        primaryAction={<Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Abrir configuracao</Link>}
+        title="Tutor temporariamente indisponivel"
+        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -425,9 +425,9 @@ export default function ReviewPage() {
       <StatusCard
         tone="offline"
         title="A revisao nao conseguiu se conectar"
-        message="O backend parece offline. Tente novamente quando ele estiver disponivel."
+        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
         primaryAction={<button onClick={() => void loadReview()} className="kid-button bg-kid-orange hover:bg-secondary-dark">Tentar de novo</button>}
-        secondaryHref="/connect"
+        secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
     );

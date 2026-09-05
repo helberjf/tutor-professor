@@ -24,6 +24,7 @@ import { StatusCard } from '@/components/status-card';
 import {
   ApiError,
   api,
+  type AICredits,
   type Book,
   type BookOutline,
   type BookPage,
@@ -136,6 +137,11 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
   const [pages, setPages] = useState<BookPage[]>([]);
   const [isGeneratingPage, setIsGeneratingPage] = useState(false);
   const [completeBook, setCompleteBook] = useState<Book | null>(null);
+  const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
+
+  useEffect(() => {
+    void api.getMyAICredits().then(setAiCredits).catch(() => setAiCredits(null));
+  }, []);
 
   const isBusy = step === 'generating-outline' || step === 'starting' || isGeneratingPage;
 
@@ -154,6 +160,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
         theme: bookContext.trim(),
       });
       setOutline(result);
+      setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
       setStep('outline');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Erro ao gerar roteiro.');
@@ -199,6 +206,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
         })),
       });
       const newPages = [...pages, page];
+      setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
       setPages(newPages);
       if (newPages.length >= outline.num_pages) {
         const done: Book = { ...book, pages: newPages };
@@ -555,6 +563,11 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               {stepSubtitle()}
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-800">{stepTitle()}</h2>
+            {aiCredits?.metered ? (
+              <p className="mt-1 text-xs font-black text-indigo-600">
+                {aiCredits.credits} de {aiCredits.daily_limit} creditos disponiveis hoje
+              </p>
+            ) : null}
           </div>
           {!isBusy && step !== 'complete' && (
             <button
@@ -904,9 +917,9 @@ function BooksPageContent() {
       <StatusCard
         tone="offline"
         title="Servidor nao disponivel"
-        message="Ative o backend para acessar os livros."
+        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">Conectar</Link>
+          <button onClick={() => void loadBooks()} className="kid-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -931,11 +944,9 @@ function BooksPageContent() {
       <StatusCard
         tone="offline"
         title="Conecte o tutor primeiro"
-        message="Este aparelho ainda nao tem a URL do backend. Abra a pagina de conexao e salve a URL do tunnel."
+        message="Nao foi possivel carregar a configuracao do aplicativo agora."
         primaryAction={
-          <Link href="/connect" className="kid-button bg-primary hover:bg-primary-dark">
-            Abrir conexao
-          </Link>
+          <button onClick={() => void loadBooks()} className="kid-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -947,15 +958,15 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Backend offline"
-        message="Inicie o backend e o tunnel no seu computador e tente novamente."
+        title="Sistema indisponivel"
+        message="Nao foi possivel acessar os livros. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadBooks()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
-        secondaryHref="/connect"
-        secondaryLabel="Trocar conexao"
+        secondaryHref="/"
+        secondaryLabel="Voltar ao inicio"
       />
     );
   }

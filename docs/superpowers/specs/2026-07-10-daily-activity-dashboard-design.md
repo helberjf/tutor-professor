@@ -28,7 +28,9 @@ Keep `POST /api/activity/log` for explicit/manual events such as the current Lee
 - Diverse study tracker: logged when `/api/study/diverse/{date}` saves subjects, lessons, answered topics, reviewed topics, or checked topics.
 - Coding review: logged when `/api/coding/review/attempt` succeeds.
 - Flashcard deck/Anki study: logged when `/api/coding/deck/attempt` succeeds.
-- LeetCode trainer: logged through the existing manual activity endpoint unless a later endpoint is added for "session complete".
+- Questions mode: logged when `/api/coding/questions/{question_id}/attempt` or `/api/study/questions/{question_id}/attempt` succeeds.
+- Simulados: logged once when `/api/exams/attempts/{attempt_id}/finish` completes, with score and duration.
+- LeetCode trainer: generated methods are logged by the backend; the manual endpoint remains available for an explicit study session.
 
 ## Duplicate Handling
 

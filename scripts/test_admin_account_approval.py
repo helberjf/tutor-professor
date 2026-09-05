@@ -199,20 +199,19 @@ async def run() -> None:
             "approved account reaches the app",
         )
 
-        # Approval and AI authorization are two independent switches: being let
-        # into the app grants no AI on its own.
+        # New accounts already use the global Gemini configuration. Approval
+        # only controls when they may enter the app.
         ai_settings = (await family_client.get("/api/ai/settings")).json()
         require(
-            not ai_settings["has_api_key"] and not ai_settings["use_global_key"],
-            f"approval must not hand out AI access, got {ai_settings}",
+            not ai_settings["has_api_key"]
+            and ai_settings["use_global_key"]
+            and ai_settings["provider"] == "gemini",
+            f"approval must keep the default Gemini access, got {ai_settings}",
         )
-        assert_status(
-            await family_client.post(
-                "/api/study/diverse/generate-flashcards",
-                json={"subject": "Historia", "count": 2},
-            ),
-            403,
-            "an approved account without AI cannot generate",
+        credits = (await family_client.get("/api/ai/credits")).json()
+        require(
+            credits["credits"] == 3 and credits["daily_limit"] == 3,
+            f"an approved account must keep its three daily credits, got {credits}",
         )
 
         approved_row = next(
@@ -221,22 +220,8 @@ async def run() -> None:
             if row["email"] == "familia@example.com"
         )
         require(
-            approved_row["ai_settings"]["use_global_key"] is False,
-            f"expected no AI authorization after approval, got {approved_row}",
-        )
-
-        assert_status(
-            await admin_client.put(
-                f"/api/admin/users/{family_id}/ai-settings",
-                json={"provider": "gemini", "use_global_key": True},
-            ),
-            200,
-            "authorize the global AI key",
-        )
-        granted = (await family_client.get("/api/ai/settings")).json()
-        require(
-            granted["use_global_key"],
-            f"expected the global key authorization to stick, got {granted}",
+            approved_row["ai_settings"]["use_global_key"] is True,
+            f"expected default AI authorization after approval, got {approved_row}",
         )
 
         # Revoking the AI leaves the account itself working.

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
+import { ActivityDetails } from './activity-details';
 
 // Utility functions to replace date-fns
 const formatDate = (date: Date, format: string): string => {
@@ -26,38 +27,29 @@ const getPortugueseDateLabel = (date: Date): string => {
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   lesson: <BookOpen className="text-blue-500" size={20} />,
-  study: <BookOpen className="text-emerald-500" size={20} />,
   review: <CheckCircle2 className="text-green-500" size={20} />,
-  quiz: <HelpCircle className="text-purple-500" size={20} />,
   coding: <Code2 className="text-orange-500" size={20} />,
-  diverse: <BookOpen className="text-indigo-500" size={20} />,
   leetcode: <span aria-hidden="true">🏆</span>,
-  flashcard: <span aria-hidden="true">🃏</span>,
-  coding_review: <Code2 className="text-cyan-500" size={20} />,
+  question: <HelpCircle className="text-amber-500" size={20} />,
+  exam: <CheckCircle2 className="text-indigo-500" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
   lesson: 'Lição',
-  study: 'Estudo',
   review: 'Revisão',
-  quiz: 'Quiz',
   coding: 'Programação',
-  diverse: 'Outras matérias',
   leetcode: 'LeetCode',
-  flashcard: 'Flashcards',
-  coding_review: 'Revisão de programação',
+  question: 'Questão',
+  exam: 'Simulado',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
   lesson: 'bg-blue-50 border-blue-200',
-  study: 'bg-emerald-50 border-emerald-200',
   review: 'bg-green-50 border-green-200',
-  quiz: 'bg-purple-50 border-purple-200',
   coding: 'bg-orange-50 border-orange-200',
-  diverse: 'bg-indigo-50 border-indigo-200',
   leetcode: 'bg-amber-50 border-amber-200',
-  flashcard: 'bg-violet-50 border-violet-200',
-  coding_review: 'bg-cyan-50 border-cyan-200',
+  question: 'bg-amber-50 border-amber-200',
+  exam: 'bg-indigo-50 border-indigo-200',
 };
 
 interface DailyActivityLogProps {
@@ -163,6 +155,16 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
           <div className="text-2xl font-bold text-slate-800">{activities.total_activities}</div>
           <div className="text-xs font-medium text-slate-600">Total</div>
         </div>
+        <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
+          <div className="text-2xl font-bold text-slate-800">{formatDuration(activities.total_duration_seconds ?? 0)}</div>
+          <div className="text-xs font-medium text-slate-600">Tempo registrado</div>
+        </div>
+        <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
+          <div className="text-2xl font-bold text-slate-800">
+            {activities.average_score === null || activities.average_score === undefined ? '—' : `${Math.round(activities.average_score)}%`}
+          </div>
+          <div className="text-xs font-medium text-slate-600">Média c/ nota</div>
+        </div>
         {Object.entries(activities.activities_by_type).map(([type, count]) => (
           <div key={type} className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
             <div className="text-2xl font-bold text-slate-800">{count}</div>
@@ -245,12 +247,13 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
                   </span>
                 )}
               </div>
+              <ActivityDetails details={activity.result_details} />
             </div>
 
             {/* Time */}
             <div className="flex-shrink-0 text-right">
               <div className="text-sm font-medium text-slate-700">
-                {formatDate(new Date(activity.created_at), 'HH:mm')}
+                {formatDate(parseActivityTimestamp(activity.created_at), 'HH:mm')}
               </div>
             </div>
           </div>
@@ -260,7 +263,13 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
   );
 }
 
+function parseActivityTimestamp(value: string) {
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
+  return new Date(normalized);
+}
+
 function formatDuration(seconds: number): string {
+  if (seconds <= 0) return '—';
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
   if (minutes === 0) return `${secs}s`;
