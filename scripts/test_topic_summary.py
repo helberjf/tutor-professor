@@ -296,6 +296,7 @@ class SubjectJoinRouteTests(unittest.TestCase):
             payload = first.json()
             self.assertEqual(payload["content"], "")
             self.assertEqual(payload["summarized_count"], 0)
+            self.assertEqual(payload["estimated_credits"], 2)
             self.assertEqual([p["topic_id"] for p in payload["pending"]], topic_ids)
 
             for topic_id in topic_ids:
@@ -311,6 +312,7 @@ class SubjectJoinRouteTests(unittest.TestCase):
             payload = joined.json()
             self.assertEqual(payload["pending"], [])
             self.assertEqual(payload["summarized_count"], 2)
+            self.assertEqual(payload["estimated_credits"], 0)
             self.assertEqual(
                 payload["content"],
                 "# Resumo de AWS Juncao\n\n## Cache\n- TTL.\n\n## IAM\n- Roles.",

@@ -824,6 +824,9 @@ class SubjectSummaryResponseSchema(BaseModel):
     topic_count: int
     summarized_count: int
     pending: List[PendingSummaryTopicSchema] = Field(default_factory=list)
+    # Number of AI calls needed to complete the sheet right now. Existing
+    # topic summaries are reused and therefore do not consume credits.
+    estimated_credits: int = 0
 
 
 class ProgrammingFlashcardSchema(FromAttributesModel):

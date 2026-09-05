@@ -1039,6 +1039,7 @@ export interface CodingSubjectSummary {
   topic_count: number;
   summarized_count: number;
   pending: PendingSummaryTopic[];
+  estimated_credits: number;
 }
 
 export interface CodingReviewCard {

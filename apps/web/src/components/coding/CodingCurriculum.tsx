@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
-import { api, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
+import { api, type AICredits, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
@@ -47,6 +47,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryProgress, setSummaryProgress] = useState('');
   const [summaryError, setSummaryError] = useState('');
+  const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
 
   async function openSubjectSummary(subject: ProgrammingSubject, regenerate = false) {
     setLoadingSummary(true);
@@ -74,6 +75,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
       if (missing.length > 0) {
         sheet = await api.getSubjectSummary(subject.id);
         setSummary(sheet);
+        setAiCredits(await api.getMyAICredits());
         loadTopics(subject);
       }
       if (failed) setSummaryError(failed);
@@ -148,7 +150,9 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     setTopics([]);
     setView({ type: 'topics', subject });
     try {
-      setTopics(await api.getCodingTopics(subject.id));
+      const [loadedTopics, credits] = await Promise.all([api.getCodingTopics(subject.id), api.getMyAICredits()]);
+      setTopics(loadedTopics);
+      setAiCredits(credits);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar os tópicos desta matéria.');
     } finally {
@@ -358,6 +362,8 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   // ── Topics view ──────────────────────────────────────────────────────────
   if (view.type === 'topics') {
     const { subject } = view;
+    const summaryCreditCost = topics.filter((topic) => topic.ai_content && !topic.has_summary).length;
+    const enoughSummaryCredits = aiCredits?.unlimited || (aiCredits?.credits ?? 0) >= summaryCreditCost;
     const statusIcon = (s: string) => s === 'mastered' ? '⭐' : s === 'studied' ? '✅' : '🔘';
     return (
       <div className="space-y-6">
@@ -392,15 +398,28 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             <p className="mt-1 text-xs font-bold text-violet-700">
               Resume cada tópico e junta tudo em uma folha só. Tópico novo entra sem refazer o resto.
             </p>
+            <p className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-black text-violet-800">
+              {summaryCreditCost === 0
+                ? 'Nenhum crédito será usado: os resumos já estão prontos.'
+                : `Esta ação usará ${summaryCreditCost} ${summaryCreditCost === 1 ? 'crédito' : 'créditos'} de IA.`}
+              {aiCredits && !aiCredits.unlimited && summaryCreditCost > 0 && (
+                <span className="ml-1 font-bold text-violet-600">Você tem {aiCredits.credits} hoje.</span>
+              )}
+            </p>
             <button
               type="button"
               onClick={() => void openSubjectSummary(subject)}
-              disabled={loadingSummary}
+              disabled={loadingSummary || !enoughSummaryCredits}
               className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
               {loadingSummary ? summaryProgress || 'Montando o resumo...' : 'Gerar resumo'}
             </button>
+            {!enoughSummaryCredits && (
+              <p role="alert" className="mt-2 text-xs font-bold text-rose-700">
+                Créditos insuficientes para resumir todos os tópicos. Gere por partes ou tente amanhã.
+              </p>
+            )}
             {summaryError && (
               <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
                 {summaryError}

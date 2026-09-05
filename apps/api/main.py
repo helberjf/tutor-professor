@@ -5211,6 +5211,7 @@ def get_coding_subject_summary(
         topic_count=len(summarisable),
         summarized_count=len(entries),
         pending=pending,
+        estimated_credits=len(pending),
     )
 
 # ── Exam simulado ─────────────────────────────────────────────────────────────
