@@ -236,6 +236,18 @@ def test_frontend_contract() -> None:
     english = read(ENGLISH_QUESTIONS)
     require("area: 'english'" in english, "English panel must target the english area")
     require("api.getAllLessons" in english, "English simulado must pick from the saved lessons")
+    require('id="english-questions"' in english, "English questions must have a deep-link anchor")
+    require('id="english-grammar"' in english, "English grammar must have a deep-link anchor")
+    require("Modo gramática" in english, "English must offer a separate grammar practice mode")
+    require("`grammar:${selected.id}`" in english, "grammar questions must be stored separately from general lesson questions")
+    panel = read(QUESTIONS_PANEL)
+    require("generationContext" in panel, "question panel must support mode-specific generation guidance")
+    require("contextMaxLength" in panel, "question panel must reserve space for mode-specific generation guidance")
+    require("maxLength={contextMaxLength}" in panel, "textarea must not allow more context than the API accepts")
+
+    main = read(MAIN)
+    require("resolve_english_lesson_topic_key" in main, "backend must resolve prefixed English question topic keys")
+    require('"grammar:"' in main, "backend must accept grammar-prefixed English lesson keys")
 
 
 def main() -> None:

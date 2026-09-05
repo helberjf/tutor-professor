@@ -149,6 +149,20 @@ export default function StudyPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || authState.status !== 'authenticated' || loading || activeTab !== 'english') {
+      return;
+    }
+    const targetId = window.location.hash.slice(1);
+    if (targetId !== 'english-questions' && targetId !== 'english-grammar') {
+      return;
+    }
+    const scrollTimer = window.setTimeout(() => {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 0);
+    return () => window.clearTimeout(scrollTimer);
+  }, [activeTab, authState.status, loading]);
+
   // A saved link to ?tab=coding still opens the tab for an account that has the
   // module on; this only steps in once the answer says it is off.
   useEffect(() => {

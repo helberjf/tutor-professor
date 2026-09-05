@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { api, type StudyDashboard, ApiError } from '@/lib/api';
 import { ActivityLogSection } from '@/components/activity-log-section';
 import { DashboardOverview } from '@/components/dashboard-overview';
+import { StudyStartSection } from '@/components/study-start-section';
 import { StatusCard } from '@/components/status-card';
 
 type GateState = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
@@ -131,6 +132,8 @@ export default function DashboardPage() {
             Acompanhe ritmo, sequência, desempenho e tudo que foi estudado hoje em uma única visão.
           </p>
         </section>
+
+        <StudyStartSection />
 
         <ActivityLogSection />
 

@@ -5,6 +5,7 @@ const PRIVATE_PATH_PREFIXES = [
   '/chat',
   '/dashboard',
   '/diverse',
+  '/exams',
   '/lesson',
   '/parents',
   '/quick-review',

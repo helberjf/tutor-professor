@@ -5907,11 +5907,18 @@ def _diverse_lesson_source_content(
     raise HTTPException(status_code=404, detail="Licao nao encontrada para esta materia.")
 
 
-def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
+def resolve_english_lesson_topic_key(topic_key: str) -> int:
+    normalized_key = str(topic_key or "").strip()
+    if normalized_key.startswith("grammar:"):
+        normalized_key = normalized_key.removeprefix("grammar:").strip()
     try:
-        lesson_id = int(topic_key)
+        return int(normalized_key)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Licao de ingles invalida.") from exc
+
+
+def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
+    lesson_id = resolve_english_lesson_topic_key(topic_key)
     lesson = session.get(Lesson, lesson_id)
     if lesson is None or (lesson.child_id is not None and lesson.child_id != child_id):
         raise HTTPException(status_code=404, detail="Licao de ingles nao encontrada.")

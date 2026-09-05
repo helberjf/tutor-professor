@@ -13,6 +13,7 @@ MODELS = API / "models" / "database.py"
 SCHEMAS = API / "schemas" / "schemas.py"
 MAIN = API / "main.py"
 MIGRATION = API / "alembic" / "versions" / "0011_exam_simulado.py"
+WEB_EXAMS_PAGE = ROOT / "apps" / "web" / "src" / "app" / "exams" / "page.tsx"
 
 os.environ.setdefault("APP_ENV", "test")
 sys.path.insert(0, str(API))
@@ -405,6 +406,14 @@ def test_backend_contract() -> None:
     )
     for table in ("exam", "examquestion", "examattempt", "examattemptanswer"):
         require(f'"{table}"' in migration, f"migration must create {table}")
+
+
+def test_frontend_standalone_exam_page() -> None:
+    page = read(WEB_EXAMS_PAGE)
+    require("ExamList" in page, "standalone simulado page must reuse ExamList")
+    require("useModules" in page, "standalone simulado page must honor the exams module")
+    require("modules.exams" in page, "standalone simulado page must check the exams module")
+    require("Simulados" in page, "standalone simulado page must expose the simulado entrypoint")
 
 
 # ── Moving the seeded topics into the exam mode ───────────────────────────────

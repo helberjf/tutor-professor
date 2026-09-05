@@ -13,6 +13,7 @@ const studyPage = [
   'src/app/study/_components/CodingTab.tsx',
   'src/app/study/_components/DiverseTab.tsx',
   'src/app/study/_components/EnglishTab.tsx',
+  'src/app/study/_components/EnglishQuestionsSection.tsx',
   'src/app/study/_components/shared.tsx',
   'src/app/study/_lib/study-helpers.ts',
 ].map((file) => readFileSync(resolve(root, file), 'utf8')).join('\n');
@@ -54,6 +55,11 @@ assert.match(
   studyPage,
   /activeTab === 'english'\s*&&\s*\(\s*<Link[\s\S]*?href="\/lesson"[\s\S]*?<\/Link>\s*\)/,
   'study page lesson CTA should only render while the English tab is active',
+);
+assert.match(
+  studyPage,
+  /window\.location\.hash[\s\S]*?scrollIntoView/,
+  'study page should scroll to English hash targets after async tab content renders',
 );
 
 assert.match(
