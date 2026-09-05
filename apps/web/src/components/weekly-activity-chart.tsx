@@ -20,6 +20,8 @@ const COLORS_BY_TYPE: Record<string, string> = {
   leetcode: 'bg-amber-500',
   flashcard: 'bg-violet-500',
   coding_review: 'bg-cyan-500',
+  question: 'bg-amber-500',
+  exam: 'bg-indigo-500',
 };
 
 function getTypeLabel(type: string) {
@@ -33,6 +35,8 @@ function getTypeLabel(type: string) {
     leetcode: 'LeetCode',
     flashcard: 'Flashcards',
     coding_review: 'Revisão de programação',
+    question: 'Questões',
+    exam: 'Simulados',
   };
 
   return labels[type] || type.replace(/_/g, ' ');
@@ -87,6 +91,15 @@ export function WeeklyActivityChart() {
     };
 
     fetchWeekData();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchWeekData();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, []);
 
   if (loading) {

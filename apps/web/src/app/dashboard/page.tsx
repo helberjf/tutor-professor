@@ -128,7 +128,7 @@ export default function DashboardPage() {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard</p>
           <h1 className="mt-2 text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Resumo de estudos</h1>
           <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-            Acompanhamento do ritmo, da sequência e dos activity logs em um painel separado.
+            Acompanhe ritmo, sequência, desempenho e tudo que foi estudado hoje em uma única visão.
           </p>
         </section>
 

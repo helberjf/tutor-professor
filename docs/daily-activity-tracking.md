@@ -12,6 +12,9 @@ O sistema de rastreamento de atividades diárias foi implementado para registrar
 - **Revisões**: Registra cada palavra revisada (correto/incorreto)
 - **Quizzes**: Registra submissões de quiz com pontuação
 - **Programação**: Registra atividades de codificação (pronto para expansão)
+- **Questões**: Registra cada resposta do Modo questões, com acerto/erro e matéria
+- **Simulados**: Registra o resultado final, percentual, aprovação e duração
+- **LeetCode**: Registra automaticamente métodos gerados e permite registrar uma sessão manual
 
 ### 📊 Informações Registradas
 
@@ -31,7 +34,7 @@ POST /api/activity/log
 Content-Type: application/json
 
 {
-  "activity_type": "lesson|review|quiz|coding",
+  "activity_type": "lesson|review|quiz|coding|question|exam|leetcode",
   "activity_title": "Lesson 1: Colors",
   "activity_id": 123,
   "result_score": 95.5,
@@ -71,19 +74,27 @@ GET /api/activity/week
 
 Retorna array com resumo de cada dia dos últimos 7 dias.
 
+#### Obter Atividades do Mês
+```bash
+GET /api/activity/month
+```
+
+Retorna 30 resumos diários, incluindo total de tempo registrado e média de pontuação.
+
 ## Como Funciona
 
 ### Backend (FastAPI)
 
 1. **Modelo**: `DailyActivity` em `models/database.py`
-   - Armazena todas as atividades com timestamps
+   - Armazena todas as atividades com timestamps UTC e data agrupada no fuso local configurado
    - Relacionada com `ChildProfile` por `child_id`
 
 2. **Endpoints**: Em `main.py` linhas ~3330+
-   - POST `/api/activity/log` - registra atividade manualmente
+   - POST `/api/activity/log` - registra atividade manualmente (por exemplo, sessão do LeetCode)
    - GET `/api/activity/today` - atividades de hoje
    - GET `/api/activity/day/{date}` - atividades de data específica
    - GET `/api/activity/week` - atividades dos últimos 7 dias
+   - GET `/api/activity/month` - atividades dos últimos 30 dias
 
 3. **Auto-registro**: Modificado em:
    - `POST /api/lesson/complete` - registra quando lição é completada
@@ -107,6 +118,7 @@ Retorna array com resumo de cada dia dos últimos 7 dias.
    - `getTodayActivities()` - busca atividades de hoje
    - `getDayActivities(date)` - busca atividades de data
    - `getWeekActivities()` - busca semana
+   - `getActivityMonth()` - busca os 30 dias do dashboard
 
 ## Banco de Dados
 
@@ -140,7 +152,7 @@ CREATE INDEX idx_activity_child_date
 
 ### 1. DailyActivityWidget (`apps/web/src/components/daily-activity-widget.tsx`)
 Widget compacto mostrando:
-- Últimas 3 atividades do dia
+- Linha do tempo completa do dia em uma área com rolagem
 - Contadores por tipo de atividade
 - Ícones coloridos e scores
 - Link para histórico completo

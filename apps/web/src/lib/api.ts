@@ -249,6 +249,10 @@ export interface DailyActivitySummarySchema {
   total_activities: number;
   activities_by_type: Record<string, number>;
   activities: DailyActivity[];
+  total_duration_seconds: number;
+  average_score: number | null;
+  first_activity_at: string | null;
+  last_activity_at: string | null;
 }
 
 export type DiverseRating = 'knew' | 'partial' | 'unknown';
@@ -1736,4 +1740,6 @@ export const api = {
     fetchAPI<DailyActivitySummarySchema>(`/api/activity/day/${date}`),
   getWeekActivities: () =>
     fetchAPI<DailyActivitySummarySchema[]>('/api/activity/week'),
+  getActivityMonth: () =>
+    fetchAPI<DailyActivitySummarySchema[]>('/api/activity/month'),
 };

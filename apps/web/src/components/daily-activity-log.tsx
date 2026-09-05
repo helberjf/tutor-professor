@@ -34,6 +34,8 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   leetcode: <span aria-hidden="true">🏆</span>,
   flashcard: <span aria-hidden="true">🃏</span>,
   coding_review: <Code2 className="text-cyan-500" size={20} />,
+  question: <HelpCircle className="text-amber-500" size={20} />,
+  exam: <CheckCircle2 className="text-indigo-500" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -46,6 +48,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
   leetcode: 'LeetCode',
   flashcard: 'Flashcards',
   coding_review: 'Revisão de programação',
+  question: 'Questão',
+  exam: 'Simulado',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -58,6 +62,8 @@ const ACTIVITY_COLORS: Record<string, string> = {
   leetcode: 'bg-amber-50 border-amber-200',
   flashcard: 'bg-violet-50 border-violet-200',
   coding_review: 'bg-cyan-50 border-cyan-200',
+  question: 'bg-amber-50 border-amber-200',
+  exam: 'bg-indigo-50 border-indigo-200',
 };
 
 interface DailyActivityLogProps {
@@ -163,6 +169,16 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
           <div className="text-2xl font-bold text-slate-800">{activities.total_activities}</div>
           <div className="text-xs font-medium text-slate-600">Total</div>
         </div>
+        <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
+          <div className="text-2xl font-bold text-slate-800">{formatDuration(activities.total_duration_seconds ?? 0)}</div>
+          <div className="text-xs font-medium text-slate-600">Tempo registrado</div>
+        </div>
+        <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
+          <div className="text-2xl font-bold text-slate-800">
+            {activities.average_score === null || activities.average_score === undefined ? '—' : `${Math.round(activities.average_score)}%`}
+          </div>
+          <div className="text-xs font-medium text-slate-600">Média c/ nota</div>
+        </div>
         {Object.entries(activities.activities_by_type).map(([type, count]) => (
           <div key={type} className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
             <div className="text-2xl font-bold text-slate-800">{count}</div>
@@ -250,7 +266,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
             {/* Time */}
             <div className="flex-shrink-0 text-right">
               <div className="text-sm font-medium text-slate-700">
-                {formatDate(new Date(activity.created_at), 'HH:mm')}
+                {formatDate(parseActivityTimestamp(activity.created_at), 'HH:mm')}
               </div>
             </div>
           </div>
@@ -260,7 +276,13 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
   );
 }
 
+function parseActivityTimestamp(value: string) {
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
+  return new Date(normalized);
+}
+
 function formatDuration(seconds: number): string {
+  if (seconds <= 0) return '—';
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
   if (minutes === 0) return `${secs}s`;

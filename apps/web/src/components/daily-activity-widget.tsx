@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CheckCircle2, Code2, Loader2, HelpCircle } from 'lucide-react';
+import { ArrowRight, BookOpen, CheckCircle2, Code2, Clock, Loader2, HelpCircle, RefreshCw } from 'lucide-react';
 import { api, type DailyActivitySummarySchema } from '@/lib/api';
 
 const ACTIVITY_ICONS = {
@@ -15,6 +15,8 @@ const ACTIVITY_ICONS = {
   leetcode: <span aria-hidden="true">🏆</span>,
   flashcard: <span aria-hidden="true">🃏</span>,
   coding_review: <Code2 className="text-cyan-500" size={16} />,
+  question: <HelpCircle className="text-amber-500" size={16} />,
+  exam: <CheckCircle2 className="text-indigo-500" size={16} />,
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -27,6 +29,8 @@ const ACTIVITY_COLORS: Record<string, string> = {
   leetcode: 'bg-amber-50',
   flashcard: 'bg-violet-50',
   coding_review: 'bg-cyan-50',
+  question: 'bg-amber-50',
+  exam: 'bg-indigo-50',
 };
 
 function getActivityLabel(type: string) {
@@ -40,6 +44,8 @@ function getActivityLabel(type: string) {
     leetcode: 'LeetCode',
     flashcard: 'Flashcards',
     coding_review: 'Revisão de programação',
+    question: 'Questões',
+    exam: 'Simulados',
   };
 
   return labels[type] || type.replace(/_/g, ' ');
@@ -48,20 +54,35 @@ function getActivityLabel(type: string) {
 export function DailyActivityWidget() {
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchActivities = async () => {
       try {
         const data = await api.getTodayActivities();
-        setActivities(data);
+        if (!cancelled) {
+          setActivities(data);
+          setUpdatedAt(new Date());
+        }
       } catch (err) {
         console.error('Failed to load daily activities:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchActivities();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchActivities();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, []);
 
   if (loading) {
@@ -84,8 +105,14 @@ export function DailyActivityWidget() {
     );
   }
 
-  // Pega últimas 3 atividades
-  const recentActivities = activities.activities.slice(-3).reverse();
+  // A timeline mostra todos os eventos do dia; o container mantém a altura
+  // previsível mesmo quando há muitas revisões.
+  const recentActivities = activities.activities.slice().reverse();
+  const durationMinutes = Math.floor((activities.total_duration_seconds ?? 0) / 60);
+  const durationLabel = durationMinutes > 0 ? `${durationMinutes}m` : '—';
+  const scoreLabel = activities.average_score === null || activities.average_score === undefined
+    ? '—'
+    : `${Math.round(activities.average_score)}%`;
 
   return (
     <div className="rounded-xl border-2 border-primary bg-white p-4 shadow-sm">
@@ -109,8 +136,23 @@ export function DailyActivityWidget() {
         ))}
       </div>
 
+      <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+          <p className="text-base font-black text-slate-800">{activities.total_activities}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Eventos</p>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+          <p className="flex items-center justify-center gap-1 text-base font-black text-slate-800"><Clock size={13} /> {durationLabel}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Tempo registrado</p>
+        </div>
+        <div className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-2">
+          <p className="text-base font-black text-slate-800">{scoreLabel}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Média c/ nota</p>
+        </div>
+      </div>
+
       {/* Activities List */}
-      <div className="space-y-2">
+      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
         {recentActivities.map((activity) => (
           <div key={activity.id} className={`flex items-center gap-2 rounded-lg p-2 ${ACTIVITY_COLORS[activity.activity_type] || 'bg-gray-50'}`}>
             <div className="flex-shrink-0">
@@ -124,6 +166,9 @@ export function DailyActivityWidget() {
                 <p className="text-xs font-bold text-slate-700">{activity.result_score.toFixed(0)}%</p>
               </div>
             )}
+            <time className="flex-shrink-0 text-[10px] font-semibold text-slate-400" dateTime={activity.created_at}>
+              {formatActivityTime(activity.created_at)}
+            </time>
           </div>
         ))}
       </div>
@@ -133,7 +178,17 @@ export function DailyActivityWidget() {
         <p className="text-center text-xs text-slate-600">
           <strong>{activities.total_activities}</strong> atividades registradas hoje
         </p>
+        {updatedAt && (
+          <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium text-slate-400">
+            <RefreshCw size={10} /> Atualizado às {updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
       </div>
     </div>
   );
+}
+
+function formatActivityTime(value: string) {
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
+  return new Date(normalized).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

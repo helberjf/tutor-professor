@@ -11,7 +11,7 @@ import asyncio
 import tempfile
 import threading
 import time
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -212,7 +212,7 @@ async def run() -> None:
             200,
             "parent settings update",
         )
-        today = date.today()
+        today = main.activity_today()
         starter_child_response = await client.post(
             "/api/parent/children",
             json={"name": "Starter", "age_group": "7-9"},

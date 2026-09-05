@@ -956,7 +956,7 @@ class DailyActivitySchema(FromAttributesModel):
     id: int
     child_id: int
     activity_date: date
-    activity_type: str  # lesson | review | quiz | coding
+    activity_type: str  # lesson | review | quiz | coding | question | exam
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -966,7 +966,7 @@ class DailyActivitySchema(FromAttributesModel):
 
 
 class DailyActivityCreateSchema(BaseModel):
-    activity_type: str  # lesson | review | quiz | coding
+    activity_type: str  # lesson | review | quiz | coding | question | exam
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -980,6 +980,10 @@ class DailyActivitySummarySchema(BaseModel):
     activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "review": 3, "quiz": 1}
     activities: List[DailyActivitySchema] = Field(default_factory=list)
     fsrs_parameters: Optional[str] = Field(default=None, max_length=400)
+    total_duration_seconds: int = 0
+    average_score: Optional[float] = None
+    first_activity_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
 
 
 class DeckStatsSchema(BaseModel):

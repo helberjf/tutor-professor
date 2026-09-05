@@ -11,10 +11,11 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator, Optional
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 from cryptography.fernet import Fernet, InvalidToken
@@ -353,6 +354,22 @@ SIGNUP_MODE_OPEN = "open"
 SIGNUP_MODE_MANUAL = "manual"
 if SIGNUP_MODE not in (SIGNUP_MODE_OPEN, SIGNUP_MODE_MANUAL):
     SIGNUP_MODE = SIGNUP_MODE_MANUAL
+
+# Activity dates are user-facing calendar dates, so they must not depend on the
+# host/container timezone. Keep timestamps in UTC and bucket activity in the
+# configured local timezone (Brazil is the product default).
+ACTIVITY_TIMEZONE_NAME = os.getenv("ACTIVITY_TIMEZONE", "America/Sao_Paulo").strip() or "UTC"
+try:
+    ACTIVITY_TIMEZONE = ZoneInfo(ACTIVITY_TIMEZONE_NAME)
+except ZoneInfoNotFoundError:
+    logger.warning("Unknown ACTIVITY_TIMEZONE=%s; falling back to UTC", ACTIVITY_TIMEZONE_NAME)
+    ACTIVITY_TIMEZONE_NAME = "UTC"
+    ACTIVITY_TIMEZONE = timezone.utc
+try:
+    POMODORO_FOCUS_SECONDS = max(60, int(os.getenv("POMODORO_FOCUS_SECONDS", str(25 * 60))))
+except ValueError:
+    logger.warning("Invalid POMODORO_FOCUS_SECONDS; falling back to 1500 seconds")
+    POMODORO_FOCUS_SECONDS = 25 * 60
 
 PARENT_COOKIE_SECURE = os.getenv("PARENT_COOKIE_SECURE", "false").lower() == "true"
 PARENT_COOKIE_SAMESITE = os.getenv("PARENT_COOKIE_SAMESITE", "lax").lower()
@@ -1751,7 +1768,7 @@ def add_daily_activity(
 ) -> DailyActivity:
     activity = DailyActivity(
         child_id=child_id,
-        activity_date=activity_date or date.today(),
+        activity_date=activity_date or activity_today(),
         activity_type=activity_type[:40],
         activity_title=activity_title[:200],
         activity_id=activity_id,
@@ -1761,6 +1778,19 @@ def add_daily_activity(
     )
     session.add(activity)
     return activity
+
+
+def activity_date_for(value: datetime | None = None) -> date:
+    """Return the local calendar date for a UTC (usually naive) timestamp."""
+
+    current = value or datetime.utcnow()
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(ACTIVITY_TIMEZONE).date()
+
+
+def activity_today() -> date:
+    return activity_date_for()
 
 
 def to_nonnegative_int(value: object) -> int:
@@ -2636,7 +2666,7 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
-    today = date.today()
+    today = activity_today()
     today_record = get_study_day_record(session=session, child_id=child_id, target_date=today)
     recent_records = session.exec(
         select(StudyDay)
@@ -2702,6 +2732,7 @@ def upsert_study_day(
         (new_summary["studied_text"] or new_summary["pomodoro_count"] > 0)
         and new_summary != old_summary
     ):
+        pomodoro_delta = max(0, new_summary["pomodoro_count"] - old_summary["pomodoro_count"])
         add_daily_activity(
             session,
             child_id=child_id,
@@ -2709,6 +2740,7 @@ def upsert_study_day(
             activity_type="study",
             activity_title="Estudo registrado",
             result_details=new_summary,
+            duration_seconds=pomodoro_delta * POMODORO_FOCUS_SECONDS or None,
         )
 
     record.updated_at = now
@@ -5564,6 +5596,24 @@ def finish_exam_attempt(
         attempt.score_percent = percent
         attempt.passed = has_passed(percent, exam.passing_percent)
         attempt.domain_breakdown = build_domain_breakdown(drawn, correct_ids)
+        add_daily_activity(
+            session,
+            child_id=child.id or 0,
+            activity_type="exam",
+            activity_title=f"Simulado: {exam.name}",
+            activity_date=activity_date_for(finished_at),
+            activity_id=exam.id,
+            result_score=float(percent),
+            result_details={
+                "exam_id": exam.id,
+                "exam_name": exam.name,
+                "correct": len(correct_ids),
+                "total": len(answers),
+                "passed": attempt.passed,
+                "passing_percent": exam.passing_percent,
+            },
+            duration_seconds=attempt.duration_seconds,
+        )
         session.add(attempt)
         session.commit()
         session.refresh(attempt)
@@ -5655,6 +5705,23 @@ def submit_topic_question_attempt(
         question.error_count = (question.error_count or 0) + 1
     question.last_selected_option = selected_option
     question.last_answered_at = answered_at
+    topic = session.get(ProgrammingTopic, question.topic_id)
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="question",
+        activity_title=f"Questao: {topic.title if topic else subject.name}",
+        activity_id=question.id,
+        result_score=100.0 if correct else 0.0,
+        result_details={
+            "area": "coding",
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "topic_id": question.topic_id,
+            "question_id": question.id,
+            "correct": correct,
+        },
+    )
     session.add(question)
     session.commit()
     session.refresh(question)
@@ -5940,6 +6007,21 @@ def submit_study_question_attempt(
         question.error_count = (question.error_count or 0) + 1
     question.last_selected_option = selected_option
     question.last_answered_at = answered_at
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="question",
+        activity_title=f"Questao: {question.topic_title}",
+        activity_id=question.id,
+        result_score=100.0 if correct else 0.0,
+        result_details={
+            "area": question.area,
+            "subject_name": question.subject_name,
+            "topic_key": question.topic_key,
+            "question_id": question.id,
+            "correct": correct,
+        },
+    )
     session.add(question)
     session.commit()
     session.refresh(question)
@@ -6740,6 +6822,19 @@ def generate_leetcode_method_endpoint(
         created_at=datetime.utcnow(),
     )
     session.add(method)
+    session.flush()
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type="leetcode",
+        activity_title=f"LeetCode: {method.name}",
+        activity_id=method.id,
+        result_details={
+            "action": "method_generated",
+            "language": method.language,
+            "category": method.category,
+        },
+    )
     session.commit()
     session.refresh(method)
     return _build_leetcode_method_schema(method)
@@ -8030,6 +8125,37 @@ def generate_diverse_flashcards(
 # DAILY ACTIVITY TRACKING
 # ─────────────────────────────────────────────────────────────────────────────
 
+
+def build_daily_activity_summary(
+    activity_date: date,
+    activities: list[DailyActivity],
+    *,
+    include_activities: bool = True,
+) -> DailyActivitySummarySchema:
+    activities_by_type: dict[str, int] = {}
+    scored_values: list[float] = []
+    total_duration_seconds = 0
+    for activity in activities:
+        activities_by_type[activity.activity_type] = activities_by_type.get(activity.activity_type, 0) + 1
+        if activity.result_score is not None:
+            scored_values.append(float(activity.result_score))
+        total_duration_seconds += max(0, int(activity.duration_seconds or 0))
+
+    return DailyActivitySummarySchema(
+        activity_date=activity_date,
+        total_activities=len(activities),
+        activities_by_type=activities_by_type,
+        activities=(
+            [DailyActivitySchema.model_validate(activity) for activity in activities]
+            if include_activities
+            else []
+        ),
+        total_duration_seconds=total_duration_seconds,
+        average_score=(sum(scored_values) / len(scored_values)) if scored_values else None,
+        first_activity_at=activities[0].created_at if activities else None,
+        last_activity_at=activities[-1].created_at if activities else None,
+    )
+
 @app.post("/api/activity/log", response_model=DailyActivitySchema)
 def log_daily_activity(
     activity: DailyActivityCreateSchema,
@@ -8037,9 +8163,7 @@ def log_daily_activity(
     session: Session = Depends(get_session),
 ):
     """Registra uma atividade estudada no dia."""
-    from datetime import date as date_class
-    
-    today = date_class.today()
+    today = activity_today()
     
     new_activity = DailyActivity(
         child_id=child_id,
@@ -8075,17 +8199,7 @@ def get_daily_activities(
         .order_by(DailyActivity.created_at.asc())
     ).all()
     
-    # Contar por tipo de atividade
-    activities_by_type = {}
-    for act in activities:
-        activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
-    
-    return DailyActivitySummarySchema(
-        activity_date=activity_date,
-        total_activities=len(activities),
-        activities_by_type=activities_by_type,
-        activities=[DailyActivitySchema.model_validate(act) for act in activities],
-    )
+    return build_daily_activity_summary(activity_date, list(activities))
 
 
 @app.get("/api/activity/today", response_model=DailyActivitySummarySchema)
@@ -8094,9 +8208,7 @@ def get_today_activities(
     session: Session = Depends(get_session),
 ):
     """Retorna as atividades de hoje."""
-    from datetime import date as date_class
-    
-    today = date_class.today()
+    today = activity_today()
     return get_daily_activities(today, child_id, session)
 
 
@@ -8106,9 +8218,7 @@ def get_week_activities(
     session: Session = Depends(get_session),
 ):
     """Retorna as atividades dos últimos 7 dias."""
-    from datetime import date as date_class, timedelta
-    
-    today = date_class.today()
+    today = activity_today()
     start_date = today - timedelta(days=6)
     
     summaries = []
@@ -8123,20 +8233,36 @@ def get_week_activities(
             .order_by(DailyActivity.created_at.asc())
         ).all()
         
-        activities_by_type = {}
-        for act in activities:
-            activities_by_type[act.activity_type] = activities_by_type.get(act.activity_type, 0) + 1
-        
-        summaries.append(
-            DailyActivitySummarySchema(
-                activity_date=current_date,
-                total_activities=len(activities),
-                activities_by_type=activities_by_type,
-                activities=[DailyActivitySchema.model_validate(act) for act in activities],
-            )
-        )
+        summaries.append(build_daily_activity_summary(current_date, list(activities)))
     
     return summaries
+
+
+@app.get("/api/activity/month", response_model=list[DailyActivitySummarySchema])
+def get_month_activities(
+    child_id: int = Depends(get_child_id_from_session),
+    session: Session = Depends(get_session),
+) -> list[DailyActivitySummarySchema]:
+    """Return one complete activity summary for each of the last 30 local days."""
+
+    today = activity_today()
+    start_date = today - timedelta(days=29)
+    activities = session.exec(
+        select(DailyActivity)
+        .where(
+            (DailyActivity.child_id == child_id)
+            & (DailyActivity.activity_date >= start_date)
+            & (DailyActivity.activity_date <= today)
+        )
+        .order_by(DailyActivity.activity_date.asc(), DailyActivity.created_at.asc())
+    ).all()
+    by_date: dict[date, list[DailyActivity]] = {}
+    for activity in activities:
+        by_date.setdefault(activity.activity_date, []).append(activity)
+    return [
+        build_daily_activity_summary(current_date, by_date.get(current_date, []), include_activities=False)
+        for current_date in (start_date + timedelta(days=offset) for offset in range(30))
+    ]
 
 
 # ══════════════════════════════════════════════════════════════════════════════
