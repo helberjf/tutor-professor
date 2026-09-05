@@ -7,28 +7,18 @@ import { api, type DailyActivitySummarySchema } from '@/lib/api';
 
 const ACTIVITY_ICONS = {
   lesson: <BookOpen className="text-blue-500" size={16} />,
-  study: <BookOpen className="text-emerald-500" size={16} />,
   review: <CheckCircle2 className="text-green-500" size={16} />,
-  quiz: <HelpCircle className="text-purple-500" size={16} />,
   coding: <Code2 className="text-orange-500" size={16} />,
-  diverse: <BookOpen className="text-indigo-500" size={16} />,
   leetcode: <span aria-hidden="true">🏆</span>,
-  flashcard: <span aria-hidden="true">🃏</span>,
-  coding_review: <Code2 className="text-cyan-500" size={16} />,
   question: <HelpCircle className="text-amber-500" size={16} />,
   exam: <CheckCircle2 className="text-indigo-500" size={16} />,
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
   lesson: 'bg-blue-50',
-  study: 'bg-emerald-50',
   review: 'bg-green-50',
-  quiz: 'bg-purple-50',
   coding: 'bg-orange-50',
-  diverse: 'bg-indigo-50',
   leetcode: 'bg-amber-50',
-  flashcard: 'bg-violet-50',
-  coding_review: 'bg-cyan-50',
   question: 'bg-amber-50',
   exam: 'bg-indigo-50',
 };
@@ -36,14 +26,9 @@ const ACTIVITY_COLORS: Record<string, string> = {
 function getActivityLabel(type: string) {
   const labels: Record<string, string> = {
     lesson: 'Lição',
-    study: 'Estudo',
     review: 'Revisão',
-    quiz: 'Quiz',
     coding: 'Programação',
-    diverse: 'Outras matérias',
     leetcode: 'LeetCode',
-    flashcard: 'Flashcards',
-    coding_review: 'Revisão de programação',
     question: 'Questões',
     exam: 'Simulados',
   };

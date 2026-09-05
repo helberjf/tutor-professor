@@ -8126,16 +8126,72 @@ def generate_diverse_flashcards(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+FEYNMAN_ACTIVITY_TYPES = {
+    "lesson": "lesson",
+    "study": "lesson",
+    "diverse": "lesson",
+    "quiz": "question",
+    "question": "question",
+    "review": "review",
+    "exam": "exam",
+}
+CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard"}
+
+
+def activity_view_type(activity: DailyActivity, *, coding_enabled: bool) -> str | None:
+    """Project a stored event into the small set of dashboard categories."""
+
+    activity_type = activity.activity_type
+    details = activity.result_details if isinstance(activity.result_details, dict) else {}
+    is_coding_question = activity_type == "question" and details.get("area") == "coding"
+    if activity_type == "leetcode":
+        return "leetcode" if coding_enabled else None
+    if activity_type in CODING_ACTIVITY_TYPES or is_coding_question:
+        return "coding" if coding_enabled else None
+    return FEYNMAN_ACTIVITY_TYPES.get(activity_type)
+
+
+def activity_view_title(activity: DailyActivity) -> str:
+    if activity.activity_type != "quiz":
+        return activity.activity_title
+    prefix, separator, lesson_title = activity.activity_title.partition(":")
+    if separator and prefix.strip().casefold() == "quiz":
+        return f"Questões da lição: {lesson_title.strip()}"
+    if activity.activity_title.strip().casefold() == "quiz":
+        return "Questões da lição"
+    return activity.activity_title
+
+
+def account_has_coding_enabled(request: Request, session: Session) -> bool:
+    user = get_request_user(request=request, session=session)
+    return is_module_enabled(user.enabled_modules if user else None, "coding")
+
+
 def build_daily_activity_summary(
     activity_date: date,
     activities: list[DailyActivity],
     *,
+    coding_enabled: bool = False,
     include_activities: bool = True,
 ) -> DailyActivitySummarySchema:
+    visible_activities: list[DailyActivitySchema] = []
+    for activity in activities:
+        normalized_type = activity_view_type(activity, coding_enabled=coding_enabled)
+        if normalized_type is None:
+            continue
+        visible_activities.append(
+            DailyActivitySchema.model_validate(activity).model_copy(
+                update={
+                    "activity_type": normalized_type,
+                    "activity_title": activity_view_title(activity),
+                }
+            )
+        )
+
     activities_by_type: dict[str, int] = {}
     scored_values: list[float] = []
     total_duration_seconds = 0
-    for activity in activities:
+    for activity in visible_activities:
         activities_by_type[activity.activity_type] = activities_by_type.get(activity.activity_type, 0) + 1
         if activity.result_score is not None:
             scored_values.append(float(activity.result_score))
@@ -8143,17 +8199,13 @@ def build_daily_activity_summary(
 
     return DailyActivitySummarySchema(
         activity_date=activity_date,
-        total_activities=len(activities),
+        total_activities=len(visible_activities),
         activities_by_type=activities_by_type,
-        activities=(
-            [DailyActivitySchema.model_validate(activity) for activity in activities]
-            if include_activities
-            else []
-        ),
+        activities=visible_activities if include_activities else [],
         total_duration_seconds=total_duration_seconds,
         average_score=(sum(scored_values) / len(scored_values)) if scored_values else None,
-        first_activity_at=activities[0].created_at if activities else None,
-        last_activity_at=activities[-1].created_at if activities else None,
+        first_activity_at=visible_activities[0].created_at if visible_activities else None,
+        last_activity_at=visible_activities[-1].created_at if visible_activities else None,
     )
 
 @app.post("/api/activity/log", response_model=DailyActivitySchema)
@@ -8186,6 +8238,7 @@ def log_daily_activity(
 @app.get("/api/activity/day/{activity_date}", response_model=DailyActivitySummarySchema)
 def get_daily_activities(
     activity_date: date,
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
@@ -8199,21 +8252,27 @@ def get_daily_activities(
         .order_by(DailyActivity.created_at.asc())
     ).all()
     
-    return build_daily_activity_summary(activity_date, list(activities))
+    return build_daily_activity_summary(
+        activity_date,
+        list(activities),
+        coding_enabled=account_has_coding_enabled(request, session),
+    )
 
 
 @app.get("/api/activity/today", response_model=DailyActivitySummarySchema)
 def get_today_activities(
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
     """Retorna as atividades de hoje."""
     today = activity_today()
-    return get_daily_activities(today, child_id, session)
+    return get_daily_activities(today, request, child_id, session)
 
 
 @app.get("/api/activity/week", response_model=list[DailyActivitySummarySchema])
 def get_week_activities(
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ):
@@ -8221,6 +8280,7 @@ def get_week_activities(
     today = activity_today()
     start_date = today - timedelta(days=6)
     
+    coding_enabled = account_has_coding_enabled(request, session)
     summaries = []
     for i in range(7):
         current_date = start_date + timedelta(days=i)
@@ -8233,13 +8293,20 @@ def get_week_activities(
             .order_by(DailyActivity.created_at.asc())
         ).all()
         
-        summaries.append(build_daily_activity_summary(current_date, list(activities)))
+        summaries.append(
+            build_daily_activity_summary(
+                current_date,
+                list(activities),
+                coding_enabled=coding_enabled,
+            )
+        )
     
     return summaries
 
 
 @app.get("/api/activity/month", response_model=list[DailyActivitySummarySchema])
 def get_month_activities(
+    request: Request,
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ) -> list[DailyActivitySummarySchema]:
@@ -8259,8 +8326,14 @@ def get_month_activities(
     by_date: dict[date, list[DailyActivity]] = {}
     for activity in activities:
         by_date.setdefault(activity.activity_date, []).append(activity)
+    coding_enabled = account_has_coding_enabled(request, session)
     return [
-        build_daily_activity_summary(current_date, by_date.get(current_date, []), include_activities=False)
+        build_daily_activity_summary(
+            current_date,
+            by_date.get(current_date, []),
+            coding_enabled=coding_enabled,
+            include_activities=False,
+        )
         for current_date in (start_date + timedelta(days=offset) for offset in range(30))
     ]
 

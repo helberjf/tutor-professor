@@ -28,7 +28,6 @@ import httpx  # noqa: E402
 from sqlmodel import Session  # noqa: E402
 
 import main  # noqa: E402
-from account_approval_support import enable_all_modules  # noqa: E402
 
 
 def assert_status(response: httpx.Response, expected: int, label: str) -> None:
@@ -57,7 +56,16 @@ async def run() -> None:
             200,
             "login",
         )
-        enable_all_modules(main)
+        modules_response = await client.get("/api/account/modules")
+        assert_status(modules_response, 200, "default modules")
+        modules = {module["id"]: module["enabled"] for module in modules_response.json()["modules"]}
+        if modules.get("coding") is not False:
+            raise AssertionError(f"coding should start disabled, got {modules}")
+        assert_status(
+            await client.put("/api/account/modules", json={"modules": {"coding": True}}),
+            200,
+            "enable coding",
+        )
         child = (await client.get("/api/parent/children")).json()[0]
         headers = {"X-Child-ID": str(child["id"])}
 
@@ -169,21 +177,97 @@ async def run() -> None:
             "repeat finished exam",
         )
 
+        with Session(main.engine) as session:
+            for activity_type, title, score, duration in (
+                ("lesson", "Licao direta", None, 10),
+                ("quiz", "Quiz: Saudacoes", 80.0, 20),
+                ("study", "Estudo guiado", None, 30),
+                ("diverse", "Materia livre", None, 40),
+                ("review", "Revisao de lacunas", 60.0, 50),
+                ("coding", "Aula de Python", 100.0, 60),
+                ("coding_review", "Revisao de Python", 100.0, 70),
+                ("flashcard", "Flashcards de Python", 100.0, 80),
+                ("leetcode", "Metodo LeetCode", None, 90),
+            ):
+                session.add(
+                    main.DailyActivity(
+                        child_id=child["id"],
+                        activity_date=main.activity_today(),
+                        activity_type=activity_type,
+                        activity_title=title,
+                        result_score=score,
+                        duration_seconds=duration,
+                    )
+                )
+            session.commit()
+
+        assert_status(
+            await client.put("/api/account/modules", json={"modules": {"coding": False}}),
+            200,
+            "disable coding",
+        )
+
         activity_response = await client.get("/api/activity/today", headers=headers)
         assert_status(activity_response, 200, "activity summary")
         summary = activity_response.json()
-        for activity_type in ("question", "exam"):
-            if summary["activities_by_type"].get(activity_type, 0) < 1:
-                raise AssertionError(f"expected {activity_type} activity, got {summary}")
+        expected_disabled_counts = {"lesson": 3, "question": 2, "review": 1, "exam": 1}
+        if summary["activities_by_type"] != expected_disabled_counts:
+            raise AssertionError(f"expected Feynman activity groups with coding off, got {summary}")
+        returned_types = {activity["activity_type"] for activity in summary["activities"]}
+        if returned_types != set(expected_disabled_counts):
+            raise AssertionError(f"expected only Feynman activity types, got {returned_types}")
+        question_titles = [
+            activity["activity_title"]
+            for activity in summary["activities"]
+            if activity["activity_type"] == "question"
+        ]
+        if "Questões da lição: Saudacoes" not in question_titles:
+            raise AssertionError(f"quiz title should be presented as lesson questions, got {question_titles}")
         if summary["activities_by_type"].get("exam", 0) != 1:
             raise AssertionError(f"finished exam should be logged once, got {summary}")
-        if summary["total_duration_seconds"] < 0 or summary["average_score"] is None:
-            raise AssertionError(f"expected aggregate activity metrics, got {summary}")
+        if summary["total_activities"] != 7 or summary["total_duration_seconds"] != 150:
+            raise AssertionError(f"hidden coding activity must not affect aggregates, got {summary}")
+        if summary["average_score"] != 85.0:
+            raise AssertionError(f"expected visible-score average of 85, got {summary}")
+        day_response = await client.get(
+            f"/api/activity/day/{summary['activity_date']}",
+            headers=headers,
+        )
+        assert_status(day_response, 200, "activity summary by date")
+        if day_response.json()["activities_by_type"] != expected_disabled_counts:
+            raise AssertionError(f"daily endpoint should use normalized groups, got {day_response.json()}")
+        week_response = await client.get("/api/activity/week", headers=headers)
+        assert_status(week_response, 200, "weekly activity summary")
+        if week_response.json()[-1]["activities_by_type"] != expected_disabled_counts:
+            raise AssertionError(f"weekly summary should use normalized groups, got {week_response.json()[-1]}")
         month_response = await client.get("/api/activity/month", headers=headers)
         assert_status(month_response, 200, "monthly activity summary")
         month = month_response.json()
         if len(month) != 30 or month[-1]["activity_date"] != summary["activity_date"]:
             raise AssertionError(f"expected 30 local calendar days ending today, got {month}")
+        if month[-1]["activities_by_type"] != expected_disabled_counts:
+            raise AssertionError(f"monthly summary should use the same normalized groups, got {month[-1]}")
+
+        assert_status(
+            await client.put("/api/account/modules", json={"modules": {"coding": True}}),
+            200,
+            "re-enable coding",
+        )
+        enabled_summary_response = await client.get("/api/activity/today", headers=headers)
+        assert_status(enabled_summary_response, 200, "activity summary with coding")
+        enabled_summary = enabled_summary_response.json()
+        expected_enabled_counts = {
+            **expected_disabled_counts,
+            "coding": 4,
+            "leetcode": 1,
+        }
+        if enabled_summary["activities_by_type"] != expected_enabled_counts:
+            raise AssertionError(f"expected coding groups after activation, got {enabled_summary}")
+        enabled_types = {activity["activity_type"] for activity in enabled_summary["activities"]}
+        if enabled_types != set(expected_enabled_counts):
+            raise AssertionError(f"expected normalized activity types with coding on, got {enabled_types}")
+        if enabled_summary["total_activities"] != 12 or enabled_summary["total_duration_seconds"] != 450:
+            raise AssertionError(f"enabled coding activity should affect aggregates, got {enabled_summary}")
 
     local_date = main.activity_date_for(datetime(2026, 1, 1, 2, 0))
     if str(local_date) != "2025-12-31":

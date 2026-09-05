@@ -12,14 +12,9 @@ const getDayLabel = (date: Date): string => {
 
 const COLORS_BY_TYPE: Record<string, string> = {
   lesson: 'bg-blue-500',
-  study: 'bg-emerald-500',
   review: 'bg-green-500',
-  quiz: 'bg-purple-500',
   coding: 'bg-orange-500',
-  diverse: 'bg-indigo-500',
   leetcode: 'bg-amber-500',
-  flashcard: 'bg-violet-500',
-  coding_review: 'bg-cyan-500',
   question: 'bg-amber-500',
   exam: 'bg-indigo-500',
 };
@@ -27,14 +22,9 @@ const COLORS_BY_TYPE: Record<string, string> = {
 function getTypeLabel(type: string) {
   const labels: Record<string, string> = {
     lesson: 'Lição',
-    study: 'Estudo',
     review: 'Revisão',
-    quiz: 'Quiz',
     coding: 'Programação',
-    diverse: 'Outras matérias',
     leetcode: 'LeetCode',
-    flashcard: 'Flashcards',
-    coding_review: 'Revisão de programação',
     question: 'Questões',
     exam: 'Simulados',
   };
@@ -118,6 +108,10 @@ export function WeeklyActivityChart() {
     );
   }
 
+  const visibleTypes = Array.from(
+    new Set(weekData.flatMap((day) => day.activities.map((activity) => activity.type))),
+  );
+
   // Encontra o máximo de atividades em um dia para escala
   return (
     <div className="rounded-xl border-2 border-slate-200 bg-white p-6">
@@ -164,9 +158,9 @@ export function WeeklyActivityChart() {
 
       {/* Legend */}
       <div className="mt-6 flex flex-wrap gap-4">
-        {Object.entries(COLORS_BY_TYPE).map(([type, color]) => (
+        {visibleTypes.map((type) => (
           <div key={type} className="flex items-center gap-2">
-            <div className={`h-3 w-3 rounded ${color}`} />
+            <div className={`h-3 w-3 rounded ${COLORS_BY_TYPE[type] || 'bg-slate-400'}`} />
             <span className="text-xs font-medium text-slate-600">{getTypeLabel(type)}</span>
           </div>
         ))}

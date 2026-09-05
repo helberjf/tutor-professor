@@ -2359,18 +2359,12 @@ async def run() -> None:
         assert_status(activity_response, 200, "today activity log")
         activity_payload = activity_response.json()
         activity_types = activity_payload["activities_by_type"]
-        for expected_type in [
-            "lesson",
-            "quiz",
-            "review",
-            "study",
-            "coding",
-            "diverse",
-            "coding_review",
-            "flashcard",
-        ]:
+        for expected_type in ["lesson", "question", "review", "coding"]:
             if activity_types.get(expected_type, 0) < 1:
                 raise AssertionError(f"expected {expected_type} in activity log, got {activity_payload}")
+        raw_activity_types = {"quiz", "study", "diverse", "coding_review", "flashcard"}
+        if raw_activity_types.intersection(activity_types):
+            raise AssertionError(f"activity log should expose normalized groups, got {activity_payload}")
 
         modules_response = await client.get("/api/admin/learn/modules")
         assert_status(modules_response, 200, "admin learn modules")

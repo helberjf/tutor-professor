@@ -956,7 +956,7 @@ class DailyActivitySchema(FromAttributesModel):
     id: int
     child_id: int
     activity_date: date
-    activity_type: str  # lesson | review | quiz | coding | question | exam
+    activity_type: str  # read API: lesson | question | review | exam | coding | leetcode
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -966,7 +966,7 @@ class DailyActivitySchema(FromAttributesModel):
 
 
 class DailyActivityCreateSchema(BaseModel):
-    activity_type: str  # lesson | review | quiz | coding | question | exam
+    activity_type: str  # raw storage type; read endpoints normalize it for the dashboard
     activity_title: str
     activity_id: Optional[int] = None
     result_score: Optional[float] = None
@@ -977,7 +977,7 @@ class DailyActivityCreateSchema(BaseModel):
 class DailyActivitySummarySchema(BaseModel):
     activity_date: date
     total_activities: int
-    activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "review": 3, "quiz": 1}
+    activities_by_type: Dict[str, int]  # ex: {"lesson": 1, "question": 3, "review": 1}
     activities: List[DailyActivitySchema] = Field(default_factory=list)
     fsrs_parameters: Optional[str] = Field(default=None, max_length=400)
     total_duration_seconds: int = 0

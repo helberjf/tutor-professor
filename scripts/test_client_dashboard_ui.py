@@ -7,6 +7,7 @@ WIDGET = (ROOT / "apps/web/src/components/daily-activity-widget.tsx").read_text(
 LOG = (ROOT / "apps/web/src/components/daily-activity-log.tsx").read_text(encoding="utf-8")
 CHART = (ROOT / "apps/web/src/components/weekly-activity-chart.tsx").read_text(encoding="utf-8")
 OVERVIEW = (ROOT / "apps/web/src/components/dashboard-overview.tsx").read_text(encoding="utf-8")
+SECTION = (ROOT / "apps/web/src/components/activity-log-section.tsx").read_text(encoding="utf-8")
 
 
 def require(condition: bool, message: str) -> None:
@@ -26,6 +27,9 @@ def main() -> None:
     require("previousWeekActivities" in OVERVIEW and "Comparativo semanal" in OVERVIEW, "overview compares current and previous week")
     require("question" in LOG and "exam" in LOG, "full log labels new activity types")
     require("question" in CHART and "exam" in CHART, "weekly chart colors new activity types")
+    require("'Quiz'" not in WIDGET + LOG + CHART, "quiz is presented as questions, not a separate category")
+    require("quizzes" not in SECTION.lower(), "dashboard copy exposes only the simplified activity groups")
+    require("visibleTypes" in CHART, "weekly legend only exposes activity types returned by the API")
     print("Client dashboard UI checks passed.")
 
 
