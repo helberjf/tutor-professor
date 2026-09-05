@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Bot, Brain, ClipboardList, Trophy } from 'lucide-react';
+import { BookOpen, Brain, ClipboardList, HelpCircle, ListChecks } from 'lucide-react';
 
 const tabs = [
-  { href: '/lesson', label: 'Lição', icon: BookOpen },
-  { href: '/study', label: 'Estudos', icon: ClipboardList },
-  { href: '/quiz', label: 'Quiz', icon: Trophy },
+  { href: '/lesson', label: 'Hoje', icon: BookOpen },
+  { href: '/study', label: 'Estudar', icon: ClipboardList },
+  { href: '/quiz', label: 'Questões', icon: HelpCircle },
   { href: '/review', label: 'Revisão', icon: Brain },
-  { href: '/chat', label: 'Chat', icon: Bot },
+  { href: '/exams', label: 'Simulado', icon: ListChecks },
 ];
 
 export function BottomNav() {
@@ -21,7 +21,7 @@ export function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Navegação rápida"
     >
-      <ul className="mx-auto flex max-w-md items-stretch justify-between px-2">
+      <ul className="mx-auto flex max-w-md items-stretch justify-between gap-1 px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
@@ -31,7 +31,7 @@ export function BottomNav() {
               <Link
                 href={tab.href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex min-h-[3.75rem] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[0.68rem] font-bold transition ${
+                className={`flex min-h-[4rem] touch-manipulation flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[0.68rem] font-bold transition active:scale-95 ${
                   isActive ? 'text-primary-dark' : 'text-slate-400'
                 }`}
               >
