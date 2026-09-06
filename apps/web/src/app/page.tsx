@@ -68,21 +68,13 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Login notice for unauthenticated users */}
+        {/* Login notice for unauthenticated users — the hero below already has the Entrar/Cadastrar buttons */}
         {isUnauthenticated && (
-          <div className="mb-6 flex flex-col items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-6 py-5 text-center sm:flex-row sm:text-left">
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-6 py-5 text-center sm:text-left">
             <LogIn size={20} className="shrink-0 text-sky-600" />
             <span className="flex-1 text-sm font-semibold text-sky-700">
               Faça cadastro ou entre para acessar as lições, quiz e livros.
             </span>
-            <div className="flex gap-2">
-              <Link href="/login" className="rounded-full bg-sky-600 px-4 py-2 text-sm font-black text-white hover:bg-sky-700">
-                Entrar
-              </Link>
-              <Link href="/register" className="rounded-full border-2 border-sky-600 px-4 py-2 text-sm font-black text-sky-700 hover:bg-sky-100">
-                Cadastrar
-              </Link>
-            </div>
           </div>
         )}
 
