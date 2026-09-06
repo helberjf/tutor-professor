@@ -40,7 +40,7 @@ const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: stri
   Spanish:  { flag: '🇪🇸', label: 'Español', ttsCode: 'es' },
   German:   { flag: '🇩🇪', label: 'Deutsch',  ttsCode: 'de' },
   Italian:  { flag: '🇮🇹', label: 'Italiano', ttsCode: 'it' },
-  Japanese: { flag: '🇯🇵', label: '日本語',  ttsCode: 'ja' },
+  Russian:  { flag: '🇷🇺', label: 'Русский', ttsCode: 'ru' },
 };
 
 const LEVEL_CACHE_KEY = 'child_level_cache';

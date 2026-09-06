@@ -19,7 +19,7 @@ const LANGUAGES = [
   { value: 'Spanish',  flag: '🇪🇸', label: 'Espanhol' },
   { value: 'German',   flag: '🇩🇪', label: 'Alemão' },
   { value: 'Italian',  flag: '🇮🇹', label: 'Italiano' },
-  { value: 'Japanese', flag: '🇯🇵', label: 'Japonês' },
+  { value: 'Russian',  flag: '🇷🇺', label: 'Russo' },
 ];
 
 const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
