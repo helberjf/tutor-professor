@@ -1029,6 +1029,18 @@ def _run_schema_migrations() -> None:
                 conn.execute(text('ALTER TABLE "user" ADD COLUMN email_verified_at TIMESTAMP'))
             except Exception:
                 pass
+        # Base-language translations for lesson questions: Alembic 0021 owns the normal path.
+        for _column, _definition in (
+            ("front_translation", "VARCHAR(500)"),
+            ("supporting_example_translation", "VARCHAR(1000)"),
+        ):
+            try:
+                conn.execute(text(f"ALTER TABLE lessonquestion ADD COLUMN IF NOT EXISTS {_column} {_definition}"))
+            except Exception:
+                try:
+                    conn.execute(text(f"ALTER TABLE lessonquestion ADD COLUMN {_column} {_definition}"))
+                except Exception:
+                    pass
         conn.commit()
 
 
@@ -1509,6 +1521,8 @@ def _persist_generated_language_lesson(
                     front_key=front_key_for(question.front),
                     back=question.back,
                     supporting_example=question.supporting_example,
+                    front_translation=question.front_translation,
+                    supporting_example_translation=question.supporting_example_translation,
                 )
             )
 
@@ -1571,6 +1585,8 @@ def _materialize_shared_lesson_questions_for_child(
                 front_key=source.front_key,
                 back=source.back,
                 supporting_example=source.supporting_example,
+                front_translation=source.front_translation,
+                supporting_example_translation=source.supporting_example_translation,
             )
         )
 
@@ -2278,6 +2294,8 @@ def generate_lesson_questions(
                     front_key=front_key_for(question.front),
                     back=question.back,
                     supporting_example=question.supporting_example,
+                    front_translation=question.front_translation,
+                    supporting_example_translation=question.supporting_example_translation,
                     next_review=now,
                     created_at=now,
                 )

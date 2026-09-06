@@ -252,6 +252,8 @@ class LessonQuestion(SQLModel, table=True):
     front_key: str = Field(max_length=64)
     back: str = Field(max_length=2000)
     supporting_example: Optional[str] = Field(default=None, max_length=1000)
+    front_translation: Optional[str] = Field(default=None, max_length=500)
+    supporting_example_translation: Optional[str] = Field(default=None, max_length=1000)
     difficulty_score: float = Field(default=0.45)
     attempt_count: int = Field(default=0)
     correct_count: int = Field(default=0)

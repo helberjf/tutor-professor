@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Brain,
   CheckCircle2,
+  Languages,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -70,6 +71,7 @@ export default function ReviewPage() {
   const [flipped, setFlipped] = useState(false);
   const [chosenLevel, setChosenLevel] = useState<ConfidenceLevel | null>(null);
   const [lessonAnswerRevealed, setLessonAnswerRevealed] = useState(false);
+  const [phraseTranslationShown, setPhraseTranslationShown] = useState(false);
   const [masteredCount, setMasteredCount] = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioSpeed, setAudioSpeed] = useState<0.5 | 0.75 | 1.0>(1.0);
@@ -103,6 +105,7 @@ export default function ReviewPage() {
     setFlipped(false);
     setChosenLevel(null);
     setLessonAnswerRevealed(false);
+    setPhraseTranslationShown(false);
     setCurrentIndex(0);
     setMasteredCount(0);
     setSubmitting(false);
@@ -294,6 +297,7 @@ export default function ReviewPage() {
     setFlipped(transition.flipped);
     setChosenLevel(null);
     setLessonAnswerRevealed(false);
+    setPhraseTranslationShown(false);
     if (immediate) {
       reviewTransitionRef.current = transition;
       activeReviewCardRef.current = reviewSession.items[transition.currentIndex] ?? null;
@@ -603,6 +607,24 @@ export default function ReviewPage() {
             </div>
             <h1 className="mt-6 text-2xl font-black leading-snug text-slate-800 md:text-3xl">{card.prompt}</h1>
 
+            {phraseTranslationShown && card.prompt_translation && (
+              <p className="mt-3 rounded-2xl bg-violet-50 px-4 py-3 text-base font-semibold text-slate-600" aria-live="polite">
+                {card.prompt_translation}
+              </p>
+            )}
+
+            {(card.prompt_translation || card.supporting_example_translation) && (
+              <button
+                type="button"
+                onClick={() => setPhraseTranslationShown((shown) => !shown)}
+                aria-expanded={phraseTranslationShown}
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-violet-200 px-4 py-2 text-sm font-black text-violet-700 transition hover:bg-violet-50"
+              >
+                <Languages size={16} />
+                {phraseTranslationShown ? 'Ocultar traducao da frase' : 'Ver traducao da frase'}
+              </button>
+            )}
+
             {!lessonAnswerRevealed ? (
               <button
                 type="button"
@@ -621,6 +643,9 @@ export default function ReviewPage() {
                     <div className="mt-4 border-t border-violet-200 pt-4">
                       <p className="text-xs font-black uppercase tracking-widest text-violet-500">Exemplo de apoio</p>
                       <p className="mt-1 text-sm font-semibold text-slate-600">{card.supporting_example}</p>
+                      {phraseTranslationShown && card.supporting_example_translation && (
+                        <p className="mt-1 text-sm font-semibold text-slate-500">{card.supporting_example_translation}</p>
+                      )}
                     </div>
                   )}
                 </div>

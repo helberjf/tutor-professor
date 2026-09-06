@@ -35,6 +35,8 @@ class LessonQuestionSchema(FromAttributesModel):
     front: str
     back: str
     supporting_example: Optional[str] = None
+    front_translation: Optional[str] = None
+    supporting_example_translation: Optional[str] = None
     created_at: datetime
 
 class LessonSchema(BaseModel):
@@ -92,6 +94,8 @@ class GeneratedLessonQuestionSchema(BaseModel):
         "contextual_usage",
     ]
     supporting_example: Optional[str] = Field(default=None, max_length=1000)
+    front_translation: Optional[str] = Field(default=None, max_length=500)
+    supporting_example_translation: Optional[str] = Field(default=None, max_length=1000)
 
 
 class GeneratedLessonDraftSchema(BaseModel):
@@ -158,6 +162,8 @@ class LessonQuestionReviewCardSchema(BaseModel):
     answer: str
     question_type: str
     supporting_example: Optional[str] = None
+    prompt_translation: Optional[str] = None
+    supporting_example_translation: Optional[str] = None
     difficulty_score: float
     error_count: int
 
