@@ -1,0 +1,62 @@
+{
+  "id": 13,
+  "level": 5,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opiniao, condicional e presente continuo em frances (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Je pense que nous devrions partir plus tot la prochaine fois.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "Je pense que", "pt": "eu acho que" },
+          { "en": "nous devrions", "pt": "deveriamos" },
+          { "en": "partir plus tot", "pt": "sair mais cedo" },
+          { "en": "la prochaine fois", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "S'il pleut demain, nous resterons a la maison.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "S'il pleut", "pt": "se chover" },
+          { "en": "demain", "pt": "amanha" },
+          { "en": "nous resterons", "pt": "vamos ficar" },
+          { "en": "a la maison", "pt": "em casa" }
+        ]
+      },
+      {
+        "phrase_en": "J'apprends cette langue depuis deux ans.",
+        "phrase_pt": "Eu aprendo esse idioma ha dois anos.",
+        "word_by_word": [
+          { "en": "J'apprends", "pt": "eu aprendo" },
+          { "en": "cette langue", "pt": "esse idioma" },
+          { "en": "depuis deux ans", "pt": "ha dois anos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Je pense que nous devrions partir plus tot la prochaine fois.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "\"Devrions\" (conditional of \"devoir\") softens a suggestion.",
+      "example_sentence_pt": "\"Devrions\" (condicional de \"devoir\") suaviza uma sugestao."
+    },
+    {
+      "word_en": "S'il pleut demain, nous resterons a la maison.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "A real future condition: \"si\" + present, main clause in the future.",
+      "example_sentence_pt": "Uma condicao real no futuro: \"si\" + presente, oracao principal no futuro."
+    },
+    {
+      "word_en": "J'apprends cette langue depuis deux ans.",
+      "word_pt": "Eu aprendo esse idioma ha dois anos.",
+      "example_sentence_en": "French uses the present tense with \"depuis\" for an action still happening.",
+      "example_sentence_pt": "O frances usa o presente com \"depuis\" para uma acao que ainda esta acontecendo."
+    }
+  ]
+}

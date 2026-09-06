@@ -1,0 +1,59 @@
+{
+  "id": 38,
+  "level": 7,
+  "target_language": "Russian",
+  "title": "Russo de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva e concessao em russo (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Встречу перенесли на следующую неделю.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "Встречу перенесли", "pt": "a reuniao foi adiada" },
+          { "en": "на следующую неделю", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "Я случайно встретил старого друга в торговом центре.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "Я случайно встретил", "pt": "eu encontrei por acaso" },
+          { "en": "старого друга", "pt": "um velho amigo" },
+          { "en": "в торговом центре", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "Несмотря на дождь, они решили пойти в поход.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "Несмотря на дождь", "pt": "apesar da chuva" },
+          { "en": "они решили", "pt": "eles decidiram" },
+          { "en": "пойти в поход", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Встречу перенесли на следующую неделю.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Russian often uses an impersonal active construction (\"they postponed\") instead of a true passive.",
+      "example_sentence_pt": "O russo costuma usar uma construcao ativa impessoal (\"adiaram\") em vez de uma passiva verdadeira."
+    },
+    {
+      "word_en": "Я случайно встретил старого друга в торговом центре.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Случайно\" means \"by chance\" or \"accidentally\".",
+      "example_sentence_pt": "\"Случайно\" significa \"por acaso\" ou \"acidentalmente\"."
+    },
+    {
+      "word_en": "Несмотря на дождь, они решили пойти в поход.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"Несмотря на\" (+ accusative) introduces a contrast, similar to \"despite\".",
+      "example_sentence_pt": "\"Несмотря на\" (+ acusativo) introduz um contraste, parecido com \"despite\"."
+    }
+  ]
+}

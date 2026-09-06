@@ -1,0 +1,59 @@
+{
+  "id": 31,
+  "level": 5,
+  "target_language": "Italian",
+  "title": "Italiano de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opiniao, condicional e presente continuo em italiano (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Penso che dovremmo partire prima la prossima volta.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "Penso che", "pt": "eu acho que" },
+          { "en": "dovremmo partire prima", "pt": "deveriamos sair mais cedo" },
+          { "en": "la prossima volta", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "Se domani piove, resteremo a casa.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "Se domani piove", "pt": "se chover amanha" },
+          { "en": "resteremo a casa", "pt": "vamos ficar em casa" }
+        ]
+      },
+      {
+        "phrase_en": "Sto imparando questa lingua da due anni.",
+        "phrase_pt": "Eu aprendo esse idioma ha dois anos.",
+        "word_by_word": [
+          { "en": "Sto imparando", "pt": "eu aprendo" },
+          { "en": "questa lingua", "pt": "esse idioma" },
+          { "en": "da due anni", "pt": "ha dois anos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Penso che dovremmo partire prima la prossima volta.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "\"Dovremmo\" (conditional of \"dovere\") softens a suggestion.",
+      "example_sentence_pt": "\"Dovremmo\" (condicional de \"dovere\") suaviza uma sugestao."
+    },
+    {
+      "word_en": "Se domani piove, resteremo a casa.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "A real future condition: \"se\" + present, main clause in the future.",
+      "example_sentence_pt": "Uma condicao real no futuro: \"se\" + presente, oracao principal no futuro."
+    },
+    {
+      "word_en": "Sto imparando questa lingua da due anni.",
+      "word_pt": "Eu aprendo esse idioma ha dois anos.",
+      "example_sentence_en": "\"Stare\" + gerund with \"da\" shows an action still in progress.",
+      "example_sentence_pt": "\"Stare\" + gerundio com \"da\" mostra uma acao ainda em andamento."
+    }
+  ]
+}

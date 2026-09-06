@@ -1,0 +1,60 @@
+{
+  "id": 34,
+  "level": 10,
+  "target_language": "Italian",
+  "title": "Italiano de hoje - Nivel C2",
+  "theme": "Frases do dia",
+  "objective": "Pratique registro formal e expressoes idiomaticas em italiano (nivel C2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "La decisione del comitato, sebbene controversa, e stata infine confermata.",
+        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "word_by_word": [
+          { "en": "La decisione del comitato", "pt": "a decisao do comite" },
+          { "en": "sebbene controversa", "pt": "embora controversa" },
+          { "en": "e stata infine confermata", "pt": "foi finalmente mantida" }
+        ]
+      },
+      {
+        "phrase_en": "Ha una capacita sorprendente di leggere tra le righe.",
+        "phrase_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+        "word_by_word": [
+          { "en": "Ha", "pt": "ela tem" },
+          { "en": "una capacita sorprendente", "pt": "uma habilidade impressionante" },
+          { "en": "di leggere tra le righe", "pt": "de ler nas entrelinhas" }
+        ]
+      },
+      {
+        "phrase_en": "Date le circostanze, sarebbe prudente riconsiderare il nostro approccio.",
+        "phrase_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+        "word_by_word": [
+          { "en": "Date le circostanze", "pt": "dadas as circunstancias" },
+          { "en": "sarebbe prudente", "pt": "seria prudente" },
+          { "en": "riconsiderare il nostro approccio", "pt": "reconsiderar nossa abordagem" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "La decisione del comitato, sebbene controversa, e stata infine confermata.",
+      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "example_sentence_en": "\"Sebbene\" requires the subjunctive and opens a mid-sentence concession.",
+      "example_sentence_pt": "\"Sebbene\" exige o subjuntivo e abre uma concessao no meio da frase."
+    },
+    {
+      "word_en": "Ha una capacita sorprendente di leggere tra le righe.",
+      "word_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+      "example_sentence_en": "\"Leggere tra le righe\" is an idiom for understanding a hidden meaning.",
+      "example_sentence_pt": "\"Leggere tra le righe\" e uma expressao idiomatica para entender um sentido oculto."
+    },
+    {
+      "word_en": "Date le circostanze, sarebbe prudente riconsiderare il nostro approccio.",
+      "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+      "example_sentence_en": "\"Date le circostanze\" is a formal way to say \"considering the situation\".",
+      "example_sentence_pt": "\"Date le circostanze\" e uma forma formal de dizer \"considerando a situacao\"."
+    }
+  ]
+}

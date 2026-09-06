@@ -1,0 +1,57 @@
+{
+  "id": 11,
+  "level": 1,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel A1",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em frances hoje (nivel A1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Bonjour ! Comment allez-vous ?",
+        "phrase_pt": "Ola! Como voce esta?",
+        "word_by_word": [
+          { "en": "Bonjour", "pt": "ola" },
+          { "en": "Comment allez-vous", "pt": "como voce esta" }
+        ]
+      },
+      {
+        "phrase_en": "Je m'appelle Ana.",
+        "phrase_pt": "Meu nome e Ana.",
+        "word_by_word": [
+          { "en": "Je m'appelle", "pt": "meu nome e" },
+          { "en": "Ana", "pt": "Ana" }
+        ]
+      },
+      {
+        "phrase_en": "Merci beaucoup.",
+        "phrase_pt": "Muito obrigado(a).",
+        "word_by_word": [
+          { "en": "Merci", "pt": "obrigado" },
+          { "en": "beaucoup", "pt": "muito" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Bonjour ! Comment allez-vous ?",
+      "word_pt": "Ola! Como voce esta?",
+      "example_sentence_en": "A polite greeting used with someone you don't know well.",
+      "example_sentence_pt": "Uma saudacao educada usada com alguem que voce nao conhece bem."
+    },
+    {
+      "word_en": "Je m'appelle Ana.",
+      "word_pt": "Meu nome e Ana.",
+      "example_sentence_en": "Use this phrase to introduce yourself.",
+      "example_sentence_pt": "Use essa frase para se apresentar."
+    },
+    {
+      "word_en": "Merci beaucoup.",
+      "word_pt": "Muito obrigado(a).",
+      "example_sentence_en": "Say this to thank someone warmly.",
+      "example_sentence_pt": "Diga isso para agradecer alguem calorosamente."
+    }
+  ]
+}

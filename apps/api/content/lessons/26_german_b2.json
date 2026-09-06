@@ -1,0 +1,61 @@
+{
+  "id": 26,
+  "level": 7,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva e concessao em alemao (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Das Treffen wurde auf nachste Woche verschoben.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "Das Treffen", "pt": "a reuniao" },
+          { "en": "wurde verschoben", "pt": "foi adiada" },
+          { "en": "auf nachste Woche", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "Ich bin zufallig einem alten Freund im Einkaufszentrum begegnet.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "Ich bin begegnet", "pt": "eu encontrei" },
+          { "en": "zufallig", "pt": "por acaso" },
+          { "en": "einem alten Freund", "pt": "um velho amigo" },
+          { "en": "im Einkaufszentrum", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "Trotz des Regens beschlossen sie, wandern zu gehen.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "Trotz des Regens", "pt": "apesar da chuva" },
+          { "en": "beschlossen sie", "pt": "eles decidiram" },
+          { "en": "wandern zu gehen", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Das Treffen wurde auf nachste Woche verschoben.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Passive voice with \"werden\" + past participle is common in formal German.",
+      "example_sentence_pt": "A voz passiva com \"werden\" + participio e comum no alemao formal."
+    },
+    {
+      "word_en": "Ich bin zufallig einem alten Freund im Einkaufszentrum begegnet.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Begegnen\" takes the dative case: \"einem alten Freund\".",
+      "example_sentence_pt": "\"Begegnen\" exige o caso dativo: \"einem alten Freund\"."
+    },
+    {
+      "word_en": "Trotz des Regens beschlossen sie, wandern zu gehen.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"Trotz\" takes the genitive case and introduces a contrast.",
+      "example_sentence_pt": "\"Trotz\" exige o caso genitivo e introduz um contraste."
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": 21,
+  "level": 9,
+  "target_language": "Spanish",
+  "title": "Espanhol de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique condicional composto e registro formal em espanhol (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Si hubiera sabido lo del trafico, habria salido antes.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Si hubiera sabido", "pt": "se eu soubesse" },
+          { "en": "lo del trafico", "pt": "do transito" },
+          { "en": "habria salido antes", "pt": "eu teria saido mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "La propuesta recibio reacciones encontradas por parte de la junta.",
+        "phrase_pt": "A proposta recebeu reacoes divididas por parte da diretoria.",
+        "word_by_word": [
+          { "en": "La propuesta", "pt": "a proposta" },
+          { "en": "recibio reacciones encontradas", "pt": "recebeu reacoes divididas" },
+          { "en": "por parte de la junta", "pt": "por parte da diretoria" }
+        ]
+      },
+      {
+        "phrase_en": "No es raro que los precios fluctuen durante las fiestas.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "No es raro", "pt": "nao e incomum" },
+          { "en": "que los precios fluctuen", "pt": "que os precos oscilem" },
+          { "en": "durante las fiestas", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Si hubiera sabido lo del trafico, habria salido antes.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "The third conditional (pluscuamperfecto de subjuntivo + condicional compuesto) expresses an unreal past.",
+      "example_sentence_pt": "O terceiro condicional (pluscuamperfecto de subjuntivo + condicional composto) expressa um passado irreal."
+    },
+    {
+      "word_en": "La propuesta recibio reacciones encontradas por parte de la junta.",
+      "word_pt": "A proposta recebeu reacoes divididas por parte da diretoria.",
+      "example_sentence_en": "\"Reacciones encontradas\" describes mixed or conflicting reactions.",
+      "example_sentence_pt": "\"Reacciones encontradas\" descreve reacoes mistas ou conflitantes."
+    },
+    {
+      "word_en": "No es raro que los precios fluctuen durante las fiestas.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "\"No es raro que\" + subjunctive softens a statement in formal Spanish.",
+      "example_sentence_pt": "\"No es raro que\" + subjuntivo suaviza uma afirmacao no espanhol formal."
+    }
+  ]
+}

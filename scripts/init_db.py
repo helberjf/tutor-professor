@@ -63,6 +63,7 @@ def init_db():
                         objective=data['objective'],
                         content=data.get('content', {}),
                         child_id=None,
+                        level=data.get('level'),
                         target_language=data.get('target_language', 'English'),
                     )
                     session.add(lesson)
@@ -75,6 +76,7 @@ def init_db():
                         lesson.title != data['title']
                         or lesson.theme != data['theme']
                         or lesson.objective != data['objective']
+                        or lesson.level != data.get('level')
                         or (lesson.content or {}) != data.get('content', {})
                     )
                     lesson.title = data['title']
@@ -82,6 +84,7 @@ def init_db():
                     lesson.objective = data['objective']
                     lesson.content = data.get('content', {})
                     lesson.child_id = None
+                    lesson.level = data.get('level')
                     lesson.target_language = data.get('target_language', 'English')
                     if content_changed:
                         lesson.is_completed = False

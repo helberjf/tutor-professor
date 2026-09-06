@@ -1,0 +1,60 @@
+{
+  "id": 20,
+  "level": 7,
+  "target_language": "Spanish",
+  "title": "Espanhol de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva e concessao em espanhol (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "La reunion ha sido pospuesta hasta la proxima semana.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "La reunion", "pt": "a reuniao" },
+          { "en": "ha sido pospuesta", "pt": "foi adiada" },
+          { "en": "hasta la proxima semana", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "Me encontre por casualidad con un viejo amigo en el centro comercial.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "Me encontre por casualidad", "pt": "eu encontrei por acaso" },
+          { "en": "con un viejo amigo", "pt": "um velho amigo" },
+          { "en": "en el centro comercial", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "A pesar de la lluvia, decidieron ir de excursion.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "A pesar de la lluvia", "pt": "apesar da chuva" },
+          { "en": "decidieron", "pt": "eles decidiram" },
+          { "en": "ir de excursion", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "La reunion ha sido pospuesta hasta la proxima semana.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Passive voice with \"ser\" + past participle is common in formal Spanish.",
+      "example_sentence_pt": "A voz passiva com \"ser\" + participio e comum no espanhol formal."
+    },
+    {
+      "word_en": "Me encontre por casualidad con un viejo amigo en el centro comercial.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Por casualidad\" means \"by chance\" or \"unexpectedly\".",
+      "example_sentence_pt": "\"Por casualidad\" significa \"por acaso\" ou \"inesperadamente\"."
+    },
+    {
+      "word_en": "A pesar de la lluvia, decidieron ir de excursion.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"A pesar de\" introduces a contrast, similar to \"despite\".",
+      "example_sentence_pt": "\"A pesar de\" introduz um contraste, parecido com \"despite\"."
+    }
+  ]
+}

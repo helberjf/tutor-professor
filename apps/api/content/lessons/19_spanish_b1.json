@@ -1,0 +1,62 @@
+{
+  "id": 19,
+  "level": 5,
+  "target_language": "Spanish",
+  "title": "Espanhol de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opiniao, condicional e presente continuo em espanhol (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Creo que deberiamos salir mas temprano la proxima vez.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "Creo que", "pt": "eu acho que" },
+          { "en": "deberiamos salir", "pt": "deveriamos sair" },
+          { "en": "mas temprano", "pt": "mais cedo" },
+          { "en": "la proxima vez", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "Si llueve mañana, nos quedaremos en casa.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "Si llueve", "pt": "se chover" },
+          { "en": "mañana", "pt": "amanha" },
+          { "en": "nos quedaremos", "pt": "vamos ficar" },
+          { "en": "en casa", "pt": "em casa" }
+        ]
+      },
+      {
+        "phrase_en": "Llevo dos años aprendiendo este idioma.",
+        "phrase_pt": "Eu aprendo esse idioma ha dois anos.",
+        "word_by_word": [
+          { "en": "Llevo dos años", "pt": "ha dois anos" },
+          { "en": "aprendiendo", "pt": "aprendendo" },
+          { "en": "este idioma", "pt": "esse idioma" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Creo que deberiamos salir mas temprano la proxima vez.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "\"Deberiamos\" (conditional of \"deber\") softens a suggestion.",
+      "example_sentence_pt": "\"Deberiamos\" (condicional de \"deber\") suaviza uma sugestao."
+    },
+    {
+      "word_en": "Si llueve mañana, nos quedaremos en casa.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "A real future condition: \"si\" + present, main clause in the future.",
+      "example_sentence_pt": "Uma condicao real no futuro: \"si\" + presente, oracao principal no futuro."
+    },
+    {
+      "word_en": "Llevo dos años aprendiendo este idioma.",
+      "word_pt": "Eu aprendo esse idioma ha dois anos.",
+      "example_sentence_en": "\"Llevar\" + time + gerund shows how long an action has been happening.",
+      "example_sentence_pt": "\"Llevar\" + tempo + gerundio mostra ha quanto tempo uma acao acontece."
+    }
+  ]
+}

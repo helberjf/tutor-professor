@@ -1,0 +1,62 @@
+{
+  "id": 9,
+  "level": 9,
+  "title": "Ingles de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique terceiro condicional e linguagem formal em ingles (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Had I known about the traffic, I would have left earlier.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Had I known", "pt": "se eu soubesse" },
+          { "en": "about the traffic", "pt": "do transito" },
+          { "en": "I would have left", "pt": "eu teria saido" },
+          { "en": "earlier", "pt": "mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "The proposal was met with mixed reactions from the board.",
+        "phrase_pt": "A proposta foi recebida com reacoes mistas pelo conselho.",
+        "word_by_word": [
+          { "en": "The proposal", "pt": "a proposta" },
+          { "en": "was met with", "pt": "foi recebida com" },
+          { "en": "mixed reactions", "pt": "reacoes mistas" },
+          { "en": "from the board", "pt": "pelo conselho" }
+        ]
+      },
+      {
+        "phrase_en": "It's not uncommon for prices to fluctuate during the holidays.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "It's not uncommon", "pt": "nao e incomum" },
+          { "en": "for prices", "pt": "que os precos" },
+          { "en": "to fluctuate", "pt": "oscilem" },
+          { "en": "during the holidays", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Had I known about the traffic, I would have left earlier.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "This inverted structure replaces \"If I had known\" in more formal speech and writing.",
+      "example_sentence_pt": "Essa estrutura invertida substitui \"If I had known\" em fala e escrita mais formais."
+    },
+    {
+      "word_en": "The proposal was met with mixed reactions from the board.",
+      "word_pt": "A proposta foi recebida com reacoes mistas pelo conselho.",
+      "example_sentence_en": "\"Met with\" here means \"received\" — common in reports and formal updates.",
+      "example_sentence_pt": "\"Met with\" aqui significa \"recebida\" — comum em relatorios e comunicados formais."
+    },
+    {
+      "word_en": "It's not uncommon for prices to fluctuate during the holidays.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "Double negatives like \"not uncommon\" soften a statement in formal English.",
+      "example_sentence_pt": "Negativas duplas como \"not uncommon\" suavizam uma afirmacao no ingles formal."
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": 25,
+  "level": 5,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opiniao, oracoes condicionais e presente em alemao (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Ich denke, wir sollten das nachste Mal fruher losfahren.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "Ich denke", "pt": "eu acho" },
+          { "en": "wir sollten", "pt": "deveriamos" },
+          { "en": "fruher losfahren", "pt": "sair mais cedo" },
+          { "en": "das nachste Mal", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "Wenn es morgen regnet, bleiben wir zu Hause.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "Wenn es regnet", "pt": "se chover" },
+          { "en": "morgen", "pt": "amanha" },
+          { "en": "bleiben wir", "pt": "vamos ficar" },
+          { "en": "zu Hause", "pt": "em casa" }
+        ]
+      },
+      {
+        "phrase_en": "Ich lerne diese Sprache seit zwei Jahren.",
+        "phrase_pt": "Eu aprendo esse idioma ha dois anos.",
+        "word_by_word": [
+          { "en": "Ich lerne", "pt": "eu aprendo" },
+          { "en": "diese Sprache", "pt": "esse idioma" },
+          { "en": "seit zwei Jahren", "pt": "ha dois anos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Ich denke, wir sollten das nachste Mal fruher losfahren.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "\"Sollten\" (subjunctive of \"sollen\") softens a suggestion.",
+      "example_sentence_pt": "\"Sollten\" (subjuntivo de \"sollen\") suaviza uma sugestao."
+    },
+    {
+      "word_en": "Wenn es morgen regnet, bleiben wir zu Hause.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "A real future condition with \"wenn\" sends the verb to the end of the clause.",
+      "example_sentence_pt": "Uma condicao real no futuro com \"wenn\" manda o verbo para o final da oracao."
+    },
+    {
+      "word_en": "Ich lerne diese Sprache seit zwei Jahren.",
+      "word_pt": "Eu aprendo esse idioma ha dois anos.",
+      "example_sentence_en": "German uses the present tense with \"seit\" for an action still happening.",
+      "example_sentence_pt": "O alemao usa o presente com \"seit\" para uma acao que ainda esta acontecendo."
+    }
+  ]
+}

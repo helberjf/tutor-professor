@@ -1,0 +1,61 @@
+{
+  "id": 39,
+  "level": 9,
+  "target_language": "Russian",
+  "title": "Russo de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique periodo condicional irreal e registro formal em russo (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Если бы я знал о пробках, я бы выехал раньше.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Если бы я знал", "pt": "se eu soubesse" },
+          { "en": "о пробках", "pt": "do transito" },
+          { "en": "я бы выехал раньше", "pt": "eu teria saido mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "Предложение вызвало неоднозначную реакцию совета.",
+        "phrase_pt": "A proposta gerou reacoes divididas no conselho.",
+        "word_by_word": [
+          { "en": "Предложение", "pt": "a proposta" },
+          { "en": "вызвало", "pt": "gerou" },
+          { "en": "неоднозначную реакцию", "pt": "reacoes divididas" },
+          { "en": "совета", "pt": "no conselho" }
+        ]
+      },
+      {
+        "phrase_en": "Нередко цены колеблются во время праздников.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "Нередко", "pt": "nao e incomum" },
+          { "en": "цены колеблются", "pt": "os precos oscilem" },
+          { "en": "во время праздников", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Если бы я знал о пробках, я бы выехал раньше.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "Russian marks the unreal conditional with \"бы\" in both clauses, regardless of tense.",
+      "example_sentence_pt": "O russo marca o condicional irreal com \"бы\" nas duas oracoes, independente do tempo verbal."
+    },
+    {
+      "word_en": "Предложение вызвало неоднозначную реакцию совета.",
+      "word_pt": "A proposta gerou reacoes divididas no conselho.",
+      "example_sentence_en": "\"Вызвать реакцию\" is a formal collocation meaning \"to provoke a reaction\".",
+      "example_sentence_pt": "\"Вызвать реакцию\" e uma colocacao formal que significa \"provocar uma reacao\"."
+    },
+    {
+      "word_en": "Нередко цены колеблются во время праздников.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "Double negatives like \"нередко\" (\"not rarely\") soften a statement in formal Russian.",
+      "example_sentence_pt": "Negativas duplas como \"нередко\" (\"nao raramente\") suavizam uma afirmacao no russo formal."
+    }
+  ]
+}

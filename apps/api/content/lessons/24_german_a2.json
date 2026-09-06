@@ -1,0 +1,61 @@
+{
+  "id": 24,
+  "level": 3,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel A2",
+  "theme": "Frases do dia",
+  "objective": "Pratique passado, futuro proximo e pedidos em alemao (nivel A2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Ich bin gestern auf den Markt gegangen.",
+        "phrase_pt": "Eu fui ao mercado ontem.",
+        "word_by_word": [
+          { "en": "Ich bin gegangen", "pt": "eu fui" },
+          { "en": "auf den Markt", "pt": "ao mercado" },
+          { "en": "gestern", "pt": "ontem" }
+        ]
+      },
+      {
+        "phrase_en": "Sie wird dich spater anrufen.",
+        "phrase_pt": "Ela vai te ligar mais tarde.",
+        "word_by_word": [
+          { "en": "Sie wird anrufen", "pt": "ela vai ligar" },
+          { "en": "dich", "pt": "te" },
+          { "en": "spater", "pt": "mais tarde" }
+        ]
+      },
+      {
+        "phrase_en": "Kannst du mir bitte damit helfen?",
+        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "word_by_word": [
+          { "en": "Kannst du helfen", "pt": "voce pode ajudar" },
+          { "en": "mir", "pt": "me" },
+          { "en": "damit", "pt": "com isso" },
+          { "en": "bitte", "pt": "por favor" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Ich bin gestern auf den Markt gegangen.",
+      "word_pt": "Eu fui ao mercado ontem.",
+      "example_sentence_en": "Verbs of movement like \"gehen\" use \"sein\" in the perfect tense.",
+      "example_sentence_pt": "Verbos de movimento como \"gehen\" usam \"sein\" no perfeito."
+    },
+    {
+      "word_en": "Sie wird dich spater anrufen.",
+      "word_pt": "Ela vai te ligar mais tarde.",
+      "example_sentence_en": "\"Werden\" + infinitive builds the future tense in German.",
+      "example_sentence_pt": "\"Werden\" + infinitivo forma o futuro em alemao."
+    },
+    {
+      "word_en": "Kannst du mir bitte damit helfen?",
+      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "example_sentence_en": "A polite way to ask someone for help.",
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+    }
+  ]
+}

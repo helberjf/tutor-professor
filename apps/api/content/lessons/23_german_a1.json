@@ -1,0 +1,57 @@
+{
+  "id": 23,
+  "level": 1,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel A1",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em alemao hoje (nivel A1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Hallo! Wie geht es dir?",
+        "phrase_pt": "Ola! Como voce esta?",
+        "word_by_word": [
+          { "en": "Hallo", "pt": "ola" },
+          { "en": "Wie geht es dir", "pt": "como voce esta" }
+        ]
+      },
+      {
+        "phrase_en": "Ich heiße Ana.",
+        "phrase_pt": "Meu nome e Ana.",
+        "word_by_word": [
+          { "en": "Ich heiße", "pt": "meu nome e" },
+          { "en": "Ana", "pt": "Ana" }
+        ]
+      },
+      {
+        "phrase_en": "Vielen Dank.",
+        "phrase_pt": "Muito obrigado(a).",
+        "word_by_word": [
+          { "en": "Vielen", "pt": "muito" },
+          { "en": "Dank", "pt": "obrigado" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Hallo! Wie geht es dir?",
+      "word_pt": "Ola! Como voce esta?",
+      "example_sentence_en": "A friendly, informal greeting used with friends or peers.",
+      "example_sentence_pt": "Uma saudacao amigavel e informal usada com amigos ou colegas."
+    },
+    {
+      "word_en": "Ich heiße Ana.",
+      "word_pt": "Meu nome e Ana.",
+      "example_sentence_en": "Use this phrase to introduce yourself.",
+      "example_sentence_pt": "Use essa frase para se apresentar."
+    },
+    {
+      "word_en": "Vielen Dank.",
+      "word_pt": "Muito obrigado(a).",
+      "example_sentence_en": "Say this to thank someone warmly.",
+      "example_sentence_pt": "Diga isso para agradecer alguem calorosamente."
+    }
+  ]
+}

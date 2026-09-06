@@ -1,0 +1,61 @@
+{
+  "id": 33,
+  "level": 9,
+  "target_language": "Italian",
+  "title": "Italiano de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique periodo ipotetico e registro formal em italiano (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Se avessi saputo del traffico, sarei partito prima.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Se avessi saputo", "pt": "se eu soubesse" },
+          { "en": "del traffico", "pt": "do transito" },
+          { "en": "sarei partito prima", "pt": "eu teria saido mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "La proposta ha suscitato reazioni contrastanti nel consiglio.",
+        "phrase_pt": "A proposta gerou reacoes divididas no conselho.",
+        "word_by_word": [
+          { "en": "La proposta", "pt": "a proposta" },
+          { "en": "ha suscitato", "pt": "gerou" },
+          { "en": "reazioni contrastanti", "pt": "reacoes divididas" },
+          { "en": "nel consiglio", "pt": "no conselho" }
+        ]
+      },
+      {
+        "phrase_en": "Non e raro che i prezzi fluttuino durante le festivita.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "Non e raro", "pt": "nao e incomum" },
+          { "en": "che i prezzi fluttuino", "pt": "que os precos oscilem" },
+          { "en": "durante le festivita", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Se avessi saputo del traffico, sarei partito prima.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "The third \"periodo ipotetico\" (congiuntivo trapassato + condizionale passato) expresses an unreal past.",
+      "example_sentence_pt": "O terceiro \"periodo ipotetico\" (congiuntivo trapassato + condizionale passato) expressa um passado irreal."
+    },
+    {
+      "word_en": "La proposta ha suscitato reazioni contrastanti nel consiglio.",
+      "word_pt": "A proposta gerou reacoes divididas no conselho.",
+      "example_sentence_en": "\"Suscitare\" is a formal verb meaning to provoke or bring about a reaction.",
+      "example_sentence_pt": "\"Suscitare\" e um verbo formal que significa provocar ou gerar uma reacao."
+    },
+    {
+      "word_en": "Non e raro che i prezzi fluttuino durante le festivita.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "\"Non e raro che\" + subjunctive softens a statement in formal Italian.",
+      "example_sentence_pt": "\"Non e raro che\" + subjuntivo suaviza uma afirmacao no italiano formal."
+    }
+  ]
+}

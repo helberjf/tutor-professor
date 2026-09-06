@@ -1,0 +1,60 @@
+{
+  "id": 16,
+  "level": 10,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel C2",
+  "theme": "Frases do dia",
+  "objective": "Pratique registro formal e expressoes idiomaticas em frances (nivel C2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "La decision du comite, bien que controversee, a finalement ete maintenue.",
+        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "word_by_word": [
+          { "en": "La decision du comite", "pt": "a decisao do comite" },
+          { "en": "bien que controversee", "pt": "embora controversa" },
+          { "en": "a finalement ete maintenue", "pt": "foi finalmente mantida" }
+        ]
+      },
+      {
+        "phrase_en": "Elle a une capacite remarquable a lire entre les lignes.",
+        "phrase_pt": "Ela tem uma habilidade notavel de ler nas entrelinhas.",
+        "word_by_word": [
+          { "en": "Elle a", "pt": "ela tem" },
+          { "en": "une capacite remarquable", "pt": "uma habilidade notavel" },
+          { "en": "a lire entre les lignes", "pt": "de ler nas entrelinhas" }
+        ]
+      },
+      {
+        "phrase_en": "Vu les circonstances, il serait prudent de reconsiderer notre approche.",
+        "phrase_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+        "word_by_word": [
+          { "en": "Vu les circonstances", "pt": "dadas as circunstancias" },
+          { "en": "il serait prudent", "pt": "seria prudente" },
+          { "en": "de reconsiderer notre approche", "pt": "reconsiderar nossa abordagem" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "La decision du comite, bien que controversee, a finalement ete maintenue.",
+      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "example_sentence_en": "\"Bien que\" requires the subjunctive and opens a mid-sentence concession.",
+      "example_sentence_pt": "\"Bien que\" exige o subjuntivo e abre uma concessao no meio da frase."
+    },
+    {
+      "word_en": "Elle a une capacite remarquable a lire entre les lignes.",
+      "word_pt": "Ela tem uma habilidade notavel de ler nas entrelinhas.",
+      "example_sentence_en": "\"Lire entre les lignes\" is an idiom for understanding a hidden meaning.",
+      "example_sentence_pt": "\"Lire entre les lignes\" e uma expressao idiomatica para entender um sentido oculto."
+    },
+    {
+      "word_en": "Vu les circonstances, il serait prudent de reconsiderer notre approche.",
+      "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+      "example_sentence_en": "\"Vu les circonstances\" is a formal way to say \"considering the situation\".",
+      "example_sentence_pt": "\"Vu les circonstances\" e uma forma formal de dizer \"considerando a situacao\"."
+    }
+  ]
+}

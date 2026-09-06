@@ -1,0 +1,60 @@
+{
+  "id": 32,
+  "level": 7,
+  "target_language": "Italian",
+  "title": "Italiano de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva e concessao em italiano (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "La riunione e stata rinviata alla prossima settimana.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "La riunione", "pt": "a reuniao" },
+          { "en": "e stata rinviata", "pt": "foi adiada" },
+          { "en": "alla prossima settimana", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "Ho incontrato per caso un vecchio amico al centro commerciale.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "Ho incontrato per caso", "pt": "eu encontrei por acaso" },
+          { "en": "un vecchio amico", "pt": "um velho amigo" },
+          { "en": "al centro commerciale", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "Nonostante la pioggia, hanno deciso di fare un'escursione.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "Nonostante la pioggia", "pt": "apesar da chuva" },
+          { "en": "hanno deciso", "pt": "eles decidiram" },
+          { "en": "di fare un'escursione", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "La riunione e stata rinviata alla prossima settimana.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Passive voice with \"essere\" + past participle is common in formal Italian.",
+      "example_sentence_pt": "A voz passiva com \"essere\" + participio e comum no italiano formal."
+    },
+    {
+      "word_en": "Ho incontrato per caso un vecchio amico al centro commerciale.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Per caso\" means \"by chance\" or \"unexpectedly\".",
+      "example_sentence_pt": "\"Per caso\" significa \"por acaso\" ou \"inesperadamente\"."
+    },
+    {
+      "word_en": "Nonostante la pioggia, hanno deciso di fare un'escursione.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"Nonostante\" introduces a contrast, similar to \"despite\".",
+      "example_sentence_pt": "\"Nonostante\" introduz um contraste, parecido com \"despite\"."
+    }
+  ]
+}

@@ -1288,7 +1288,10 @@ def list_accessible_lessons(session: Session, child_id: int, child_level: int | 
     """Return all lessons accessible to child_id.
 
     - Any lesson with child_id is private to that child, regardless of generation metadata.
-    - Shared static lessons are visible only when their target_language matches.
+    - Shared static lessons are visible only when their target_language matches, and — when the
+      lesson declares a level (e.g. seed content tied to a CEFR band) — only when it matches the
+      child's current level too. Static lessons without a level (e.g. the intro day-1..5 pack)
+      stay visible to everyone, as before.
     - Shared generated lessons (child_id=None) are visible when level and target_language match.
     """
     lessons = session.exec(select(Lesson).order_by(Lesson.id)).all()
@@ -1299,8 +1302,11 @@ def list_accessible_lessons(session: Session, child_id: int, child_level: int | 
                 result.append(lesson)
         elif not is_generated_lesson(lesson):
             # Static content: only show to children learning the same language
-            if lesson.target_language == target_language:
-                result.append(lesson)
+            if lesson.target_language != target_language:
+                continue
+            if lesson.level is not None and child_level is not None and lesson.level != child_level:
+                continue
+            result.append(lesson)
         else:
             # shared pool: include if language and level match
             if lesson.target_language != target_language:

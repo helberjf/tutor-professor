@@ -1,0 +1,61 @@
+{
+  "id": 7,
+  "level": 5,
+  "title": "Ingles de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opinioes, condicionais e presente perfeito em ingles (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I think we should leave earlier next time.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "I think", "pt": "eu acho" },
+          { "en": "we should", "pt": "deveriamos" },
+          { "en": "leave earlier", "pt": "sair mais cedo" },
+          { "en": "next time", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "If it rains tomorrow, we will stay home.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "If it rains", "pt": "se chover" },
+          { "en": "tomorrow", "pt": "amanha" },
+          { "en": "we will stay", "pt": "vamos ficar" },
+          { "en": "home", "pt": "em casa" }
+        ]
+      },
+      {
+        "phrase_en": "I've been learning English for two years.",
+        "phrase_pt": "Eu tenho aprendido ingles ha dois anos.",
+        "word_by_word": [
+          { "en": "I've been learning", "pt": "eu tenho aprendido" },
+          { "en": "English", "pt": "ingles" },
+          { "en": "for two years", "pt": "ha dois anos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I think we should leave earlier next time.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "Use \"I think\" + \"should\" to give a soft opinion or suggestion.",
+      "example_sentence_pt": "Use \"I think\" + \"should\" para dar uma opiniao ou sugestao de forma suave."
+    },
+    {
+      "word_en": "If it rains tomorrow, we will stay home.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "This is a first conditional: a real possibility in the future.",
+      "example_sentence_pt": "Este e um primeiro condicional: uma possibilidade real no futuro."
+    },
+    {
+      "word_en": "I've been learning English for two years.",
+      "word_pt": "Eu tenho aprendido ingles ha dois anos.",
+      "example_sentence_en": "The present perfect continuous shows an action that started in the past and continues now.",
+      "example_sentence_pt": "O present perfect continuous mostra uma acao que comecou no passado e continua agora."
+    }
+  ]
+}

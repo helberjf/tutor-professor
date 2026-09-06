@@ -1,0 +1,61 @@
+{
+  "id": 12,
+  "level": 3,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel A2",
+  "theme": "Frases do dia",
+  "objective": "Pratique passado, futuro proximo e pedidos em frances (nivel A2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Je suis alle au marche hier.",
+        "phrase_pt": "Eu fui ao mercado ontem.",
+        "word_by_word": [
+          { "en": "Je suis alle", "pt": "eu fui" },
+          { "en": "au marche", "pt": "ao mercado" },
+          { "en": "hier", "pt": "ontem" }
+        ]
+      },
+      {
+        "phrase_en": "Elle va t'appeler plus tard.",
+        "phrase_pt": "Ela vai te ligar mais tarde.",
+        "word_by_word": [
+          { "en": "Elle va", "pt": "ela vai" },
+          { "en": "t'appeler", "pt": "te ligar" },
+          { "en": "plus tard", "pt": "mais tarde" }
+        ]
+      },
+      {
+        "phrase_en": "Peux-tu m'aider avec ca, s'il te plait ?",
+        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "word_by_word": [
+          { "en": "Peux-tu", "pt": "voce pode" },
+          { "en": "m'aider", "pt": "me ajudar" },
+          { "en": "avec ca", "pt": "com isso" },
+          { "en": "s'il te plait", "pt": "por favor" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Je suis alle au marche hier.",
+      "word_pt": "Eu fui ao mercado ontem.",
+      "example_sentence_en": "Use \"passe compose\" with \"etre\" for verbs of movement like \"aller\".",
+      "example_sentence_pt": "Use o \"passe compose\" com \"etre\" para verbos de movimento como \"aller\"."
+    },
+    {
+      "word_en": "Elle va t'appeler plus tard.",
+      "word_pt": "Ela vai te ligar mais tarde.",
+      "example_sentence_en": "\"Aller\" + infinitive expresses the near future.",
+      "example_sentence_pt": "\"Aller\" + infinitivo expressa o futuro proximo."
+    },
+    {
+      "word_en": "Peux-tu m'aider avec ca, s'il te plait ?",
+      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "example_sentence_en": "A polite way to ask someone for help.",
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+    }
+  ]
+}

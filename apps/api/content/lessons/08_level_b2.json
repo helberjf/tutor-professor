@@ -1,0 +1,59 @@
+{
+  "id": 8,
+  "level": 7,
+  "title": "Ingles de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva, phrasal verbs e oracoes concessivas em ingles (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "The meeting has been postponed until next week.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "The meeting", "pt": "a reuniao" },
+          { "en": "has been postponed", "pt": "foi adiada" },
+          { "en": "until next week", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "I ran into an old friend at the mall.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "I ran into", "pt": "eu encontrei por acaso" },
+          { "en": "an old friend", "pt": "um velho amigo" },
+          { "en": "at the mall", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "Despite the rain, they decided to go hiking.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "Despite the rain", "pt": "apesar da chuva" },
+          { "en": "they decided", "pt": "eles decidiram" },
+          { "en": "to go hiking", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "The meeting has been postponed until next week.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Passive voice is common in formal or business English.",
+      "example_sentence_pt": "A voz passiva e comum no ingles formal ou de negocios."
+    },
+    {
+      "word_en": "I ran into an old friend at the mall.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Ran into\" is a phrasal verb meaning to meet someone by chance.",
+      "example_sentence_pt": "\"Ran into\" e um phrasal verb que significa encontrar alguem por acaso."
+    },
+    {
+      "word_en": "Despite the rain, they decided to go hiking.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"Despite\" introduces a contrast, similar to \"even though\".",
+      "example_sentence_pt": "\"Despite\" introduz um contraste, parecido com \"even though\"."
+    }
+  ]
+}

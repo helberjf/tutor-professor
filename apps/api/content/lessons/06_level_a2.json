@@ -1,0 +1,62 @@
+{
+  "id": 6,
+  "level": 3,
+  "title": "Ingles de hoje - Nivel A2",
+  "theme": "Frases do dia",
+  "objective": "Pratique frases simples no passado e no futuro em ingles (nivel A2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I went to the market yesterday.",
+        "phrase_pt": "Eu fui ao mercado ontem.",
+        "word_by_word": [
+          { "en": "I", "pt": "eu" },
+          { "en": "went", "pt": "fui" },
+          { "en": "to the market", "pt": "ao mercado" },
+          { "en": "yesterday", "pt": "ontem" }
+        ]
+      },
+      {
+        "phrase_en": "She is going to call you later.",
+        "phrase_pt": "Ela vai te ligar mais tarde.",
+        "word_by_word": [
+          { "en": "She", "pt": "ela" },
+          { "en": "is going to", "pt": "vai" },
+          { "en": "call you", "pt": "te ligar" },
+          { "en": "later", "pt": "mais tarde" }
+        ]
+      },
+      {
+        "phrase_en": "Can you help me with this, please?",
+        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "word_by_word": [
+          { "en": "Can you", "pt": "voce pode" },
+          { "en": "help me", "pt": "me ajudar" },
+          { "en": "with this", "pt": "com isso" },
+          { "en": "please", "pt": "por favor" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I went to the market yesterday.",
+      "word_pt": "Eu fui ao mercado ontem.",
+      "example_sentence_en": "Use the simple past to talk about something that already happened.",
+      "example_sentence_pt": "Use o passado simples para falar de algo que ja aconteceu."
+    },
+    {
+      "word_en": "She is going to call you later.",
+      "word_pt": "Ela vai te ligar mais tarde.",
+      "example_sentence_en": "\"Going to\" is a common way to talk about the near future.",
+      "example_sentence_pt": "\"Going to\" e uma forma comum de falar sobre o futuro proximo."
+    },
+    {
+      "word_en": "Can you help me with this, please?",
+      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "example_sentence_en": "A polite way to ask someone for help.",
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+    }
+  ]
+}

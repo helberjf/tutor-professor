@@ -1,0 +1,59 @@
+{
+  "id": 30,
+  "level": 3,
+  "target_language": "Italian",
+  "title": "Italiano de hoje - Nivel A2",
+  "theme": "Frases do dia",
+  "objective": "Pratique passado, futuro proximo e pedidos em italiano (nivel A2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Sono andato al mercato ieri.",
+        "phrase_pt": "Eu fui ao mercado ontem.",
+        "word_by_word": [
+          { "en": "Sono andato", "pt": "eu fui" },
+          { "en": "al mercato", "pt": "ao mercado" },
+          { "en": "ieri", "pt": "ontem" }
+        ]
+      },
+      {
+        "phrase_en": "Ti chiamera piu tardi.",
+        "phrase_pt": "Ela vai te ligar mais tarde.",
+        "word_by_word": [
+          { "en": "Ti chiamera", "pt": "ela vai te ligar" },
+          { "en": "piu tardi", "pt": "mais tarde" }
+        ]
+      },
+      {
+        "phrase_en": "Puoi aiutarmi con questo, per favore?",
+        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "word_by_word": [
+          { "en": "Puoi aiutarmi", "pt": "voce pode me ajudar" },
+          { "en": "con questo", "pt": "com isso" },
+          { "en": "per favore", "pt": "por favor" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Sono andato al mercato ieri.",
+      "word_pt": "Eu fui ao mercado ontem.",
+      "example_sentence_en": "Verbs of movement like \"andare\" use \"essere\" in the \"passato prossimo\".",
+      "example_sentence_pt": "Verbos de movimento como \"andare\" usam \"essere\" no \"passato prossimo\"."
+    },
+    {
+      "word_en": "Ti chiamera piu tardi.",
+      "word_pt": "Ela vai te ligar mais tarde.",
+      "example_sentence_en": "The simple future in Italian can also express a near-future plan.",
+      "example_sentence_pt": "O futuro simples em italiano tambem pode expressar um plano proximo."
+    },
+    {
+      "word_en": "Puoi aiutarmi con questo, per favore?",
+      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "example_sentence_en": "A polite way to ask someone for help.",
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+    }
+  ]
+}

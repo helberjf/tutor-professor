@@ -1,0 +1,60 @@
+{
+  "id": 18,
+  "level": 3,
+  "target_language": "Spanish",
+  "title": "Espanhol de hoje - Nivel A2",
+  "theme": "Frases do dia",
+  "objective": "Pratique passado, futuro proximo e pedidos em espanhol (nivel A2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Fui al mercado ayer.",
+        "phrase_pt": "Eu fui ao mercado ontem.",
+        "word_by_word": [
+          { "en": "Fui", "pt": "eu fui" },
+          { "en": "al mercado", "pt": "ao mercado" },
+          { "en": "ayer", "pt": "ontem" }
+        ]
+      },
+      {
+        "phrase_en": "Ella te va a llamar mas tarde.",
+        "phrase_pt": "Ela vai te ligar mais tarde.",
+        "word_by_word": [
+          { "en": "Ella", "pt": "ela" },
+          { "en": "te va a llamar", "pt": "vai te ligar" },
+          { "en": "mas tarde", "pt": "mais tarde" }
+        ]
+      },
+      {
+        "phrase_en": "¿Puedes ayudarme con esto, por favor?",
+        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "word_by_word": [
+          { "en": "Puedes ayudarme", "pt": "voce pode me ajudar" },
+          { "en": "con esto", "pt": "com isso" },
+          { "en": "por favor", "pt": "por favor" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Fui al mercado ayer.",
+      "word_pt": "Eu fui ao mercado ontem.",
+      "example_sentence_en": "Use the \"preterito\" tense for a finished action in the past.",
+      "example_sentence_pt": "Use o \"preterito\" para uma acao ja terminada no passado."
+    },
+    {
+      "word_en": "Ella te va a llamar mas tarde.",
+      "word_pt": "Ela vai te ligar mais tarde.",
+      "example_sentence_en": "\"Ir a\" + infinitive is a common way to talk about the near future.",
+      "example_sentence_pt": "\"Ir a\" + infinitivo e uma forma comum de falar sobre o futuro proximo."
+    },
+    {
+      "word_en": "¿Puedes ayudarme con esto, por favor?",
+      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "example_sentence_en": "A polite way to ask someone for help.",
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+    }
+  ]
+}

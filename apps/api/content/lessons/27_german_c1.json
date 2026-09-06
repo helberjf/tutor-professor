@@ -1,0 +1,61 @@
+{
+  "id": 27,
+  "level": 9,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique konjunktiv II e registro formal em alemao (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Hatte ich gewusst", "pt": "se eu soubesse" },
+          { "en": "vom Verkehr", "pt": "do transito" },
+          { "en": "ware ich losgefahren", "pt": "eu teria saido" },
+          { "en": "fruher", "pt": "mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "Der Vorschlag stieß im Vorstand auf gemischte Reaktionen.",
+        "phrase_pt": "A proposta recebeu reacoes divididas no conselho.",
+        "word_by_word": [
+          { "en": "Der Vorschlag", "pt": "a proposta" },
+          { "en": "stieß auf gemischte Reaktionen", "pt": "recebeu reacoes divididas" },
+          { "en": "im Vorstand", "pt": "no conselho" }
+        ]
+      },
+      {
+        "phrase_en": "Es ist nicht ungewohnlich, dass die Preise wahrend der Feiertage schwanken.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "Es ist nicht ungewohnlich", "pt": "nao e incomum" },
+          { "en": "dass die Preise schwanken", "pt": "que os precos oscilem" },
+          { "en": "wahrend der Feiertage", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "This inverted \"Konjunktiv II\" structure replaces \"Wenn ich gewusst hatte\" in formal style.",
+      "example_sentence_pt": "Essa estrutura invertida no \"Konjunktiv II\" substitui \"Wenn ich gewusst hatte\" em estilo formal."
+    },
+    {
+      "word_en": "Der Vorschlag stieß im Vorstand auf gemischte Reaktionen.",
+      "word_pt": "A proposta recebeu reacoes divididas no conselho.",
+      "example_sentence_en": "\"Stoßen auf\" (+ accusative) means to be met with or encounter.",
+      "example_sentence_pt": "\"Stoßen auf\" (+ acusativo) significa ser recebido com ou encontrar."
+    },
+    {
+      "word_en": "Es ist nicht ungewohnlich, dass die Preise wahrend der Feiertage schwanken.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "Double negatives like \"nicht ungewohnlich\" soften a statement in formal German.",
+      "example_sentence_pt": "Negativas duplas como \"nicht ungewohnlich\" suavizam uma afirmacao no alemao formal."
+    }
+  ]
+}

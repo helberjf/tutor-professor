@@ -1,0 +1,60 @@
+{
+  "id": 40,
+  "level": 10,
+  "target_language": "Russian",
+  "title": "Russo de hoje - Nivel C2",
+  "theme": "Frases do dia",
+  "objective": "Pratique registro formal e expressoes idiomaticas em russo (nivel C2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Решение комитета, хотя и спорное, в итоге было оставлено в силе.",
+        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "word_by_word": [
+          { "en": "Решение комитета", "pt": "a decisao do comite" },
+          { "en": "хотя и спорное", "pt": "embora controversa" },
+          { "en": "в итоге было оставлено в силе", "pt": "foi finalmente mantida" }
+        ]
+      },
+      {
+        "phrase_en": "У неё удивительная способность читать между строк.",
+        "phrase_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+        "word_by_word": [
+          { "en": "У неё", "pt": "ela tem" },
+          { "en": "удивительная способность", "pt": "uma habilidade impressionante" },
+          { "en": "читать между строк", "pt": "de ler nas entrelinhas" }
+        ]
+      },
+      {
+        "phrase_en": "Учитывая обстоятельства, было бы разумно пересмотреть наш подход.",
+        "phrase_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+        "word_by_word": [
+          { "en": "Учитывая обстоятельства", "pt": "dadas as circunstancias" },
+          { "en": "было бы разумно", "pt": "seria prudente" },
+          { "en": "пересмотреть наш подход", "pt": "reconsiderar nossa abordagem" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Решение комитета, хотя и спорное, в итоге было оставлено в силе.",
+      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "example_sentence_en": "\"Хотя и\" opens a mid-sentence concession in formal, written Russian.",
+      "example_sentence_pt": "\"Хотя и\" abre uma concessao no meio da frase no russo formal e escrito."
+    },
+    {
+      "word_en": "У неё удивительная способность читать между строк.",
+      "word_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+      "example_sentence_en": "\"Читать между строк\" is an idiom for understanding a hidden meaning.",
+      "example_sentence_pt": "\"Читать между строк\" e uma expressao idiomatica para entender um sentido oculto."
+    },
+    {
+      "word_en": "Учитывая обстоятельства, было бы разумно пересмотреть наш подход.",
+      "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+      "example_sentence_en": "\"Учитывая\" is a formal way to say \"considering\" or \"given\".",
+      "example_sentence_pt": "\"Учитывая\" e uma forma formal de dizer \"considerando\" ou \"dado\"."
+    }
+  ]
+}

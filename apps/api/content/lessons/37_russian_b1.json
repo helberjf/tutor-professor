@@ -1,0 +1,61 @@
+{
+  "id": 37,
+  "level": 5,
+  "target_language": "Russian",
+  "title": "Russo de hoje - Nivel B1",
+  "theme": "Frases do dia",
+  "objective": "Pratique opiniao, condicional e duracao em russo (nivel B1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Я думаю, нам стоит выехать раньше в следующий раз.",
+        "phrase_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+        "word_by_word": [
+          { "en": "Я думаю", "pt": "eu acho" },
+          { "en": "нам стоит выехать раньше", "pt": "deveriamos sair mais cedo" },
+          { "en": "в следующий раз", "pt": "da proxima vez" }
+        ]
+      },
+      {
+        "phrase_en": "Если завтра пойдёт дождь, мы останемся дома.",
+        "phrase_pt": "Se chover amanha, vamos ficar em casa.",
+        "word_by_word": [
+          { "en": "Если пойдёт дождь", "pt": "se chover" },
+          { "en": "завтра", "pt": "amanha" },
+          { "en": "мы останемся", "pt": "vamos ficar" },
+          { "en": "дома", "pt": "em casa" }
+        ]
+      },
+      {
+        "phrase_en": "Я учу этот язык уже два года.",
+        "phrase_pt": "Eu aprendo esse idioma ha dois anos.",
+        "word_by_word": [
+          { "en": "Я учу", "pt": "eu aprendo" },
+          { "en": "этот язык", "pt": "esse idioma" },
+          { "en": "уже два года", "pt": "ha dois anos" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Я думаю, нам стоит выехать раньше в следующий раз.",
+      "word_pt": "Eu acho que deveriamos sair mais cedo da proxima vez.",
+      "example_sentence_en": "\"Нам стоит\" (\"it's worth it for us to\") is a soft way to suggest something.",
+      "example_sentence_pt": "\"Нам стоит\" (\"vale a pena para nos\") e uma forma suave de sugerir algo."
+    },
+    {
+      "word_en": "Если завтра пойдёт дождь, мы останемся дома.",
+      "word_pt": "Se chover amanha, vamos ficar em casa.",
+      "example_sentence_en": "A real future condition uses the future tense in both clauses in Russian.",
+      "example_sentence_pt": "Uma condicao real no futuro usa o futuro nas duas oracoes em russo."
+    },
+    {
+      "word_en": "Я учу этот язык уже два года.",
+      "word_pt": "Eu aprendo esse idioma ha dois anos.",
+      "example_sentence_en": "Russian uses the present tense with \"уже\" (already) for an ongoing action.",
+      "example_sentence_pt": "O russo usa o presente com \"уже\" (ja) para uma acao continua."
+    }
+  ]
+}

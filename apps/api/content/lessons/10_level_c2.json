@@ -1,0 +1,60 @@
+{
+  "id": 10,
+  "level": 10,
+  "title": "Ingles de hoje - Nivel C2",
+  "theme": "Frases do dia",
+  "objective": "Pratique registro formal, expressoes idiomaticas e nuances em ingles (nivel C2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "The committee's decision, though controversial, was ultimately upheld.",
+        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "word_by_word": [
+          { "en": "The committee's decision", "pt": "a decisao do comite" },
+          { "en": "though controversial", "pt": "embora controversa" },
+          { "en": "was ultimately upheld", "pt": "foi finalmente mantida" }
+        ]
+      },
+      {
+        "phrase_en": "She has an uncanny ability to read between the lines.",
+        "phrase_pt": "Ela tem uma habilidade incrivel de ler nas entrelinhas.",
+        "word_by_word": [
+          { "en": "She has", "pt": "ela tem" },
+          { "en": "an uncanny ability", "pt": "uma habilidade incrivel" },
+          { "en": "to read between the lines", "pt": "de ler nas entrelinhas" }
+        ]
+      },
+      {
+        "phrase_en": "Given the circumstances, it would be prudent to reconsider our approach.",
+        "phrase_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+        "word_by_word": [
+          { "en": "Given the circumstances", "pt": "dadas as circunstancias" },
+          { "en": "it would be prudent", "pt": "seria prudente" },
+          { "en": "to reconsider", "pt": "reconsiderar" },
+          { "en": "our approach", "pt": "nossa abordagem" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "The committee's decision, though controversial, was ultimately upheld.",
+      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "example_sentence_en": "\"Though\" can open a mid-sentence concession clause in formal writing.",
+      "example_sentence_pt": "\"Though\" pode abrir uma oracao de concessao no meio da frase em textos formais."
+    },
+    {
+      "word_en": "She has an uncanny ability to read between the lines.",
+      "word_pt": "Ela tem uma habilidade incrivel de ler nas entrelinhas.",
+      "example_sentence_en": "\"Read between the lines\" is an idiom for understanding a hidden meaning.",
+      "example_sentence_pt": "\"Read between the lines\" e uma expressao idiomatica para entender um sentido oculto."
+    },
+    {
+      "word_en": "Given the circumstances, it would be prudent to reconsider our approach.",
+      "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+      "example_sentence_en": "\"Given the circumstances\" is a formal way to say \"considering the situation\".",
+      "example_sentence_pt": "\"Given the circumstances\" e uma forma formal de dizer \"considerando a situacao\"."
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": 15,
+  "level": 9,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel C1",
+  "theme": "Frases do dia",
+  "objective": "Pratique condicional passado e registro formal em frances (nivel C1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Si j'avais su qu'il y avait des embouteillages, je serais parti plus tot.",
+        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "word_by_word": [
+          { "en": "Si j'avais su", "pt": "se eu soubesse" },
+          { "en": "qu'il y avait des embouteillages", "pt": "do transito" },
+          { "en": "je serais parti", "pt": "eu teria saido" },
+          { "en": "plus tot", "pt": "mais cedo" }
+        ]
+      },
+      {
+        "phrase_en": "La proposition a suscite des reactions partagees au sein du conseil.",
+        "phrase_pt": "A proposta gerou reacoes divididas dentro do conselho.",
+        "word_by_word": [
+          { "en": "La proposition", "pt": "a proposta" },
+          { "en": "a suscite", "pt": "gerou" },
+          { "en": "des reactions partagees", "pt": "reacoes divididas" },
+          { "en": "au sein du conseil", "pt": "dentro do conselho" }
+        ]
+      },
+      {
+        "phrase_en": "Il n'est pas rare que les prix fluctuent pendant les fetes.",
+        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "word_by_word": [
+          { "en": "Il n'est pas rare", "pt": "nao e incomum" },
+          { "en": "que les prix fluctuent", "pt": "que os precos oscilem" },
+          { "en": "pendant les fetes", "pt": "durante os feriados" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Si j'avais su qu'il y avait des embouteillages, je serais parti plus tot.",
+      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "example_sentence_en": "The third conditional (plus-que-parfait + conditionnel passe) expresses an unreal past.",
+      "example_sentence_pt": "O terceiro condicional (plus-que-parfait + conditionnel passe) expressa um passado irreal."
+    },
+    {
+      "word_en": "La proposition a suscite des reactions partagees au sein du conseil.",
+      "word_pt": "A proposta gerou reacoes divididas dentro do conselho.",
+      "example_sentence_en": "\"Susciter\" is a formal verb meaning to provoke or bring about a reaction.",
+      "example_sentence_pt": "\"Susciter\" e um verbo formal que significa provocar ou gerar uma reacao."
+    },
+    {
+      "word_en": "Il n'est pas rare que les prix fluctuent pendant les fetes.",
+      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "example_sentence_en": "\"Il n'est pas rare que\" + subjunctive softens a statement in formal French.",
+      "example_sentence_pt": "\"Il n'est pas rare que\" + subjuntivo suaviza uma afirmacao no frances formal."
+    }
+  ]
+}

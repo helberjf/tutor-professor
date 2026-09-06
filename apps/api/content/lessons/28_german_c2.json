@@ -1,0 +1,61 @@
+{
+  "id": 28,
+  "level": 10,
+  "target_language": "German",
+  "title": "Alemao de hoje - Nivel C2",
+  "theme": "Frases do dia",
+  "objective": "Pratique registro formal e expressoes idiomaticas em alemao (nivel C2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Die Entscheidung des Ausschusses wurde, obwohl umstritten, letztlich bestatigt.",
+        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "word_by_word": [
+          { "en": "Die Entscheidung des Ausschusses", "pt": "a decisao do comite" },
+          { "en": "wurde bestatigt", "pt": "foi mantida" },
+          { "en": "obwohl umstritten", "pt": "embora controversa" },
+          { "en": "letztlich", "pt": "finalmente" }
+        ]
+      },
+      {
+        "phrase_en": "Sie hat eine erstaunliche Fahigkeit, zwischen den Zeilen zu lesen.",
+        "phrase_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+        "word_by_word": [
+          { "en": "Sie hat", "pt": "ela tem" },
+          { "en": "eine erstaunliche Fahigkeit", "pt": "uma habilidade impressionante" },
+          { "en": "zwischen den Zeilen zu lesen", "pt": "de ler nas entrelinhas" }
+        ]
+      },
+      {
+        "phrase_en": "Angesichts der Umstande ware es klug, unseren Ansatz zu uberdenken.",
+        "phrase_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+        "word_by_word": [
+          { "en": "Angesichts der Umstande", "pt": "dadas as circunstancias" },
+          { "en": "ware es klug", "pt": "seria prudente" },
+          { "en": "unseren Ansatz zu uberdenken", "pt": "reconsiderar nossa abordagem" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Die Entscheidung des Ausschusses wurde, obwohl umstritten, letztlich bestatigt.",
+      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "example_sentence_en": "\"Obwohl\" opens a mid-sentence concession clause in formal writing.",
+      "example_sentence_pt": "\"Obwohl\" abre uma oracao de concessao no meio da frase em textos formais."
+    },
+    {
+      "word_en": "Sie hat eine erstaunliche Fahigkeit, zwischen den Zeilen zu lesen.",
+      "word_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
+      "example_sentence_en": "\"Zwischen den Zeilen lesen\" is an idiom for understanding a hidden meaning.",
+      "example_sentence_pt": "\"Zwischen den Zeilen lesen\" e uma expressao idiomatica para entender um sentido oculto."
+    },
+    {
+      "word_en": "Angesichts der Umstande ware es klug, unseren Ansatz zu uberdenken.",
+      "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
+      "example_sentence_en": "\"Angesichts der Umstande\" is a formal way to say \"considering the situation\".",
+      "example_sentence_pt": "\"Angesichts der Umstande\" e uma forma formal de dizer \"considerando a situacao\"."
+    }
+  ]
+}

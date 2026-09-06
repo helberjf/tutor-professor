@@ -1,0 +1,57 @@
+{
+  "id": 35,
+  "level": 1,
+  "target_language": "Russian",
+  "title": "Russo de hoje - Nivel A1",
+  "theme": "Frases do dia",
+  "objective": "Aprenda 3 frases uteis em russo hoje (nivel A1).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Привет! Как дела?",
+        "phrase_pt": "Ola! Como voce esta?",
+        "word_by_word": [
+          { "en": "Привет", "pt": "ola" },
+          { "en": "Как дела", "pt": "como voce esta" }
+        ]
+      },
+      {
+        "phrase_en": "Меня зовут Ана.",
+        "phrase_pt": "Meu nome e Ana.",
+        "word_by_word": [
+          { "en": "Меня зовут", "pt": "meu nome e" },
+          { "en": "Ана", "pt": "Ana" }
+        ]
+      },
+      {
+        "phrase_en": "Большое спасибо.",
+        "phrase_pt": "Muito obrigado(a).",
+        "word_by_word": [
+          { "en": "Большое", "pt": "muito" },
+          { "en": "спасибо", "pt": "obrigado" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Привет! Как дела?",
+      "word_pt": "Ola! Como voce esta?",
+      "example_sentence_en": "A friendly, informal greeting used with friends or peers.",
+      "example_sentence_pt": "Uma saudacao amigavel e informal usada com amigos ou colegas."
+    },
+    {
+      "word_en": "Меня зовут Ана.",
+      "word_pt": "Meu nome e Ana.",
+      "example_sentence_en": "Literally \"they call me Ana\" — the standard way to introduce yourself.",
+      "example_sentence_pt": "Literalmente \"me chamam de Ana\" — a forma padrao de se apresentar."
+    },
+    {
+      "word_en": "Большое спасибо.",
+      "word_pt": "Muito obrigado(a).",
+      "example_sentence_en": "Say this to thank someone warmly.",
+      "example_sentence_pt": "Diga isso para agradecer alguem calorosamente."
+    }
+  ]
+}

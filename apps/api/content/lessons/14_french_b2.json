@@ -1,0 +1,61 @@
+{
+  "id": 14,
+  "level": 7,
+  "target_language": "French",
+  "title": "Frances de hoje - Nivel B2",
+  "theme": "Frases do dia",
+  "objective": "Pratique voz passiva e concessao em frances (nivel B2).",
+  "content": {
+    "daily_goal": "3 frases para hoje",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "La reunion a ete reportee a la semaine prochaine.",
+        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "word_by_word": [
+          { "en": "La reunion", "pt": "a reuniao" },
+          { "en": "a ete reportee", "pt": "foi adiada" },
+          { "en": "a la semaine prochaine", "pt": "para a proxima semana" }
+        ]
+      },
+      {
+        "phrase_en": "J'ai croise un vieil ami par hasard au centre commercial.",
+        "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+        "word_by_word": [
+          { "en": "J'ai croise", "pt": "eu encontrei" },
+          { "en": "un vieil ami", "pt": "um velho amigo" },
+          { "en": "par hasard", "pt": "por acaso" },
+          { "en": "au centre commercial", "pt": "no shopping" }
+        ]
+      },
+      {
+        "phrase_en": "Malgre la pluie, ils ont decide de faire une randonnee.",
+        "phrase_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+        "word_by_word": [
+          { "en": "Malgre la pluie", "pt": "apesar da chuva" },
+          { "en": "ils ont decide", "pt": "eles decidiram" },
+          { "en": "de faire une randonnee", "pt": "fazer uma trilha" }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "La reunion a ete reportee a la semaine prochaine.",
+      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "example_sentence_en": "Passive voice with \"etre\" + past participle is common in formal French.",
+      "example_sentence_pt": "A voz passiva com \"etre\" + participio passado e comum no frances formal."
+    },
+    {
+      "word_en": "J'ai croise un vieil ami par hasard au centre commercial.",
+      "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
+      "example_sentence_en": "\"Croiser quelqu'un\" means to run into someone unexpectedly.",
+      "example_sentence_pt": "\"Croiser quelqu'un\" significa encontrar alguem inesperadamente."
+    },
+    {
+      "word_en": "Malgre la pluie, ils ont decide de faire une randonnee.",
+      "word_pt": "Apesar da chuva, eles decidiram fazer uma trilha.",
+      "example_sentence_en": "\"Malgre\" introduces a contrast, similar to \"despite\".",
+      "example_sentence_pt": "\"Malgre\" introduz um contraste, parecido com \"despite\"."
+    }
+  ]
+}
