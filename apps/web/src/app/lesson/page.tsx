@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, PartyPopper, Sparkles, Volume2 } from 'lucide-react';
+import { ArrowLeft, Brain, CheckCircle2, ChevronRight, History, Loader2, Minus, PartyPopper, Plus, Sparkles, Volume2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { CelebrationOverlay } from '@/components/celebration';
@@ -32,6 +32,23 @@ export default function LessonPage() {
 
 const LEVEL_CACHE_KEY = 'child_level_cache';
 
+/**
+ * A value cached before the level controls shipped is missing the newer fields,
+ * which would render "undefined questoes" and mis-disable the +/- buttons.
+ * Fill the gaps so an old cache degrades gracefully until the API responds.
+ */
+function withLevelDefaults(level: LevelAnalysis): LevelAnalysis {
+  return {
+    ...level,
+    questions_answered: level.questions_answered ?? 0,
+    is_manual_level: level.is_manual_level ?? false,
+    min_level: level.min_level ?? 1,
+    max_level: level.max_level ?? 10,
+    level_labels: level.level_labels ?? [],
+    next_level_at: level.next_level_at ?? 0,
+  };
+}
+
 function LessonPageContent() {
   const authState = useRequireAuth();
   const searchParams = useSearchParams();
@@ -43,11 +60,13 @@ function LessonPageContent() {
   const [levelInfo, setLevelInfo] = useState<LevelAnalysis | null>(() => {
     try {
       const cached = localStorage.getItem(LEVEL_CACHE_KEY);
-      return cached ? (JSON.parse(cached) as LevelAnalysis) : null;
+      return cached ? withLevelDefaults(JSON.parse(cached) as LevelAnalysis) : null;
     } catch {
       return null;
     }
   });
+  const [levelSaving, setLevelSaving] = useState(false);
+  const [levelMessage, setLevelMessage] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -210,6 +229,30 @@ function LessonPageContent() {
       console.error('Audio error:', err);
     } finally {
       setAudioLoading(false);
+    }
+  }
+
+  /** Pin the level by hand, or pass null to go back to the automatic ladder. */
+  async function changeLevel(nextLevel: number | null) {
+    if (levelSaving) {
+      return;
+    }
+
+    setLevelSaving(true);
+    setLevelMessage(null);
+    try {
+      const updated = await api.setChildLevel(nextLevel);
+      setLevelInfo(updated);
+      try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
+      setLevelMessage(
+        nextLevel === null
+          ? 'Voltando a ajustar o nivel sozinho conforme voce responde.'
+          : `Nivel ${updated.level} — ${updated.label}. As proximas licoes usam esse nivel.`,
+      );
+    } catch (err) {
+      setLevelMessage(err instanceof ApiError ? err.message : 'Nao foi possivel mudar o nivel.');
+    } finally {
+      setLevelSaving(false);
     }
   }
 
@@ -574,18 +617,66 @@ function LessonPageContent() {
 
           {/* Level banner — shown as soon as level is known (from cache or API) */}
           {levelInfo && (
-            <div className="lesson-level-banner mb-4 flex items-center gap-3 px-4 py-3">
-              <div className="lesson-level-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
-                <Sparkles size={20} className="lesson-level-icon-symbol" />
+            <div className="lesson-level-banner mb-4 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="lesson-level-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
+                  <Sparkles size={20} className="lesson-level-icon-symbol" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">Seu nivel</p>
+                  <p className="lesson-level-title text-base font-black">Nivel {levelInfo.level} — {levelInfo.label}</p>
+                </div>
+
+                {/* Level controls — the child can make it easier or harder */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void changeLevel(levelInfo.level - 1)}
+                    disabled={levelSaving || levelInfo.level <= levelInfo.min_level}
+                    aria-label="Deixar mais facil (baixar um nivel)"
+                    title="Deixar mais facil"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void changeLevel(levelInfo.level + 1)}
+                    disabled={levelSaving || levelInfo.level >= levelInfo.max_level}
+                    aria-label="Deixar mais dificil (subir um nivel)"
+                    title="Deixar mais dificil"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">Seu nivel</p>
-                <p className="lesson-level-title text-base font-black">Nivel {levelInfo.level} — {levelInfo.label}</p>
+
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="lesson-level-stat text-xs">
+                  {levelInfo.questions_answered} quest{levelInfo.questions_answered === 1 ? 'ao' : 'oes'} respondida
+                  {levelInfo.questions_answered === 1 ? '' : 's'}
+                </p>
+                {!levelInfo.is_manual_level && levelInfo.next_level_at > 0 && (
+                  <p className="lesson-level-stat text-xs">
+                    faltam {Math.max(0, levelInfo.next_level_at - levelInfo.questions_answered)} para o nivel {levelInfo.level + 1}
+                  </p>
+                )}
+                {levelInfo.is_manual_level && (
+                  <button
+                    type="button"
+                    onClick={() => void changeLevel(null)}
+                    disabled={levelSaving}
+                    className="text-xs font-bold text-primary-dark underline underline-offset-2 transition hover:text-primary disabled:opacity-50"
+                  >
+                    Nivel escolhido por voce — voltar ao automatico
+                  </button>
+                )}
               </div>
-              <div className="hidden text-right sm:block">
-                <p className="lesson-level-stat text-xs">{levelInfo.vocabulary_learned} palavras</p>
-                <p className="lesson-level-stat text-xs">{Math.round(levelInfo.quiz_accuracy * 100)}% quiz</p>
-              </div>
+
+              {levelMessage && (
+                <p role="status" className="lesson-level-stat mt-2 text-xs font-bold">{levelMessage}</p>
+              )}
             </div>
           )}
 

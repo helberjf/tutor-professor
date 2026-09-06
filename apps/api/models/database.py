@@ -205,6 +205,9 @@ class ChildProfile(SQLModel, table=True):
     age_group: str  # e.g., "4-6", "7-9", "10-12"
     base_language: str = "Portuguese"
     current_level: int = 1
+    # When set, the child (or parent) pinned the level by hand and the automatic
+    # question-count ladder stops moving it. None means "follow the automatic level".
+    level_override: Optional[int] = Field(default=None)
     streak_count: int = 0
     last_activity: Optional[datetime] = None
     voice_preference: str = "af_bella"

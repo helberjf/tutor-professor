@@ -379,14 +379,29 @@ class CodingDayUpdateSchema(BaseModel):
     subjects: Dict[str, List[CodingTopicSchema]]
 
 
+class LevelLabelSchema(BaseModel):
+    level: int
+    label: str
+
+
 class LevelAnalysisSchema(BaseModel):
     level: int
     label: str
     vocabulary_learned: int
     quiz_accuracy: float
     avg_review_difficulty: float
-    next_level_at: int  # vocabulary needed to reach next level
+    next_level_at: int  # questions answered needed to reach the next level
     target_language: str = "English"
+    questions_answered: int = 0
+    is_manual_level: bool = False
+    min_level: int = 1
+    max_level: int = 10
+    level_labels: list[LevelLabelSchema] = Field(default_factory=list)
+
+
+class SetChildLevelSchema(BaseModel):
+    # None hands the level back to the automatic, questions-answered ladder.
+    level: Optional[int] = None
 
 
 # ── Book schemas ───────────────────────────────────────────────────────────────

@@ -89,6 +89,7 @@ from schemas.schemas import (
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LevelAnalysisSchema,
+    SetChildLevelSchema,
     LessonItemSchema,
     LessonQuestionSchema,
     LessonSchema,
@@ -844,6 +845,14 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE childprofile ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
             except Exception:
                 pass
+        # Add childprofile.level_override so a child can pin their own level
+        try:
+            conn.execute(text("ALTER TABLE childprofile ADD COLUMN IF NOT EXISTS level_override INTEGER"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE childprofile ADD COLUMN level_override INTEGER"))
+            except Exception:
+                pass
         # Add target_language column to book
         try:
             conn.execute(text("ALTER TABLE book ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
@@ -1351,78 +1360,106 @@ def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
     ).all()
 
 
-def compute_and_update_child_level(session: Session, child: ChildProfile) -> int:
-    """Gamificacao realista: cada nivel exige esforco consistente.
+MIN_CHILD_LEVEL = 1
+MAX_CHILD_LEVEL = 10
 
-    Thresholds (vocab = frases aprendidas em licoes concluidas):
-      1   < 15 vocab                    (sempre, sem quiz necessario)
-      2   15+ vocab                     (acuracia irrelevante — ainda aprendendo)
-      3   30+ vocab, quiz >= 55 %
-      4   50+ vocab, quiz >= 60 %
-      5   80+ vocab, quiz >= 65 %
-      6  120+ vocab, quiz >= 70 %
-      7  180+ vocab, quiz >= 75 %
-      8  250+ vocab, quiz >= 80 %
-      9  350+ vocab, quiz >= 85 %
-     10  500+ vocab, quiz >= 90 %
+# Questions answered needed to reach each level. The ladder is driven by volume:
+# every answered question moves the child forward, no matter which screen it came
+# from (licao, revisao, quiz or simulado). Accuracy only nudges it by one level.
+_QUESTIONS_ANSWERED_LADDER = [
+    (1000, 10),
+    (750, 9),
+    (550, 8),
+    (400, 7),
+    (275, 6),
+    (175, 5),
+    (100, 4),
+    (50, 3),
+    (20, 2),
+]
 
-    Com ~5-8 frases por licao:
-      Nivel 2  requer ~2-3 licoes concluidas
-      Nivel 3  requer ~4-6 licoes + bom desempenho no quiz
-      Nivel 5  requer ~12-16 licoes + consistencia
-      Nivel 10 requer ~65-100 licoes + excelencia
+# Below this many answers there is not enough signal to judge accuracy, so the
+# accuracy nudge stays off and the child simply climbs on volume.
+_ACCURACY_SAMPLE_FLOOR = 20
+_ACCURACY_BONUS_AT = 0.85
+_ACCURACY_PENALTY_BELOW = 0.50
+
+
+def count_child_answered_questions(session: Session, child_id: int) -> tuple[int, int]:
+    """Total questions answered by a child and how many were correct.
+
+    Counts every surface the child can answer a question on, because from the
+    child's point of view they are all "questoes":
+      - licao mini-activity and revisao  -> ReviewItem attempt counters
+      - quiz                             -> QuizAttempt
+      - simulado                         -> finished ExamAttempt
     """
-    # -- vocabulary learned --------------------------------------------------
-    completed_progress_items = [
-        p for p in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
-        if p.is_completed
-    ]
-    vocab_count = 0
-    for p in completed_progress_items:
-        if p.lesson_id:
-            vocab_count += len(get_lesson_items(session=session, lesson_id=p.lesson_id))
+    answered = 0
+    correct = 0
 
-    # -- quiz accuracy -------------------------------------------------------
-    quiz_attempts = session.exec(
-        select(QuizAttempt).where(QuizAttempt.child_id == child.id)
-    ).all()
-    if quiz_attempts:
-        total_score = sum(a.score for a in quiz_attempts)
-        total_q = sum(a.total_questions for a in quiz_attempts if a.total_questions)
-        quiz_accuracy = total_score / total_q if total_q else 0.0
-    else:
-        quiz_accuracy = 0.0
-
-    # -- review difficulty ---------------------------------------------------
     review_items = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child.id)
+        select(ReviewItem).where(ReviewItem.child_id == child_id)
     ).all()
-    avg_difficulty = (
-        sum(r.difficulty_score for r in review_items) / len(review_items)
-        if review_items else 0.0
-    )
+    for item in review_items:
+        # attempt_count is the authoritative counter, but fall back to the
+        # correct/error split for rows written before it was maintained.
+        item_answered = item.attempt_count or (item.correct_count + item.error_count)
+        answered += item_answered
+        correct += item.correct_count
 
-    # -- level formula -------------------------------------------------------
-    if vocab_count >= 500 and quiz_accuracy >= 0.90:
-        level = 10
-    elif vocab_count >= 350 and quiz_accuracy >= 0.85:
-        level = 9
-    elif vocab_count >= 250 and quiz_accuracy >= 0.80:
-        level = 8
-    elif vocab_count >= 180 and quiz_accuracy >= 0.75:
-        level = 7
-    elif vocab_count >= 120 and quiz_accuracy >= 0.70:
-        level = 6
-    elif vocab_count >= 80 and quiz_accuracy >= 0.65:
-        level = 5
-    elif vocab_count >= 50 and quiz_accuracy >= 0.60:
-        level = 4
-    elif vocab_count >= 30 and quiz_accuracy >= 0.55:
-        level = 3
-    elif vocab_count >= 15:
-        level = 2
+    quiz_attempts = session.exec(
+        select(QuizAttempt).where(QuizAttempt.child_id == child_id)
+    ).all()
+    for attempt in quiz_attempts:
+        answered += attempt.total_questions or 0
+        correct += attempt.score or 0
+
+    exam_attempts = session.exec(
+        select(ExamAttempt).where(
+            ExamAttempt.child_id == child_id,
+            ExamAttempt.status == "finished",
+        )
+    ).all()
+    for attempt in exam_attempts:
+        answered += attempt.question_count or 0
+        correct += attempt.correct_count or 0
+
+    return answered, correct
+
+
+def compute_automatic_child_level(questions_answered: int, accuracy: float) -> int:
+    """Level from the number of questions answered, nudged +-1 by accuracy."""
+    level = MIN_CHILD_LEVEL
+    for threshold, ladder_level in _QUESTIONS_ANSWERED_LADDER:
+        if questions_answered >= threshold:
+            level = ladder_level
+            break
+
+    if questions_answered >= _ACCURACY_SAMPLE_FLOOR:
+        if accuracy >= _ACCURACY_BONUS_AT:
+            level += 1
+        elif accuracy < _ACCURACY_PENALTY_BELOW:
+            level -= 1
+
+    return max(MIN_CHILD_LEVEL, min(MAX_CHILD_LEVEL, level))
+
+
+def compute_and_update_child_level(session: Session, child: ChildProfile) -> int:
+    """Resolve the child's level, persisting it when it changed.
+
+    A manual level (child.level_override) always wins: once the child or the
+    parent pins a level, the automatic ladder stops moving it until they switch
+    back to automatic. Otherwise the level follows how many questions the child
+    has answered — see compute_automatic_child_level.
+    """
+    if child.level_override is not None:
+        level = max(MIN_CHILD_LEVEL, min(MAX_CHILD_LEVEL, child.level_override))
     else:
-        level = 1
+        questions_answered, correct_answers = count_child_answered_questions(
+            session=session, child_id=child.id or 0
+        )
+        accuracy = (correct_answers / questions_answered) if questions_answered else 0.0
+        level = compute_automatic_child_level(questions_answered, accuracy)
 
     if child.current_level != level:
         child.current_level = level
@@ -3882,44 +3919,31 @@ _LEVEL_LABELS = {
     9: "Avancado+",
     10: "Fluente",
 }
+# Questions answered required to reach the NEXT level, keyed by current level.
 _LEVEL_THRESHOLDS = {
-    1: 15,   # 15 vocab para nivel 2
-    2: 30,   # 30 vocab para nivel 3
-    3: 50,   # 50 vocab para nivel 4
-    4: 80,   # 80 vocab para nivel 5
-    5: 120,  # 120 vocab para nivel 6
-    6: 180,  # 180 vocab para nivel 7
-    7: 250,  # 250 vocab para nivel 8
-    8: 350,  # 350 vocab para nivel 9
-    9: 500,  # 500 vocab para nivel 10
-    10: 999,
+    level: threshold
+    for threshold, level in ((t, l - 1) for t, l in _QUESTIONS_ANSWERED_LADDER)
 }
+_LEVEL_THRESHOLDS[MAX_CHILD_LEVEL] = 0  # already at the top
 
 
-@app.get("/api/child/level", response_model=LevelAnalysisSchema)
-def get_child_level(request: Request, session: Session = Depends(get_session)) -> LevelAnalysisSchema:
-    require_parent_session(request, session)
-    child = get_requested_child(request=request, session=session)
-
-    # vocab
+def build_level_analysis(session: Session, child: ChildProfile) -> LevelAnalysisSchema:
     completed = [
         p for p in get_child_completed_lesson_map(session=session, child_id=child.id or 0).values()
         if p.is_completed
     ]
     vocab = sum(len(get_lesson_items(session=session, lesson_id=p.lesson_id)) for p in completed if p.lesson_id)
 
-    # quiz accuracy
-    attempts = session.exec(select(QuizAttempt).where(QuizAttempt.child_id == child.id)).all()
-    total_score = sum(a.score for a in attempts)
-    total_q = sum(a.total_questions for a in attempts if a.total_questions)
-    accuracy = round(total_score / total_q, 3) if total_q else 0.0
+    questions_answered, correct_answers = count_child_answered_questions(
+        session=session, child_id=child.id or 0
+    )
+    accuracy = round(correct_answers / questions_answered, 3) if questions_answered else 0.0
 
     # avg review difficulty
     review_items = session.exec(select(ReviewItem).where(ReviewItem.child_id == child.id)).all()
     avg_diff = round(sum(r.difficulty_score for r in review_items) / len(review_items), 2) if review_items else 0.0
 
     level = compute_and_update_child_level(session=session, child=child)
-    next_at = _LEVEL_THRESHOLDS.get(level, 999)
 
     return LevelAnalysisSchema(
         level=level,
@@ -3927,9 +3951,55 @@ def get_child_level(request: Request, session: Session = Depends(get_session)) -
         vocabulary_learned=vocab,
         quiz_accuracy=accuracy,
         avg_review_difficulty=avg_diff,
-        next_level_at=next_at,
+        next_level_at=_LEVEL_THRESHOLDS.get(level, 0),
         target_language=child.target_language,
+        questions_answered=questions_answered,
+        is_manual_level=child.level_override is not None,
+        min_level=MIN_CHILD_LEVEL,
+        max_level=MAX_CHILD_LEVEL,
+        level_labels=[
+            {"level": value, "label": label}
+            for value, label in sorted(_LEVEL_LABELS.items())
+        ],
     )
+
+
+@app.get("/api/child/level", response_model=LevelAnalysisSchema)
+def get_child_level(request: Request, session: Session = Depends(get_session)) -> LevelAnalysisSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    return build_level_analysis(session=session, child=child)
+
+
+@app.put("/api/child/level", response_model=LevelAnalysisSchema)
+def set_child_level(
+    payload: SetChildLevelSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> LevelAnalysisSchema:
+    """Pin the level by hand, or hand it back to the automatic ladder.
+
+    payload.level = None  -> back to automatic (follows questions answered)
+    payload.level = 1..10 -> pinned; the automatic ladder stops moving it
+    """
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+
+    if payload.level is None:
+        child.level_override = None
+    else:
+        if not MIN_CHILD_LEVEL <= payload.level <= MAX_CHILD_LEVEL:
+            raise HTTPException(
+                status_code=400,
+                detail=f"O nivel deve estar entre {MIN_CHILD_LEVEL} e {MAX_CHILD_LEVEL}.",
+            )
+        child.level_override = payload.level
+
+    session.add(child)
+    session.commit()
+    session.refresh(child)
+
+    return build_level_analysis(session=session, child=child)
 
 
 @app.post("/api/chat", response_model=ChatResponseSchema)

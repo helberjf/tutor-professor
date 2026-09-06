@@ -485,14 +485,26 @@ export interface GenerateLessonResponse {
   message: string;
 }
 
+export interface LevelLabel {
+  level: number;
+  label: string;
+}
+
 export interface LevelAnalysis {
   level: number;
   label: string;
   vocabulary_learned: number;
   quiz_accuracy: number;
   avg_review_difficulty: number;
+  /** Questions answered needed to reach the next level. 0 when already at the top. */
   next_level_at: number;
   target_language: string;
+  questions_answered: number;
+  /** True when the level was pinned by hand instead of following the automatic ladder. */
+  is_manual_level: boolean;
+  min_level: number;
+  max_level: number;
+  level_labels: LevelLabel[];
 }
 
 export interface BookPage {
@@ -1345,6 +1357,12 @@ export const api = {
     }),
   getProgress: () => fetchAPI<Progress>('/api/progress'),
   getChildLevel: () => fetchAPI<LevelAnalysis>('/api/child/level'),
+  /** Pin the level by hand, or pass null to follow the automatic ladder again. */
+  setChildLevel: (level: number | null) =>
+    fetchAPI<LevelAnalysis>('/api/child/level', {
+      method: 'PUT',
+      body: JSON.stringify({ level }),
+    }),
   getStudyDashboard: () => fetchAPI<StudyDashboard>('/api/study/dashboard'),
   getStudyDay: (studyDate: string) => fetchAPI<StudyDay>(`/api/study/day/${studyDate}`),
   saveStudyDay: (studyDate: string, payload: StudyDayUpdatePayload) =>
