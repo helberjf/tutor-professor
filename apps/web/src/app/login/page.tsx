@@ -7,10 +7,25 @@ import { ArrowLeft, Chrome, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-
 
 import { ApiError, api } from '@/lib/api';
 
+/** Where to land after signing in.
+ *
+ *  useRequireAuth sends people here as /login?next=<the page they wanted>, so
+ *  honour it instead of always dropping everyone on /study. Only same-site
+ *  paths are accepted: anything else (an absolute URL, or a protocol-relative
+ *  "//host" that the browser would treat as another site) is an open redirect
+ *  and falls back to the default.
+ */
+function resolveNext(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) {
+    return '/study';
+  }
+  return raw;
+}
+
 function LoginForm() {
   const router = useRouter();
-  useSearchParams();
-  const next = '/study';
+  const searchParams = useSearchParams();
+  const next = resolveNext(searchParams.get('next'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

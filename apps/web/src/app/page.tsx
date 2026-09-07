@@ -54,7 +54,12 @@ export default function HomePage() {
   const serverMissing = status === 'server_missing';
   const isAuthenticated = status === 'authenticated';
   const isUnauthenticated = status === 'unauthenticated';
-  const cardsDisabled = serverMissing || isUnauthenticated || status === 'loading';
+  // Only a missing server (or a status we do not know yet) makes a card dead.
+  // Being logged out does not: the card sends you through the login and brings
+  // you back to it, which beats a card that looks fine and does nothing.
+  const cardsDisabled = serverMissing || status === 'loading';
+  const cardHref = (href: string) =>
+    isUnauthenticated ? `/login?next=${encodeURIComponent(href)}` : href;
 
   return (
     <main className="min-h-screen px-3 py-4 sm:px-5 sm:py-6 md:px-8 md:py-10">
@@ -206,7 +211,7 @@ export default function HomePage() {
         {/* Activity cards */}
         <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ActivityCard
-            href="/dashboard"
+            href={cardHref('/dashboard')}
             emoji="📊"
             icon={<BarChart3 size={28} />}
             title="Dashboard"
@@ -217,7 +222,7 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
-            href="/lesson"
+            href={cardHref('/lesson')}
             emoji="📖"
             icon={<BookOpen size={28} />}
             title="Lição"
@@ -228,7 +233,7 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
-            href="/review"
+            href={cardHref('/review')}
             emoji="🧠"
             icon={<Brain size={28} />}
             title="Revisão"
@@ -239,7 +244,7 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
-            href="/study"
+            href={cardHref('/study')}
             emoji="ðŸ“"
             icon={<ClipboardList size={28} />}
             title="Estudos"
@@ -250,7 +255,7 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
-            href="/diverse"
+            href={cardHref('/diverse')}
             emoji="AI"
             icon={<Layers size={28} />}
             title="Outras matérias"
@@ -262,7 +267,7 @@ export default function HomePage() {
             highlight
           />
           <ActivityCard
-            href="/chat"
+            href={cardHref('/chat')}
             emoji="🤖"
             icon={<Bot size={28} />}
             title="Chat"
@@ -273,7 +278,7 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
-            href="/quick-review"
+            href={cardHref('/quick-review')}
             emoji="⚡"
             icon={<Zap size={28} />}
             title="Revisão rápida"
@@ -285,7 +290,7 @@ export default function HomePage() {
             highlight
           />
           <ActivityCard
-            href="/books"
+            href={cardHref('/books')}
             emoji="📚"
             icon={<Library size={28} />}
             title="Livros"
@@ -315,12 +320,15 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Parents area link */}
-        <div className="mt-6 text-center">
-          <Link href="/parents" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
-            Área dos pais
-          </Link>
-        </div>
+        {/* Parents area link — hidden while logged out, where it only led to a
+            login wall for an area a visitor has nothing to do in yet. */}
+        {isAuthenticated && (
+          <div className="mt-6 text-center">
+            <Link href="/parents" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
+              Área dos pais
+            </Link>
+          </div>
+        )}
 
       </div>
     </main>
@@ -352,7 +360,7 @@ function ActivityCard({
 }) {
   const inner = (
     <div
-      className={`kid-surface flex h-full min-h-[7.5rem] items-center gap-4 p-4 transition duration-200 sm:block sm:p-5 md:p-6 ${border} ${disabled ? 'opacity-90' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
+      className={`kid-surface flex h-full min-h-[7.5rem] items-center gap-4 p-4 transition duration-200 sm:block sm:p-5 md:p-6 ${border} ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
     >
       <div className={`inline-flex shrink-0 rounded-2xl p-3 ${bg}`}>
         <span className={iconColor}>{icon}</span>
@@ -366,7 +374,7 @@ function ActivityCard({
   );
 
   if (disabled) {
-    return <div>{inner}</div>;
+    return <div aria-disabled="true">{inner}</div>;
   }
 
   return <Link href={href}>{inner}</Link>;
