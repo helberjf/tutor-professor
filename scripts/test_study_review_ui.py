@@ -50,7 +50,8 @@ def main() -> None:
     require("next/font/google" not in layout, "layout does not require network fonts during build")
     require("min-width: 320px" in css, "global styles keep a mobile baseline width")
     require("overflow-x: hidden" in css, "global styles prevent horizontal overflow on mobile")
-    require("font-family: 'Trebuchet MS', cursive, sans-serif" in css, "global styles use local mobile-safe font fallback")
+    require("font-family: Inter, Roboto, Arial, sans-serif" in css, "global styles use safe sans-serif font fallback")
+    require("cursive" not in css, "global styles never fall back to cursive fonts")
 
     print("Study review UI checks passed.")
 
