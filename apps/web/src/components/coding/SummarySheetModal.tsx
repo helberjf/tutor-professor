@@ -18,7 +18,14 @@ interface SummarySheetModalProps {
   onSave?: (content: string) => Promise<void>;
   /** When the stored sheet was last written, so a reused sheet reads as reused. */
   updatedAt?: string | null;
+  /** Mirrors UpdateTopicSummarySchema.content on the API, which refuses more. */
+  maxLength?: number;
 }
+
+/** Keep in step with UpdateTopicSummarySchema.content (max_length=4000) so the
+ *  reader is stopped here, with their text still on screen, instead of losing a
+ *  long paste to a 422 after pressing Salvar. */
+export const SUMMARY_MAX_LENGTH = 4000;
 
 /** "Salvo em 6 de set, 14:32" — short enough to sit in the header subtitle. */
 function formatSavedAt(value: string): string | null {
@@ -72,6 +79,7 @@ export function SummarySheetModal({
   error,
   onSave,
   updatedAt,
+  maxLength = SUMMARY_MAX_LENGTH,
 }: SummarySheetModalProps) {
   const [copied, setCopied] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -87,6 +95,8 @@ export function SummarySheetModal({
   const words = content.split(/\s+/).filter(Boolean).length;
   const readingMinutes = Math.max(1, Math.round(words / 200));
   const savedAt = updatedAt ? formatSavedAt(updatedAt) : null;
+  const draftLength = draft?.length ?? 0;
+  const overLimit = draftLength > maxLength;
 
   async function handleCopy() {
     if (!navigator.clipboard) return;
@@ -163,7 +173,7 @@ export function SummarySheetModal({
                 <button
                   type="button"
                   onClick={() => void handleSave()}
-                  disabled={saving || !draft.trim()}
+                  disabled={saving || !draft.trim() || overLimit}
                   className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
@@ -188,6 +198,15 @@ export function SummarySheetModal({
               {regenerating ? 'Gerando...' : 'Gerar de novo'}
             </button>
           </div>
+          {/* Editing is easy to miss, and the sheet is the reader's to own —
+              they may prefer their own wording, or one written elsewhere. */}
+          {onSave && draft === null && (
+            <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-2 text-xs font-bold leading-5 text-sky-800">
+              Dica: toque em <span className="font-black">Editar</span> para escrever o resumo do seu
+              jeito — ou colar um que você fez em outro lugar, como o ChatGPT. O que você salvar é o
+              que passa a valer aqui e no resumo da matéria.
+            </p>
+          )}
           {progress && (
             <p className="mt-3 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600">
               <Loader2 size={14} className="animate-spin" />
@@ -206,13 +225,32 @@ export function SummarySheetModal({
                 .split('\n')
                 .map((line, index) => <SheetLine key={index} line={line} />)
             ) : (
-              <textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                rows={24}
-                aria-label="Editar o resumo"
-                className="w-full resize-y rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 font-mono text-sm leading-relaxed text-slate-700 outline-none focus:border-primary"
-              />
+              <>
+                <p className="mb-3 rounded-2xl bg-sky-50 px-4 py-3 text-xs font-bold leading-5 text-sky-800">
+                  Escreva do seu jeito ou cole um resumo pronto — do ChatGPT, por exemplo. Aceita
+                  Markdown: <span className="font-mono">##</span> para títulos e{' '}
+                  <span className="font-mono">-</span> para tópicos.
+                </p>
+                <textarea
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  rows={24}
+                  aria-label="Editar o resumo"
+                  aria-invalid={overLimit}
+                  aria-describedby="summary-length-counter"
+                  className={`w-full resize-y rounded-2xl border-2 bg-white px-4 py-3 font-mono text-sm leading-relaxed text-slate-700 outline-none ${
+                    overLimit ? 'border-rose-400 focus:border-rose-500' : 'border-slate-200 focus:border-primary'
+                  }`}
+                />
+                <p
+                  id="summary-length-counter"
+                  role={overLimit ? 'alert' : undefined}
+                  className={`mt-2 text-right text-xs font-bold ${overLimit ? 'text-rose-600' : 'text-slate-400'}`}
+                >
+                  {draftLength.toLocaleString('pt-BR')} / {maxLength.toLocaleString('pt-BR')} caracteres
+                  {overLimit && ` — corte ${(draftLength - maxLength).toLocaleString('pt-BR')} para poder salvar`}
+                </p>
+              </>
             )}
           </article>
         </main>

@@ -25,6 +25,11 @@ _accounts_seeded = False
 
 LESSON_SECTION = {"title": "Cache", "body": "TTL controla o cache.", "code_example": "print(1)"}
 
+# The editor and the API have to agree on this, or a long paste is accepted by
+# the textarea and then thrown away by a 422. test_summary_length_limit_is_in_step
+# fails if either side moves without the other.
+SUMMARY_MAX_LENGTH = 4000
+
 
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -252,6 +257,24 @@ class TopicSummaryRouteTests(unittest.TestCase):
             )
             programming_tests.assert_status(empty, 422, "refuse an empty sheet")
 
+            # The editor stops the reader at the limit with their text still on
+            # screen, so the API only ever sees an over-long sheet if that guard
+            # is bypassed - it must still refuse rather than truncate.
+            at_limit = await client.put(
+                f"/api/coding/topics/{topic_ids[0]}/summary",
+                json={"content": "a" * SUMMARY_MAX_LENGTH},
+            )
+            programming_tests.assert_status(at_limit, 200, "accept a sheet exactly at the limit")
+            over_limit = await client.put(
+                f"/api/coding/topics/{topic_ids[0]}/summary",
+                json={"content": "a" * (SUMMARY_MAX_LENGTH + 1)},
+            )
+            programming_tests.assert_status(over_limit, 422, "refuse a sheet past the limit")
+            # The rejected write must not have replaced the stored sheet.
+            kept = await client.post(f"/api/coding/topics/{topic_ids[0]}/summary")
+            programming_tests.assert_status(kept, 200, "sheet survives a rejected edit")
+            self.assertEqual(len(kept.json()["content"]), SUMMARY_MAX_LENGTH)
+
     def test_another_parent_cannot_touch_the_sheet(self) -> None:
         asyncio.run(self._test_other_parent())
 
@@ -275,6 +298,28 @@ class TopicSummaryRouteTests(unittest.TestCase):
                 404,
                 "other parent join",
             )
+
+
+class SummaryEditorTests(unittest.TestCase):
+    """The sheet is the reader's to own: editable, pasteable, and bounded."""
+
+    def test_summary_length_limit_is_in_step_on_both_sides(self) -> None:
+        self.assertIn(f"max_length={SUMMARY_MAX_LENGTH}", read(SCHEMAS_FILE))
+        self.assertIn(f"SUMMARY_MAX_LENGTH = {SUMMARY_MAX_LENGTH}", read(SUMMARY_MODAL))
+
+    def test_editor_blocks_saving_past_the_limit(self) -> None:
+        modal = read(SUMMARY_MODAL)
+        # The counter tells the reader where they stand...
+        self.assertIn("overLimit", modal)
+        self.assertIn("caracteres", modal)
+        # ...and Salvar stays disabled until they are back under it, so the text
+        # is never silently truncated nor lost to a rejected request.
+        self.assertIn("disabled={saving || !draft.trim() || overLimit}", modal)
+
+    def test_reader_is_told_they_can_paste_their_own_summary(self) -> None:
+        modal = read(SUMMARY_MODAL)
+        self.assertIn("ChatGPT", modal, "the paste hint must name a concrete source")
+        self.assertIn("Editar", modal)
 
 
 class SubjectJoinRouteTests(unittest.TestCase):
