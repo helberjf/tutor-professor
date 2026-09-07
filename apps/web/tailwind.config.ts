@@ -9,6 +9,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Inter", "Roboto", "Arial", "sans-serif"],
+      },
       colors: {
         primary: {
           light: "#E0F2FE",
