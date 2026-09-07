@@ -13,19 +13,33 @@ if str(REPO_ROOT) not in sys.path:
 if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
-from database_bootstrap import bootstrap_database
 from models.database import ChildProfile, Lesson, LessonItem
 
 # Database setup
 load_dotenv(API_DIR / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./apps/api/kids_tutor.sqlite")
-engine = create_engine(DATABASE_URL)
+
+# Imported after the environment is loaded: main reads DATABASE_URL and its
+# settings at import time. Seeding reuses its engine so the rows land in the
+# same database its startup just migrated.
+import main  # noqa: E402
+
+engine = main.engine
 
 def init_db():
-    bootstrap_database(DATABASE_URL)
-    print("Creating tables...")
-    SQLModel.metadata.create_all(engine)
-    
+    # Build the schema through the API's own startup rather than a copy of it.
+    #
+    # Several columns (childprofile.target_language and level_override,
+    # lesson.level, lessonquestion.front_pt, ...) exist only as ALTER TABLE
+    # statements in main._run_schema_migrations, not as Alembic revisions.
+    # Running bootstrap_database + create_all alone therefore left a fresh
+    # database missing them — create_all only creates absent tables, it never
+    # alters an existing one — and seeding then died on the first ChildProfile
+    # query. Calling on_startup keeps the seeded schema identical to the running
+    # API's by construction, instead of a second list that has to be kept in step.
+    print("Preparing schema...")
+    main.on_startup()
+
     with Session(engine) as session:
         # Check if child profile exists
         statement = select(ChildProfile).where(ChildProfile.id == 1)
