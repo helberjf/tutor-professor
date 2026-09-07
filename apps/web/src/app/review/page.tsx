@@ -602,14 +602,6 @@ export default function ReviewPage() {
               <span className="text-xs font-bold text-slate-400">Questao da licao</span>
             </div>
             <h1 className="mt-6 text-2xl font-black leading-snug text-slate-800 md:text-3xl">{card.prompt}</h1>
-            {/* The question can be written entirely in the target language. Show
-                the translation so it can at least be read — but not when it just
-                repeats the prompt, where it would be noise. */}
-            {card.prompt_pt && card.prompt_pt.trim() !== card.prompt.trim() && (
-              <p className="mt-2 text-base font-semibold leading-snug text-slate-500 md:text-lg">
-                {card.prompt_pt}
-              </p>
-            )}
 
             {!lessonAnswerRevealed ? (
               <button

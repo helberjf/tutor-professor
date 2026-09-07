@@ -289,7 +289,6 @@ def build_mixed_review_cards(
                     "lesson_question_id": question.id or 0,
                     "lesson_id": question.lesson_id,
                     "prompt": question.front,
-                    "prompt_pt": question.front_pt,
                     "answer": question.back,
                     "question_type": question.question_type,
                     "supporting_example": question.supporting_example,

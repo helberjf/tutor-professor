@@ -431,10 +431,6 @@ LEGACY_CREATE_ALL_SHAPE = {
     name: shape for name, shape in CURRENT_SHAPE.items() if name != "lessonquestion"
 }
 _head_lesson_shape = CURRENT_SHAPE["lessonquestion"]
-# The 0006 shape is the head shape minus everything added to lessonquestion after
-# it: front_key arrived in 0007, front_pt in 0022. Any future column has to be
-# listed here too, or an unversioned 0006 database stops being recognisable.
-_LESSON_QUESTION_COLUMNS_AFTER_0006 = {"front_key", "front_pt"}
 MIGRATION_0006_SHAPE = {
     **LEGACY_CREATE_ALL_SHAPE,
     "lessonquestion": replace(
@@ -442,7 +438,7 @@ MIGRATION_0006_SHAPE = {
         columns={
             name: shape
             for name, shape in _head_lesson_shape.columns.items()
-            if name not in _LESSON_QUESTION_COLUMNS_AFTER_0006
+            if name != "front_key"
         },
         unique_constraints=frozenset(
             columns
