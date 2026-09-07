@@ -1,18 +1,47 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, CalendarDays, CheckCircle2, ClipboardList, Flame, Loader2, Plus, RotateCcw, Save, Sparkles, Trash2, X, Zap } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { BookOpen, CalendarDays, CheckCircle2, Circle, ClipboardList, Flame, Loader2, Plus, RotateCcw, Save, Sparkles, Trash2, X, Zap } from 'lucide-react';
 
 import { ApiError, type StudyDashboard } from '@/lib/api';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
 import { formatDateLabel } from '../_lib/study-helpers';
 import { EnglishQuestionsSection } from './EnglishQuestionsSection';
-import { MetricCard, PomodoroWidget } from './shared';
+import { PomodoroWidget } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENGLISH TAB
 // ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * One figure in the goal card's footer row. `compactValue` is for the cell whose
+ * value is a date rather than a number, so a two-word date does not tower over
+ * the counters beside it.
+ */
+function StatCell({
+  icon, tint, value, label, helper, compactValue = false,
+}: {
+  icon: ReactNode; tint: string; value: string; label: string; helper: string; compactValue?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 px-1 text-center sm:px-3">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tint}`}>{icon}</span>
+      {/* Fixed height so a date that wraps to two lines does not push its own
+       * label below the labels of the counters beside it. */}
+      <p
+        className={`flex min-h-[2.25rem] items-center break-words text-center font-black leading-tight text-slate-800 ${
+          compactValue ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'
+        }`}
+      >
+        {value}
+      </p>
+      <p className="text-[11px] font-bold uppercase leading-tight tracking-[0.08em] text-slate-400">{label}</p>
+      <p className="hidden text-xs font-semibold leading-5 text-slate-500 sm:block">{helper}</p>
+    </div>
+  );
+}
+
 export function EnglishTab({
   dashboard, selectedDate,
   planText, setPlanText, studiedText, setStudiedText,
@@ -49,32 +78,76 @@ export function EnglishTab({
   const historyDays = dashboard?.recent_days ?? [];
 
   const phrasesGoal = 3;
-  const phrasesIndicator = hasStudyText ? Math.min(phrasesGoal, phrasesGoal) : 0;
+  // The backend only knows whether anything was written down today, not how many
+  // phrases. Three separately-filling segments implied a per-phrase count that
+  // never existed: they could only be all empty or all full, which read as three
+  // grey placeholder bars. One bar for a yes/no fact, said plainly.
+  const goalMet = hasStudyText;
+  const isRegistered = Boolean(dashboard?.today.is_study_day);
 
   return (
     <div className="space-y-6">
       {/* Dashboard header */}
-      <section className="kid-surface border-primary/30 p-6 md:p-8">
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Inglês · meta do dia</p>
-          <h1 className="text-3xl font-black text-slate-800 md:text-4xl">3 frases por dia</h1>
-          <div className="flex items-center gap-3">
-            {Array.from({ length: phrasesGoal }).map((_, i) => (
-              <div key={i} className={`h-3 flex-1 rounded-full transition-all ${i < phrasesIndicator ? 'bg-emerald-400' : 'bg-slate-100'}`} />
-            ))}
-            <span className="text-sm font-black text-slate-500">{hasStudyText ? phrasesGoal : 0}/{phrasesGoal}</span>
+      <section className="kid-surface border-primary/30 p-4 sm:p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Inglês · meta do dia</p>
+            <h1 className="mt-1.5 text-2xl font-black leading-tight text-slate-800 md:text-3xl">3 frases por dia</h1>
           </div>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-black ${
+              isRegistered ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            {isRegistered ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+            {isRegistered ? 'Registrado' : 'Em aberto'}
+          </span>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricCard icon={<Flame size={22} />} label="Dias seguidos" value={`${dashboard?.study_streak_count ?? 0}`}
-            helper={dashboard?.last_study_date ? `Ultimo: ${formatDateLabel(dashboard.last_study_date)}` : 'Comece hoje'} tone="orange" />
-          <MetricCard icon={<CheckCircle2 size={22} />} label="Hoje"
-            value={dashboard?.today.is_study_day ? 'Registrado' : 'Aberto'}
-            helper={dashboard?.today.is_study_day ? 'Estudo marcado' : 'Salve o que estudou'} tone="green" />
-          <MetricCard icon={<ClipboardList size={22} />} label="Distracoes" value={`${todayDistractionCount}`} helper="Registradas hoje" tone="rose" />
-          <MetricCard icon={<CalendarDays size={22} />} label="Data aberta" value={formatDateLabel(selectedDate)}
-            helper={selectedIsToday ? 'Dashboard de hoje' : 'Registro historico'} tone="sky" />
+        <div className="mt-4 flex items-center gap-3">
+          <div
+            className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200"
+            role="progressbar"
+            aria-valuenow={goalMet ? phrasesGoal : 0}
+            aria-valuemin={0}
+            aria-valuemax={phrasesGoal}
+            aria-label="Meta de frases do dia"
+          >
+            <div className={`h-full rounded-full bg-emerald-400 transition-all duration-500 ${goalMet ? 'w-full' : 'w-0'}`} />
+          </div>
+          <span className="shrink-0 text-sm font-black tabular-nums text-slate-500">
+            {goalMet ? phrasesGoal : 0}/{phrasesGoal}
+          </span>
+        </div>
+        <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+          {goalMet ? 'Meta do dia cumprida. Salve para registrar.' : 'Escreva o que estudou para fechar a meta de hoje.'}
+        </p>
+
+        {/* The four nested cards became a stat row: same numbers, one card
+         * instead of five, and no more uneven tiles when a date wrapped. */}
+        <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 border-t-2 border-slate-100 pt-4">
+          <StatCell
+            icon={<Flame size={16} className="text-orange-600" />}
+            tint="bg-orange-100"
+            value={`${dashboard?.study_streak_count ?? 0}`}
+            label="Dias seguidos"
+            helper={dashboard?.last_study_date ? `Último: ${formatDateLabel(dashboard.last_study_date)}` : 'Comece hoje'}
+          />
+          <StatCell
+            icon={<ClipboardList size={16} className="text-rose-700" />}
+            tint="bg-rose-100"
+            value={`${todayDistractionCount}`}
+            label="Distrações"
+            helper="Registradas hoje"
+          />
+          <StatCell
+            icon={<CalendarDays size={16} className="text-sky-700" />}
+            tint="bg-sky-100"
+            value={formatDateLabel(selectedDate)}
+            label={selectedIsToday ? 'Hoje' : 'Histórico'}
+            helper={selectedIsToday ? 'Dia aberto' : 'Registro anterior'}
+            compactValue
+          />
         </div>
       </section>
 

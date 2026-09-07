@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
-import { ApiError, api, type Progress } from '@/lib/api';
+import { ApiError, api, type LevelAnalysis, type Progress } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
 type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
 
 export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
+  const [level, setLevel] = useState<LevelAnalysis | null>(null);
   const [status, setStatus] = useState<HomeStatus>('loading');
   const [connection, setConnection] = useState(() => getApiConnectionDetails());
 
@@ -31,11 +32,15 @@ export default function HomePage() {
     api
       .getUserMe()
       .then(() => {
-        // Authenticated — now fetch progress
-        return api.getProgress().then((data) => {
-          setProgress(data);
-          setStatus('authenticated');
-        }).catch(() => {
+        // Authenticated — now fetch progress. The level analysis rides along
+        // because it is the only source of the real next-level target; without
+        // it the progress bar has nothing honest to measure against.
+        return Promise.all([
+          api.getProgress().catch(() => null),
+          api.getChildLevel().catch(() => null),
+        ]).then(([progressData, levelData]) => {
+          setProgress(progressData);
+          setLevel(levelData);
           setStatus('authenticated');
         });
       })
@@ -60,6 +65,7 @@ export default function HomePage() {
   const cardsDisabled = serverMissing || status === 'loading';
   const cardHref = (href: string) =>
     isUnauthenticated ? `/login?next=${encodeURIComponent(href)}` : href;
+  const levelProgress = getLevelProgress(progress, level);
 
   return (
     <main className="min-h-screen px-3 py-4 sm:px-5 sm:py-6 md:px-8 md:py-10">
@@ -84,16 +90,16 @@ export default function HomePage() {
         )}
 
         {/* Hero */}
-        <section className="relative overflow-hidden rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 text-left shadow-[0_18px_50px_rgba(15,23,42,0.10)] sm:p-7 md:p-10">
-          <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
+        <section className="relative overflow-hidden rounded-[1.75rem] border-2 border-slate-100 bg-white p-4 text-left shadow-[0_18px_50px_rgba(15,23,42,0.10)] sm:p-7 md:p-10">
+          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center md:gap-6">
             <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100">
-                <Sparkles size={15} /> Tutor leve
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100 sm:px-3 sm:py-2">
+                <Sparkles size={15} /> Seu amigo tutor
               </span>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-slate-600 sm:text-4xl sm:leading-tight md:text-5xl">
+            <h1 className="mt-3 max-w-3xl text-[1.7rem] sm:mt-4 font-semibold leading-tight text-slate-800 sm:text-4xl sm:leading-tight md:text-5xl">
               Vamos aprender tudo do seu jeito
             </h1>
-            <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600 sm:text-lg sm:leading-8">
+            <p className="mt-3 max-w-2xl text-base font-semibold leading-6 text-slate-600 sm:mt-4 sm:text-lg sm:leading-8">
               {isUnauthenticated
                 ? 'Crie sua conta gratuita e comece com lições, revisão e livros no mesmo lugar.'
                 : 'Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.'}
@@ -102,7 +108,7 @@ export default function HomePage() {
 
             {/* Progress pills — authenticated only */}
             {isAuthenticated && progress && (
-              <div className="flex flex-wrap gap-2 md:justify-end">
+              <div className="hidden flex-wrap gap-2 md:flex md:justify-end">
                 <span className="rounded-full bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700 ring-1 ring-sky-100">
                   🔥 {progress.streak_count} dias seguidos
                 </span>
@@ -121,13 +127,13 @@ export default function HomePage() {
             {serverMissing ? (
               <Link
                 href="/offline"
-                className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-amber-300 px-6 text-lg font-black text-slate-950 shadow-[0_14px_30px_rgba(251,191,36,0.24)] transition hover:scale-[1.02] hover:bg-amber-200 sm:w-auto sm:px-8"
+                className="mt-1 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-amber-300 sm:mt-6 px-6 text-lg font-black text-slate-950 shadow-[0_14px_30px_rgba(251,191,36,0.24)] transition hover:scale-[1.02] hover:bg-amber-200 sm:w-auto sm:px-8"
               >
                 <WifiOff size={24} />
                 Ver status
               </Link>
             ) : isUnauthenticated ? (
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-1 flex flex-col gap-3 sm:mt-6 sm:flex-row">
                 <Link
                   href="/register"
                   className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-lg font-black text-white shadow-[0_14px_30px_rgba(14,165,233,0.22)] transition hover:scale-[1.02] sm:w-auto"
@@ -144,19 +150,19 @@ export default function HomePage() {
                 </Link>
               </div>
             ) : isAuthenticated ? (
-              <div className="mt-6 flex flex-col items-start gap-3">
+              <div className="mt-1 flex flex-col items-start gap-2 sm:mt-6 sm:gap-3">
                 <div className="relative inline-flex w-full sm:w-auto">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+                  <span className="absolute inset-0 animate-ping rounded-2xl bg-primary opacity-20" aria-hidden />
                   <Link
                     href="/study"
-                    className="relative inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-xl font-black text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)] transition hover:scale-[1.02] sm:w-auto sm:px-8"
+                    className="relative inline-flex min-h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-lg font-black text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-8 sm:text-xl"
                   >
                     <ClipboardList size={28} />
                     Iniciar estudos
                   </Link>
                 </div>
                 {progress && progress.themes_completed > 0 && (
-                  <p className="text-sm font-semibold text-slate-500">Continue de onde parou</p>
+                  <p className="text-xs font-semibold text-slate-500 sm:text-sm">Continue de onde parou</p>
                 )}
               </div>
             ) : null}
@@ -165,43 +171,60 @@ export default function HomePage() {
 
         {/* Mini progress dashboard */}
         {isAuthenticated && progress && (
-          <section className="mt-4 rounded-[1.5rem] border-2 border-white/80 bg-white/85 p-5 shadow-[0_8px_24px_rgba(14,165,233,0.08)]">
-            <div className="flex items-center justify-between gap-2 mb-3">
+          <section className="mt-3 rounded-[1.5rem] border-2 border-white/80 bg-white/85 p-4 shadow-[0_8px_24px_rgba(14,165,233,0.08)] sm:mt-4 sm:p-5">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Progresso do aluno</p>
-              <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">
-                Nível {progress.current_level}
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">
+                Nível {level?.level ?? progress.current_level}
+                {/* The label doubles the pill's width, which wraps it onto a
+                    second line on a phone. The number carries the meaning. */}
+                {level?.label ? <span className="hidden sm:inline"> · {level.label}</span> : null}
               </span>
             </div>
 
-            {/* Progress bar */}
-            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-700"
-                style={{ width: `${Math.min(100, Math.round((progress.vocabulary_learned / Math.max(progress.vocabulary_learned + 5, 15)) * 100))}%` }}
-              />
-            </div>
+            {/* Progress towards the next level */}
+            {levelProgress && (
+              <>
+                <div
+                  className="relative h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
+                  role="progressbar"
+                  aria-valuenow={levelProgress.percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Progresso para o nível ${levelProgress.nextLevel}`}
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500 transition-all duration-700"
+                    style={{ width: `${levelProgress.percent}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[0.6875rem] font-semibold text-slate-400 sm:text-xs">
+                  {levelProgress.learned} de {levelProgress.target} tópicos para o nível {levelProgress.nextLevel}
+                </p>
+              </>
+            )}
 
             {/* Stats row */}
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:divide-x sm:divide-slate-100">
-              <div className="flex flex-col items-center gap-1 px-2 text-center">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100">
+            <div className="mt-3 grid grid-cols-3 gap-1 divide-x divide-slate-100 sm:mt-4 sm:gap-3">
+              <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-orange-100 sm:h-8 sm:w-8">
                   <Flame size={16} className="text-orange-600" />
                 </div>
-                <p className="text-xl font-black text-slate-800">{progress.streak_count}</p>
+                <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.streak_count}</p>
                 <p className="text-xs font-semibold text-slate-400">Dias</p>
               </div>
-              <div className="flex flex-col items-center gap-1 px-2 text-center">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
+              <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100 sm:h-8 sm:w-8">
                   <Target size={16} className="text-emerald-600" />
                 </div>
-                <p className="text-xl font-black text-slate-800">{progress.vocabulary_learned}</p>
+                <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.vocabulary_learned}</p>
                 <p className="text-xs font-semibold text-slate-400">Tópicos</p>
               </div>
-              <div className="flex flex-col items-center gap-1 px-2 text-center">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-100">
+              <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-100 sm:h-8 sm:w-8">
                   <BookOpen size={16} className="text-violet-600" />
                 </div>
-                <p className="text-xl font-black text-slate-800">{progress.themes_completed}</p>
+                <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.themes_completed}</p>
                 <p className="text-xs font-semibold text-slate-400">Temas</p>
               </div>
             </div>
@@ -209,7 +232,7 @@ export default function HomePage() {
         )}
 
         {/* Activity cards */}
-        <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mt-4 grid grid-cols-1 gap-2.5 sm:mt-5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
           <ActivityCard
             href={cardHref('/dashboard')}
             emoji="📊"
@@ -245,7 +268,7 @@ export default function HomePage() {
           />
           <ActivityCard
             href={cardHref('/study')}
-            emoji="ðŸ“"
+            emoji="📝"
             icon={<ClipboardList size={28} />}
             title="Estudos"
             description="Planeje e registre seu foco"
@@ -256,7 +279,7 @@ export default function HomePage() {
           />
           <ActivityCard
             href={cardHref('/diverse')}
-            emoji="AI"
+            emoji="🧩"
             icon={<Layers size={28} />}
             title="Outras matérias"
             description="Crie aulas com IA"
@@ -335,6 +358,27 @@ export default function HomePage() {
   );
 }
 
+/**
+ * How far the child is through the current level, or null when the backend did
+ * not give a usable target. Clamped because `next_level_at` is a threshold the
+ * child can already be sitting on top of.
+ */
+function getLevelProgress(progress: Progress | null, level: LevelAnalysis | null) {
+  if (!level || !Number.isFinite(level.next_level_at) || level.next_level_at <= 0) {
+    return null;
+  }
+
+  const learned = level.vocabulary_learned ?? progress?.vocabulary_learned ?? 0;
+  const target = level.next_level_at;
+
+  return {
+    learned,
+    target,
+    nextLevel: level.level + 1,
+    percent: Math.max(0, Math.min(100, Math.round((learned / target) * 100))),
+  };
+}
+
 function ActivityCard({
   href,
   emoji,
@@ -360,16 +404,16 @@ function ActivityCard({
 }) {
   const inner = (
     <div
-      className={`kid-surface flex h-full min-h-[7.5rem] items-center gap-4 p-4 transition duration-200 sm:block sm:p-5 md:p-6 ${border} ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
+      className={`kid-surface flex h-full min-h-[5.5rem] items-center gap-3.5 p-3.5 transition duration-200 sm:block sm:min-h-[7.5rem] sm:gap-4 sm:p-5 md:p-6 ${border} ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
     >
-      <div className={`inline-flex shrink-0 rounded-2xl p-3 ${bg}`}>
+      <div className={`inline-flex shrink-0 rounded-2xl p-2.5 sm:p-3 ${bg}`}>
         <span className={iconColor}>{icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-lg font-black leading-tight text-slate-900 sm:mt-4 sm:text-xl md:text-2xl">{title}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-600 md:text-base md:leading-7">{description}</p>
+        <p className="text-base font-black leading-tight text-slate-900 sm:mt-4 sm:text-xl md:text-2xl">{title}</p>
+        <p className="mt-0.5 text-[0.8125rem] font-semibold leading-5 text-slate-600 sm:mt-1 sm:text-sm sm:leading-6 md:text-base md:leading-7">{description}</p>
       </div>
-      <p className="shrink-0 text-2xl sm:mt-4">{emoji}</p>
+      <p className="shrink-0 text-xl sm:mt-4 sm:text-2xl">{emoji}</p>
     </div>
   );
 

@@ -292,6 +292,8 @@ def build_mixed_review_cards(
                     "answer": question.back,
                     "question_type": question.question_type,
                     "supporting_example": question.supporting_example,
+                    "prompt_translation": question.front_translation,
+                    "supporting_example_translation": question.supporting_example_translation,
                     "difficulty_score": question.difficulty_score,
                     "error_count": question.error_count,
                 }

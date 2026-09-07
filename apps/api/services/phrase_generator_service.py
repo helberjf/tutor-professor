@@ -415,6 +415,10 @@ class PhraseGenerationService:
             f"{', '.join(ALLOWED_LANGUAGE_QUESTION_TYPES)}.\n"
             "- Vary vocabulary, translation, completion, grammar, comprehension, and contextual usage as appropriate.\n"
             "- Keep each question tied directly to this lesson and suitable for an exam or oral assessment.\n"
+            f"- Each question must include front_translation: a natural {safe_base_language} translation of the "
+            f"question front (repeat the front unchanged when it is already fully in {safe_base_language}).\n"
+            f"- Each question must include supporting_example_translation: the {safe_base_language} translation of "
+            "supporting_example, or null when supporting_example is null.\n"
             "- Return JSON only using this exact shape:\n"
             "{\n"
             '  "phrases": [\n'
@@ -433,7 +437,9 @@ class PhraseGenerationService:
             '      "front": "string ending with ?",\n'
             '      "back": "string",\n'
             '      "question_type": "vocabulary|translation|sentence_completion|grammar|comprehension|contextual_usage",\n'
-            '      "supporting_example": "string or null"\n'
+            '      "supporting_example": "string or null",\n'
+            '      "front_translation": "string",\n'
+            '      "supporting_example_translation": "string or null"\n'
             "    }\n"
             "  ]\n"
             "}\n"

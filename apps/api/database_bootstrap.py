@@ -431,6 +431,13 @@ LEGACY_CREATE_ALL_SHAPE = {
     name: shape for name, shape in CURRENT_SHAPE.items() if name != "lessonquestion"
 }
 _head_lesson_shape = CURRENT_SHAPE["lessonquestion"]
+# Columns added to lessonquestion after migration 0006: front_key (0007) and the
+# base-language translation columns (0021). The 0006 shape carries none of them.
+_LESSON_QUESTION_COLUMNS_ADDED_AFTER_0006 = {
+    "front_key",
+    "front_translation",
+    "supporting_example_translation",
+}
 MIGRATION_0006_SHAPE = {
     **LEGACY_CREATE_ALL_SHAPE,
     "lessonquestion": replace(
@@ -438,7 +445,7 @@ MIGRATION_0006_SHAPE = {
         columns={
             name: shape
             for name, shape in _head_lesson_shape.columns.items()
-            if name != "front_key"
+            if name not in _LESSON_QUESTION_COLUMNS_ADDED_AFTER_0006
         },
         unique_constraints=frozenset(
             columns
