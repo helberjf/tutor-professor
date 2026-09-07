@@ -252,6 +252,10 @@ class LessonQuestion(SQLModel, table=True):
     target_language: str = Field(max_length=40)
     question_type: str = Field(max_length=40)
     front: str = Field(max_length=500)
+    # The question itself may be written entirely in the target language, which
+    # leaves the child unable to even read it. This holds its Portuguese
+    # translation. None on rows created before it existed, so it is optional.
+    front_pt: Optional[str] = Field(default=None, max_length=500)
     front_key: str = Field(max_length=64)
     back: str = Field(max_length=2000)
     supporting_example: Optional[str] = Field(default=None, max_length=1000)

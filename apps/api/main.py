@@ -853,6 +853,14 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE childprofile ADD COLUMN level_override INTEGER"))
             except Exception:
                 pass
+        # Add lessonquestion.front_pt: the question translated for the reader
+        try:
+            conn.execute(text("ALTER TABLE lessonquestion ADD COLUMN IF NOT EXISTS front_pt VARCHAR(500)"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE lessonquestion ADD COLUMN front_pt VARCHAR(500)"))
+            except Exception:
+                pass
         # Add target_language column to book
         try:
             conn.execute(text("ALTER TABLE book ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
@@ -1549,6 +1557,7 @@ def _persist_generated_language_lesson(
                     target_language=child.target_language,
                     question_type=question.question_type,
                     front=question.front,
+                    front_pt=question.front_pt,
                     front_key=front_key_for(question.front),
                     back=question.back,
                     supporting_example=question.supporting_example,
@@ -1611,6 +1620,7 @@ def _materialize_shared_lesson_questions_for_child(
                 target_language=lesson.target_language,
                 question_type=source.question_type,
                 front=source.front,
+                front_pt=source.front_pt,
                 front_key=source.front_key,
                 back=source.back,
                 supporting_example=source.supporting_example,
@@ -2318,6 +2328,7 @@ def generate_lesson_questions(
                     target_language=target_language,
                     question_type=question.question_type,
                     front=question.front,
+                    front_pt=question.front_pt,
                     front_key=front_key_for(question.front),
                     back=question.back,
                     supporting_example=question.supporting_example,

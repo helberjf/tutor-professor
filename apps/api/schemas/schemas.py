@@ -33,6 +33,8 @@ class LessonQuestionSchema(FromAttributesModel):
     target_language: str
     question_type: str
     front: str
+    # Portuguese reading of `front`; None on questions created before it existed.
+    front_pt: Optional[str] = None
     back: str
     supporting_example: Optional[str] = None
     created_at: datetime
@@ -82,6 +84,9 @@ class GeneratedPhraseSchema(BaseModel):
 
 class GeneratedLessonQuestionSchema(BaseModel):
     front: str = Field(min_length=1, max_length=500)
+    # Portuguese reading of the front. Optional so a provider reply that omits
+    # it still yields a usable lesson.
+    front_pt: Optional[str] = Field(default=None, max_length=500)
     back: str = Field(min_length=1, max_length=2000)
     question_type: Literal[
         "vocabulary",
@@ -155,6 +160,7 @@ class LessonQuestionReviewCardSchema(BaseModel):
     lesson_question_id: int
     lesson_id: int
     prompt: str
+    prompt_pt: Optional[str] = None
     answer: str
     question_type: str
     supporting_example: Optional[str] = None

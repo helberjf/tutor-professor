@@ -374,6 +374,8 @@ export interface LessonQuestionReviewCard {
   lesson_question_id: number;
   lesson_id: number;
   prompt: string;
+  /** The question in Portuguese. Null on questions created before translations existed. */
+  prompt_pt: string | null;
   answer: string;
   question_type: string;
   supporting_example: string | null;
