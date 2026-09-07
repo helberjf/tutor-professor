@@ -48,12 +48,20 @@ export function OtherSubjectsPicker({
 }) {
   return (
     <div className="mb-6 rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
-      <label className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+      <label
+        htmlFor="diverse-subject-picker"
+        className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400"
+      >
         Abrir matéria
       </label>
       <div className="relative">
+        <Layers
+          size={18}
+          aria-hidden
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
         <select
-          aria-label="Selecionar matéria"
+          id="diverse-subject-picker"
           value={selectedValue}
           onChange={(event) => {
             const value = event.target.value;
@@ -61,7 +69,7 @@ export function OtherSubjectsPicker({
             else if (value === '__coding__') onSelectCoding();
             else onSelectSubjectTab(value);
           }}
-          className="min-h-12 w-full appearance-none rounded-2xl border-2 border-slate-200 bg-white px-4 pr-12 text-sm font-black text-slate-700 outline-none transition focus:border-primary"
+          className="min-h-12 w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-200 bg-white pl-11 pr-11 text-sm font-bold text-slate-700 outline-none transition hover:border-slate-300 focus:border-primary"
         >
           <option value="">Todas as matérias</option>
           {codingEnabled ? <option value="__coding__">Programação</option> : null}
@@ -70,7 +78,11 @@ export function OtherSubjectsPicker({
             return <option key={slug} value={slug}>{subject.name}</option>;
           })}
         </select>
-        <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
+        <ChevronDown
+          size={18}
+          aria-hidden
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+        />
       </div>
     </div>
   );
