@@ -30,7 +30,7 @@ def init_db():
     # Build the schema through the API's own startup rather than a copy of it.
     #
     # Several columns (childprofile.target_language and level_override,
-    # lesson.level, lessonquestion.front_pt, ...) exist only as ALTER TABLE
+    # lesson.level, book.target_language, ...) exist only as ALTER TABLE
     # statements in main._run_schema_migrations, not as Alembic revisions.
     # Running bootstrap_database + create_all alone therefore left a fresh
     # database missing them — create_all only creates absent tables, it never
