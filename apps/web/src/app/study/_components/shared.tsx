@@ -1,7 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { Bell, Pause, Play, RotateCcw, Timer } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Bell, ChevronDown, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
@@ -44,56 +44,87 @@ export function PomodoroWidget({
   onSwitch: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
-  return (
-    <div className="kid-surface border-sky-100 p-3 md:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700 md:h-12 md:w-12 md:rounded-2xl"><Timer size={20} className="md:h-6 md:w-6" /></div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Pomodoro</p>
-            <h2 className="text-lg font-black text-slate-800 md:text-xl">{mode === 'focus' ? 'Foco' : 'Pausa'}</h2>
-          </div>
-        </div>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500 md:px-3 md:py-1.5 md:text-xs">{mode === 'focus' ? '25 min' : '5 min'}</span>
-      </div>
+  // Collapsed by default: the timer and its start button are what the widget is
+  // for, and the mode switch, counter and notification toggle are settings you
+  // touch once. Expanded, it is the same panel as before.
+  const [open, setOpen] = useState(false);
+  const isFocus = mode === 'focus';
 
-      <div className="mt-3 rounded-[1.25rem] border-2 border-slate-100 bg-white p-3 text-center md:mt-5 md:rounded-[1.5rem] md:p-5">
-        <p className="font-mono text-3xl font-black text-slate-800 md:text-6xl">{formatTimer(seconds)}</p>
-        <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-left md:mt-4 md:rounded-2xl md:px-4 md:py-3">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">Pomodoros hoje</p>
-          <p className="mt-1 text-lg font-black text-emerald-700 md:text-2xl">
-            {todayCount} <span className="text-xs font-bold text-emerald-600 md:text-sm">{todayCount === 1 ? 'feito' : 'feitos'}</span>
+  return (
+    <div className="kid-surface border-sky-100 p-3 md:p-4">
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 md:h-11 md:w-11 md:rounded-2xl">
+          <Timer size={20} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Pomodoro</p>
+          <p className="flex items-baseline gap-2">
+            <span className="text-base font-black leading-tight text-slate-800 md:text-lg">
+              {isFocus ? 'Foco' : 'Pausa'}
+            </span>
+            <span className="font-mono text-base font-black tabular-nums leading-tight text-slate-800 md:text-lg">
+              {formatTimer(seconds)}
+            </span>
           </p>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4">
-          <button type="button" onClick={() => onSwitch('focus')}
-            className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-            Foco
-          </button>
-          <button type="button" onClick={() => onSwitch('break')}
-            className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-            Pausa
-          </button>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" onClick={onToggle}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-slate-800 px-2.5 text-xs font-black text-white transition hover:bg-slate-700 md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
-            {running ? <Pause size={14} className="md:h-4 md:w-4" /> : <Play size={14} className="md:h-4 md:w-4" />}
-            {running ? 'Pausar' : 'Iniciar'}
-          </button>
-          <button type="button" onClick={() => onSwitch(mode)}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:gap-2 md:rounded-2xl md:px-3 md:text-sm">
-            <RotateCcw size={14} className="md:h-4 md:w-4" /> Reiniciar
-          </button>
-        </div>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-black text-white transition md:rounded-2xl md:px-4 md:text-sm ${
+            running ? 'bg-slate-800 hover:bg-slate-700' : 'bg-sky-600 hover:bg-sky-700'
+          }`}
+        >
+          {running ? <Pause size={15} /> : <Play size={15} />}
+          {running ? 'Pausar' : 'Iniciar'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls="pomodoro-details"
+          aria-label={open ? 'Fechar ajustes do pomodoro' : 'Abrir ajustes do pomodoro'}
+          className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        >
+          <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
-      <button type="button" onClick={onRequestNotifications}
-        disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:gap-2 md:rounded-2xl md:text-sm">
-        <Bell size={14} className="md:h-4 md:w-4" />
-        {notificationPermission === 'granted' ? 'Notificacoes ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificacoes'}
-      </button>
+      <div id="pomodoro-details" hidden={!open}>
+        <div className="mt-3 rounded-[1.25rem] border-2 border-slate-100 bg-white p-3 text-center md:rounded-[1.5rem] md:p-5">
+          <p className="font-mono text-3xl font-black text-slate-800 md:text-5xl">{formatTimer(seconds)}</p>
+          <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-left md:mt-4 md:rounded-2xl md:px-4 md:py-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">Pomodoros hoje</p>
+            <p className="mt-1 text-lg font-black text-emerald-700 md:text-2xl">
+              {todayCount} <span className="text-xs font-bold text-emerald-600 md:text-sm">{todayCount === 1 ? 'feito' : 'feitos'}</span>
+            </p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4">
+            <button type="button" onClick={() => onSwitch('focus')}
+              className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              Foco
+            </button>
+            <button type="button" onClick={() => onSwitch('break')}
+              className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              Pausa
+            </button>
+          </div>
+          <button type="button" onClick={() => onSwitch(mode)}
+            className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:rounded-2xl md:text-sm">
+            <RotateCcw size={15} /> Reiniciar
+          </button>
+        </div>
+
+        <button type="button" onClick={onRequestNotifications}
+          disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:rounded-2xl md:text-sm">
+          <Bell size={15} />
+          {notificationPermission === 'granted' ? 'Notificações ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificações'}
+        </button>
+      </div>
+
       {message && <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-bold text-sky-700">{message}</p>}
     </div>
   );

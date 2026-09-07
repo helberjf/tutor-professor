@@ -63,6 +63,18 @@ html[data-theme='dark'] {
   box-sizing: border-box;
 }
 
+/* Native widgets — the <select> popup, scrollbars, date pickers — are painted
+ * by the browser, not by our CSS, and it picks their palette from color-scheme.
+ * Without this the theme was never declared, so a dark page opened a white
+ * dropdown list with black rows on top of it. */
+:root {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 html {
   min-height: 100%;
 }
