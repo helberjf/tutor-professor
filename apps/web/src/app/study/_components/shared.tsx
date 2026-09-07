@@ -121,11 +121,13 @@ export function MetricCard({ icon, label, value, helper, tone, compact = false }
 }) {
   const toneStyles = { orange: 'bg-orange-100 text-orange-700', green: 'bg-emerald-100 text-emerald-700', rose: 'bg-rose-100 text-rose-700', sky: 'bg-sky-100 text-sky-700' }[tone];
   return (
-    <div className={`rounded-[1.1rem] border-2 border-white/80 bg-white/85 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ${compact ? 'p-2 sm:p-4' : 'p-3 sm:p-4'}`}>
-      <div className={`inline-flex items-center justify-center ${compact ? 'h-7 w-7 rounded-lg sm:h-11 sm:w-11 sm:rounded-2xl' : 'h-9 w-9 rounded-2xl sm:h-11 sm:w-11'} ${toneStyles}`}>{icon}</div>
-      <p className={`font-bold uppercase tracking-[0.1em] text-slate-400 ${compact ? 'mt-1.5 text-[8px] sm:mt-3 sm:text-xs' : 'mt-2 text-[10px] sm:mt-3 sm:text-xs'}`}>{label}</p>
-      <p className={`mt-0.5 break-words font-black text-slate-800 ${compact ? 'text-base leading-5 sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
-      <p className={`mt-0.5 font-semibold text-slate-500 ${compact ? 'hidden sm:block sm:text-sm sm:leading-5' : 'text-xs leading-5 sm:text-sm'}`}>{helper}</p>
+    <div className={`flex h-full flex-col rounded-[1.1rem] border-2 border-white/80 bg-white/85 shadow-[0_12px_32px_rgba(14,165,233,0.08)] ${compact ? 'p-2.5 sm:p-4' : 'p-3 sm:p-4'}`}>
+      <div className={`inline-flex shrink-0 items-center justify-center ${compact ? 'h-8 w-8 rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl' : 'h-9 w-9 rounded-2xl sm:h-11 sm:w-11'} ${toneStyles}`}>{icon}</div>
+      {/* The label used to drop to 8px on a phone, which is below anything a
+       * child can read. 11px is the floor here; the tracking does the rest. */}
+      <p className={`font-bold uppercase leading-tight tracking-[0.08em] text-slate-400 ${compact ? 'mt-2 text-[11px] sm:mt-3 sm:text-xs sm:tracking-[0.1em]' : 'mt-2 text-[11px] sm:mt-3 sm:text-xs sm:tracking-[0.1em]'}`}>{label}</p>
+      <p className={`mt-1 break-words font-black leading-tight text-slate-800 ${compact ? 'text-lg sm:text-2xl' : 'text-xl sm:text-2xl'}`}>{value}</p>
+      <p className={`mt-1 font-semibold leading-5 text-slate-500 ${compact ? 'hidden sm:block sm:text-sm' : 'text-xs sm:text-sm'}`}>{helper}</p>
     </div>
   );
 }
