@@ -44,9 +44,11 @@ export function PomodoroWidget({
   onSwitch: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
-  // Collapsed by default: the timer and its start button are what the widget is
-  // for, and the mode switch, counter and notification toggle are settings you
-  // touch once. Expanded, it is the same panel as before.
+  // The dropdown exists to buy vertical space on a phone, where the widget sits
+  // in the scroll flow. From md up it lives in its own column with room to
+  // spare, so the panel is simply always open there and the toggle is gone: the
+  // collapsed header could not fit the timer and the button side by side in
+  // that narrow column anyway, and the button clipped the clock.
   const [open, setOpen] = useState(false);
   const isFocus = mode === 'focus';
 
@@ -63,7 +65,11 @@ export function PomodoroWidget({
             <span className="text-base font-black leading-tight text-slate-800 md:text-lg">
               {isFocus ? 'Foco' : 'Pausa'}
             </span>
-            <span className="font-mono text-base font-black tabular-nums leading-tight text-slate-800 md:text-lg">
+            <span
+              className={`font-mono text-base font-black tabular-nums leading-tight text-slate-800 md:hidden ${
+                open ? 'hidden' : ''
+              }`}
+            >
               {formatTimer(seconds)}
             </span>
           </p>
@@ -86,13 +92,13 @@ export function PomodoroWidget({
           aria-expanded={open}
           aria-controls="pomodoro-details"
           aria-label={open ? 'Fechar ajustes do pomodoro' : 'Abrir ajustes do pomodoro'}
-          className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+          className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 md:hidden"
         >
           <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
-      <div id="pomodoro-details" hidden={!open}>
+      <div id="pomodoro-details" className={open ? 'block' : 'hidden md:block'}>
         <div className="mt-3 rounded-[1.25rem] border-2 border-slate-100 bg-white p-3 text-center md:rounded-[1.5rem] md:p-5">
           <p className="font-mono text-3xl font-black text-slate-800 md:text-5xl">{formatTimer(seconds)}</p>
           <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-left md:mt-4 md:rounded-2xl md:px-4 md:py-3">
