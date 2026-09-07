@@ -411,9 +411,6 @@ class PhraseGenerationService:
             "- Keep example sentences descriptive, simple, and under 18 words when possible.\n"
             "- Generate exactly 5 unique study questions about these same phrases in the same response.\n"
             "- Every question front must end with a question mark and must not repeat another front.\n"
-            f"- Every question must include front_pt: the front translated into {safe_base_language}, "
-            "so a child who cannot read the target language yet still understands what is being asked. "
-            "If the front is already in that language, repeat it there.\n"
             "- Use at least 3 different question types from: "
             f"{', '.join(ALLOWED_LANGUAGE_QUESTION_TYPES)}.\n"
             "- Vary vocabulary, translation, completion, grammar, comprehension, and contextual usage as appropriate.\n"
@@ -434,7 +431,6 @@ class PhraseGenerationService:
             '  "questions": [\n'
             "    {\n"
             '      "front": "string ending with ?",\n'
-            '      "front_pt": "string",\n'
             '      "back": "string",\n'
             '      "question_type": "vocabulary|translation|sentence_completion|grammar|comprehension|contextual_usage",\n'
             '      "supporting_example": "string or null"\n'

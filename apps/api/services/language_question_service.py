@@ -35,10 +35,6 @@ class ValidatedLanguageQuestion:
     back: str
     question_type: str
     supporting_example: str | None = None
-    # Portuguese reading of `front`, so a question written in the target
-    # language is still understandable. Optional: an older provider reply that
-    # omits it must not fail the whole batch.
-    front_pt: str | None = None
 
 
 def front_key_for(front: str) -> str:
@@ -115,12 +111,10 @@ def build_language_questions_prompt(
         f"{_json_for_prompt(retained_fronts, 20_000, list_limit=MAX_EXISTING_FRONTS_IN_PROMPT)}\n"
         f"Contexto adicional: {sanitized_context or 'Nenhum contexto adicional.'}\n"
         f"Tipos permitidos: {allowed_types}. Use pelo menos 3 tipos distintos.\n"
-        f"Em front_pt escreva a pergunta traduzida para {sanitize_context(base_language)[:40]}, "
-        "para quem ainda nao le bem o idioma-alvo. Se o front ja estiver nesse idioma, repita-o.\n"
         "Retorne somente JSON valido neste formato: "
-        '{"questions":[{"front":"...","front_pt":"...","back":"...","question_type":"grammar",'
+        '{"questions":[{"front":"...","back":"...","question_type":"grammar",'
         '"supporting_example":"... ou null"}]}. '
-        "Cada front deve ter no maximo 500 caracteres, cada front_pt 500, cada back 2000 e cada exemplo 1000."
+        "Cada front deve ter no maximo 500 caracteres, cada back 2000 e cada exemplo 1000."
     )
     return prompt[:MAX_LANGUAGE_QUESTION_PROMPT_CHARS]
 
@@ -160,8 +154,6 @@ def validate_language_question_batch(
             raw.get("supporting_example"), str
         ):
             raise ValueError("supporting_example must be a string or null")
-        if raw.get("front_pt") is not None and not isinstance(raw.get("front_pt"), str):
-            raise ValueError("front_pt must be a string or null")
         front = _question_front(_raw_text(raw, "front"))
         back = _raw_text(raw, "back")
         question_type = _raw_text(raw, "question_type")
@@ -197,13 +189,6 @@ def validate_language_question_batch(
             question_type=card.question_type or "",
             supporting_example=(
                 _raw_text(raw, "supporting_example") or None
-                if isinstance(raw, Mapping)
-                else None
-            ),
-            # Trimmed rather than rejected: a missing or over-long translation is
-            # a nice-to-have, never a reason to throw away five good questions.
-            front_pt=(
-                (_raw_text(raw, "front_pt")[:500].strip() or None)
                 if isinstance(raw, Mapping)
                 else None
             ),
