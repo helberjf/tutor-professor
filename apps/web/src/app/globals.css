@@ -28,6 +28,12 @@
   --text-muted: #64748b;
   --text-soft: #94a3b8;
   --shadow-soft: 0 24px 70px rgba(14, 165, 233, 0.15);
+  /* .kid-surface sets its own border-color, which beats any border-*
+   * utility placed on the same element (the class rule comes after the
+   * utilities layer). Hardcoding white there left every card ringed in
+   * white on a dark background unless it happened to use one of the few
+   * border utilities the dark block overrides with !important. */
+  --surface-border: rgba(255, 255, 255, 0.7);
 }
 
 html[data-theme='dark'] {
@@ -50,6 +56,7 @@ html[data-theme='dark'] {
   --text-muted: #b6c2d5;
   --text-soft: #8ea0b8;
   --shadow-soft: 0 24px 70px rgba(2, 6, 23, 0.38);
+  --surface-border: var(--line-soft);
 }
 
 * {
@@ -130,7 +137,7 @@ textarea {
 }
 
 .kid-surface {
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: var(--surface-border);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
   @apply rounded-[1.5rem] border-4 backdrop-blur-sm md:rounded-[2rem];
@@ -295,24 +302,29 @@ html[data-theme='dark'] :is(.bg-slate-50, .bg-slate-100) {
   background-color: var(--surface-muted) !important;
 }
 
-html[data-theme='dark'] :is(.bg-sky-50, .bg-primary-light, .bg-cyan-50) {
+html[data-theme='dark'] :is(.bg-sky-50, .bg-sky-100, .bg-primary-light, .bg-cyan-50, .bg-cyan-100, .bg-blue-50, .bg-blue-100) {
   background-color: rgba(14, 165, 233, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.bg-indigo-50, .bg-violet-50, .bg-violet-100) {
+html[data-theme='dark'] :is(.bg-indigo-50, .bg-indigo-100, .bg-violet-50, .bg-violet-100) {
   background-color: rgba(129, 140, 248, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.bg-amber-50, .bg-amber-100, .bg-yellow-50, .bg-secondary-light) {
+html[data-theme='dark'] :is(.bg-amber-50, .bg-amber-100, .bg-amber-200, .bg-yellow-50, .bg-secondary-light) {
   background-color: rgba(251, 191, 36, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-accent-light) {
+html[data-theme='dark'] :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-teal-50, .bg-accent-light) {
   background-color: rgba(34, 197, 94, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.bg-rose-50, .bg-red-50, .bg-pink-50) {
+html[data-theme='dark'] :is(.bg-rose-50, .bg-rose-100, .bg-red-50, .bg-pink-50) {
   background-color: rgba(244, 63, 94, 0.14) !important;
+}
+
+/* Orange had no rule at all, so every orange tile stayed light. */
+html[data-theme='dark'] :is(.bg-orange-50, .bg-orange-100) {
+  background-color: rgba(251, 146, 60, 0.16) !important;
 }
 
 html[data-theme='dark'] :is(.border-white, [class~='border-white/70'], .border-slate-100, .border-slate-200, .border-slate-300, .border-sky-100) {
