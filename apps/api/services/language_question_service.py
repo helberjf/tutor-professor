@@ -35,6 +35,8 @@ class ValidatedLanguageQuestion:
     back: str
     question_type: str
     supporting_example: str | None = None
+    front_translation: str | None = None
+    supporting_example_translation: str | None = None
 
 
 def front_key_for(front: str) -> str:
@@ -111,9 +113,14 @@ def build_language_questions_prompt(
         f"{_json_for_prompt(retained_fronts, 20_000, list_limit=MAX_EXISTING_FRONTS_IN_PROMPT)}\n"
         f"Contexto adicional: {sanitized_context or 'Nenhum contexto adicional.'}\n"
         f"Tipos permitidos: {allowed_types}. Use pelo menos 3 tipos distintos.\n"
+        f"Inclua front_translation com a traducao natural do enunciado (front) no idioma-base "
+        f"({sanitize_context(base_language)[:40]}). Se o front ja estiver totalmente no idioma-base, repita-o. "
+        "Inclua supporting_example_translation com a traducao do supporting_example no idioma-base, "
+        "ou null quando nao houver supporting_example.\n"
         "Retorne somente JSON valido neste formato: "
         '{"questions":[{"front":"...","back":"...","question_type":"grammar",'
-        '"supporting_example":"... ou null"}]}. '
+        '"supporting_example":"... ou null","front_translation":"...",'
+        '"supporting_example_translation":"... ou null"}]}. '
         "Cada front deve ter no maximo 500 caracteres, cada back 2000 e cada exemplo 1000."
     )
     return prompt[:MAX_LANGUAGE_QUESTION_PROMPT_CHARS]
@@ -150,14 +157,21 @@ def validate_language_question_batch(
         for field in ("front", "back", "question_type"):
             if not isinstance(raw.get(field), str):
                 raise ValueError(f"{field} must be a string")
-        if raw.get("supporting_example") is not None and not isinstance(
-            raw.get("supporting_example"), str
+        for optional_text_field in (
+            "supporting_example",
+            "front_translation",
+            "supporting_example_translation",
         ):
-            raise ValueError("supporting_example must be a string or null")
+            if raw.get(optional_text_field) is not None and not isinstance(
+                raw.get(optional_text_field), str
+            ):
+                raise ValueError(f"{optional_text_field} must be a string or null")
         front = _question_front(_raw_text(raw, "front"))
         back = _raw_text(raw, "back")
         question_type = _raw_text(raw, "question_type")
         example = _raw_text(raw, "supporting_example")
+        front_translation = _raw_text(raw, "front_translation")
+        example_translation = _raw_text(raw, "supporting_example_translation")
         if not front:
             raise ValueError("Question front must not be empty")
         if len(back) > 2000:
@@ -166,6 +180,10 @@ def validate_language_question_batch(
             raise ValueError("Question type must have at most 40 characters")
         if len(example) > 1000:
             raise ValueError("Supporting example must have at most 1000 characters")
+        if len(front_translation) > 500:
+            raise ValueError("Front translation must have at most 500 characters")
+        if len(example_translation) > 1000:
+            raise ValueError("Supporting example translation must have at most 1000 characters")
         if question_type not in ALLOWED_LANGUAGE_QUESTION_TYPES:
             raise ValueError(f"Unsupported question type: {question_type or '(empty)'}")
         # No "is it a question?" / "is it under 500 chars?" check here: _question_front
@@ -189,6 +207,16 @@ def validate_language_question_batch(
             question_type=card.question_type or "",
             supporting_example=(
                 _raw_text(raw, "supporting_example") or None
+                if isinstance(raw, Mapping)
+                else None
+            ),
+            front_translation=(
+                _raw_text(raw, "front_translation") or None
+                if isinstance(raw, Mapping)
+                else None
+            ),
+            supporting_example_translation=(
+                _raw_text(raw, "supporting_example_translation") or None
                 if isinstance(raw, Mapping)
                 else None
             ),

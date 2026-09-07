@@ -4,6 +4,17 @@ import { useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { api, type ProgrammingSubject } from '@/lib/api';
 
+const CONTEXT_PLACEHOLDER = `Instruções extras ou um guia de como a matéria deve ser organizada.
+
+Ex (React):
+1. Introdução
+2. Fundamentos básicos
+3. JSX e componentes
+...
+15. Implementações avançadas
+
+Ou só instruções: foco no exame AWS SAA-C03, estilo de prova, nível avançado.`;
+
 interface Props {
   onClose: () => void;
   onCreated: (subject: ProgrammingSubject) => void;
@@ -40,7 +51,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-black text-slate-800">Nova Matéria</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100">
@@ -87,7 +98,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               <span className="text-left text-sm font-bold text-slate-700">
                 Adicionar contexto para a IA
                 <span className="mt-0.5 block text-xs font-medium text-slate-400">
-                  Instruções extras usadas ao gerar o conteúdo desta matéria
+                  Instruções extras ou um roteiro de tópicos usados ao gerar o conteúdo desta matéria
                 </span>
               </span>
               <span
@@ -102,10 +113,10 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               <textarea
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                placeholder="Ex: foco no exame AWS SAA-C03, estilo de prova, nível avançado..."
+                placeholder={CONTEXT_PLACEHOLDER}
                 maxLength={2000}
-                rows={3}
-                className="mt-3 w-full resize-none rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
+                rows={7}
+                className="mt-3 w-full resize-y rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
               />
             )}
           </div>

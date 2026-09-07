@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2, ChevronRight, Timer, X } from 'lucide-react';
 
 import { formatClock, useCountdown } from './use-countdown';
@@ -30,6 +31,7 @@ export function PracticeQuestionsModal({
   /** Timed exam when set; omit for an untimed practice session. */
   durationSeconds?: number;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [finished, setFinished] = useState(false);
@@ -48,6 +50,11 @@ export function PracticeQuestionsModal({
   const score = questions.filter((item) => answers[item.id] === item.correct_option).length;
 
   useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -62,7 +69,7 @@ export function PracticeQuestionsModal({
     setFinished(true);
   }, [clock.expired, finished, durationSeconds]);
 
-  if (!question) return null;
+  if (!question || !mounted) return null;
 
   const shuffledOptions = [...question.options].sort((a, b) => {
     const seed = question.id + question.question.length * 31;
@@ -99,7 +106,7 @@ export function PracticeQuestionsModal({
     clock.restart();
   }
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -248,6 +255,7 @@ export function PracticeQuestionsModal({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

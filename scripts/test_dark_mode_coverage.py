@@ -50,6 +50,13 @@ CUSTOM_TEXT_CLASSES = {
 # Light surfaces that need a dark counterpart.
 LIGHT_SURFACE_CLASSES = {"bg-white", "bg-slate-50", "bg-slate-100"}
 
+# Tinted surfaces are the other half of the same trap. A `bg-sky-100` icon tile
+# keeps its light tint on a dark card while `text-sky-700` on top of it *is*
+# remapped to a light shade, so the glyph turns light-on-light and disappears.
+# That is how the level badge on the home page shipped unreadable. Only the
+# pale shades belong here: 300+ are dark enough to stand on a dark card.
+TINT_SURFACE_SHADES = {"50", "100", "200"}
+
 
 def used_classes() -> set[str]:
     found: set[str] = set()
@@ -64,6 +71,12 @@ def used_classes() -> set[str]:
                 found.add(cls)
         for cls in re.findall(r"(?<![\w-])(bg-white|bg-slate-50|bg-slate-100)(?![\w/-])", text):
             found.add(cls)
+        for family in TAILWIND_COLOR_FAMILIES:
+            if family == "slate":
+                continue
+            for shade in re.findall(rf"(?<![\w-])bg-{family}-(\d{{2,3}})(?![\w/-])", text):
+                if shade in TINT_SURFACE_SHADES:
+                    found.add(f"bg-{family}-{shade}")
     return found
 
 

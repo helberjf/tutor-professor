@@ -154,6 +154,8 @@ export interface LessonQuestion {
   front: string;
   back: string;
   supporting_example: string | null;
+  front_translation: string | null;
+  supporting_example_translation: string | null;
   created_at: string;
 }
 
@@ -377,6 +379,8 @@ export interface LessonQuestionReviewCard {
   answer: string;
   question_type: string;
   supporting_example: string | null;
+  prompt_translation: string | null;
+  supporting_example_translation: string | null;
   difficulty_score: number;
   error_count: number;
 }
