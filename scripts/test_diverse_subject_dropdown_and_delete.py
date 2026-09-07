@@ -24,7 +24,16 @@ def main() -> None:
     page_source = without_accents(STUDY_PAGE.read_text(encoding="utf-8"))
     tab_source = without_accents(DIVERSE_TAB.read_text(encoding="utf-8"))
 
-    require("Selecionar materia" in tab_source, "diverse overview should offer a subject dropdown")
+    # The dropdown must stay reachable by name. It used to carry an invisible
+    # aria-label; it now has a real <label htmlFor> tied to the select's id,
+    # which names it with visible text instead. Assert the association rather
+    # than either wording, so improving the label does not fail the test.
+    require("Abrir materia" in tab_source, "diverse overview should offer a subject dropdown")
+    require(
+        'htmlFor="diverse-subject-picker"' in tab_source
+        and 'id="diverse-subject-picker"' in tab_source,
+        "the subject dropdown must be labelled by an associated <label>",
+    )
     require("removeDiverseSubjectById" in page_source, "diverse subjects should be removable by canonical id")
     require("Essa materia ja existe para esta data" in page_source, "adding duplicate subject should show explicit feedback")
     require("Materia criada com 3 topicos iniciais da IA" in page_source, "adding a subject should confirm its automatic save")
