@@ -830,6 +830,9 @@ class TopicSummarySchema(BaseModel):
     topic_id: int
     title: str
     content: str
+    # When the stored sheet was last written. The reader sees this so a reused
+    # sheet is visibly reused instead of looking like a fresh generation.
+    updated_at: Optional[datetime] = None
 
 
 class UpdateTopicSummarySchema(BaseModel):

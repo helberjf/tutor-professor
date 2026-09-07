@@ -16,6 +16,20 @@ interface SummarySheetModalProps {
   error?: string;
   /** Provided only where editing has a single owner: the topic sheet. */
   onSave?: (content: string) => Promise<void>;
+  /** When the stored sheet was last written, so a reused sheet reads as reused. */
+  updatedAt?: string | null;
+}
+
+/** "Salvo em 6 de set, 14:32" — short enough to sit in the header subtitle. */
+function formatSavedAt(value: string): string | null {
+  const parsed = new Date(value.endsWith('Z') || value.includes('+') ? value : `${value}Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleString('pt-BR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /** One rendered line of the sheet. The AI answers in Markdown so the text can
@@ -57,6 +71,7 @@ export function SummarySheetModal({
   progress,
   error,
   onSave,
+  updatedAt,
 }: SummarySheetModalProps) {
   const [copied, setCopied] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -71,6 +86,7 @@ export function SummarySheetModal({
   // The whole point of the sheet is being short, so show how short it came out.
   const words = content.split(/\s+/).filter(Boolean).length;
   const readingMinutes = Math.max(1, Math.round(words / 200));
+  const savedAt = updatedAt ? formatSavedAt(updatedAt) : null;
 
   async function handleCopy() {
     if (!navigator.clipboard) return;
@@ -107,6 +123,11 @@ export function SummarySheetModal({
               <p className="mt-1 text-sm font-bold text-slate-500">
                 Só o que cai na prova · {scopeLabel} · {words} palavras · {readingMinutes} min de leitura
               </p>
+              {savedAt && (
+                <p className="mt-1 text-xs font-bold text-slate-400">
+                  Resumo salvo em {savedAt} — reaproveitado sem gastar créditos de IA.
+                </p>
+              )}
             </div>
             <button
               type="button"

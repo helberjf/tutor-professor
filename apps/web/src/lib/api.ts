@@ -1060,6 +1060,8 @@ export interface TopicSummary {
   topic_id: number;
   title: string;
   content: string;
+  /** When the stored sheet was last written; null while it has never been saved. */
+  updated_at: string | null;
 }
 
 export interface PendingSummaryTopic {

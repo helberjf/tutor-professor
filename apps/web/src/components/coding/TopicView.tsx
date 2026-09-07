@@ -189,22 +189,44 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   const [questionGenerationError, setQuestionGenerationError] = useState('');
   const [questionGenerationSuccess, setQuestionGenerationSuccess] = useState('');
   // Revision sheet for this topic. It is stored, so the subject sheet can join
-  // it later without paying for the same topic twice.
+  // it later without paying for the same topic twice. Closing the modal only
+  // hides it — the sheet stays here so reopening costs no round trip at all.
   const [summary, setSummary] = useState<TopicSummary | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  // Only true when the AI is definitely running, so the button never claims to
+  // be summarising while it is just fetching a sheet that already exists.
+  const [regeneratingSummary, setRegeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState('');
 
+  // A different topic must not show the previous topic's sheet.
+  useEffect(() => {
+    setSummary(null);
+    setSummaryOpen(false);
+    setSummaryError('');
+  }, [topic.id]);
+
   async function openTopicSummary(regenerate = false) {
+    // Already loaded in this view: just show it again, no request.
+    if (summary && !regenerate) {
+      setSummaryError('');
+      setSummaryOpen(true);
+      return;
+    }
+
     setLoadingSummary(true);
+    setRegeneratingSummary(regenerate);
     setSummaryError('');
     try {
       setSummary(await api.generateTopicSummary(topic.id, regenerate));
+      setSummaryOpen(true);
     } catch (err) {
       // Keep any sheet already on screen: a failed re-run should not throw away
       // the summary the reader is looking at.
       setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
     } finally {
       setLoadingSummary(false);
+      setRegeneratingSummary(false);
     }
   }
 
@@ -583,7 +605,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
               >
                 {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                {loadingSummary ? 'Resumindo...' : 'Resumo do tópico'}
+                {!loadingSummary
+                  ? 'Resumo do tópico'
+                  : regeneratingSummary
+                    ? 'Resumindo...'
+                    : 'Abrindo...'}
               </button>
             )}
             {topic.ai_content && (
@@ -1048,17 +1074,19 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           onClose={() => setQuestionPracticeOpen(false)}
         />
       )}
-      {summary && (
+      {summaryOpen && summary && (
         <SummarySheetModal
           subjectName={subjectName}
           heading="Resumo do tópico"
           scopeLabel={topic.title}
           content={summary.content}
+          updatedAt={summary.updated_at}
           regenerating={loadingSummary}
           error={summaryError}
           onSave={handleSaveTopicSummary}
           onRegenerate={() => void openTopicSummary(true)}
-          onClose={() => setSummary(null)}
+          // Keep the sheet in memory so reopening is instant and free.
+          onClose={() => setSummaryOpen(false)}
         />
       )}
     </div>

@@ -5212,7 +5212,12 @@ def summarize_coding_topic(
     topic = _topic_for_child(session, topic_id, child)
     stored = (topic.summary or "").strip()
     if stored and not regenerate:
-        return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=stored)
+        return TopicSummarySchema(
+            topic_id=topic.id or 0,
+            title=topic.title,
+            content=stored,
+            updated_at=topic.summary_updated_at,
+        )
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
@@ -5250,7 +5255,12 @@ def summarize_coding_topic(
     session.add(topic)
     session.commit()
     session.refresh(topic)
-    return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=content)
+    return TopicSummarySchema(
+        topic_id=topic.id or 0,
+        title=topic.title,
+        content=content,
+        updated_at=topic.summary_updated_at,
+    )
 
 
 @app.put("/api/coding/topics/{topic_id}/summary", response_model=TopicSummarySchema)
@@ -5272,7 +5282,12 @@ def update_coding_topic_summary(
     session.add(topic)
     session.commit()
     session.refresh(topic)
-    return TopicSummarySchema(topic_id=topic.id or 0, title=topic.title, content=content)
+    return TopicSummarySchema(
+        topic_id=topic.id or 0,
+        title=topic.title,
+        content=content,
+        updated_at=topic.summary_updated_at,
+    )
 
 
 @app.get("/api/coding/subjects/{subject_id}/summary", response_model=SubjectSummaryResponseSchema)

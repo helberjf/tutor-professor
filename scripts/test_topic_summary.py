@@ -214,6 +214,18 @@ class TopicSummaryRouteTests(unittest.TestCase):
             self.assertEqual(calls[0]["topic_title"], "Cache")
             self.assertNotIn("print(1)", str(calls[0]["topic_digest"]))
 
+            # The reader is shown when the sheet was stored, so a reused sheet
+            # reads as reused instead of looking like a fresh generation.
+            self.assertIsNotNone(first.json()["updated_at"], "a generated sheet must report when it was stored")
+            self.assertEqual(
+                second.json()["updated_at"], first.json()["updated_at"],
+                "reusing a stored sheet must not move its saved-at timestamp",
+            )
+            self.assertNotEqual(
+                third.json()["updated_at"], first.json()["updated_at"],
+                "an explicit regenerate must refresh the saved-at timestamp",
+            )
+
     def test_reader_can_edit_the_stored_sheet(self) -> None:
         asyncio.run(self._test_edit())
 
