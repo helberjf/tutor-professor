@@ -539,6 +539,34 @@ export default function StudyPage() {
     }
   }
 
+  async function importDiverseStudy(subject: DiverseSubject): Promise<boolean> {
+    if (diverseMutationLockRef.current) throw new Error('Aguarde a operação atual terminar.');
+    const importDate = selectedDate;
+
+    diverseMutationLockRef.current = true;
+    setSavingDiverse(true);
+    setDiverseError('');
+    setDiverseSaved('');
+    try {
+      const saved = await api.importDiverseSubject(importDate, subject);
+      if (selectedDateRef.current === importDate) {
+        diverseDayRef.current = saved;
+        setDiverseDay(saved);
+        setDiverseSaved('Estudo importado e salvo.');
+        return true;
+      }
+      return false;
+    } catch (caught) {
+      const message = caught instanceof ApiError ? caught.message : 'Não foi possível importar e salvar o estudo.';
+      if (selectedDateRef.current !== importDate) return false;
+      setDiverseError(message);
+      throw new Error(message);
+    } finally {
+      diverseMutationLockRef.current = false;
+      setSavingDiverse(false);
+    }
+  }
+
   function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
     if (diverseMutationLockRef.current) return;
     if (!diverseDay || newTopics.length === 0) return;
@@ -1153,7 +1181,8 @@ export default function StudyPage() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-[8.5rem] bg-transparent text-xs font-black text-slate-700 outline-none"
+                disabled={savingDiverse}
+                className="w-[8.5rem] bg-transparent text-xs font-black text-slate-700 outline-none disabled:cursor-not-allowed disabled:opacity-60"
               />
             </label>
           </div>
@@ -1240,6 +1269,7 @@ export default function StudyPage() {
             newSubjectName={newSubjectName}
             setNewSubjectName={setNewSubjectName}
             onAddSubject={addDiverseSubject}
+            onImportStudy={importDiverseStudy}
             onGenerateAI={(key) => void generateAIFlashcards(key)}
             generatingAI={generatingAI}
             aiAction={aiAction}
