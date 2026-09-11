@@ -34,6 +34,7 @@ from sqlalchemy.sql.schema import Table
 from sqlmodel import SQLModel
 
 import models.database  # noqa: F401  # Register every table in SQLModel.metadata.
+from database_security import harden_public_schema
 
 
 API_DIR = Path(__file__).resolve().parent
@@ -680,6 +681,15 @@ def _release_inspection_transaction(bind: Engine | Connection) -> None:
         bind.commit()
 
 
+def _harden_public_schema(bind: Engine | Connection) -> None:
+    """Re-apply the Data API lockdown so tables from later migrations are covered."""
+
+    # SQLite binds are Engines; only the PostgreSQL path holds a Connection.
+    if isinstance(bind, Connection):
+        harden_public_schema(bind)
+        bind.commit()
+
+
 def _run_bootstrap(database_url: str) -> str:
     config = _alembic_config(database_url)
     engine = create_engine(database_url)
@@ -698,6 +708,7 @@ def _run_bootstrap(database_url: str) -> str:
             if not has_version_table and detected_revision is not None:
                 command.stamp(config, detected_revision)
             command.upgrade(config, "head")
+            _harden_public_schema(inspection_bind)
     finally:
         engine.dispose()
         if previous_url is None:
