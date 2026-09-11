@@ -19,7 +19,7 @@ muda de prioridade.
 | 1 | **Conteúdo base de verdade sem IA** | O plano gratuito tem 0 gerações na chave da plataforma, e o conteúdo fixo é 1 lição de 3 itens por nível. Sem IA, a criança esgota o app no primeiro dia. | Muito alto | M |
 | 2 | **Modo criança com PIN para a área de pais** | Hoje a mesma sessão abre a área de pais, onde dá para trocar a chave de IA, apagar alunos e excluir a conta. | Alto | P |
 | 3 | **Relatório semanal para o responsável** | É o que faz o pagante perceber valor. O serviço de e-mail já existe. | Alto | P–M |
-| 4 | **Separar a experiência infantil da de adulto** | "Simulado" (banco da certificação AWS DVA-C02) aparece na barra inferior da criança, ligado por padrão. | Alto | P |
+| 4 | **Simulado de qualquer matéria** | O modo simulado é genérico, mas só tinha acervo para a certificação AWS DVA-C02, vindo de script; nenhuma outra matéria virava prova. | Alto | P — feito em 2026-09-11 |
 | 5 | **Tutor de chat com IA de verdade, com limites** | O chat atual casa palavras da lição por regra; não conversa. | Alto | M |
 
 ---
@@ -149,15 +149,21 @@ muda de prioridade.
 
 ## 3. Produto e negócio
 
-### 3.1 Separar público infantil e adulto
-- **Observado:** o módulo `exams` (Simulados) nasce ligado
-  (`services/modules.py`, `default_enabled=True`) e fica na barra inferior ao lado
-  de "Hoje" e "Revisão". O banco de questões é da certificação AWS DVA-C02. Com
-  LeetCode e currículo de programação, o app tem dois produtos num só.
-- **Proposta:** tipo de perfil na criação ("criança" ou "estudante/adulto").
-  Perfil criança nunca vê Simulado, programação nem LeetCode; perfil adulto não vê
-  a linguagem infantil. No mínimo imediato: `exams` desligado por padrão.
-- **Impacto:** alto (clareza do produto e da landing page). **Esforço:** P (mínimo) a M.
+### 3.1 Simulado para toda matéria
+- **Observado:** o modo simulado (`Exam`, `ExamQuestion`, `ExamAttempt`) já era
+  genérico — sem blueprint ele sorteia do acervo inteiro —, mas o acervo só era
+  preenchido pelo script da certificação AWS DVA-C02. Não havia rota nem tela para
+  montar o simulado de outra matéria.
+- **Feito em 2026-09-11:** `GET /api/exams/sources` lista toda matéria da criança
+  que já tem questões de múltipla escolha (inglês, matérias livres e, com o módulo
+  ligado, programação). `POST /api/exams/from-subject` cria ou atualiza o
+  "Simulado de <matéria>" copiando essas questões para o acervo, com cada tópico
+  como domínio, então o resultado sai por tópico. A tela `/exams` ganhou o painel
+  "Simulado de uma matéria". Sem migration.
+- **Próximo passo:** gerar questões de simulado com IA na própria tela, para a
+  matéria que ainda tem poucas; hoje elas vêm do modo questões.
+- **Continua valendo:** separar público infantil e adulto para programação e
+  LeetCode, com um tipo de perfil na criação ("criança" ou "estudante/adulto").
 
 ### 3.2 Cobrança com Pix
 - **Observado:** tudo pronto menos o gateway (`start_checkout`), conforme o `TODO-SAAS.md`.
@@ -205,16 +211,14 @@ muda de prioridade.
 ## 5. Roteiro sugerido
 
 **Feito em 2026-09-11:** CI (testes + `pnpm audit`, incluindo o RCE do Next.js),
-hash de senha, mensagens de erro de IA (3.4) e README.
+hash de senha, mensagens de erro de IA (3.4), README e simulado para toda matéria (3.1).
 
 **Agora (1–2 semanas)**
-1. Desligar Simulados por padrão e esconder da navegação infantil (3.1, mínimo).
-   Precisa de migration que grave `exams: true` para as contas atuais, senão quem
-   já usa perde o módulo.
-2. PIN da área de pais (2.1). Também precisa de migration (a próxima livre é a
-   `0025`) e de rodar o bootstrap no Supabase antes do push.
-3. Onboarding em 3 telas (1.6).
-4. Atualizar FastAPI/requests validando no CI (seção 4).
+1. PIN da área de pais (2.1). Precisa de migration (a próxima livre é a `0025`) e
+   de rodar o bootstrap no Supabase antes do push.
+2. Onboarding em 3 telas (1.6).
+3. Atualizar FastAPI/requests validando no CI (seção 4).
+4. Gerar questões de simulado com IA na própria tela (3.1).
 
 **Próximo (2–6 semanas)**
 6. Pacote curado de inglês A1–A2 e cache compartilhado de conteúdo (1.1).

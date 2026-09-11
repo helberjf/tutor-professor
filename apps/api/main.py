@@ -174,7 +174,10 @@ from schemas.schemas import (
     TopicSummarySchema,
     UpdateTopicSummarySchema,
     PendingSummaryTopicSchema,
+    CreateExamFromSubjectSchema,
     CreateExamSchema,
+    ExamFromSubjectResultSchema,
+    ExamSourceSchema,
     ExamAnswerSchema,
     ExamAttemptAnswerStateSchema,
     ExamAttemptQuestionSchema,
@@ -208,14 +211,19 @@ from services.diverse_question_service import (
 )
 from services.phrase_generator_service import AIProviderConfig, AI_PROVIDER_DEFAULT_MODELS, PhraseGenerationService
 from services.exam_service import (
+    DEFAULT_DOMAIN,
+    EXAM_SOURCE_AREA_LABELS,
     build_domain_breakdown,
     remaining_seconds,
     duration_minutes_for,
     grade_answer,
     has_passed,
+    import_exam_questions,
     normalize_domains,
     sample_by_blueprint,
     score_percent,
+    study_question_to_exam_record,
+    subject_exam_name,
 )
 from services.study_question_service import (
     QUESTIONS_PER_BATCH,
@@ -5748,6 +5756,220 @@ def list_exams(
             )
         )
     return overviews
+
+
+def _subject_exam_slot(
+    session: Session, child_id: int, area: str, subject_name: str
+) -> tuple[Exam | None, str]:
+    """The simulado a subject maps to, and the name it has or would get.
+
+    The source area is kept in ``code``, so a programming subject and a free
+    subject that share a name never pour into the same pool: the second one gets
+    the area appended to its name instead.
+    """
+
+    candidates = (
+        subject_exam_name(subject_name),
+        subject_exam_name(f"{subject_name} ({EXAM_SOURCE_AREA_LABELS[area]})"),
+    )
+    for name in candidates:
+        exam = session.exec(select(Exam).where(Exam.child_id == child_id, Exam.name == name)).first()
+        if exam is None:
+            return None, name
+        if exam.code == area:
+            return exam, name
+    raise HTTPException(status_code=409, detail="Já existe um simulado com o nome desta matéria.")
+
+
+def _exam_source_records(
+    session: Session, child: ChildProfile, payload: CreateExamFromSubjectSchema
+) -> tuple[str, int | None, list[dict]]:
+    """The subject's multiple-choice questions in the exam shape, topic as domain."""
+
+    if payload.area == "coding":
+        subject = session.get(ProgrammingSubject, payload.subject_id) if payload.subject_id else None
+        if subject is None or subject.child_id != child.id:
+            raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+        topic_titles = {
+            topic.id: topic.title
+            for topic in session.exec(
+                select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject.id)
+            ).all()
+        }
+        programming_rows = session.exec(
+            select(ProgrammingQuestion)
+            .where(
+                ProgrammingQuestion.subject_id == subject.id,
+                ProgrammingQuestion.child_id == child.id,
+            )
+            .order_by(ProgrammingQuestion.id)
+        ).all()
+        records = [
+            study_question_to_exam_record(
+                domain=topic_titles.get(row.topic_id) or DEFAULT_DOMAIN,
+                question=row.question,
+                options=row.options,
+                correct_option=row.correct_option,
+                explanation=row.explanation,
+            )
+            for row in programming_rows
+        ]
+        return subject.name, subject.id, records
+
+    subject_name = " ".join(payload.subject_name.split())
+    study_rows = (
+        session.exec(
+            select(StudyQuestion)
+            .where(
+                StudyQuestion.child_id == child.id,
+                StudyQuestion.area == payload.area,
+                StudyQuestion.subject_name == subject_name,
+            )
+            .order_by(StudyQuestion.id)
+        ).all()
+        if subject_name
+        else []
+    )
+    if not study_rows:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    records = [
+        study_question_to_exam_record(
+            domain=row.topic_title,
+            question=row.question,
+            options=row.options,
+            correct_option=row.correct_option,
+            explanation=row.explanation,
+        )
+        for row in study_rows
+    ]
+    return study_rows[0].subject_name, None, records
+
+
+@app.get("/api/exams/sources", response_model=list[ExamSourceSchema])
+def list_exam_sources(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[ExamSourceSchema]:
+    """Every subject that already has questions, so any of them can become a simulado."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+
+    counted: list[tuple[str, int | None, str, int]] = []
+    for area in ("english", "diverse"):
+        rows = session.exec(
+            select(StudyQuestion.subject_name, func.count(StudyQuestion.id))
+            .where(StudyQuestion.child_id == child_id, StudyQuestion.area == area)
+            .group_by(StudyQuestion.subject_name)
+            .order_by(StudyQuestion.subject_name)
+        ).all()
+        counted.extend((area, None, name, count) for name, count in rows)
+    if account_has_coding_enabled(request, session):
+        rows = session.exec(
+            select(ProgrammingSubject.id, ProgrammingSubject.name, func.count(ProgrammingQuestion.id))
+            .join(ProgrammingQuestion, ProgrammingQuestion.subject_id == ProgrammingSubject.id)
+            .where(ProgrammingSubject.child_id == child_id, ProgrammingQuestion.child_id == child_id)
+            .group_by(ProgrammingSubject.id, ProgrammingSubject.name)
+            .order_by(ProgrammingSubject.name)
+        ).all()
+        counted.extend(("coding", subject_id, name, count) for subject_id, name, count in rows)
+
+    sources: list[ExamSourceSchema] = []
+    for area, subject_id, name, count in counted:
+        try:
+            exam, _ = _subject_exam_slot(session, child_id, area, name)
+        except HTTPException:
+            exam = None
+        sources.append(
+            ExamSourceSchema(
+                area=area,
+                subject_id=subject_id,
+                subject_name=name,
+                question_count=int(count),
+                exam_id=exam.id if exam else None,
+            )
+        )
+    return sources
+
+
+@app.post("/api/exams/from-subject", response_model=ExamFromSubjectResultSchema)
+def create_exam_from_subject(
+    payload: CreateExamFromSubjectSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ExamFromSubjectResultSchema:
+    """Build — or refresh — the simulado of any subject from the questions it has.
+
+    The questions are copied into the exam pool rather than referenced: an attempt
+    keeps pointing at the exact question it drew even if the study question is
+    later regenerated. Calling this again only adds what is new, and a legacy
+    question that breaks the exam contract is skipped instead of failing the rest.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    if payload.area == "coding" and not account_has_coding_enabled(request, session):
+        raise HTTPException(status_code=403, detail="Ative o módulo de programação para usar essas questões.")
+
+    subject_name, subject_id, records = _exam_source_records(session, child, payload)
+    exam, exam_name = _subject_exam_slot(session, child.id or 0, payload.area, subject_name)
+    existing = [question.question for question in _exam_pool(session, exam.id or 0)] if exam else []
+    accepted, skipped = import_exam_questions(records, existing_questions=existing)
+    if exam is None and not accepted:
+        raise HTTPException(
+            status_code=422,
+            detail="Essa matéria ainda não tem questões de múltipla escolha válidas. Gere questões nela primeiro.",
+        )
+
+    if exam is None:
+        exam = Exam(
+            child_id=child.id or 0,
+            subject_id=subject_id,
+            code=payload.area,
+            name=exam_name,
+            question_count=payload.question_count,
+            duration_minutes=duration_minutes_for(payload.question_count),
+            passing_percent=payload.passing_percent,
+            domains=[],
+        )
+    else:
+        exam.question_count = payload.question_count
+        exam.duration_minutes = duration_minutes_for(payload.question_count)
+        exam.passing_percent = payload.passing_percent
+        exam.updated_at = datetime.utcnow()
+    session.add(exam)
+    session.flush()
+
+    for question in accepted:
+        session.add(
+            ExamQuestion(
+                exam_id=exam.id or 0,
+                domain=question.domain,
+                question=question.question,
+                question_key=question.question_key,
+                options=question.options,
+                correct_options=question.correct_options,
+                response_type=question.response_type,
+                explanation=question.explanation,
+                reference_url=question.reference_url,
+                difficulty=question.difficulty,
+            )
+        )
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=409, detail="Esse simulado acabou de ser atualizado. Tente de novo."
+        ) from exc
+    session.refresh(exam)
+    return ExamFromSubjectResultSchema(
+        exam=_exam_schema(exam),
+        imported=len(accepted),
+        skipped=skipped,
+        pool_size=len(_exam_pool(session, exam.id or 0)),
+    )
 
 
 @app.post("/api/exams", response_model=ExamSchema, status_code=201)

@@ -7,8 +7,9 @@ import { formatClock } from '@/components/questions/use-countdown';
 import { api, type ExamAttemptStart, type ExamOverview } from '@/lib/api';
 
 import { ExamRunner } from './ExamRunner';
+import { SubjectExamBuilder } from './SubjectExamBuilder';
 
-/** The simulado mode: pick an exam, sit it, see the percentage at the end. */
+/** The simulado mode: build one from any subject, sit it, see the percentage at the end. */
 export function ExamList() {
   const [exams, setExams] = useState<ExamOverview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,40 @@ export function ExamList() {
     );
   }
 
+  return (
+    <div className="space-y-5">
+      {/* Outside the loading branch, so its confirmation survives the list reload. */}
+      <SubjectExamBuilder onCreated={() => void load()} />
+      <ExamCards
+        exams={exams}
+        loading={loading}
+        loadError={loadError}
+        startError={startError}
+        startingId={startingId}
+        onRetry={() => void load()}
+        onStart={(examId) => void start(examId)}
+      />
+    </div>
+  );
+}
+
+function ExamCards({
+  exams,
+  loading,
+  loadError,
+  startError,
+  startingId,
+  onRetry,
+  onStart,
+}: {
+  exams: ExamOverview[];
+  loading: boolean;
+  loadError: string;
+  startError: string;
+  startingId: number | null;
+  onRetry: () => void;
+  onStart: (examId: number) => void;
+}) {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -71,7 +106,7 @@ export function ExamList() {
         <p>{loadError}</p>
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={onRetry}
           className="mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-black text-white hover:bg-rose-700"
         >
           Tentar de novo
@@ -85,7 +120,8 @@ export function ExamList() {
       <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
         <p className="font-black text-slate-600">Nenhum simulado ainda.</p>
         <p className="mt-1 text-sm text-slate-400">
-          Um simulado é um banco de questões separado do modo questões, feito para você medir como está indo.
+          Escolha uma matéria acima para montar o primeiro. O simulado usa um acervo separado do modo questões, feito
+          para você medir como está indo.
         </p>
       </div>
     );
@@ -148,7 +184,7 @@ export function ExamList() {
               </div>
               <button
                 type="button"
-                onClick={() => void start(exam.id)}
+                onClick={() => onStart(exam.id)}
                 disabled={startingId !== null || poolSize === 0}
                 className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-6 font-black text-white disabled:opacity-50 ${
                   open ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
