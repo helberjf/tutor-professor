@@ -1389,6 +1389,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  importDiverseSubject: (studyDate: string, subject: DiverseSubject) =>
+    fetchAPI<DiverseDay>(`/api/study/diverse/${studyDate}/subjects/import`, {
+      method: 'POST',
+      body: JSON.stringify(subject),
+    }),
   generateDiverseQuestions: (payload: {
     study_date: string;
     subject_index: number;

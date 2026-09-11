@@ -202,6 +202,7 @@ from services.diverse_question_service import (
     has_canonical_subject_identities,
     normalize_subject,
     normalize_subjects,
+    normalize_text,
     stable_question_id,
     validate_generated_question_batch,
 )
@@ -3401,6 +3402,32 @@ def _normalize_diverse_subject_input(subject: DiverseSubjectSchema) -> dict:
     return normalize_subject(raw)
 
 
+def _validate_manual_diverse_subject(subject: dict) -> None:
+    """Enforce the complete-study contract independently of the browser."""
+    topics = subject.get("topics") or []
+    lessons = subject.get("lessons") or []
+    if not 1 <= len(lessons) <= 30:
+        raise HTTPException(status_code=422, detail="O estudo deve ter entre 1 e 30 aulas.")
+    if not 1 <= len(topics) <= 50:
+        raise HTTPException(status_code=422, detail="O estudo deve ter entre 1 e 50 questões.")
+    if any(not str(topic.get("answer") or "").strip() for topic in topics):
+        raise HTTPException(status_code=422, detail="Toda questão precisa ter uma resposta.")
+
+    topic_ids = {str(topic.get("id") or "") for topic in topics}
+    referenced_ids: set[str] = set()
+    for lesson in lessons:
+        lesson_topic_ids = {
+            str(topic_id)
+            for topic_id in (lesson.get("topic_ids") or [])
+            if str(topic_id) in topic_ids
+        }
+        if not lesson_topic_ids:
+            raise HTTPException(status_code=422, detail="Toda aula precisa ter pelo menos uma questão.")
+        referenced_ids.update(lesson_topic_ids)
+    if referenced_ids != topic_ids:
+        raise HTTPException(status_code=422, detail="Toda questão precisa pertencer a uma aula.")
+
+
 def _raise_diverse_identity_conflict() -> None:
     raise HTTPException(
         status_code=409,
@@ -3642,6 +3669,131 @@ def upsert_diverse_day(
         if refreshed_record is None:
             raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
         record = refreshed_record
+    return DiverseDaySchema(
+        id=record.id,
+        study_date=record.study_date,
+        custom_subjects=[
+            _build_diverse_subject_schema(subject)
+            for subject in normalize_subjects(record.custom_subjects or [])
+        ],
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+@app.post(
+    "/api/study/diverse/{study_date}/subjects/import",
+    response_model=DiverseDaySchema,
+)
+def import_diverse_subject(
+    study_date: date,
+    payload: DiverseSubjectSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> DiverseDaySchema:
+    """Append one externally prepared subject without replacing a client snapshot."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    now = datetime.utcnow()
+    record = session.exec(
+        select(DiverseDay).where(
+            DiverseDay.child_id == child_id,
+            DiverseDay.study_date == study_date,
+        )
+    ).first()
+
+    if record is not None:
+        current_subjects = normalize_subjects(record.custom_subjects or [])
+    else:
+        latest_record = session.exec(
+            select(DiverseDay)
+            .where(DiverseDay.child_id == child_id)
+            .order_by(DiverseDay.study_date.desc(), DiverseDay.id.desc())
+        ).first()
+        current_subjects = normalize_subjects(latest_record.custom_subjects or []) if latest_record else []
+
+    incoming = _normalize_diverse_subject_input(payload)
+    _validate_manual_diverse_subject(incoming)
+    incoming_name = normalize_text(incoming.get("name"))
+    matching_identity = next(
+        (
+            subject
+            for subject in current_subjects
+            if str(subject.get("id")) == str(incoming.get("id"))
+        ),
+        None,
+    )
+    if record is not None and matching_identity == incoming:
+        return DiverseDaySchema(
+            id=record.id,
+            study_date=record.study_date,
+            custom_subjects=[
+                _build_diverse_subject_schema(subject)
+                for subject in current_subjects
+            ],
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+    if any(normalize_text(subject.get("name")) == incoming_name for subject in current_subjects):
+        raise HTTPException(status_code=409, detail="Essa matéria já existe para esta data.")
+    if matching_identity is not None:
+        raise HTTPException(status_code=409, detail="A identidade dessa matéria já está em uso. Gere o pacote novamente.")
+
+    subjects_data = normalize_subjects([*current_subjects, incoming])
+    new_summary = summarize_diverse_activity(subjects_data)
+    subject_names = new_summary["subject_names"]
+    add_daily_activity(
+        session,
+        child_id=child_id,
+        activity_date=study_date,
+        activity_type="diverse",
+        activity_title=(
+            f"Outras materias: {', '.join(subject_names)}"
+            if subject_names
+            else "Outras materias"
+        ),
+        result_details=new_summary,
+    )
+
+    if record is None:
+        record = DiverseDay(
+            child_id=child_id,
+            study_date=study_date,
+            custom_subjects=subjects_data,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(record)
+        try:
+            session.commit()
+        except IntegrityError as exc:
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso mudou. Recarregue e importe novamente.",
+            ) from exc
+        session.refresh(record)
+    else:
+        if not _cas_update_diverse_day(
+            session,
+            record_id=record.id or 0,
+            expected_updated_at=record.updated_at,
+            custom_subjects=subjects_data,
+            new_updated_at=_next_diverse_updated_at(record.updated_at),
+        ):
+            session.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="O dia diverso mudou. Recarregue e importe novamente.",
+            )
+        session.commit()
+        session.expire_all()
+        refreshed_record = session.get(DiverseDay, record.id)
+        if refreshed_record is None:
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+        record = refreshed_record
+
     return DiverseDaySchema(
         id=record.id,
         study_date=record.study_date,
