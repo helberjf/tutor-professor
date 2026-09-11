@@ -55,11 +55,10 @@ ANTHROPIC_BASE_URL = "https://api.anthropic.com/v1"
 MAX_INITIAL_LANGUAGE_PROMPT_CHARS = 40_000
 
 
-def format_provider_request_error(provider_label: str, exc: requests.RequestException) -> str:
-    response = getattr(exc, "response", None)
-    if response is None:
-        return f"{provider_label} request failed: {exc}"
+MAX_PROVIDER_ERROR_DETAIL_CHARS = 300
 
+
+def _provider_error_detail(response: requests.Response) -> str:
     detail = ""
     try:
         payload = response.json()
@@ -74,11 +73,42 @@ def format_provider_request_error(provider_label: str, exc: requests.RequestExce
             detail = response.text.strip()
         except Exception:
             detail = ""
+    return " ".join(detail.split())[:MAX_PROVIDER_ERROR_DETAIL_CHARS]
 
-    if detail:
-        return f"{provider_label} request failed: {detail}"
 
-    return f"{provider_label} request failed: {exc}"
+def format_provider_request_error(provider_label: str, exc: requests.RequestException) -> str:
+    """Name the cause in words a parent can act on.
+
+    The exception itself never reaches the text: for a connection error requests
+    renders hosts, retry counts and the full URL, which is noise to a parent and
+    would expose a key the day a provider takes it as a query parameter (every
+    provider here uses a header today). The provider's own explanation is appended
+    when it sent one, because "API key not valid" beats any paraphrase of it.
+    """
+
+    response = getattr(exc, "response", None)
+    if response is None:
+        if isinstance(exc, requests.Timeout):
+            return f"{provider_label} demorou demais para responder. Tente de novo em instantes."
+        return (
+            f"Nao foi possivel falar com {provider_label} agora (provedor fora do ar ou sem "
+            "conexao). Tente de novo em instantes."
+        )
+
+    status = response.status_code
+    detail = _provider_error_detail(response)
+    if status in (401, 403) or (status == 400 and "api key" in detail.casefold()):
+        summary = f"{provider_label} recusou a chave de API. Confira a chave em Configuracoes."
+    elif status == 429:
+        summary = (
+            f"{provider_label} atingiu o limite de uso desta chave. Aguarde alguns minutos "
+            "ou confira a cota no provedor."
+        )
+    elif status >= 500:
+        summary = f"{provider_label} esta instavel no momento. Tente de novo em instantes."
+    else:
+        summary = f"{provider_label} recusou o pedido (HTTP {status})."
+    return f"{summary} Detalhe: {detail}" if detail else summary
 
 
 def format_gemini_request_error(exc: requests.RequestException) -> str:
