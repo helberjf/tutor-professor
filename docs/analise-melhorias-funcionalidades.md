@@ -16,7 +16,7 @@ muda de prioridade.
 
 | # | Melhoria | Por quê | Impacto | Esforço |
 |---|---|---|---|---|
-| 1 | **Conteúdo base de verdade sem IA** | O plano gratuito tem 0 gerações na chave da plataforma, e o conteúdo fixo é 1 lição de 3 itens por nível. Sem IA, a criança esgota o app no primeiro dia. | Muito alto | M |
+| 1 | **Conteúdo base de verdade sem IA** | O conteúdo fixo é 1 lição de 3 itens por nível — 120 itens no total, 5 quizzes e 1 história — e o plano gratuito não acrescenta franquia mensal: sobra o crédito diário da conta, 3 por padrão. Sem IA, a criança esgota o app no primeiro dia. | Muito alto | M |
 | 2 | **Modo criança com PIN para a área de pais** | Hoje a mesma sessão abre a área de pais, onde dá para trocar a chave de IA, apagar alunos e excluir a conta. | Alto | P |
 | 3 | **Relatório semanal para o responsável** | É o que faz o pagante perceber valor. O serviço de e-mail já existe. | Alto | P–M |
 | 4 | **Simulado de qualquer matéria** | O modo simulado é genérico, mas só tinha acervo para a certificação AWS DVA-C02, vindo de script; nenhuma outra matéria virava prova. | Alto | P — feito em 2026-09-11 |
@@ -29,8 +29,10 @@ muda de prioridade.
 ### 1.1 Conteúdo base que funcione sem IA — prioridade máxima
 - **Observado:** `apps/api/content/lessons/` tem 40 arquivos, **uma lição por
   nível por idioma, cada uma com 3 itens**. Quizzes fixos: 5, só inglês.
-  Histórias fixas: 1. O plano Gratuito tem `monthly_ai_generations=0`
-  (`services/billing_service.py`) e os créditos diários padrão são 3.
+  Histórias fixas: 1 — 120 itens de lição no acervo inteiro. O plano Gratuito tem
+  `monthly_ai_generations=0` (`services/billing_service.py`), ou seja, nenhuma
+  franquia mensal; o que resta é o crédito diário da conta (3 por padrão), e só
+  quando o administrador libera a chave dele.
 - **Consequência:** a proposta de valor depende de IA, e justamente a conta que
   mais precisa ser convencida (gratuita, em trial) é a que tem menos IA.
 - **Proposta:**
