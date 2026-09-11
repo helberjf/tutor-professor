@@ -28,7 +28,9 @@ assert.match(
 // Since c863fb7 the login page no longer branches on admin: everyone lands on
 // /study and the admin redirect happens on the dashboard (asserted just below).
 const loginPage = read('app/login/page.tsx');
-assert.match(loginPage, /const next = '\/study'/, 'login should send every account to the study page');
+// Since d948848 a safe same-origin ?next= wins; without one, everyone still lands on /study.
+assert.match(loginPage, /return '\/study';/, 'login should send every account to the study page by default');
+assert.match(loginPage, /raw\.startsWith\('\/\/'\)/, 'login must refuse protocol-relative next URLs (open redirect)');
 assert.doesNotMatch(loginPage, /isAdminDefaultLogin/, 'login should no longer branch on admin accounts');
 
 const dashboardPage = read('app/dashboard/page.tsx');

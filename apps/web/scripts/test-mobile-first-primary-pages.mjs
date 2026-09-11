@@ -19,8 +19,8 @@ const source = Object.fromEntries(
   ]),
 );
 
-assert.match(source.home, /text-3xl font-semibold leading-tight/);
-assert.match(source.home, /grid grid-cols-1 gap-3 sm:grid-cols-3/);
+assert.match(source.home, /text-\[1\.7rem\][^"]*font-semibold leading-tight[^"]*sm:text-4xl/);
+assert.match(source.home, /grid grid-cols-1 gap-2\.5[^"]*sm:grid-cols-2[^"]*lg:grid-cols-3/);
 assert.match(source.login, /px-3 py-5 sm:px-4 sm:py-6/);
 assert.match(source.register, /grid gap-3 sm:grid-cols-2/);
 assert.match(source.register, /grid grid-cols-2 gap-2 sm:grid-cols-3/);
