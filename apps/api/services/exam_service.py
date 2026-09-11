@@ -307,3 +307,67 @@ def validate_exam_question_batch(
         )
 
     return validated
+
+
+# ── Simulado built from a subject ─────────────────────────────────────────────
+
+# Stored in Exam.code, which is how a subject's simulado is found again.
+EXAM_SOURCE_AREA_LABELS = {
+    "coding": "Programação",
+    "diverse": "Matérias",
+    "english": "Inglês",
+}
+SUBJECT_EXAM_NAME_PREFIX = "Simulado de "
+
+
+def subject_exam_name(subject_name: str) -> str:
+    return _clean(f"{SUBJECT_EXAM_NAME_PREFIX}{subject_name}", 200)
+
+
+def study_question_to_exam_record(
+    *,
+    domain: str,
+    question: str,
+    options: Sequence[str] | None,
+    correct_option: str,
+    explanation: str,
+) -> dict[str, object]:
+    """A single-answer study question in the exam contract's shape."""
+
+    return {
+        "domain": domain,
+        "question": question,
+        "options": list(options or []),
+        "correct_options": [correct_option],
+        "response_type": "single",
+        "explanation": explanation,
+    }
+
+
+def import_exam_questions(
+    records: Sequence[object],
+    *,
+    existing_questions: Sequence[str],
+) -> tuple[list[ValidatedExamQuestion], int]:
+    """Validate a subject's questions for the exam pool, one at a time.
+
+    Returns the new questions and how many were refused. A question already in
+    the pool is neither — it is simply not new. Validating one by one is what
+    keeps a legacy question with placeholder options out without taking the rest
+    of the subject with it.
+    """
+
+    known_keys = {programming_question_key(question) for question in existing_questions}
+    accepted: list[ValidatedExamQuestion] = []
+    skipped = 0
+    for record in records:
+        try:
+            (validated,) = validate_exam_question_batch([record], domains=None, existing_questions=())
+        except ValueError:
+            skipped += 1
+            continue
+        if validated.question_key in known_keys:
+            continue
+        known_keys.add(validated.question_key)
+        accepted.append(validated)
+    return accepted, skipped

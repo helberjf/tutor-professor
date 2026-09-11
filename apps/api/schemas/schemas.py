@@ -769,6 +769,36 @@ class CreateExamSchema(BaseModel):
     domains: List[ExamDomainSchema] = Field(default_factory=list, max_length=12)
 
 
+ExamSourceArea = Literal["coding", "diverse", "english"]
+
+
+class ExamSourceSchema(BaseModel):
+    """A subject that already has multiple-choice questions a simulado can use."""
+
+    area: ExamSourceArea
+    # Programming subjects only; the other areas are identified by name.
+    subject_id: Optional[int] = None
+    subject_name: str
+    question_count: int
+    # The simulado already built from this subject, if any.
+    exam_id: Optional[int] = None
+
+
+class CreateExamFromSubjectSchema(BaseModel):
+    area: ExamSourceArea
+    subject_id: Optional[int] = None
+    subject_name: str = Field(default="", max_length=120)
+    question_count: int = Field(default=20, ge=1, le=300)
+    passing_percent: int = Field(default=70, ge=1, le=100)
+
+
+class ExamFromSubjectResultSchema(BaseModel):
+    exam: ExamSchema
+    imported: int
+    skipped: int
+    pool_size: int
+
+
 # ── Study questions (diverse subjects and English) ────────────────────────────
 
 StudyQuestionArea = Literal["diverse", "english"]

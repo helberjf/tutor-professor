@@ -1006,6 +1006,26 @@ export interface ExamAttemptResult {
   review: ExamAttemptReviewItem[];
 }
 
+/** Where a simulado's questions can come from: any subject that already has some. */
+export type ExamSourceArea = 'coding' | 'diverse' | 'english';
+
+export interface ExamSource {
+  area: ExamSourceArea;
+  /** Programming subjects only; the other areas are identified by name. */
+  subject_id: number | null;
+  subject_name: string;
+  question_count: number;
+  /** The simulado already built from this subject, if any. */
+  exam_id: number | null;
+}
+
+export interface ExamFromSubjectResult {
+  exam: Exam;
+  imported: number;
+  skipped: number;
+  pool_size: number;
+}
+
 /** Study areas outside the programming curriculum that support the simulado. */
 export type StudyQuestionArea = 'diverse' | 'english';
 
@@ -1723,6 +1743,19 @@ export const api = {
   getSubjectSummary: (subjectId: number) =>
     fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`),
   getExams: () => fetchAPI<ExamOverview[]>('/api/exams'),
+  getExamSources: () => fetchAPI<ExamSource[]>('/api/exams/sources'),
+  /** Creates the subject's simulado, or adds its new questions to the existing one. */
+  createExamFromSubject: (payload: {
+    area: ExamSourceArea;
+    subject_id?: number | null;
+    subject_name?: string;
+    question_count?: number;
+    passing_percent?: number;
+  }) =>
+    fetchAPI<ExamFromSubjectResult>('/api/exams/from-subject', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   createExam: (payload: {
     name: string;
     code?: string;
