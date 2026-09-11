@@ -4331,20 +4331,51 @@ def hash_cpf(cpf: str) -> str:
     return hashlib.sha256(digits.encode()).hexdigest()
 
 
+# PBKDF2-HMAC-SHA256 at OWASP's current floor. A hash carries its own iteration
+# count ("pbkdf2_sha256:<iterations>:<salt>:<hash>"), so raising it again only
+# changes this constant. The legacy "<salt>:<hash>" shape means 260,000 and keeps
+# verifying — including an ADMIN_PASSWORD_HASH pasted into an environment long
+# ago. No "$" separators: .env loaders and compose files interpolate them.
+PASSWORD_HASH_ALGORITHM = "pbkdf2_sha256"
+PASSWORD_HASH_ITERATIONS = 600_000
+LEGACY_PASSWORD_HASH_ITERATIONS = 260_000
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260000)
-    return salt.hex() + ":" + dk.hex()
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PASSWORD_HASH_ITERATIONS)
+    return f"{PASSWORD_HASH_ALGORITHM}:{PASSWORD_HASH_ITERATIONS}:{salt.hex()}:{dk.hex()}"
+
+
+def _parse_password_hash(hashed: str) -> tuple[int, bytes, str]:
+    parts = hashed.split(":")
+    if len(parts) == 4 and parts[0] == PASSWORD_HASH_ALGORITHM:
+        iterations = int(parts[1])
+        if iterations <= 0:
+            raise ValueError("invalid iteration count")
+        return iterations, bytes.fromhex(parts[2]), parts[3]
+    if len(parts) == 2:
+        return LEGACY_PASSWORD_HASH_ITERATIONS, bytes.fromhex(parts[0]), parts[1]
+    raise ValueError("unknown password hash format")
 
 
 def verify_password(password: str, hashed: str) -> bool:
     try:
-        salt_hex, dk_hex = hashed.split(":", 1)
-        salt = bytes.fromhex(salt_hex)
-        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260000)
+        iterations, salt, dk_hex = _parse_password_hash(hashed)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations)
         return secrets.compare_digest(dk.hex(), dk_hex)
     except Exception:
         return False
+
+
+def password_needs_rehash(hashed: str) -> bool:
+    """True for a valid hash made with fewer iterations than the current floor."""
+
+    try:
+        iterations, _, _ = _parse_password_hash(hashed)
+    except Exception:
+        return False
+    return iterations < PASSWORD_HASH_ITERATIONS
 
 
 # ── API key encryption (see services/key_vault.py for the envelope format) ───
@@ -7566,6 +7597,13 @@ def user_login(
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos.")
 
     clear_failed_logins(user, session)
+
+    if password_matches and password_needs_rehash(user.password_hash):
+        # The plaintext is only ever in hand here, so this is where an old hash
+        # moves up to the current iteration count — nobody has to reset anything.
+        user.password_hash = hash_password(payload.password)
+        session.add(user)
+        session.commit()
 
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
         session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))

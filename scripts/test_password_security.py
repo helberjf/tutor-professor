@@ -6,6 +6,7 @@ point of the server copy is that it holds when the browser is skipped.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import sys
 import tempfile
@@ -103,6 +104,40 @@ class PasswordPolicyTests(unittest.TestCase):
         self.assertEqual(MIN_LENGTH, 8)
 
 
+def legacy_hash(password: str) -> str:
+    """The pre-versioned "<salt>:<hash>" shape at 260,000 iterations."""
+
+    salt = b"\x01" * 16
+    return salt.hex() + ":" + hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 260_000).hex()
+
+
+class PasswordHashTests(unittest.TestCase):
+    def test_new_hashes_record_the_algorithm_and_current_iterations(self) -> None:
+        hashed = main.hash_password(STRONG)
+
+        algorithm, iterations, salt, digest = hashed.split(":")
+        self.assertEqual(algorithm, "pbkdf2_sha256")
+        self.assertEqual(int(iterations), 600_000)
+        self.assertEqual(len(bytes.fromhex(salt)), 16)
+        self.assertNotIn("$", hashed, "env loaders would interpolate a $ separator")
+        self.assertTrue(main.verify_password(STRONG, hashed))
+        self.assertFalse(main.verify_password("Wrong@123", hashed))
+        self.assertFalse(main.password_needs_rehash(hashed))
+
+    def test_legacy_hashes_still_verify_and_ask_for_an_upgrade(self) -> None:
+        hashed = legacy_hash(STRONG)
+
+        self.assertTrue(main.verify_password(STRONG, hashed))
+        self.assertFalse(main.verify_password("Wrong@123", hashed))
+        self.assertTrue(main.password_needs_rehash(hashed))
+
+    def test_malformed_hashes_never_verify(self) -> None:
+        for hashed in ("", "not-a-hash", "pbkdf2_sha256:0:00:00", "pbkdf2_sha256:abc:00:00", "zz:zz"):
+            with self.subTest(hashed=hashed):
+                self.assertFalse(main.verify_password(STRONG, hashed))
+                self.assertFalse(main.password_needs_rehash(hashed))
+
+
 class ClientPolicyMirrorTests(unittest.TestCase):
     """The browser meter and the server rule have to state the same thing."""
 
@@ -191,6 +226,26 @@ async def run_http_checks() -> None:
                 raise AssertionError(
                     f"a good login should clear the counter, got {user.failed_login_attempts}/{user.locked_until}"
                 )
+
+        # A hash from before the iteration bump still logs in, and the login
+        # upgrades it in place.
+        with Session(main.engine) as session:
+            user = session.exec(select(User).where(User.email == "forte@example.com")).first()
+            user.password_hash = legacy_hash(STRONG)
+            session.add(user)
+            session.commit()
+
+        upgraded = await client.post(
+            "/api/auth/login", json={"email": "forte@example.com", "password": STRONG}
+        )
+        if upgraded.status_code != 200:
+            raise AssertionError(f"a legacy hash should still log in: {upgraded.status_code} {upgraded.text}")
+        with Session(main.engine) as session:
+            user = session.exec(select(User).where(User.email == "forte@example.com")).first()
+            if not user.password_hash.startswith("pbkdf2_sha256:600000:"):
+                raise AssertionError(f"login should upgrade a legacy hash, got {user.password_hash[:24]}")
+            if not main.verify_password(STRONG, user.password_hash):
+                raise AssertionError("the upgraded hash must verify the same password")
 
         # An unknown e-mail is still a plain 401: no account, nothing to lock.
         unknown = await client.post(
