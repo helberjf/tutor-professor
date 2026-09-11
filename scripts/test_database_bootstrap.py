@@ -630,9 +630,19 @@ class DatabaseBootstrapTests(unittest.TestCase):
         startup = main[main.index("def on_startup") : main.index("def hash_session_token")]
         self.assertLess(startup.index("bootstrap_database"), startup.index("create_db_and_tables"))
 
+        # init_db builds the schema by delegating to main.on_startup (whose own
+        # ordering is checked just above), so it must call that before opening a
+        # session and must never reach for create_all itself: a bare create_all
+        # is what used to leave a fresh database missing its ALTER TABLE columns.
+        # Comments are stripped first — this check once passed only because a
+        # comment happened to name bootstrap_database before create_all.
         initializer = (ROOT / "scripts" / "init_db.py").read_text(encoding="utf-8")
         init_body = initializer[initializer.index("def init_db") :]
-        self.assertLess(init_body.index("bootstrap_database"), init_body.index("create_all"))
+        init_code = "\n".join(
+            line for line in init_body.splitlines() if not line.lstrip().startswith("#")
+        )
+        self.assertLess(init_code.index("main.on_startup()"), init_code.index("Session(engine)"))
+        self.assertNotIn("create_all(", init_code)
 
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("database_bootstrap.py", readme)

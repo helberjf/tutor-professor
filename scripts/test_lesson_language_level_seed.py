@@ -1,7 +1,7 @@
 """Seed-content and level/language gating checks for apps/api/content/lessons/*.json.
 
 Covers two things:
-  1. The static JSON files themselves: valid structure, unique ids, and CEFR
+  1. The static JSON files themselves: valid structure, unique titles, and CEFR
      coverage (A1..C2) for every supported language.
   2. The real DB + list_accessible_lessons / get_current_lesson behaviour once
      that content is seeded: a lesson tagged with a level+language must only be
@@ -35,10 +35,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 API_DIR = REPO_ROOT / "apps" / "api"
 sys.path.insert(0, str(API_DIR))
 
-from sqlmodel import Session  # noqa: E402
+from sqlmodel import Session, select  # noqa: E402
 
 import main  # noqa: E402
-from models.database import ChildProfile, Lesson, LessonItem  # noqa: E402
+import init_db  # noqa: E402
+from models.database import ChildProfile, Lesson  # noqa: E402
 
 LESSONS_DIR = API_DIR / "content" / "lessons"
 
@@ -62,33 +63,6 @@ def _load_seed_lessons() -> dict[Path, dict]:
     }
 
 
-def _seed_all_lessons(session: Session, lessons_by_file: dict[Path, dict]) -> None:
-    """Mirror scripts/init_db.py's create path against a fresh, empty database."""
-    for data in lessons_by_file.values():
-        lesson = Lesson(
-            id=data.get("id"),
-            title=data["title"],
-            theme=data["theme"],
-            objective=data["objective"],
-            content=data.get("content", {}),
-            child_id=None,
-            level=data.get("level"),
-            target_language=data.get("target_language", "English"),
-        )
-        session.add(lesson)
-        session.commit()
-        session.refresh(lesson)
-        for item_data in data.get("items", []):
-            session.add(LessonItem(
-                word_en=item_data["word_en"],
-                word_pt=item_data["word_pt"],
-                example_sentence_en=item_data["example_sentence_en"],
-                example_sentence_pt=item_data["example_sentence_pt"],
-                lesson_id=lesson.id,
-            ))
-        session.commit()
-
-
 class LessonSeedContentTests(unittest.TestCase):
     """File-level checks — no database involved."""
 
@@ -97,14 +71,21 @@ class LessonSeedContentTests(unittest.TestCase):
         cls.lessons_by_file = _load_seed_lessons()
 
     def test_every_lesson_file_is_valid_json_with_required_fields(self) -> None:
-        required_top_level = {"id", "title", "theme", "objective", "content", "items"}
+        required_top_level = {"title", "theme", "objective", "content", "items"}
         for file, data in self.lessons_by_file.items():
             missing = required_top_level - data.keys()
             self.assertFalse(missing, f"{file.name} is missing keys: {missing}")
 
-    def test_lesson_ids_are_unique(self) -> None:
-        ids = [data["id"] for data in self.lessons_by_file.values()]
-        self.assertEqual(len(ids), len(set(ids)), "duplicate lesson ids found in content/lessons/")
+    def test_lesson_titles_are_unique(self) -> None:
+        # Titles are the seed's identity for every lesson without an id.
+        titles = [data["title"] for data in self.lessons_by_file.values()]
+        self.assertEqual(len(titles), len(set(titles)), "duplicate lesson titles found in content/lessons/")
+
+    def test_only_the_intro_pack_carries_ids(self) -> None:
+        # The app hands out lesson ids at runtime, so a seed file that pins one
+        # can land on a real lesson. Only the original day-1..5 pack may.
+        ids = {data["id"] for data in self.lessons_by_file.values() if "id" in data}
+        self.assertEqual(ids, {1, 2, 3, 4, 5})
 
     def test_items_and_phrase_breakdowns_are_populated_and_aligned(self) -> None:
         for file, data in self.lessons_by_file.items():
@@ -147,14 +128,14 @@ class LessonLevelLanguageGatingTests(unittest.TestCase):
         main.on_startup()
         cls.lessons_by_file = _load_seed_lessons()
         with Session(main.engine) as session:
-            _seed_all_lessons(session, cls.lessons_by_file)
-        # (language, level) -> lesson id, derived straight from the seed content
-        # so this test never hardcodes ids that could drift from content/lessons/.
-        cls.lesson_id_by_language_level: dict[tuple[str, int], int] = {
-            (data.get("target_language", "English"), data["level"]): data["id"]
-            for data in cls.lessons_by_file.values()
-            if data.get("level") is not None
-        }
+            init_db.seed_lessons(session, log=lambda _message: None)
+            session.commit()
+            # (language, level) -> lesson id, read back from what the real seed
+            # wrote: the files no longer carry ids, the database assigns them.
+            cls.lesson_id_by_language_level: dict[tuple[str, int], int] = {
+                (lesson.target_language, lesson.level): lesson.id
+                for lesson in session.exec(select(Lesson).where(Lesson.level != None)).all()  # noqa: E711
+            }
 
     def _make_child(self, *, target_language: str, current_level: int) -> ChildProfile:
         with Session(main.engine) as session:
