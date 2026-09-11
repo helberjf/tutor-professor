@@ -7,9 +7,7 @@ The project was built as a practical engineering exercise: a real product surfac
 ## Live Demo
 
 - Frontend: https://tutorprofessor.vercel.app
-- Backend model: the public frontend talks to a local FastAPI backend exposed through Cloudflare Tunnel.
-
-Important: the Vercel demo only works when the local backend and Cloudflare Tunnel are running. This is intentional for the current architecture: the frontend is public, while the backend and database remain local.
+- Backend model: the Next.js frontend and the FastAPI API both run on Vercel; the database is PostgreSQL on Supabase. Only the Kokoro voice service may still run on a local machine behind a tunnel, and the app falls back to browser speech when it is off. See `docs/deploy-vercel-supabase.md`.
 
 ## What This Project Demonstrates
 
@@ -39,7 +37,7 @@ Important: the Vercel demo only works when the local backend and Cloudflare Tunn
 - Data rights without asking anybody: `GET /api/account/export` downloads everything stored about the account, `POST /api/account/delete` erases it.
 - Password policy enforced on both sides: the signup form shows a live strength meter and requirement checklist, and `services/password_policy.py` applies the same rules on the API, so a direct HTTP call cannot skip them.
 - Login has a brute-force brake: after `MAX_FAILED_LOGINS` wrong passwords the account is locked for `LOGIN_LOCK_MINUTES` and answers 429 with `Retry-After`. The lock clears itself, and a successful login resets the counter.
-- Passwords are stored as PBKDF2-HMAC-SHA256 with 260,000 iterations and a per-password random salt.
+- Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP's current floor) and a per-password random salt. The hash records its own iteration count, and an older 260,000-iteration hash is upgraded in place on the next successful login.
 - Parent dashboard for children, progress, settings, and AI provider configuration.
 - Child profile management, including target language and audio preferences.
 - AI-powered lesson, question, book, and flashcard generation.
@@ -88,41 +86,35 @@ Installation needs HTTPS, which the Vercel deployment already provides.
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | Next.js 14, React, TypeScript, Tailwind CSS |
+| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
 | Backend | FastAPI, SQLModel, Pydantic, SQLAlchemy |
-| Database | PostgreSQL locally on port 5433 |
-| Migrations | Alembic plus startup bootstrap for legacy local databases |
+| Database | PostgreSQL: Supabase in production, local on port 5433 for development |
+| Migrations | Alembic through `database_bootstrap.py`, which also keeps Supabase's public Data API locked out of the tables |
 | AI | Configurable provider layer, Gemini as the default path |
-| TTS | Kokoro-compatible local service plus browser fallback |
-| Deployment | Vercel frontend, Cloudflare Tunnel for local backend exposure |
+| TTS | Kokoro-compatible service plus browser fallback; audio cached in a private Supabase Storage bucket |
+| Deployment | Vercel for web and API (`pdx1`, next to the database), Docker/VPS path kept in `docs/DEPLOY-VPS.md` |
 | Tests | Python unittest-style scripts, Node assertion scripts, TypeScript check |
 
 ## Architecture
 
 ```text
-Browser
+Browser (PWA)
   |
   | Next.js app on Vercel
   v
-Runtime backend resolver
+FastAPI API on Vercel (serverless, pdx1)
   |
-  | Finds the freshest backend URL from Vercel/KV/GitHub runtime state
-  v
-Cloudflare Tunnel
-  |
-  v
-FastAPI backend on the developer machine
-  |
-  +-- SQLModel database
-  +-- AI generation services
-  +-- TTS service
+  +-- PostgreSQL on Supabase (RLS on, Data API roles revoked)
+  +-- Supabase Storage (private audio cache, signed URLs)
+  +-- AI generation services (Gemini by default)
+  +-- Kokoro TTS, reached through a tunnel, with browser fallback
   +-- Review and study scheduling services
 ```
 
 ### Key Design Decisions
 
-- Public frontend, local backend: keeps local data and experiments on the developer machine while still allowing a public demo URL.
-- Runtime backend state: the frontend can discover the current tunnel URL without redeploying every time Cloudflare creates a new quick tunnel.
+- The browser only talks to our API. Supabase's public Data API is closed on every table (row level security with no policies plus revoked grants), so a leaked publishable key reads nothing.
+- Runtime backend state: the frontend can still discover a backend URL at runtime, which is what the local and tunnel setups use.
 - Safe connection fallback: read-only API calls can recover from stale saved backend URLs by refreshing the global runtime backend state.
 - Token plus cookie auth: cookies support same-site local flows, while bearer tokens support cross-domain mobile usage.
 - Validated AI writes: generated lessons, questions, topics, and flashcards are checked before being persisted so invalid or partial AI output does not corrupt study state.
@@ -336,9 +328,9 @@ The test suite is a mix of service-level tests, API behavior checks, and lightwe
 
 ## Trade-offs and Current Limitations
 
-- The backend currently runs locally, so the public demo depends on the developer machine and Cloudflare Tunnel being active. `docs/DEPLOY-VPS.md` is the way off that.
-- Temporary Cloudflare quick tunnels can expire; a named tunnel is the better long-term setup.
-- PostgreSQL is the intended local and production database.
+- Vercel does not run migrations. Run `database_bootstrap.py` against the Supabase session pooler before pushing code that needs a new one.
+- Google sign-in is broken across the two `.vercel.app` domains (the callback cookie lands on the API's domain); e-mail login is unaffected. A custom domain or a one-time code on the redirect fixes it.
+- Only the Kokoro voice may still depend on a local machine and a tunnel; when it is unreachable the app uses browser speech.
 - Some tests are script-based rather than a single unified test runner.
 - No payment gateway is wired in. Plans, limits, trials, usage and the webhook all work; what is missing is the checkout call in `start_checkout` and the credentials.
 - Rate limiting counts in process memory, so the effective ceiling multiplies by the number of uvicorn workers. Fine for one worker, which is the current deployment; move it to a shared store before scaling out.
@@ -359,6 +351,7 @@ If you are reviewing the project, start here:
 ## Documentation
 
 - `TODO-SAAS.md`: what is done and what is left to run this as a product.
+- `docs/analise-melhorias-funcionalidades.md`: prioritized feature improvement analysis (Portuguese).
 - `docs/deploy-vercel-supabase.md`: hosting the database on Supabase and the API on Vercel, and what changes when the request has a time limit.
 - `docs/saas-operacao.md`: operating it for other people — configuration, plans, cost per account, logs, backups, data rights.
 - `docs/privacidade.md` and `docs/termos.md`: privacy policy and terms drafts, written from what the software actually does and awaiting legal review.
