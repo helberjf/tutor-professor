@@ -58,6 +58,8 @@ const tabButton = shared.slice(shared.indexOf('export function TabButton'));
 assert.match(tabButton, /\bflex-1\b/, 'study tabs should share the available row');
 assert.match(tabButton, /\bmin-w-0\b/, 'study tabs need min-w-0 so long labels can truncate');
 assert.match(tabButton, /\bmin-h-11\b/, 'study tabs need a 44px touch target');
-assert.doesNotMatch(tabButton, /\bshrink-0\b[^"]*\bpx-4\b/, 'study tabs should not keep a fixed desktop width on phones');
+const tabClassName = tabButton.match(/<button[\s\S]*?className=\{`([^`]*)`/)[1];
+assert.doesNotMatch(tabClassName, /\bshrink-0\b/, 'study tabs should not keep a fixed desktop width on phones');
+assert.doesNotMatch(tabClassName, /(^|\s)px-4\b/, 'study tabs should only get desktop padding from sm up');
 
 console.log('mobile-first layout checks passed.');

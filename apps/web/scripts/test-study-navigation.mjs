@@ -41,7 +41,7 @@ assert.match(homePage, /Vamos aprender tudo do seu jeito/, 'home hero should rep
 assert.doesNotMatch(homePage, /story-dots/, 'home hero should not use the white dotted background pattern');
 assert.match(homePage, /mx-auto max-w-6xl/, 'home page should use a wider responsive shell');
 assert.match(homePage, /rounded-\[1\.75rem\][\s\S]*bg-white/, 'home hero should use a high-contrast readable surface');
-assert.match(homePage, /text-3xl[\s\S]*sm:text-4xl[\s\S]*md:text-5xl/, 'home hero headline should scale from mobile upward');
+assert.match(homePage, /text-\[1\.7rem\][\s\S]*sm:text-4xl[\s\S]*md:text-5xl/, 'home hero headline should scale from mobile upward');
 assert.match(homePage, /grid-cols-1[\s\S]*sm:grid-cols-2[\s\S]*lg:grid-cols-3/, 'home activity cards should be one column on narrow screens');
 assert.doesNotMatch(homePage, /grid-cols-2 gap-4 md:grid-cols-2/, 'home activity cards should not force two columns on mobile');
 assert.match(lessonPage, /lesson-level-banner/, 'lesson level banner should use a theme-aware contrast class');
