@@ -211,8 +211,8 @@ hash de senha, mensagens de erro de IA (3.4) e README.
 1. Desligar Simulados por padrão e esconder da navegação infantil (3.1, mínimo).
    Precisa de migration que grave `exams: true` para as contas atuais, senão quem
    já usa perde o módulo.
-2. PIN da área de pais (2.1). Também precisa de migration; combine a numeração
-   com a `0024` que está em outro branch.
+2. PIN da área de pais (2.1). Também precisa de migration (a próxima livre é a
+   `0025`) e de rodar o bootstrap no Supabase antes do push.
 3. Onboarding em 3 telas (1.6).
 4. Atualizar FastAPI/requests validando no CI (seção 4).
 
