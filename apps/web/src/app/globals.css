@@ -310,6 +310,17 @@ html[data-theme='dark'] :is(.bg-white, [class~='bg-white/78'], [class~='bg-white
   background-color: var(--surface-strong) !important;
 }
 
+/* Full-screen dialog sheets. Plain surfaces are deliberately a touch translucent
+   (--surface-strong is 96% opaque), which reads fine on the page but lets the
+   page behind a modal ghost through its text. A dialog sheet has to be solid. */
+.dialog-sheet {
+  background-color: #ffffff;
+}
+
+html[data-theme='dark'] .dialog-sheet {
+  background-color: rgb(15, 23, 42) !important;
+}
+
 html[data-theme='dark'] :is(.bg-slate-50, .bg-slate-100) {
   background-color: var(--surface-muted) !important;
 }

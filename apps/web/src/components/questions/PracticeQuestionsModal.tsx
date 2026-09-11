@@ -113,8 +113,8 @@ export function PracticeQuestionsModal({
       aria-labelledby="practice-questions-title"
       className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-6"
     >
-      <div className="flex min-h-[100dvh] w-full max-w-5xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[92dvh] sm:rounded-3xl">
-        <header className="border-b border-slate-200 px-5 py-4 sm:px-7">
+      <div className="flex min-h-[100dvh] w-full max-w-5xl flex-col dialog-sheet text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[92dvh] sm:rounded-3xl">
+        <header className="border-b border-slate-200 px-5 pb-4 pt-[calc(1rem_+_env(safe-area-inset-top))] sm:px-7 sm:pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-widest text-amber-600">{subjectName}</p>
@@ -242,7 +242,7 @@ export function PracticeQuestionsModal({
         </main>
 
         {!finished && (
-          <footer className="border-t border-slate-200 bg-white px-5 py-4 sm:rounded-b-3xl sm:px-7">
+          <footer className="border-t border-slate-200 dialog-sheet px-5 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] sm:rounded-b-3xl sm:px-7 sm:pb-4">
             <button
               type="button"
               onClick={goNext}

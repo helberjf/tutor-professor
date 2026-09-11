@@ -27,8 +27,8 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
       aria-labelledby="exam-result-title"
       className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/85 sm:items-center sm:p-6"
     >
-      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col bg-white text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[92dvh] sm:rounded-3xl">
-        <main className="flex-1 overflow-y-auto px-5 py-8 sm:px-8">
+      <div className="flex min-h-[100dvh] w-full max-w-3xl flex-col dialog-sheet text-slate-900 shadow-2xl sm:min-h-0 sm:max-h-[92dvh] sm:rounded-3xl">
+        <main className="flex-1 overflow-y-auto px-5 pb-8 pt-[calc(2rem_+_env(safe-area-inset-top))] sm:px-8 sm:pt-8">
           <section className="text-center">
             <p className="text-xs font-black uppercase tracking-widest text-slate-400">{exam.name}</p>
             <p
@@ -130,7 +130,7 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
           )}
         </main>
 
-        <footer className="border-t border-slate-200 px-5 py-4 sm:rounded-b-3xl sm:px-7">
+        <footer className="border-t border-slate-200 px-5 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] sm:rounded-b-3xl sm:px-7 sm:pb-4">
           <button
             type="button"
             onClick={onClose}
