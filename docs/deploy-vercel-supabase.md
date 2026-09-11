@@ -17,7 +17,7 @@ Confundir as duas chaves é o erro mais fácil de cometer aqui:
 | | O que é | Onde fica | Serve para |
 |---|---|---|---|
 | `SUPABASE_URL` | endereço do projeto | Settings → API | tudo |
-| chave **publicável** (`sb_publishable_…`) | pública por desenho, respeita row level security | Settings → API | nada neste app — o frontend fala com a nossa API, nunca com o Supabase direto |
+| chave **publicável** (`sb_publishable_…`) | pública por desenho, respeita row level security | Settings → API | nada neste app — o frontend fala com a nossa API, nunca com o Supabase direto; as tabelas ficam fechadas para ela (veja §3) |
 | chave **service_role** | **secreta**, ignora row level security | Settings → API → `service_role` | gravar no bucket privado de áudio (`SUPABASE_SERVICE_ROLE_KEY`) |
 
 A chave publicável **não** consegue escrever num bucket privado. Se ela for
@@ -151,6 +151,38 @@ DATABASE_URL="<url direta>" python database_bootstrap.py
 
 Rode **antes** do deploy que precisa delas. No caminho da VPS nada muda: o `CMD` do
 Dockerfile já roda o bootstrap antes do uvicorn.
+
+### Row level security: a API pública do Supabase não enxerga nada
+
+O Supabase publica todas as tabelas do schema `public` pela Data API (PostgREST e
+GraphQL), acessível com a chave publicável — que é pública por desenho. Este app não
+usa esse caminho, então a regra para `anon`, `authenticated` e `service_role` é
+"nada", aplicada duas vezes pela migration `0023` e reaplicada pelo bootstrap depois
+de **todo** upgrade (`apps/api/database_security.py`):
+
+- RLS ligado em toda tabela, **sem nenhuma policy**: nega todas as linhas a quem não
+  é dono da tabela.
+- Todos os privilégios desses papéis revogados em tabelas, sequences e funções —
+  inclusive `TRUNCATE`, que o RLS não cobre — e também os default privileges, para
+  uma tabela nova não nascer liberada para `anon`.
+
+O RLS **não** é forçado (`FORCE ROW LEVEL SECURITY`): o backend conecta como
+`postgres`, dono das tabelas, e é isso que o deixa funcionar sem policies. Não crie
+policy nem `GRANT` para esses papéis sem uma razão explícita; a chave `service_role`
+continua servindo só para o bucket de áudio, que fica no schema `storage`.
+
+Conferir depois de rodar o bootstrap:
+
+```sql
+-- Nenhuma linha: toda tabela tem RLS e nenhuma é legível pela API pública.
+SELECT c.relname
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r'
+  AND (NOT c.relrowsecurity OR has_table_privilege('anon', c.oid, 'SELECT'));
+```
+
+Pela própria API, `GET /rest/v1/user` com a chave publicável tem que responder
+`401`/`403` (`permission denied`), não `200`.
 
 ---
 

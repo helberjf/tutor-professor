@@ -11,6 +11,7 @@ import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
 import { StudyQuestionsPanel } from '@/components/questions/StudyQuestionsPanel';
 import { api, type CatalogSubject, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject } from '@/lib/api';
 import { findItemIndexById, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveItemsByIds } from '@/lib/diverse-question-state';
+import { buildManualStudyPrompt, parseManualStudyImport } from '@/lib/manual-study-import';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
 import {
@@ -94,7 +95,7 @@ export function OtherSubjectsPicker({
 export function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
-  onAddSubject, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
+  onAddSubject, onImportStudy, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
   selectedSubjectSlug, onSelectSubjectTab, onSelectOverview, onSelectCoding,
   codingEnabled = true,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
@@ -114,6 +115,7 @@ export function DiverseTab({
   diverseSaved: string; diverseError: string;
   newSubjectName: string; setNewSubjectName: (v: string) => void;
   onAddSubject: () => void | Promise<void>;
+  onImportStudy: (subject: DiverseSubject) => Promise<boolean>;
   onGenerateAI: (apiKey?: string) => void;
   generatingAI: boolean;
   aiAction: DiverseAIAction | null;
@@ -255,6 +257,8 @@ export function DiverseTab({
             </div>
           </div>
 
+          <ManualStudyImportPanel onImportStudy={onImportStudy} busy={savingDiverse || loadingDiverse} />
+
           {/* Subject cards */}
           {loadingDiverse ? (
             <div className="flex items-center justify-center rounded-[1.5rem] border-2 border-slate-100 bg-white p-10">
@@ -369,6 +373,176 @@ export function DiverseTab({
       </div>
       )}
     </div>
+  );
+}
+
+export function ManualStudyImportPanel({
+  onImportStudy,
+  busy,
+}: {
+  onImportStudy: (subject: DiverseSubject) => Promise<boolean>;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [promptSubject, setPromptSubject] = useState('');
+  const [questionCount, setQuestionCount] = useState(10);
+  const [responseText, setResponseText] = useState('');
+  const [preview, setPreview] = useState<DiverseSubject | null>(null);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  const prompt = buildManualStudyPrompt(promptSubject, questionCount);
+
+  async function copyPrompt() {
+    setError('');
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Não foi possível copiar automaticamente. Selecione o prompt abaixo e copie.');
+    }
+  }
+
+  function verifyResponse() {
+    setError('');
+    try {
+      setPreview(parseManualStudyImport(responseText));
+    } catch (caught) {
+      setPreview(null);
+      setError(caught instanceof Error ? caught.message : 'Não foi possível validar o estudo.');
+    }
+  }
+
+  async function confirmImport() {
+    if (!preview || importing || busy) return;
+    setImporting(true);
+    setError('');
+    try {
+      const imported = await onImportStudy(preview);
+      if (!imported) return;
+      setResponseText('');
+      setPreview(null);
+      setOpen(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Não foi possível importar o estudo.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-[1.5rem] border-2 border-violet-200 bg-violet-50/70 p-4">
+      <button
+        type="button"
+        onClick={() => { setOpen((current) => !current); setError(''); }}
+        aria-expanded={open}
+        className="flex min-h-12 w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white">
+            <ClipboardList size={18} />
+          </span>
+          <span>
+            <span className="block text-sm font-black text-violet-900">Importar estudo com IA</span>
+            <span className="block text-xs font-semibold text-violet-600">Copie o prompt e cole aqui a resposta de qualquer IA</span>
+            <span className="mt-0.5 block text-[11px] font-bold text-emerald-700">Sem usar a chave ou os créditos do app.</span>
+          </span>
+        </span>
+        <ChevronDown size={18} className={`shrink-0 text-violet-500 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-4 border-t border-violet-200 pt-4">
+          <p role="status" aria-live="polite" className="sr-only">
+            {copied ? 'Prompt copiado.' : preview ? `Prévia pronta com ${preview.lessons?.length ?? 0} aulas e ${preview.topics.length} questões.` : ''}
+          </p>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">1. Prepare o prompt</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_9rem]">
+              <input
+                aria-label="Tema do estudo para a IA"
+                value={promptSubject}
+                onChange={(event) => setPromptSubject(event.target.value)}
+                maxLength={60}
+                placeholder="Ex.: Sistema Solar"
+                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+              />
+              <input
+                aria-label="Quantidade de questões"
+                type="number"
+                min={1}
+                max={50}
+                value={questionCount}
+                onChange={(event) => setQuestionCount(Math.min(50, Math.max(1, Number(event.target.value) || 1)))}
+                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+              />
+            </div>
+            <textarea
+              aria-label="Prompt pronto para a IA"
+              readOnly
+              value={prompt}
+              rows={5}
+              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-100 bg-white/80 px-3 py-2 font-mono text-[11px] leading-5 text-slate-600 outline-none focus:border-violet-400"
+            />
+            <button
+              type="button"
+              onClick={() => void copyPrompt()}
+              className="mt-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white transition hover:bg-violet-700"
+            >
+              <Copy size={14} /> {copied ? 'Prompt copiado!' : 'Copiar prompt'}
+            </button>
+          </div>
+
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">2. Cole a resposta da IA</p>
+            <textarea
+              aria-label="Resposta JSON da IA"
+              value={responseText}
+              onChange={(event) => { setResponseText(event.target.value); setPreview(null); setError(''); }}
+              maxLength={150_000}
+              rows={7}
+              placeholder={'Cole aqui o JSON completo com matéria, aulas, perguntas e respostas.'}
+              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 outline-none focus:border-violet-500"
+            />
+            <button
+              type="button"
+              onClick={verifyResponse}
+              disabled={!responseText.trim() || busy}
+              className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl border-2 border-violet-300 bg-white px-4 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-50"
+            >
+              Verificar estudo
+            </button>
+          </div>
+
+          {error && <p role="alert" className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700">{error}</p>}
+
+          {preview && (
+            <div className="rounded-2xl border-2 border-emerald-200 bg-white p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">3. Prévia pronta</p>
+              <h3 className="mt-1 text-lg font-black text-slate-800">{preview.name}</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                {preview.lessons?.length ?? 0} aula(s) · {preview.topics.length} questão(ões)
+              </p>
+              <ul className="mt-3 space-y-1 text-xs font-semibold text-slate-600">
+                {preview.lessons?.slice(0, 4).map((lesson) => <li key={lesson.id}>• {lesson.title} ({lesson.topic_ids.length})</li>)}
+                {(preview.lessons?.length ?? 0) > 4 && <li>• e mais {(preview.lessons?.length ?? 0) - 4} aula(s)</li>}
+              </ul>
+              <button
+                type="button"
+                onClick={() => void confirmImport()}
+                disabled={importing || busy}
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {importing ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                {importing ? 'Importando...' : 'Criar matéria e questões'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

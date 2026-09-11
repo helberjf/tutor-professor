@@ -8,6 +8,7 @@
     "test:topic-flashcards": "node scripts/test-topic-flashcard-state.mjs",
     "test:typed-answer": "node scripts/test-typed-answer.mjs",
     "test:simulado-timer": "node scripts/test-simulado-timer.mjs",
+    "test:manual-study-import": "node scripts/test-manual-study-import.mjs",
     "start": "next start",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit"

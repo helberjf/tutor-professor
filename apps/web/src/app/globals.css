@@ -84,7 +84,7 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   color: var(--ink);
-  font-family: 'Trebuchet MS', cursive, sans-serif;
+  font-family: Inter, Roboto, Arial, sans-serif;
   background:
     radial-gradient(circle at top left, var(--app-glow-warm), transparent 30%),
     radial-gradient(circle at top right, var(--app-glow-cool), transparent 28%),
