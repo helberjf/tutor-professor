@@ -53,7 +53,7 @@ export function PomodoroWidget({
   const isFocus = mode === 'focus';
 
   return (
-    <div className="kid-surface border-sky-100 p-3 md:p-4">
+    <div className="app-surface border-sky-100 p-3 md:p-4">
       <div className="flex items-center gap-2.5 sm:gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-700 md:h-11 md:w-11 md:rounded-2xl">
           <Timer size={20} />

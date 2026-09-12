@@ -77,7 +77,7 @@ export function BillingSection() {
   }
 
   return (
-    <section className="kid-surface mb-6 border-amber-200 p-5 md:p-8">
+    <section className="app-surface mb-6 border-amber-200 p-5 md:p-8">
       <div className="flex items-center gap-3">
         <CreditCard className="text-amber-600" size={28} />
         <div>
@@ -115,7 +115,7 @@ export function BillingSection() {
               ) : null}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Metric label="Criancas" value={String(subscription.children_used)} />
+              <Metric label="Estudantes" value={String(subscription.children_used)} />
               <Metric
                 label="Geracoes no mes"
                 value={String(subscription.generations_used)}
@@ -144,7 +144,7 @@ export function BillingSection() {
                   <p className="text-sm font-black text-primary-dark">{formatPrice(plan)}</p>
                   <p className="mt-2 text-sm font-semibold text-slate-500">{plan.description}</p>
                   <p className="mt-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
-                    {formatLimit(plan.max_children, 'crianca', 'criancas')} ·{' '}
+                    {formatLimit(plan.max_children, 'estudante', 'estudantes')} ·{' '}
                     Creditos de IA definidos diariamente pelo administrador
                   </p>
                   {isCurrent ? (

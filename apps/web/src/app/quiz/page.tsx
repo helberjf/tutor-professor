@@ -142,7 +142,7 @@ function QuizPageContent() {
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
             Conectar
           </Link>
         }
@@ -171,7 +171,7 @@ function QuizPageContent() {
         title="Tutor temporariamente indisponivel"
         message="Nao foi possivel carregar os quizzes agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
           </Link>
         }
@@ -188,7 +188,7 @@ function QuizPageContent() {
         title="O quiz nao conseguiu se conectar"
         message="Nao foi possivel carregar o quiz agora. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadQuiz()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
+          <button onClick={() => void loadQuiz()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
@@ -205,7 +205,7 @@ function QuizPageContent() {
         title="O quiz se enrolou"
         message={error.message}
         primaryAction={
-          <button onClick={() => void loadQuiz()} className="kid-button bg-kid-pink hover:bg-pink-500">
+          <button onClick={() => void loadQuiz()} className="app-button bg-brand-pink hover:bg-pink-500">
             Recarregar quiz
           </button>
         }
@@ -235,7 +235,7 @@ function QuizPageContent() {
     return (
       <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-3xl">
-          <div className="kid-surface border-secondary/60 p-6 text-center md:p-10">
+          <div className="app-surface border-secondary/60 p-6 text-center md:p-10">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary-light md:h-28 md:w-28">
               <Trophy className="text-secondary-dark" size={54} />
             </div>
@@ -257,7 +257,7 @@ function QuizPageContent() {
               {submitMessage?.encouragement || buildFallbackMessage(percentage)}
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/review" className="kid-button bg-primary hover:bg-primary-dark">
+              <Link href="/review" className="app-button bg-primary hover:bg-primary-dark">
                 Praticar revisao de frases
               </Link>
               <Link
@@ -284,13 +284,13 @@ function QuizPageContent() {
           <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
             <ArrowLeft size={22} /> Voltar
           </Link>
-          <p className="kid-tag">
+          <p className="app-tag">
             Pergunta {currentIndex + 1} de {quiz.questions.length}
           </p>
         </div>
 
-        <div className="kid-surface border-secondary/50 p-5 md:p-10">
-          <p className="kid-tag">Hora do quiz</p>
+        <div className="app-surface border-secondary/50 p-5 md:p-10">
+          <p className="app-tag">Hora do quiz</p>
           {formattedQuestion.focusText ? (
             <div className="mt-4 space-y-3 md:mt-5 md:space-y-4">
               <p className="text-lg font-black leading-8 text-slate-600 md:text-2xl md:leading-10">
@@ -313,7 +313,7 @@ function QuizPageContent() {
                 : option === question.correct_option
                   ? 'border-accent bg-accent-light text-accent-dark'
                   : isChosen
-                    ? 'border-kid-pink bg-rose-50 text-rose-700'
+                    ? 'border-brand-pink bg-rose-50 text-rose-700'
                     : 'border-slate-200 opacity-70';
 
               return (
@@ -345,7 +345,7 @@ function QuizPageContent() {
               <button
                 onClick={() => void handleNext()}
                 disabled={savingResult}
-                className="kid-button mt-6 bg-secondary-dark hover:bg-secondary"
+                className="app-button mt-6 bg-secondary-dark hover:bg-secondary"
               >
                 {currentIndex < quiz.questions.length - 1 ? 'Proxima pergunta' : savingResult ? 'Salvando...' : 'Ver minha pontuacao'}
                 <ChevronRight className="ml-2" size={20} />

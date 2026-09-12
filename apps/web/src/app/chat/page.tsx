@@ -108,13 +108,13 @@ export default function ChatPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
             <ArrowLeft size={22} /> Voltar
           </Link>
-          <p className="kid-tag">Chat com o tutor</p>
+          <p className="app-tag">Chat com o tutor</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.8fr,1.2fr]">
-          <section className="kid-surface border-rose-200 p-5 md:p-8">
+          <section className="app-surface border-rose-200 p-5 md:p-8">
             <div className="inline-flex rounded-[1.5rem] bg-rose-50 p-4">
-              <Bot className="text-kid-pink" size={34} />
+              <Bot className="text-brand-pink" size={34} />
             </div>
             <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">Converse com o tutor</h1>
             <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
@@ -141,8 +141,8 @@ export default function ChatPage() {
                     onClick={() => setAudioSpeed(speed)}
                     className={`rounded-full px-3 py-1.5 text-sm font-bold transition ${
                       audioSpeed === speed
-                        ? 'bg-kid-pink text-white'
-                        : 'border border-slate-200 text-slate-500 hover:border-kid-pink hover:text-kid-pink'
+                        ? 'bg-brand-pink text-white'
+                        : 'border border-slate-200 text-slate-500 hover:border-brand-pink hover:text-brand-pink'
                     }`}
                   >
                     {speed}x
@@ -164,8 +164,8 @@ export default function ChatPage() {
                 </Link>
               </div>
             ) : error?.isOffline ? (
-              <div className="mt-8 rounded-[1.5rem] border-2 border-kid-orange bg-orange-50 p-5">
-                <div className="flex items-center gap-3 text-kid-orange">
+              <div className="mt-8 rounded-[1.5rem] border-2 border-brand-orange bg-orange-50 p-5">
+                <div className="flex items-center gap-3 text-brand-orange">
                   <WifiOff size={26} />
                   <p className="text-xl font-black">O backend esta offline agora.</p>
                 </div>
@@ -179,7 +179,7 @@ export default function ChatPage() {
             ) : null}
           </section>
 
-          <section className="kid-surface border-primary/40 p-4 md:p-6">
+          <section className="app-surface border-primary/40 p-4 md:p-6">
             <div className="flex h-[65vh] flex-col">
               <div className="flex-1 space-y-4 overflow-y-auto px-2 py-2">
                 {messages.map((message, index) => (
@@ -222,7 +222,7 @@ export default function ChatPage() {
                   placeholder="Peça uma frase ou diga oi..."
                   maxLength={300}
                 />
-                <button type="submit" disabled={sending || !draft.trim()} className="kid-button bg-primary hover:bg-primary-dark">
+                <button type="submit" disabled={sending || !draft.trim()} className="app-button bg-primary hover:bg-primary-dark">
                   {sending ? 'Enviando...' : 'Enviar'}
                   <Send className="ml-2" size={18} />
                 </button>

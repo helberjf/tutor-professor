@@ -205,7 +205,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="kid-surface border-amber-300/50 p-6">
+      <section className="app-surface border-amber-300/50 p-6">
         <button type="button" onClick={onBack} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
           <ArrowLeft size={16} /> Programação
         </button>

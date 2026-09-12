@@ -30,7 +30,7 @@ export default function ExamsPage() {
         tone="offline"
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/dashboard"
         secondaryLabel="Voltar ao dashboard"
       />

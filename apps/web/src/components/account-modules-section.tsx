@@ -53,7 +53,7 @@ export function AccountModulesSection() {
   }
 
   return (
-    <section className="kid-surface mb-6 border-indigo-200 p-5 md:p-8">
+    <section className="app-surface mb-6 border-indigo-200 p-5 md:p-8">
       <div className="flex items-center gap-3">
         <ToggleRight className="text-indigo-600" size={28} />
         <div>

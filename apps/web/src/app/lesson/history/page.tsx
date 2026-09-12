@@ -65,7 +65,7 @@ export default function LessonHistoryPage() {
         </div>
 
         <div className="mb-8">
-          <span className="kid-tag mb-3">Todas as licoes</span>
+          <span className="app-tag mb-3">Todas as licoes</span>
           <h1 className="text-4xl font-black text-slate-800 md:text-5xl">Suas aventuras em ingles</h1>
           <p className="mt-3 text-lg text-slate-600">
             Escolha uma licao para rever o conteudo, treinar as frases ou refazer o quiz.
@@ -73,9 +73,9 @@ export default function LessonHistoryPage() {
         </div>
 
         {lessons.length === 0 && (
-          <div className="kid-surface border-slate-200 p-10 text-center">
+          <div className="app-surface border-slate-200 p-10 text-center">
             <p className="text-xl font-bold text-slate-500">Nenhuma licao encontrada ainda.</p>
-            <Link href="/lesson" className="kid-button mt-6 inline-flex bg-primary hover:bg-primary-dark">
+            <Link href="/lesson" className="app-button mt-6 inline-flex bg-primary hover:bg-primary-dark">
               Comecar agora
             </Link>
           </div>
@@ -91,7 +91,7 @@ export default function LessonHistoryPage() {
                 <li key={lesson.id}>
                   <Link
                     href={`/lesson?lessonId=${lesson.id}`}
-                    className="kid-surface flex items-center justify-between border-accent/40 p-5 transition hover:border-accent hover:shadow-md"
+                    className="app-surface flex items-center justify-between border-accent/40 p-5 transition hover:border-accent hover:shadow-md"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-light">
@@ -129,7 +129,7 @@ export default function LessonHistoryPage() {
                 <li key={lesson.id}>
                   <Link
                     href={`/lesson?lessonId=${lesson.id}`}
-                    className="kid-surface flex items-center justify-between border-primary/30 p-5 transition hover:border-primary hover:shadow-md"
+                    className="app-surface flex items-center justify-between border-primary/30 p-5 transition hover:border-primary hover:shadow-md"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-light">

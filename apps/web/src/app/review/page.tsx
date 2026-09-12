@@ -395,7 +395,7 @@ export default function ReviewPage() {
         tone="offline"
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -418,7 +418,7 @@ export default function ReviewPage() {
         tone="offline"
         title="Tutor temporariamente indisponivel"
         message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -430,7 +430,7 @@ export default function ReviewPage() {
         tone="offline"
         title="A revisao nao conseguiu se conectar"
         message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
-        primaryAction={<button onClick={() => void loadReview()} className="kid-button bg-kid-orange hover:bg-secondary-dark">Tentar de novo</button>}
+        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-orange hover:bg-secondary-dark">Tentar de novo</button>}
         secondaryHref="/offline"
         secondaryLabel="Trocar conexao"
       />
@@ -442,7 +442,7 @@ export default function ReviewPage() {
         tone="error"
         title="A revisao travou"
         message={error.message}
-        primaryAction={<button onClick={() => void loadReview()} className="kid-button bg-kid-pink hover:bg-pink-500">Recarregar revisao</button>}
+        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-pink hover:bg-pink-500">Recarregar revisao</button>}
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
       />
@@ -455,7 +455,7 @@ export default function ReviewPage() {
       <>
         <CelebrationOverlay show={showCelebration} />
         <main className="flex min-h-screen items-center justify-center px-4 py-10">
-          <div className="kid-surface mx-auto w-full max-w-lg border-accent/60 p-6 text-center md:p-10 celebrate-pop">
+          <div className="app-surface mx-auto w-full max-w-lg border-accent/60 p-6 text-center md:p-10 celebrate-pop">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
               <RotateCcw className="text-accent-dark" size={44} />
             </div>
@@ -465,7 +465,7 @@ export default function ReviewPage() {
               <span className="font-black text-rose-600">{total - masteredCount}</span> para praticar mais
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button onClick={() => void loadReview()} className="kid-button justify-center bg-primary hover:bg-primary-dark">Praticar de novo</button>
+              <button onClick={() => void loadReview()} className="app-button justify-center bg-primary hover:bg-primary-dark">Praticar de novo</button>
               <Link href="/" className="rounded-full border-2 border-slate-200 px-5 py-3.5 font-bold text-slate-600">Voltar ao inicio</Link>
             </div>
           </div>
@@ -475,10 +475,10 @@ export default function ReviewPage() {
   }
 
   const generationPanel = (
-    <section className="kid-surface mb-6 border-violet-200 p-5" aria-labelledby="generate-review-title">
+    <section className="app-surface mb-6 border-violet-200 p-5" aria-labelledby="generate-review-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="kid-tag inline-flex items-center gap-1 text-xs"><Sparkles size={12} /> IA</p>
+          <p className="app-tag inline-flex items-center gap-1 text-xs"><Sparkles size={12} /> IA</p>
           <h2 id="generate-review-title" className="mt-2 text-lg font-black text-slate-800">Criar proxima licao</h2>
           <p className="mt-1 text-sm text-slate-500">
             A IA cria a proxima licao de {targetLanguage || 'idioma'} e adiciona novas perguntas na revisao.
@@ -540,7 +540,7 @@ export default function ReviewPage() {
                 type="button"
                 onClick={() => void handleGenerationRecoveryReload()}
                 disabled={generating}
-                className="kid-button justify-center bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
+                className="app-button justify-center bg-amber-500 hover:bg-amber-600 disabled:opacity-60"
               >
                 {generating ? <Loader2 size={17} className="animate-spin" /> : <RotateCcw size={17} />}
                 Recarregar revisao antes de tentar novamente
@@ -550,7 +550,7 @@ export default function ReviewPage() {
                 type="button"
                 onClick={() => void handleGenerateNextLesson()}
                 disabled={generating}
-                className="kid-button justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
+                className="app-button justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
               >
                 {generating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
                 {generating ? 'Criando proxima licao...' : 'Criar proxima licao'}
@@ -568,7 +568,7 @@ export default function ReviewPage() {
         <div className="mx-auto max-w-lg">
           <Link href="/" className="-ml-2 mb-5 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
           {generationPanel}
-          <div className="kid-surface p-7 text-center">
+          <div className="app-surface p-7 text-center">
             <Brain className="mx-auto text-slate-300" size={44} />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Nada pendente para revisar</h1>
             <p className="mt-2 text-sm text-slate-500">Voce pode criar a proxima licao com IA usando o formulario acima.</p>
@@ -589,7 +589,7 @@ export default function ReviewPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"><Brain size={12} /> Revisao</span>
-            <span className="kid-tag text-xs">{currentIndex + 1}/{total}</span>
+            <span className="app-tag text-xs">{currentIndex + 1}/{total}</span>
           </div>
         </div>
 
@@ -600,7 +600,7 @@ export default function ReviewPage() {
         </div>
 
         {card.card_type === 'lesson_question' ? (
-          <section className="kid-surface border-violet-200 p-6 md:p-8" aria-label="Questao da licao">
+          <section className="app-surface border-violet-200 p-6 md:p-8" aria-label="Questao da licao">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-violet-700">{card.question_type.replaceAll('_', ' ')}</span>
               <span className="text-xs font-bold text-slate-400">Questao da licao</span>
@@ -630,7 +630,7 @@ export default function ReviewPage() {
                 type="button"
                 onClick={handleRevealLessonAnswer}
                 disabled={submitting || reviewTransitionRef.current.advancementLocked}
-                className="kid-button mt-8 w-full justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
+                className="app-button mt-8 w-full justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
               >
                 Revelar resposta
               </button>

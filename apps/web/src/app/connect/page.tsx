@@ -191,11 +191,11 @@ export default function ConnectPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
             <ArrowLeft size={22} /> Voltar
           </Link>
-          <p className="kid-tag">Conexao com o backend</p>
+          <p className="app-tag">Conexao com o backend</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
-          <section className="kid-surface border-primary/40 p-5 md:p-10">
+          <section className="app-surface border-primary/40 p-5 md:p-10">
             <div className="inline-flex rounded-[1.5rem] bg-primary-light p-4">
               <Link2 className="text-primary-dark" size={34} />
             </div>
@@ -241,11 +241,11 @@ cloudflared tunnel --url http://127.0.0.1:8001
                 </p>
               </div>
 
-              {error ? <p className="text-center text-sm font-bold text-kid-pink">{error}</p> : null}
+              {error ? <p className="text-center text-sm font-bold text-brand-pink">{error}</p> : null}
               {message ? <p className="text-center text-sm font-bold text-emerald-600">{message}</p> : null}
 
               <div className="flex flex-col gap-4 sm:flex-row">
-                <button type="submit" disabled={saving || !draft.trim()} className="kid-button bg-primary hover:bg-primary-dark">
+                <button type="submit" disabled={saving || !draft.trim()} className="app-button bg-primary hover:bg-primary-dark">
                   {saving ? 'Verificando...' : 'Salvar conexao'}
                   <CheckCircle2 className="ml-2" size={18} />
                 </button>
@@ -268,13 +268,13 @@ cloudflared tunnel --url http://127.0.0.1:8001
             </form>
           </section>
 
-          <section className="kid-surface border-secondary/40 p-5 md:p-10">
+          <section className="app-surface border-secondary/40 p-5 md:p-10">
             <div className="inline-flex rounded-[1.5rem] bg-secondary-light p-4">
               <ShieldCheck className="text-secondary-dark" size={34} />
             </div>
             <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
             <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
-              <p>A URL manual continua funcionando neste navegador quando nao houver uma URL global publicada. Se a crianca usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
+              <p>A URL manual continua funcionando neste navegador quando nao houver uma URL global publicada. Se voce usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
               <p>Quando o launcher publica uma configuracao global na Vercel, o app troca automaticamente para essa URL no proximo acesso.</p>
               <p>Quando a URL do tunnel mudar em outro dia, abra esta pagina de novo, cole a nova URL HTTPS e salve. Nao precisa fazer novo deploy na Vercel.</p>
               <p>Se depois voce mover o backend para uma VPS, pode continuar usando esta pagina como override de emergencia ou limpar e voltar para a URL padrao.</p>
@@ -286,7 +286,7 @@ cloudflared tunnel --url http://127.0.0.1:8001
                 <p className="text-lg font-black">Checagem do dia</p>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-700">
-                Antes de a crianca abrir o site de outra casa, confirme que o seu computador esta ligado, o backend FastAPI esta rodando e o tunnel esta ativo.
+                Antes de abrir o site de outro lugar, confirme que o seu computador esta ligado, o backend FastAPI esta rodando e o tunnel esta ativo.
               </p>
               <p className="mt-3 text-base leading-7 text-slate-700">
                 Se preferir, envie o link pronto do terminal. Quando ele abrir este `/connect`, o app tenta salvar a URL automaticamente neste aparelho.

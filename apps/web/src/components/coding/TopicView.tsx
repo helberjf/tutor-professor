@@ -559,7 +559,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="kid-surface border-primary/30 p-6">
+      <div className="app-surface border-primary/30 p-6">
         <button
           type="button"
           onClick={() => {

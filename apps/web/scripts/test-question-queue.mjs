@@ -1,5 +1,5 @@
 /**
- * The practice queue must not hand back what the child already knows.
+ * The practice queue must not hand back what the student already knows.
  *
  * "Fazer simulado" used to replay every question of a topic from the first one,
  * every time. These checks run the real helper (transpiled, not grepped) so the

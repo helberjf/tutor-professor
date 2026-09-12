@@ -1,17 +1,17 @@
 """The single study queue: build it once, come back to it, close the day with it.
 
 Real HTTP requests against the app, because the promise being tested is a
-behaviour and not a shape: a child who answers three cards, closes the app and
+behaviour and not a shape: a student who answers three cards, closes the app and
 comes back must land on card four, and the day must count as studied without
 anybody typing a line about it.
 
 What is pinned here:
 
   - `GET /api/study/session` never creates anything (a button that started a
-    session just by rendering the page would take the choice away from the child);
+    session just by rendering the page would take the choice away from the student);
   - `POST /api/study/session/start` resumes the open session instead of
     reshuffling it, and `restart=true` is the only way to get a new queue;
-  - the bookmark only moves forward, so a stale tab cannot rewind a child;
+  - the bookmark only moves forward, so a stale tab cannot rewind a student;
   - finishing closes the study day, and the day also closes from plain activity;
   - questions derived from a finished lesson need no provider and no credit;
   - a question answered right twice stops coming back.
@@ -149,7 +149,7 @@ async def test_start_builds_a_queue_and_resumes_it(
     require(body["total"] > 0, "the first session should carry today's lesson")
     require(
         all(item["kind"] == "lesson_item" for item in body["items"]),
-        "a child with nothing learned yet should only be taught, not quizzed",
+        "a student with nothing learned yet should only be taught, not quizzed",
     )
     session_id = body["id"]
 
@@ -167,7 +167,7 @@ async def test_start_builds_a_queue_and_resumes_it(
         json={"position": 2, "answered_count": 2, "correct_count": 2},
     )
     require(moved.status_code == 200, f"progress failed: {moved.text}")
-    require(moved.json()["position"] == 2, "the bookmark should be where the child stopped")
+    require(moved.json()["position"] == 2, "the bookmark should be where the student stopped")
 
     rewind = await client.post(
         f"/api/study/session/{session_id}/progress",
@@ -269,7 +269,7 @@ async def test_free_question_bank_needs_no_provider(
 
     # "Modo gramatica" is deliberately not filled from the same phrases:
     # translation questions labelled as grammar practice would be a lie about
-    # what the child drilled, so that topic waits for the AI path.
+    # what the student drilled, so that topic waits for the AI path.
     grammar = await client.post(
         "/api/study/questions/ensure",
         headers=headers,
@@ -439,7 +439,7 @@ async def test_onboarding_places_the_child(client: httpx.AsyncClient, headers: d
     require(done.status_code == 200, f"onboarding failed: {done.text}")
     body = done.json()
     require(body["child_name"] == "Ana", "the child keeps the name that was typed")
-    require(body["level"] == 4, "answering up to level 3 starts the child at 4")
+    require(body["level"] == 4, "answering up to level 3 starts the student at 4")
     require(body["level_pinned"] is True, "a placed level has to survive the automatic ladder")
 
     level = await client.get("/api/child/level", headers=headers)

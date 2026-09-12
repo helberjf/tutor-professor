@@ -69,12 +69,20 @@ class HomeEntrarTests(unittest.TestCase):
         self.assertNotIn("/register", notice)
 
 
-class ParentsAreaTests(unittest.TestCase):
-    def test_parents_link_is_hidden_while_logged_out(self) -> None:
+class AccountAreaTests(unittest.TestCase):
+    def test_account_link_is_hidden_while_logged_out(self) -> None:
         home = read(HOME_PAGE)
-        block = home[home.index("Parents area link"):]
+        block = home[home.index("Account area link"):]
         block = block[: block.index("</div>")]
-        self.assertIn("isAuthenticated &&", block, "the parents link must not lead to a login wall")
+        self.assertIn("isAuthenticated &&", block, "the account link must not lead to a login wall")
+
+    def test_the_area_is_not_called_the_parents_area_any_more(self) -> None:
+        """The app teaches anyone; the settings are the account's, not a parent's."""
+
+        home = read(HOME_PAGE)
+        self.assertIn("Área da conta", home)
+        self.assertNotIn("Área dos pais", home)
+        self.assertIn('href="/account"', home)
 
 
 class LoginRedirectTests(unittest.TestCase):

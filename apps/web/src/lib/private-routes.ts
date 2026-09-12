@@ -1,4 +1,5 @@
 const PRIVATE_PATH_PREFIXES = [
+  '/account',
   '/activity-log',
   '/admin',
   '/books',

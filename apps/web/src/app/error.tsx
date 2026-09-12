@@ -13,7 +13,7 @@ export default function GlobalError({
       title="Algo saiu do lugar"
       message="Uma página falhou enquanto estávamos preparando tudo. Tente novamente ou volte para o início."
       primaryAction={
-        <button onClick={() => reset()} className="kid-button bg-kid-pink hover:bg-pink-500">
+        <button onClick={() => reset()} className="app-button bg-brand-pink hover:bg-pink-500">
           Tentar de novo
         </button>
       }

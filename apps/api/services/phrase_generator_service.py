@@ -15,6 +15,7 @@ import requests
 from services.tls import get_requests_verify
 
 from schemas.schemas import GeneratedLessonDraftSchema
+from services.audience import audience_note, content_rule
 from services.language_question_service import (
     ALLOWED_LANGUAGE_QUESTION_TYPES,
     validate_language_question_batch,
@@ -141,8 +142,9 @@ class PhraseGenerationService:
         config = self._resolve_config(ai_config)
         provider_label = self._provider_label(config.provider)
         system_text = (
-            f"You create child-safe {str(target_language).strip()[:40]} lessons for "
-            f"{str(base_language).strip()[:40]} speakers. "
+            f"You create {str(target_language).strip()[:40]} lessons for "
+            f"{str(base_language).strip()[:40]} speakers, written for the learner described "
+            "in the prompt. "
             "Always return valid JSON only, with no markdown fences, no commentary, and no extra keys."
         )
         prompt = self._build_prompt(
@@ -389,7 +391,7 @@ class PhraseGenerationService:
         topic_instruction = (
             f'Theme preference: "{topic_text}". Keep the three phrases connected to that theme.\n'
             if topic_text
-            else "Theme preference: choose one practical daily-life theme for a child.\n"
+            else "Theme preference: choose one practical daily-life theme for this learner.\n"
         )
 
         # Map level (1-10) to difficulty guidance
@@ -398,7 +400,7 @@ class PhraseGenerationService:
             difficulty_note = (
                 "Difficulty: BEGINNER (level 1-2). Use very simple words only: greetings, colors, numbers, "
                 "single-word or 2-word phrases (e.g. 'Hello', 'Good morning', 'Red ball'). "
-                "English should be so easy a 4-year-old could repeat it."
+                "The phrases should be so easy a complete beginner could repeat them."
             )
         elif clamped <= 4:
             difficulty_note = (
@@ -414,25 +416,25 @@ class PhraseGenerationService:
         elif clamped <= 8:
             difficulty_note = (
                 "Difficulty: UPPER-INTERMEDIATE (level 7-8). Use compound sentences, past tense and "
-                "common idioms appropriate for children "
+                "common everyday idioms "
                 "(e.g. 'I went to the park yesterday', 'It is raining cats and dogs')."
             )
         else:
             difficulty_note = (
                 "Difficulty: ADVANCED (level 9-10). Use richer vocabulary, varied tenses and natural "
-                "idiomatic expressions suitable for a confident child learner "
+                "idiomatic expressions suitable for a confident learner "
                 "(e.g. 'If you practice every day, you will improve quickly')."
             )
 
         prompt = (
             f"Create the content for {safe_target_language} for today - Day {next_day}.\n"
-            f"Child age group: {safe_age_group}.\n"
+            f"{audience_note(safe_age_group)}\n"
             f"{difficulty_note}\n"
             f"{topic_instruction}"
             f"Native/base language for translations and explanations: {safe_base_language}.\n"
             "Rules:\n"
             f"- Generate exactly 3 short, useful {safe_target_language} phrases for one day of study.\n"
-            "- Make them safe, friendly, and practical for a child.\n"
+            f"- Make them practical and useful for this learner. {content_rule(safe_age_group)}\n"
             "- Do not reuse or closely paraphrase any existing phrase listed below.\n"
             f"- Keep the output suitable for a {safe_base_language} speaker.\n"
             f"- Each phrase must include a natural {safe_base_language} translation of the {safe_target_language} phrase.\n"

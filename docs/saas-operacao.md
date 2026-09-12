@@ -13,7 +13,7 @@ ficar no padrão:
 
 | Variável | Valor | Por quê |
 |---|---|---|
-| `ALLOW_GUEST_ACCESS` | `false` | Ligado, todo visitante sem sessão compartilha um mesmo perfil de criança. |
+| `ALLOW_GUEST_ACCESS` | `false` | Ligado, todo visitante sem sessão compartilha um mesmo perfil de estudante. |
 | `SESSION_SECRET` | valor único | Assina as sessões. Com placeholder a API se recusa a subir. |
 | `AI_ENCRYPTION_KEY` | valor único | Criptografa as chaves de IA guardadas. Separada do `SESSION_SECRET` para que girar um não destrua o outro. |
 | `EMAIL_PROVIDER` | `smtp` + servidor | Com `console` ninguém consegue verificar e-mail nem redefinir senha. |
@@ -41,12 +41,12 @@ O catálogo está em `apps/api/services/billing_service.py`, em código, não no
 banco: preço e limite mudam por deploy, que é revisável e reversível.
 
 - Conta sem assinatura = plano gratuito. Nada é criado no cadastro.
-- O limite de crianças é verificado ao criar um perfil.
+- O limite de estudantes é verificado ao criar um perfil.
 - A franquia mensal de IA do plano vira **créditos**, recarregados uma vez por
   período. Créditos concedidos à mão pelo administrador nunca são reduzidos pela
   recarga — as duas coisas somam no mesmo saldo.
 - `past_due` continua com acesso: um cartão que falhou hoje de manhã não deve
-  tirar a lição da criança antes de o gateway terminar as tentativas.
+  tirar a lição do estudante antes de o gateway terminar as tentativas.
 - O teste gratuito não precisa de gateway nenhum. Pagar, sim.
 
 Para ligar um gateway: preencher `BILLING_PROVIDER`, `BILLING_WEBHOOK_SECRET` e

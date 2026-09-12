@@ -582,7 +582,7 @@ def _engine_kwargs(database_url: str) -> dict:
         # silently accepted.
         "sslmode": os.getenv("PGSSLMODE", "prefer"),
         "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "10")),
-        "application_name": os.getenv("DB_APPLICATION_NAME", "kids-tutor-api"),
+        "application_name": os.getenv("DB_APPLICATION_NAME", "tutor-api"),
         "keepalives": 1,
         "keepalives_idle": 30,
         "keepalives_interval": 10,
@@ -1305,7 +1305,7 @@ def get_default_child(session: Session, user_id: int | None = None) -> ChildProf
             # Creating an owner-less profile here is how the shared guest bucket
             # used to appear out of nowhere. Refuse instead.
             raise HTTPException(status_code=401, detail=LOGIN_REQUIRED_DETAIL)
-        child = ChildProfile(name="Kid", age_group="7-9", user_id=user_id)
+        child = ChildProfile(name="Estudante", age_group=DEFAULT_AGE_GROUP, user_id=user_id)
         session.add(child)
         session.commit()
         session.refresh(child)
@@ -1339,7 +1339,7 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
                 parent_session,
             )
             if not is_accessible or selected_child is None or selected_child.id != requested_child_id:
-                raise HTTPException(status_code=404, detail="Crianca nao encontrada.")
+                raise HTTPException(status_code=404, detail="Estudante nao encontrado.")
             return normalize_child_voice_preference(selected_child, session=session)
 
     return get_default_child(session=session, user_id=logged_user_id)
@@ -1423,6 +1423,10 @@ def get_lesson_items(session: Session, lesson_id: int) -> list[LessonItem]:
         select(LessonItem).where(LessonItem.lesson_id == lesson_id).order_by(LessonItem.id)
     ).all()
 
+
+# The age band a profile starts on when nobody chose one. It tunes the
+# vocabulary of generated content; the guided first run asks for it explicitly.
+DEFAULT_AGE_GROUP = os.getenv("DEFAULT_AGE_GROUP", "18+")
 
 MIN_CHILD_LEVEL = 1
 MAX_CHILD_LEVEL = 10
@@ -2362,7 +2366,7 @@ def generate_lesson_questions(
             if current_child.base_language != base_language:
                 raise HTTPException(
                     status_code=409,
-                    detail="O idioma-base da crianca mudou durante a geracao. Tente novamente.",
+                    detail="O idioma-base do estudante mudou durante a geracao. Tente novamente.",
                 )
 
             current_questions = session.exec(
@@ -8737,10 +8741,10 @@ def user_register(
         # manual mode it is still what makes a password reset possible later.
         send_verification_email(user, session)
 
-    child_name = (payload.child_name or payload.first_name).strip() or "Kid"
+    child_name = (payload.child_name or payload.first_name).strip() or "Estudante"
     child = ChildProfile(
         name=child_name,
-        age_group="7-9",
+        age_group=DEFAULT_AGE_GROUP,
         target_language=payload.target_language or "English",
         user_id=user.id,
     )
@@ -8800,7 +8804,7 @@ def user_login(
         session.commit()
 
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
-        session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))
+        session.add(ChildProfile(name=user.first_name, age_group=DEFAULT_AGE_GROUP, user_id=user.id))
         session.commit()
 
     token = create_parent_session(response=response, session=session, user_id=user.id)
@@ -8904,7 +8908,7 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
     session.refresh(user)
 
     if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
-        session.add(ChildProfile(name=user.first_name or "Kid", age_group="7-9", user_id=user.id))
+        session.add(ChildProfile(name=user.first_name or "Estudante", age_group=DEFAULT_AGE_GROUP, user_id=user.id))
         session.commit()
 
     if user.id is not None and get_user_ai_settings_record(user.id, session) is None:

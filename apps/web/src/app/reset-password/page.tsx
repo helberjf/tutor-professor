@@ -34,7 +34,7 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="kid-surface border-rose-200 p-6 md:p-8">
+      <div className="app-surface border-rose-200 p-6 md:p-8">
         <h1 className="text-2xl font-black text-slate-800">Link incompleto</h1>
         <p className="mt-3 text-base leading-7 text-slate-600">
           Abra o link exatamente como ele chegou no seu e-mail, ou peca um novo.
@@ -50,7 +50,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="kid-surface border-primary/40 p-6 md:p-8">
+    <div className="app-surface border-primary/40 p-6 md:p-8">
       <div className="flex items-center gap-3">
         <KeyRound className="text-primary-dark" size={28} />
         <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Criar uma senha nova</h1>
@@ -97,7 +97,7 @@ export default function ResetPasswordPage() {
       <Link href="/login" className="-ml-2 mb-6 inline-flex min-h-11 items-center gap-2 px-2 text-base font-bold text-primary-dark hover:text-primary">
         <ArrowLeft size={20} /> Voltar para o login
       </Link>
-      <Suspense fallback={<div className="kid-surface p-6">Carregando...</div>}>
+      <Suspense fallback={<div className="app-surface p-6">Carregando...</div>}>
         <ResetPasswordForm />
       </Suspense>
     </main>

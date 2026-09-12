@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Brincar",
-  "theme": "Brincadeiras",
-  "objective": "Falar de brincadeiras e jogos.",
+  "title": "Ingles A1 - Jogos e lazer",
+  "theme": "Jogos e lazer",
+  "objective": "Falar de jogos e tempo livre.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Let us play",
-        "phrase_pt": "Vamos brincar",
+        "phrase_pt": "Vamos jogar",
         "word_by_word": [
           {
             "en": "Let",
@@ -21,7 +21,7 @@
           },
           {
             "en": "play",
-            "pt": "brincam"
+            "pt": "jogam"
           }
         ]
       },
@@ -140,9 +140,9 @@
   "items": [
     {
       "word_en": "Let us play",
-      "word_pt": "Vamos brincar",
-      "example_sentence_en": "Let us play in the garden.",
-      "example_sentence_pt": "Vamos brincar no jardim."
+      "word_pt": "Vamos jogar",
+      "example_sentence_en": "Let us play a game after lunch.",
+      "example_sentence_pt": "Vamos jogar depois do almoco."
     },
     {
       "word_en": "a ball",

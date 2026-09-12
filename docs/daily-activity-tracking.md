@@ -2,7 +2,7 @@
 
 ## Overview
 
-O sistema de rastreamento de atividades diárias foi implementado para registrar automaticamente todas as atividades de estudo da criança. Isso permite que pais e educadores vejam um histórico completo do que foi estudado em cada dia.
+O sistema de rastreamento de atividades diárias foi implementado para registrar automaticamente todas as atividades de estudo do estudante. Isso permite que pais e educadores vejam um histórico completo do que foi estudado em cada dia.
 
 ## Features
 
@@ -147,7 +147,7 @@ CREATE INDEX idx_activity_child_date
 
 ### Índices
 
-- `child_id`: para filtrar por criança
+- `child_id`: para filtrar por estudante
 - `activity_date`: para filtrar por data
 - `activity_type`: para filtrar por tipo
 
@@ -221,7 +221,7 @@ Painel de estatísticas integrado à aba English da página de estudo:
 ## Fluxo de Dados
 
 ```
-Criança estuda e completa atividade
+Estudante estuda e completa atividade
          ↓
 Aplicação frontend registra via POST /api/activity/log
          ↓
@@ -235,7 +235,7 @@ WeeklyActivityChart busca GET /api/activity/week
          ↓
 Gráfico exibe evolução dos últimos 7 dias com filtros
 
-Criança completa uma lição
+Estudante completa uma lição
          ↓
 Aplicação frontend chama POST /api/lesson/complete
          ↓
@@ -284,7 +284,7 @@ curl http://localhost:8001/api/activity/today
 
 ## Notas
 
-- Atividades são registradas com a data local da criança
+- Atividades são registradas com a data local do estudante
 - Timestamp é UTC (criado_em)
 - Dados sensíveis (pontuações, etc) são armazenados no banco privado
 - API requer autenticação de sessão de pai

@@ -48,7 +48,7 @@ function Field({ id, label, icon, error, required = false, children }: FieldProp
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
         {label}
-        {required ? <span aria-hidden="true" className="ml-1 text-kid-pink">*</span> : null}
+        {required ? <span aria-hidden="true" className="ml-1 text-brand-pink">*</span> : null}
       </label>
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -113,7 +113,7 @@ export default function RegisterPage() {
 
     if (!form.first_name.trim()) next.first_name = 'Informe o nome.';
     if (!form.last_name.trim()) next.last_name = 'Informe o sobrenome.';
-    if (!form.child_name.trim()) next.child_name = 'Informe o nome da crianca.';
+    if (!form.child_name.trim()) next.child_name = 'Informe o nome do estudante.';
 
     const email = form.email.trim();
     if (!email) {
@@ -186,7 +186,7 @@ export default function RegisterPage() {
     setGoogleLoading(true);
     setErrors({});
     try {
-      window.location.href = await api.getGoogleLoginUrl('/parents');
+      window.location.href = await api.getGoogleLoginUrl('/account');
     } catch (err) {
       const msg =
         err instanceof ApiError
@@ -203,7 +203,7 @@ export default function RegisterPage() {
   if (success) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-3 py-10 sm:px-4 sm:py-12">
-        <div className="kid-surface w-full max-w-md p-6 text-center sm:p-10">
+        <div className="app-surface w-full max-w-md p-6 text-center sm:p-10">
           <CheckCircle2 size={48} className="mx-auto mb-4 text-emerald-500" />
           <h2 className="text-2xl font-black text-slate-800">Conta criada!</h2>
           <p className="mt-2 text-slate-500">
@@ -235,7 +235,7 @@ export default function RegisterPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_40px_rgba(14,165,233,0.15)]">
             <User className="text-primary-dark" size={32} />
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">Área dos pais</p>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">Criar conta</p>
           <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Criar conta</h1>
           <p className="mt-2 text-sm text-slate-500">
             Já tem conta?{' '}
@@ -245,7 +245,7 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <div className="kid-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
+        <div className="app-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
           <button
             type="button"
             onClick={() => void handleGoogleRegister()}
@@ -291,7 +291,7 @@ export default function RegisterPage() {
               </Field>
             </div>
 
-            <Field id="child_name" label="Seu nome / Nome do aluno" icon={<User size={16} className="text-slate-400" />} error={errors.child_name} required>
+            <Field id="child_name" label="Seu nome / Nome do estudante" icon={<User size={16} className="text-slate-400" />} error={errors.child_name} required>
               <input
                 id="child_name"
                 type="text"
@@ -308,7 +308,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <Globe size={14} /> Idioma para aprender <span aria-hidden="true" className="text-kid-pink">*</span>
+                  <Globe size={14} /> Idioma para aprender <span aria-hidden="true" className="text-brand-pink">*</span>
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

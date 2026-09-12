@@ -228,7 +228,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   if (view.type === 'subjects') {
     return (
       <div className="space-y-6">
-        <section className="kid-surface border-primary/30 p-3 md:p-6">
+        <section className="app-surface border-primary/30 p-3 md:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
           <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">Minhas Matérias</h1>
           <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
@@ -367,7 +367,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     const statusIcon = (s: string) => s === 'mastered' ? '⭐' : s === 'studied' ? '✅' : '🔘';
     return (
       <div className="space-y-6">
-        <section className="kid-surface border-primary/30 p-6">
+        <section className="app-surface border-primary/30 p-6">
           <button type="button" onClick={() => setView({ type: 'subjects' })} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
             <ArrowLeft size={16} /> Todas as matérias
           </button>

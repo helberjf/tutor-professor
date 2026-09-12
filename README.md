@@ -1,6 +1,6 @@
 # Tutor and Professor
 
-Tutor and Professor is a full-stack personal tutoring app for children. It combines short language lessons, quizzes, spaced repetition, AI-generated practice, text-to-speech, parent controls, and study tools for broader subjects such as programming.
+Tutor and Professor is a full-stack personal tutoring app for anyone who wants to study — a language, a school subject, or programming. It combines short lessons, quizzes, spaced repetition, AI-generated practice, text-to-speech, account controls, and study tools. Content is written for the age band on the profile, from a six-year-old to an adult, which is also what keeps the extra content rules in place when the learner is a minor.
 
 The project was built as a practical engineering exercise: a real product surface, a typed frontend, a Python API, persistent data, AI integration, runtime backend routing, auth, tests, and deployment constraints.
 
@@ -11,7 +11,7 @@ The project was built as a practical engineering exercise: a real product surfac
 
 ## What This Project Demonstrates
 
-- Full-stack product thinking: child-facing lessons plus parent/admin workflows.
+- Full-stack product thinking: learner-facing lessons plus account and admin workflows.
 - Typed React/Next.js frontend with reusable API client and runtime connection handling.
 - FastAPI backend with SQLModel models, Pydantic schemas, auth, and domain services.
 - AI workflows with validation, retry-safe behavior, and safeguards against malformed generated content.
@@ -21,12 +21,12 @@ The project was built as a practical engineering exercise: a real product surfac
 
 ## Core Features
 
-### Child Learning
+### Studying
 
 - **One study queue.** "Iniciar estudos" builds a session — today's lesson first,
   then what review is due, then the questions still owed — and drops straight
   into the first card. The queue is stored, so **"Continuar de onde parou"** on
-  the home screen resumes the exact card the child stopped at, after a reload, a
+  the home screen resumes the exact card you stopped at, after a reload, a
   closed app, or a day later. `GET /api/study/session` only reads: opening the
   app never starts a session by itself.
 - **Nothing already mastered comes back.** A question answered right twice, with
@@ -34,11 +34,15 @@ The project was built as a practical engineering exercise: a real product surfac
   (`services/study_queue_service.py` and `lib/question-queue.ts`), and "Refazer
   todas" is there for whoever wants the whole topic again.
 - **A guided first run.** `/onboarding` asks who is studying and which language,
-  then places the child with a five-question test instead of starting everyone at
-  level 1. The test needs no content and no AI, so it works in the account's
+  then places the student with a five-question test instead of starting everyone
+  at level 1. The test needs no content and no AI, so it works in the account's
   first minute.
 - **The day closes by studying.** Finishing a session (or any logged activity)
   marks the day as studied; writing a note about it stays optional.
+- **The audience is whoever is studying.** The profile carries an age band
+  (4-6 through 18+) and every generator reads it from `services/audience.py`, so
+  an adult gets adult examples and a child still gets the content rules a child
+  needs. Nothing in the product assumes one or the other.
 - Daily lessons with target-language vocabulary, examples, and mini activities.
 - Quizzes with scoring and friendly feedback.
 - Mixed review sessions combining vocabulary and lesson-generated questions.
@@ -60,17 +64,17 @@ The project was built as a practical engineering exercise: a real product surfac
   already been sent: free questions first, and a provider call only when a key
   and credit are actually there. Nobody waits on a spinner for a question.
 
-### Parent Area
+### Account Area
 
 - Account registration and login. `SIGNUP_MODE=manual` (the default) holds a new account in the administrator's queue; `SIGNUP_MODE=open` lets a verified e-mail address in on its own.
 - E-mail verification, forgotten-password reset, password change and sign-out-everywhere, all self-service. Both e-mail flows answer identically for an address that exists and one that does not, so they cannot be used to find out who has an account.
-- Optional modules per account: the programming curriculum, flashcard decks and LeetCode trainer ship switched off and are turned on in the parents area. The gate is one middleware over route families rather than a check repeated in thirty endpoints.
+- Optional modules per account: the programming curriculum, flashcard decks and LeetCode trainer ship switched off and are turned on in the account area. The gate is one middleware over route families rather than a check repeated in thirty endpoints.
 - Data rights without asking anybody: `GET /api/account/export` downloads everything stored about the account, `POST /api/account/delete` erases it.
 - Password policy enforced on both sides: the signup form shows a live strength meter and requirement checklist, and `services/password_policy.py` applies the same rules on the API, so a direct HTTP call cannot skip them.
 - Login has a brute-force brake: after `MAX_FAILED_LOGINS` wrong passwords the account is locked for `LOGIN_LOCK_MINUTES` and answers 429 with `Retry-After`. The lock clears itself, and a successful login resets the counter.
 - Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP's current floor) and a per-password random salt. The hash records its own iteration count, and an older 260,000-iteration hash is upgraded in place on the next successful login.
-- Parent dashboard for children, progress, settings, and AI provider configuration.
-- Child profile management, including target language and audio preferences.
+- Account dashboard for students, progress, settings, and AI provider configuration.
+- Student profile management, including target language, age band and audio preferences.
 - AI-powered lesson, question, book, and flashcard generation.
 
 ### Admin Area
@@ -84,9 +88,9 @@ The project was built as a practical engineering exercise: a real product surfac
 ### Plans and Billing
 
 - Plans live in `apps/api/services/billing_service.py` rather than in a table: a price changes through a reviewable deploy, not a row edited in production. An account with no subscription row is on the free plan, so signup creates nothing and the app runs with billing switched off.
-- One `Entitlement` decides everything: how many children a plan allows, and how much AI it includes. The AI allowance is credited into the balance the administrator already controlled, so there is one meter instead of two competing ones, and hand-granted credits are never taken away.
+- One `Entitlement` decides everything: how many students a plan allows, and how much AI it includes. The AI allowance is credited into the balance the administrator already controlled, so there is one meter instead of two competing ones, and hand-granted credits are never taken away.
 - A 14-day trial needs no payment gateway at all. Paying does, and says so plainly rather than pretending to have taken the money.
-- `past_due` keeps working: a card that failed this morning should not take a child's lesson away before the gateway has finished retrying.
+- `past_due` keeps working: a card that failed this morning should not take a student's lesson away before the gateway has finished retrying.
 - `POST /api/billing/webhook` verifies an HMAC signature over the raw body and ignores repeated deliveries by event id — the retry every gateway sends must not extend a period twice.
 - Every generation writes a usage line with an estimated cost in millionths of a currency unit, so "what did this account cost this month" has an answer. See `docs/saas-operacao.md`.
 
@@ -355,7 +359,7 @@ The test suite is a mix of service-level tests, API behavior checks, and lightwe
 - AI validation before persistence: generated batches are checked for count, identity, ownership, and schema before database writes.
 - Atomic generation paths: invalid AI output should fail without partial database rows.
 - Local database resilience: startup bootstrap handles legacy local schemas before serving requests.
-- Child-safe UX states: loading, empty, offline, retry, and recovery states are part of the product flow.
+- Honest UX states: loading, empty, offline, retry, and recovery states are part of the product flow.
 
 ## Trade-offs and Current Limitations
 

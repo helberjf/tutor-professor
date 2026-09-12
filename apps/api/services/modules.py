@@ -1,6 +1,6 @@
 """Optional product modules, switched on per account.
 
-The app grew a second personality: besides the language tutor for children it
+The app grew a second personality: besides the language tutor it
 carries a programming curriculum, a LeetCode method trainer and flashcard decks.
 Most accounts want one or the other, and showing both at once makes the product
 harder to explain than it needs to be.

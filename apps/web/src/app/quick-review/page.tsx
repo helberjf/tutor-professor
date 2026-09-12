@@ -119,7 +119,7 @@ export default function QuickReviewPage() {
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -148,7 +148,7 @@ export default function QuickReviewPage() {
         title="Tutor temporariamente indisponivel"
         message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -163,7 +163,7 @@ export default function QuickReviewPage() {
         title="Sem conexao com o tutor"
         message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadSession()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
+          <button onClick={() => void loadSession()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
@@ -180,7 +180,7 @@ export default function QuickReviewPage() {
         title="Nao foi possivel carregar"
         message={error.message}
         primaryAction={
-          <button onClick={() => void loadSession()} className="kid-button bg-kid-pink hover:bg-pink-500">
+          <button onClick={() => void loadSession()} className="app-button bg-brand-pink hover:bg-pink-500">
             Tentar de novo
           </button>
         }
@@ -212,11 +212,11 @@ export default function QuickReviewPage() {
         <CelebrationOverlay show={showCelebration} />
         <main className="flex min-h-screen items-center justify-center px-4 py-10">
           <div className="mx-auto w-full max-w-sm">
-            <div className="kid-surface border-accent/60 p-6 text-center md:p-8 celebrate-pop">
+            <div className="app-surface border-accent/60 p-6 text-center md:p-8 celebrate-pop">
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
                 <CheckCircle2 className="text-accent-dark" size={44} />
               </div>
-              <p className="kid-tag text-xs">Revisao Rapida</p>
+              <p className="app-tag text-xs">Revisao Rapida</p>
               <h1 className="mt-3 text-3xl font-black text-slate-800">
                 {pct >= 80 ? 'Incrivel!' : pct >= 50 ? 'Muito bem!' : 'Continue praticando!'}
               </h1>
@@ -234,7 +234,7 @@ export default function QuickReviewPage() {
               <div className="mt-7 flex flex-col gap-3">
                 <button
                   onClick={() => void loadSession()}
-                  className="kid-button w-full justify-center bg-primary hover:bg-primary-dark"
+                  className="app-button w-full justify-center bg-primary hover:bg-primary-dark"
                 >
                   Revisar de novo
                 </button>
@@ -272,7 +272,7 @@ export default function QuickReviewPage() {
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
               <Zap size={12} /> Revisao Rapida
             </span>
-            <span className="kid-tag text-xs">{currentIndex + 1}/{total}</span>
+            <span className="app-tag text-xs">{currentIndex + 1}/{total}</span>
           </div>
         </div>
 
@@ -295,7 +295,7 @@ export default function QuickReviewPage() {
         </div>
 
         {/* Card */}
-        <div className="kid-surface border-primary/30 p-6 md:p-8">
+        <div className="app-surface border-primary/30 p-6 md:p-8">
           {/* English word + audio */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">

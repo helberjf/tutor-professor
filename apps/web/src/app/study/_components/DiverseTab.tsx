@@ -166,7 +166,7 @@ export function DiverseTab({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <section className="kid-surface border-primary/30 p-2.5 md:p-8">
+      <section className="app-surface border-primary/30 p-2.5 md:p-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
         <h1 className="mt-1 text-lg font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
@@ -348,7 +348,7 @@ export function DiverseTab({
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || generatingDiverseQuestions}
-            className="kid-button w-full bg-primary hover:bg-primary-dark">
+            className="app-button w-full bg-primary hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matérias
           </button>
@@ -361,7 +361,7 @@ export function DiverseTab({
             notificationPermission={notificationPermission} message={pomodoroMessage}
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
-          <div className="kid-surface border-slate-100 p-5">
+          <div className="app-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Criar</strong> para adicionar manualmente.</p>
@@ -619,7 +619,7 @@ export function DiverseSubjectDashboard({
 
   return (
     <div className="space-y-6">
-      <section className="kid-surface border-indigo-200 p-3 md:p-8">
+      <section className="app-surface border-indigo-200 p-3 md:p-8">
         <button
           type="button"
           onClick={onBack}
@@ -645,7 +645,7 @@ export function DiverseSubjectDashboard({
         </div>
       </section>
 
-      <section className="kid-surface border-violet-100 p-4 md:p-5">
+      <section className="app-surface border-violet-100 p-4 md:p-5">
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
             Contexto para IA
@@ -829,7 +829,7 @@ export function DiverseSubjectDashboard({
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || questionGenerationBusy}
-            className="kid-button w-full bg-primary hover:bg-primary-dark">
+            className="app-button w-full bg-primary hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matéria
           </button>
@@ -842,7 +842,7 @@ export function DiverseSubjectDashboard({
             notificationPermission={notificationPermission} message={pomodoroMessage}
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
-          <div className="kid-surface border-slate-100 p-5">
+          <div className="app-surface border-slate-100 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Foco da matéria</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
               <p>Use Lista para ajustar os tópicos e respostas.</p>

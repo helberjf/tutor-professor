@@ -157,7 +157,7 @@ export function AdminAccountQueue() {
 
   async function deleteUser(user: AdminUser) {
     const confirmed = window.confirm(
-      `Apagar permanentemente a conta ${user.email}?\n\nEsta ação remove filhos, estudos, sessões e todos os dados relacionados. Não pode ser desfeita.`,
+      `Apagar permanentemente a conta ${user.email}?\n\nEsta ação remove perfis de estudante, estudos, sessões e todos os dados relacionados. Não pode ser desfeita.`,
     );
     if (!confirmed) return;
 

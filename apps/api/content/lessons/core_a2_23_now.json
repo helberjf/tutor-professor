@@ -45,7 +45,7 @@
       },
       {
         "phrase_en": "They are playing",
-        "phrase_pt": "Eles estao brincando",
+        "phrase_pt": "Eles estao jogando",
         "word_by_word": [
           {
             "en": "They",
@@ -57,7 +57,7 @@
           },
           {
             "en": "playing",
-            "pt": "brincando"
+            "pt": "jogando"
           }
         ]
       },
@@ -172,9 +172,9 @@
     },
     {
       "word_en": "They are playing",
-      "word_pt": "Eles estao brincando",
+      "word_pt": "Eles estao jogando",
       "example_sentence_en": "They are playing outside.",
-      "example_sentence_pt": "Eles estao brincando la fora."
+      "example_sentence_pt": "Eles estao jogando la fora."
     },
     {
       "word_en": "We are studying",

@@ -554,7 +554,7 @@ class BookSummarySchema(BaseModel):
 
 
 class GenerateBookRequestSchema(BaseModel):
-    level: int = Field(default=0, ge=0, le=10)   # 0 = usa nivel atual da criança
+    level: int = Field(default=0, ge=0, le=10)   # 0 = usa o nivel atual do estudante
     num_pages: int = Field(default=5, ge=1, le=5)
     theme: str = Field(min_length=1, max_length=300)
 

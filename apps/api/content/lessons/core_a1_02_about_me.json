@@ -52,8 +52,8 @@
         ]
       },
       {
-        "phrase_en": "I am eight years old",
-        "phrase_pt": "Eu tenho oito anos",
+        "phrase_en": "I am twenty years old",
+        "phrase_pt": "Eu tenho vinte anos",
         "word_by_word": [
           {
             "en": "I",
@@ -64,8 +64,8 @@
             "pt": "estou"
           },
           {
-            "en": "eight",
-            "pt": "oito"
+            "en": "twenty",
+            "pt": "vinte"
           },
           {
             "en": "years",
@@ -199,10 +199,10 @@
       "example_sentence_pt": "Oi! Qual e o seu nome?"
     },
     {
-      "word_en": "I am eight years old",
-      "word_pt": "Eu tenho oito anos",
-      "example_sentence_en": "I am eight years old today.",
-      "example_sentence_pt": "Eu tenho oito anos hoje."
+      "word_en": "I am twenty years old",
+      "word_pt": "Eu tenho vinte anos",
+      "example_sentence_en": "She is thirty years old.",
+      "example_sentence_pt": "Ela tem trinta anos."
     },
     {
       "word_en": "How old are you?",

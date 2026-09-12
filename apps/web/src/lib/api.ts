@@ -669,7 +669,7 @@ export interface GeneratePagePayload {
 }
 
 export interface GenerateBookPayload {
-  level: number;      // 0 = usa nível atual da criança
+  level: number;      // 0 = usa o nível atual do estudante
   num_pages: number;  // 1-5
   theme: string;      // contexto obrigatório do livro
 }
@@ -1711,7 +1711,7 @@ export const api = {
       clearSessionToken();
     }
   },
-  getGoogleLoginUrl: async (next = '/parents') => {
+  getGoogleLoginUrl: async (next = '/account') => {
     const apiBaseUrl = await resolveApiBaseUrl();
     if (!apiBaseUrl) {
       throw new ApiError('Este aparelho ainda nao esta conectado a um backend.', {

@@ -1,8 +1,8 @@
 """Questions built from lesson content alone — no AI call, no credit spent.
 
-The app's question banks were all born from a provider call, which put the child
+The app's question banks were all born from a provider call, which put the student
 one outage (or one exhausted daily credit) away from an empty screen. Everything
-here is derived deterministically from the lesson the child already has, so a
+here is derived deterministically from the lesson the student already has, so a
 lesson always carries practice with it:
 
 * `build_offline_lesson_questions` feeds the spaced-repetition queue

@@ -18,7 +18,7 @@ por teste; o que continua `[ ]` é o que falta, com o motivo.
       `scripts/test_tenant_isolation.py` faz três coisas: audita todas as rotas
       de dados exigindo que resolvam o inquilino por um helper conhecido, audita
       as rotas `/api/admin` exigindo a checagem de administrador, e tenta a
-      invasão de verdade — a conta A pedindo a criança da conta B espera 404.
+      invasão de verdade — a conta A pedindo o estudante da conta B espera 404.
 - [x] **Recuperação de senha.** `services/email_service.py` (SMTP, com backend
       `console` para dev e CI), tokens de uso único guardados como hash, e as
       telas `/forgot-password`, `/reset-password` e `/verify-email`.
@@ -58,7 +58,7 @@ por teste; o que continua `[ ]` é o que falta, com o motivo.
       `open`, em que o e-mail verificado é a barreira.
 - [x] Trocar senha, encerrar todas as sessões, exportar os dados, apagar a conta.
 - [ ] Trocar o e-mail da conta.
-- [ ] Onboarding guiado: primeira criança, idioma, nível e primeira lição em
+- [ ] Onboarding guiado: primeira estudante, idioma, nível e primeira lição em
       menos de 3 minutos.
 - [ ] Mensagem específica quando o provedor de IA está fora do ar — hoje o
       usuário vê a mensagem de crédito, que não é o que aconteceu.
@@ -68,15 +68,15 @@ por teste; o que continua `[ ]` é o que falta, com o motivo.
 - [x] `Subscription`, `UsageRecord` e `BillingEvent` no banco; catálogo de planos
       em código (`services/billing_service.py`), porque preço muda por deploy
       revisável e não por linha editada em produção.
-- [x] Planos: Gratuito (1 criança, IA só com chave própria), Família (R$ 34,90 —
-      3 crianças, 300 gerações), Estudo (R$ 69 — crianças ilimitadas, 1.500
+- [x] Planos: Gratuito (1 estudante, IA só com chave própria), Família (R$ 34,90 —
+      3 estudantes, 300 gerações), Estudo (R$ 69 — estudantes ilimitadas, 1.500
       gerações), Escola (sob consulta, não self-serve).
-- [x] Limites em um lugar só (`Entitlement`): crianças na criação do perfil,
+- [x] Limites em um lugar só (`Entitlement`): estudantes na criação do perfil,
       gerações via crédito. Mensagem de erro diz o que fazer, não só "não".
 - [x] Trial de 14 dias sem cartão e sem gateway. Ao expirar, cai para o gratuito
       com os dados preservados em leitura.
 - [x] `past_due` continua com acesso: um cartão que falhou hoje de manhã não tira
-      a lição da criança antes de o gateway terminar as tentativas.
+      a lição do estudante antes de o gateway terminar as tentativas.
 - [x] Webhook `POST /api/billing/webhook` com assinatura HMAC sobre o corpo cru e
       idempotência por id de evento — a reentrega que todo gateway faz não
       aplica o efeito duas vezes.
@@ -106,7 +106,7 @@ por teste; o que continua `[ ]` é o que falta, com o motivo.
       alerta.
 - [ ] Ambiente de staging com dados sintéticos.
 - [x] LGPD, direitos do titular: `GET /api/account/export` e
-      `POST /api/account/delete`, ambos na área de pais. A exclusão remove na
+      `POST /api/account/delete`, ambos na área da conta. A exclusão remove na
       ordem certa porque o esquema não tem cascade.
 - [ ] **Publicar política de privacidade e termos.** Rascunhos técnicos em
       `docs/privacidade.md` e `docs/termos.md`, escritos a partir do que o

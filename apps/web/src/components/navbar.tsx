@@ -16,7 +16,7 @@ const primaryLinks = [
   { href: '/review', label: 'Revisão', icon: Brain },
   { href: '/chat', label: 'Chat', icon: Bot },
   { href: '/books', label: 'Livros', icon: Library },
-  { href: '/parents', label: 'Área de pais', icon: Settings },
+  { href: '/account', label: 'Área da conta', icon: Settings },
 ];
 
 const authLinks = [

@@ -72,7 +72,7 @@ def test_pack_shape() -> None:
     duplicates = [title for title, count in titles.items() if count > 1]
     require(not duplicates, f"duplicate lesson titles: {duplicates}")
 
-    # Enough at every level that a child is not pushed up the ladder by running
+    # Enough at every level that a student is not pushed up the ladder by running
     # out of things to read.
     per_level = Counter(entry["level"] for entry in LESSONS)
     for level, count in sorted(per_level.items()):
