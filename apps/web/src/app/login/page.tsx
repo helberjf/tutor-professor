@@ -22,6 +22,25 @@ function resolveNext(raw: string | null): string {
   return raw;
 }
 
+/**
+ * Where to land after a successful login.
+ *
+ * An account that has not been through the guided first run goes there once: it
+ * is what creates the child profile and places the level, and skipping it is how
+ * a new account ends up staring at an empty dashboard. A link the person asked
+ * for (`?next=`) always wins — being sent somewhere else after clicking a real
+ * link is worse than a missed introduction.
+ */
+async function destinationAfterLogin(next: string): Promise<string> {
+  if (next !== '/') return next;
+  try {
+    const state = await api.getOnboardingState();
+    return state.completed ? next : '/onboarding';
+  } catch {
+    return next;
+  }
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +64,7 @@ function LoginForm() {
 
     try {
       await api.userLogin(email.trim(), password);
-      router.push(next);
+      router.push(await destinationAfterLogin(next));
       router.refresh();
     } catch (err) {
       // 429 traz o tempo restante do bloqueio por tentativas; mostrar a mensagem

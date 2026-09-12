@@ -1,0 +1,218 @@
+{
+  "title": "Ingles A2 - Saude",
+  "theme": "Saude",
+  "objective": "Dizer o que esta doendo e pedir ajuda.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I do not feel well",
+        "phrase_pt": "Eu nao estou me sentindo bem",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "feel",
+            "pt": "sinto"
+          },
+          {
+            "en": "well",
+            "pt": "bem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "My throat hurts",
+        "phrase_pt": "Minha garganta doi",
+        "word_by_word": [
+          {
+            "en": "My",
+            "pt": "meu"
+          },
+          {
+            "en": "throat",
+            "pt": "garganta"
+          },
+          {
+            "en": "hurts",
+            "pt": "doi"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I have a fever",
+        "phrase_pt": "Eu estou com febre",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "have",
+            "pt": "tenho"
+          },
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "fever",
+            "pt": "febre"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Call the doctor",
+        "phrase_pt": "Chame o medico",
+        "word_by_word": [
+          {
+            "en": "Call",
+            "pt": "chame"
+          },
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "doctor",
+            "pt": "medico"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Take this medicine",
+        "phrase_pt": "Tome este remedio",
+        "word_by_word": [
+          {
+            "en": "Take",
+            "pt": "tome"
+          },
+          {
+            "en": "this",
+            "pt": "este"
+          },
+          {
+            "en": "medicine",
+            "pt": "remedio"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Get well soon",
+        "phrase_pt": "Melhoras",
+        "word_by_word": [
+          {
+            "en": "Get",
+            "pt": "chego"
+          },
+          {
+            "en": "well",
+            "pt": "bem"
+          },
+          {
+            "en": "soon",
+            "pt": "logo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Be careful",
+        "phrase_pt": "Tenha cuidado",
+        "word_by_word": [
+          {
+            "en": "Be",
+            "pt": "tenha"
+          },
+          {
+            "en": "careful",
+            "pt": "cuidado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is an emergency",
+        "phrase_pt": "E uma emergencia",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "an",
+            "pt": "uma"
+          },
+          {
+            "en": "emergency",
+            "pt": "emergencia"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I do not feel well",
+      "word_pt": "Eu nao estou me sentindo bem",
+      "example_sentence_en": "I do not feel well today.",
+      "example_sentence_pt": "Eu nao estou me sentindo bem hoje."
+    },
+    {
+      "word_en": "My throat hurts",
+      "word_pt": "Minha garganta doi",
+      "example_sentence_en": "My throat hurts since yesterday.",
+      "example_sentence_pt": "Minha garganta doi desde ontem."
+    },
+    {
+      "word_en": "I have a fever",
+      "word_pt": "Eu estou com febre",
+      "example_sentence_en": "I have a fever and a cough.",
+      "example_sentence_pt": "Eu estou com febre e tosse."
+    },
+    {
+      "word_en": "Call the doctor",
+      "word_pt": "Chame o medico",
+      "example_sentence_en": "Call the doctor, please.",
+      "example_sentence_pt": "Chame o medico, por favor."
+    },
+    {
+      "word_en": "Take this medicine",
+      "word_pt": "Tome este remedio",
+      "example_sentence_en": "Take this medicine after lunch.",
+      "example_sentence_pt": "Tome este remedio depois do almoco."
+    },
+    {
+      "word_en": "Get well soon",
+      "word_pt": "Melhoras",
+      "example_sentence_en": "Get well soon, my friend.",
+      "example_sentence_pt": "Melhoras, meu amigo."
+    },
+    {
+      "word_en": "Be careful",
+      "word_pt": "Tenha cuidado",
+      "example_sentence_en": "Be careful with the stairs.",
+      "example_sentence_pt": "Tenha cuidado com a escada."
+    },
+    {
+      "word_en": "It is an emergency",
+      "word_pt": "E uma emergencia",
+      "example_sentence_en": "Help, it is an emergency!",
+      "example_sentence_pt": "Socorro, e uma emergencia!"
+    }
+  ]
+}

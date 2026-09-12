@@ -1,0 +1,182 @@
+{
+  "title": "Ingles A1 - Animais",
+  "theme": "Animais",
+  "objective": "Nomear animais e dizer o que eles fazem.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "a dog",
+        "phrase_pt": "um cachorro",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "dog",
+            "pt": "cachorro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a cat",
+        "phrase_pt": "um gato",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "cat",
+            "pt": "gato"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a bird",
+        "phrase_pt": "um passaro",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "bird",
+            "pt": "passaro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a fish",
+        "phrase_pt": "um peixe",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "fish",
+            "pt": "peixe"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a horse",
+        "phrase_pt": "um cavalo",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "horse",
+            "pt": "cavalo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a rabbit",
+        "phrase_pt": "um coelho",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "rabbit",
+            "pt": "coelho"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I like animals",
+        "phrase_pt": "Eu gosto de animais",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          },
+          {
+            "en": "animals",
+            "pt": "animais"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the animals eat",
+        "phrase_pt": "os animais comem",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "animals",
+            "pt": "animais"
+          },
+          {
+            "en": "eat",
+            "pt": "como"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "a dog",
+      "word_pt": "um cachorro",
+      "example_sentence_en": "A dog runs in the park.",
+      "example_sentence_pt": "Um cachorro corre no parque."
+    },
+    {
+      "word_en": "a cat",
+      "word_pt": "um gato",
+      "example_sentence_en": "A cat sleeps on the sofa.",
+      "example_sentence_pt": "Um gato dorme no sofa."
+    },
+    {
+      "word_en": "a bird",
+      "word_pt": "um passaro",
+      "example_sentence_en": "A bird sings in the tree.",
+      "example_sentence_pt": "Um passaro canta na arvore."
+    },
+    {
+      "word_en": "a fish",
+      "word_pt": "um peixe",
+      "example_sentence_en": "A fish swims in the water.",
+      "example_sentence_pt": "Um peixe nada na agua."
+    },
+    {
+      "word_en": "a horse",
+      "word_pt": "um cavalo",
+      "example_sentence_en": "A horse eats grass.",
+      "example_sentence_pt": "Um cavalo come grama."
+    },
+    {
+      "word_en": "a rabbit",
+      "word_pt": "um coelho",
+      "example_sentence_en": "A rabbit jumps very fast.",
+      "example_sentence_pt": "Um coelho pula muito rapido."
+    },
+    {
+      "word_en": "I like animals",
+      "word_pt": "Eu gosto de animais",
+      "example_sentence_en": "I like animals, especially cats.",
+      "example_sentence_pt": "Eu gosto de animais, especialmente gatos."
+    },
+    {
+      "word_en": "the animals eat",
+      "word_pt": "os animais comem",
+      "example_sentence_en": "The animals eat in the morning.",
+      "example_sentence_pt": "Os animais comem de manha."
+    }
+  ]
+}

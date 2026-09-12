@@ -1,0 +1,190 @@
+{
+  "title": "Ingles A1 - Brincar",
+  "theme": "Brincadeiras",
+  "objective": "Falar de brincadeiras e jogos.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Let us play",
+        "phrase_pt": "Vamos brincar",
+        "word_by_word": [
+          {
+            "en": "Let",
+            "pt": "vamos"
+          },
+          {
+            "en": "us",
+            "pt": "nos"
+          },
+          {
+            "en": "play",
+            "pt": "brincam"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a ball",
+        "phrase_pt": "uma bola",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "ball",
+            "pt": "bola"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a game",
+        "phrase_pt": "um jogo",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "game",
+            "pt": "jogo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my turn",
+        "phrase_pt": "minha vez",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "turn",
+            "pt": "vire"
+          }
+        ]
+      },
+      {
+        "phrase_en": "your turn",
+        "phrase_pt": "sua vez",
+        "word_by_word": [
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "turn",
+            "pt": "vire"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I won!",
+        "phrase_pt": "Eu ganhei!",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "won",
+            "pt": "ganhei"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Let us try again",
+        "phrase_pt": "Vamos tentar de novo",
+        "word_by_word": [
+          {
+            "en": "Let",
+            "pt": "vamos"
+          },
+          {
+            "en": "us",
+            "pt": "nos"
+          },
+          {
+            "en": "try",
+            "pt": "tentar"
+          },
+          {
+            "en": "again",
+            "pt": "de novo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "That is fun",
+        "phrase_pt": "Isso e divertido",
+        "word_by_word": [
+          {
+            "en": "That",
+            "pt": "aquele"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "fun",
+            "pt": "divertido"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Let us play",
+      "word_pt": "Vamos brincar",
+      "example_sentence_en": "Let us play in the garden.",
+      "example_sentence_pt": "Vamos brincar no jardim."
+    },
+    {
+      "word_en": "a ball",
+      "word_pt": "uma bola",
+      "example_sentence_en": "Throw me the ball, please.",
+      "example_sentence_pt": "Jogue a bola para mim, por favor."
+    },
+    {
+      "word_en": "a game",
+      "word_pt": "um jogo",
+      "example_sentence_en": "This game is really fun.",
+      "example_sentence_pt": "Este jogo e bem divertido."
+    },
+    {
+      "word_en": "my turn",
+      "word_pt": "minha vez",
+      "example_sentence_en": "It is my turn now.",
+      "example_sentence_pt": "Agora e a minha vez."
+    },
+    {
+      "word_en": "your turn",
+      "word_pt": "sua vez",
+      "example_sentence_en": "It is your turn, go ahead.",
+      "example_sentence_pt": "E a sua vez, pode ir."
+    },
+    {
+      "word_en": "I won!",
+      "word_pt": "Eu ganhei!",
+      "example_sentence_en": "I won the game!",
+      "example_sentence_pt": "Eu ganhei o jogo!"
+    },
+    {
+      "word_en": "Let us try again",
+      "word_pt": "Vamos tentar de novo",
+      "example_sentence_en": "Let us try again tomorrow.",
+      "example_sentence_pt": "Vamos tentar de novo amanha."
+    },
+    {
+      "word_en": "That is fun",
+      "word_pt": "Isso e divertido",
+      "example_sentence_en": "Riding a bike is fun.",
+      "example_sentence_pt": "Andar de bicicleta e divertido."
+    }
+  ]
+}

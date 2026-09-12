@@ -1,0 +1,238 @@
+{
+  "title": "Ingles A1 - Sobre mim",
+  "theme": "Sobre mim",
+  "objective": "Falar seu nome, sua idade e de onde voce e.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "My name is Ana",
+        "phrase_pt": "Meu nome e Ana",
+        "word_by_word": [
+          {
+            "en": "My",
+            "pt": "meu"
+          },
+          {
+            "en": "name",
+            "pt": "nome"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "Ana",
+            "pt": "Ana"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What is your name?",
+        "phrase_pt": "Qual e o seu nome?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "name",
+            "pt": "nome"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am eight years old",
+        "phrase_pt": "Eu tenho oito anos",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "eight",
+            "pt": "oito"
+          },
+          {
+            "en": "years",
+            "pt": "anos"
+          },
+          {
+            "en": "old",
+            "pt": "de idade"
+          }
+        ]
+      },
+      {
+        "phrase_en": "How old are you?",
+        "phrase_pt": "Quantos anos voce tem?",
+        "word_by_word": [
+          {
+            "en": "How",
+            "pt": "como"
+          },
+          {
+            "en": "old",
+            "pt": "de idade"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am from Brazil",
+        "phrase_pt": "Eu sou do Brasil",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "from",
+            "pt": "de"
+          },
+          {
+            "en": "Brazil",
+            "pt": "Brasil"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Where are you from?",
+        "phrase_pt": "De onde voce e?",
+        "word_by_word": [
+          {
+            "en": "Where",
+            "pt": "onde"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "from",
+            "pt": "de"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I speak Portuguese",
+        "phrase_pt": "Eu falo portugues",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "speak",
+            "pt": "falo"
+          },
+          {
+            "en": "Portuguese",
+            "pt": "portugues"
+          }
+        ]
+      },
+      {
+        "phrase_en": "This is my friend",
+        "phrase_pt": "Este e o meu amigo",
+        "word_by_word": [
+          {
+            "en": "This",
+            "pt": "este"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "friend",
+            "pt": "amigo"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "My name is Ana",
+      "word_pt": "Meu nome e Ana",
+      "example_sentence_en": "Hello, my name is Ana.",
+      "example_sentence_pt": "Ola, meu nome e Ana."
+    },
+    {
+      "word_en": "What is your name?",
+      "word_pt": "Qual e o seu nome?",
+      "example_sentence_en": "Hi! What is your name?",
+      "example_sentence_pt": "Oi! Qual e o seu nome?"
+    },
+    {
+      "word_en": "I am eight years old",
+      "word_pt": "Eu tenho oito anos",
+      "example_sentence_en": "I am eight years old today.",
+      "example_sentence_pt": "Eu tenho oito anos hoje."
+    },
+    {
+      "word_en": "How old are you?",
+      "word_pt": "Quantos anos voce tem?",
+      "example_sentence_en": "How old are you, Lucas?",
+      "example_sentence_pt": "Quantos anos voce tem, Lucas?"
+    },
+    {
+      "word_en": "I am from Brazil",
+      "word_pt": "Eu sou do Brasil",
+      "example_sentence_en": "I am from Brazil, from Recife.",
+      "example_sentence_pt": "Eu sou do Brasil, de Recife."
+    },
+    {
+      "word_en": "Where are you from?",
+      "word_pt": "De onde voce e?",
+      "example_sentence_en": "Where are you from, Mia?",
+      "example_sentence_pt": "De onde voce e, Mia?"
+    },
+    {
+      "word_en": "I speak Portuguese",
+      "word_pt": "Eu falo portugues",
+      "example_sentence_en": "I speak Portuguese and English.",
+      "example_sentence_pt": "Eu falo portugues e ingles."
+    },
+    {
+      "word_en": "This is my friend",
+      "word_pt": "Este e o meu amigo",
+      "example_sentence_en": "This is my friend Pedro.",
+      "example_sentence_pt": "Este e o meu amigo Pedro."
+    }
+  ]
+}

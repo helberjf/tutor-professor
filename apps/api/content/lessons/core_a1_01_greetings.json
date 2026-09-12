@@ -1,0 +1,182 @@
+{
+  "title": "Ingles A1 - Cumprimentos",
+  "theme": "Cumprimentos",
+  "objective": "Dizer oi, tchau e como voce esta.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Hello!",
+        "phrase_pt": "Oi!",
+        "word_by_word": [
+          {
+            "en": "Hello",
+            "pt": "oi"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Good morning",
+        "phrase_pt": "Bom dia",
+        "word_by_word": [
+          {
+            "en": "Good",
+            "pt": "bom"
+          },
+          {
+            "en": "morning",
+            "pt": "manha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Good afternoon",
+        "phrase_pt": "Boa tarde",
+        "word_by_word": [
+          {
+            "en": "Good",
+            "pt": "bom"
+          },
+          {
+            "en": "afternoon",
+            "pt": "tarde"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Good night",
+        "phrase_pt": "Boa noite",
+        "word_by_word": [
+          {
+            "en": "Good",
+            "pt": "bom"
+          },
+          {
+            "en": "night",
+            "pt": "noite"
+          }
+        ]
+      },
+      {
+        "phrase_en": "How are you?",
+        "phrase_pt": "Como voce esta?",
+        "word_by_word": [
+          {
+            "en": "How",
+            "pt": "como"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am fine",
+        "phrase_pt": "Eu estou bem",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "fine",
+            "pt": "bem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Nice to meet you",
+        "phrase_pt": "Prazer em conhecer voce",
+        "word_by_word": [
+          {
+            "en": "Nice",
+            "pt": "prazer"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          },
+          {
+            "en": "meet",
+            "pt": "conhecer"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Goodbye!",
+        "phrase_pt": "Tchau!",
+        "word_by_word": [
+          {
+            "en": "Goodbye",
+            "pt": "tchau"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Hello!",
+      "word_pt": "Oi!",
+      "example_sentence_en": "Hello! Nice to see you.",
+      "example_sentence_pt": "Oi! Que bom te ver."
+    },
+    {
+      "word_en": "Good morning",
+      "word_pt": "Bom dia",
+      "example_sentence_en": "Good morning, teacher!",
+      "example_sentence_pt": "Bom dia, professora!"
+    },
+    {
+      "word_en": "Good afternoon",
+      "word_pt": "Boa tarde",
+      "example_sentence_en": "Good afternoon, everyone.",
+      "example_sentence_pt": "Boa tarde, pessoal."
+    },
+    {
+      "word_en": "Good night",
+      "word_pt": "Boa noite",
+      "example_sentence_en": "Good night, sleep well.",
+      "example_sentence_pt": "Boa noite, durma bem."
+    },
+    {
+      "word_en": "How are you?",
+      "word_pt": "Como voce esta?",
+      "example_sentence_en": "Hi Ana, how are you?",
+      "example_sentence_pt": "Oi Ana, como voce esta?"
+    },
+    {
+      "word_en": "I am fine",
+      "word_pt": "Eu estou bem",
+      "example_sentence_en": "I am fine, thank you.",
+      "example_sentence_pt": "Eu estou bem, obrigado."
+    },
+    {
+      "word_en": "Nice to meet you",
+      "word_pt": "Prazer em conhecer voce",
+      "example_sentence_en": "Nice to meet you, Lucas.",
+      "example_sentence_pt": "Prazer em conhecer voce, Lucas."
+    },
+    {
+      "word_en": "Goodbye!",
+      "word_pt": "Tchau!",
+      "example_sentence_en": "Goodbye! See you tomorrow.",
+      "example_sentence_pt": "Tchau! Ate amanha."
+    }
+  ]
+}

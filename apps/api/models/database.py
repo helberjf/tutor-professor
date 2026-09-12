@@ -48,6 +48,9 @@ class User(SQLModel, table=True):
     # Set once the person proves they own the address. Self-service signup uses
     # this instead of the administrator's queue as the anti-spam barrier.
     email_verified_at: Optional[datetime] = Field(default=None)
+    # Set when the guided first-run finished (child, language, placement). Null
+    # means the account still gets sent to /onboarding after login.
+    onboarding_completed_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -305,6 +308,10 @@ class StudyDay(SQLModel, table=True):
     studied_text: str = ""
     distractions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     pomodoro_count: int = Field(default=0)
+    # Stamped when a study session was finished on this day. The written record
+    # stays optional: a child who answered the queue has studied, whether or not
+    # anybody typed a line about it.
+    auto_completed_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -609,6 +616,35 @@ class CodingDeckConfig(SQLModel, table=True):
     reviews_done_today: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class StudySession(SQLModel, table=True):
+    """One study run: the queue that was assembled and where the child stopped.
+
+    The queue is a snapshot rather than a live query on purpose. A child who
+    answers three cards, closes the app and comes back at night has to land on
+    card four — not on a list that reshuffled itself in the meantime, which is
+    what makes "continuar de onde parou" a promise instead of a label.
+
+    Only one session per child is `active`; starting another one resumes it.
+    """
+
+    __table_args__ = (Index("ix_studysession_child_status", "child_id", "status"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    # active | completed
+    status: str = Field(default="active", max_length=12)
+    session_date: date = Field(index=True)
+    # The cards, in order, as built by services/study_queue_service.py.
+    items: list = Field(default_factory=list, sa_column=Column(JSON))
+    # Index of the next unanswered card. Only ever moves forward.
+    position: int = Field(default=0)
+    answered_count: int = Field(default=0)
+    correct_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = Field(default=None)
 
 
 class DailyActivity(SQLModel, table=True):

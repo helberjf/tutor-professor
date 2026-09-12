@@ -1,0 +1,246 @@
+{
+  "title": "Ingles A2 - Compras",
+  "theme": "Compras",
+  "objective": "Comprar coisas e perguntar o preco.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "How much is it?",
+        "phrase_pt": "Quanto custa?",
+        "word_by_word": [
+          {
+            "en": "How",
+            "pt": "como"
+          },
+          {
+            "en": "much",
+            "pt": "quanto"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "it",
+            "pt": "isso"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is expensive",
+        "phrase_pt": "Esta caro",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "expensive",
+            "pt": "caro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is cheap",
+        "phrase_pt": "Esta barato",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "cheap",
+            "pt": "barato"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I would like this one",
+        "phrase_pt": "Eu queria este",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "would",
+            "pt": "queria"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          },
+          {
+            "en": "this",
+            "pt": "este"
+          },
+          {
+            "en": "one",
+            "pt": "um"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Do you have a bigger size?",
+        "phrase_pt": "Voce tem um tamanho maior?",
+        "word_by_word": [
+          {
+            "en": "Do",
+            "pt": "faco"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "have",
+            "pt": "tenho"
+          },
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "bigger",
+            "pt": "maior"
+          },
+          {
+            "en": "size",
+            "pt": "tamanho"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am just looking",
+        "phrase_pt": "Eu so estou olhando",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "just",
+            "pt": "so"
+          },
+          {
+            "en": "looking",
+            "pt": "olhando"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Can I pay by card?",
+        "phrase_pt": "Posso pagar com cartao?",
+        "word_by_word": [
+          {
+            "en": "Can",
+            "pt": "posso"
+          },
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "pay",
+            "pt": "pagar"
+          },
+          {
+            "en": "by",
+            "pt": "de"
+          },
+          {
+            "en": "card",
+            "pt": "cartao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Here is your change",
+        "phrase_pt": "Aqui esta o seu troco",
+        "word_by_word": [
+          {
+            "en": "Here",
+            "pt": "aqui"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "change",
+            "pt": "troco"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "How much is it?",
+      "word_pt": "Quanto custa?",
+      "example_sentence_en": "How much is this book?",
+      "example_sentence_pt": "Quanto custa este livro?"
+    },
+    {
+      "word_en": "It is expensive",
+      "word_pt": "Esta caro",
+      "example_sentence_en": "This jacket is expensive.",
+      "example_sentence_pt": "Esta jaqueta esta cara."
+    },
+    {
+      "word_en": "It is cheap",
+      "word_pt": "Esta barato",
+      "example_sentence_en": "The bread is cheap here.",
+      "example_sentence_pt": "O pao e barato aqui."
+    },
+    {
+      "word_en": "I would like this one",
+      "word_pt": "Eu queria este",
+      "example_sentence_en": "I would like this one, please.",
+      "example_sentence_pt": "Eu queria este, por favor."
+    },
+    {
+      "word_en": "Do you have a bigger size?",
+      "word_pt": "Voce tem um tamanho maior?",
+      "example_sentence_en": "Do you have a bigger size, please?",
+      "example_sentence_pt": "Voce tem um tamanho maior, por favor?"
+    },
+    {
+      "word_en": "I am just looking",
+      "word_pt": "Eu so estou olhando",
+      "example_sentence_en": "Thank you, I am just looking.",
+      "example_sentence_pt": "Obrigado, eu so estou olhando."
+    },
+    {
+      "word_en": "Can I pay by card?",
+      "word_pt": "Posso pagar com cartao?",
+      "example_sentence_en": "Can I pay by card here?",
+      "example_sentence_pt": "Posso pagar com cartao aqui?"
+    },
+    {
+      "word_en": "Here is your change",
+      "word_pt": "Aqui esta o seu troco",
+      "example_sentence_en": "Here is your change, thank you.",
+      "example_sentence_pt": "Aqui esta o seu troco, obrigado."
+    }
+  ]
+}

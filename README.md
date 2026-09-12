@@ -23,11 +23,42 @@ The project was built as a practical engineering exercise: a real product surfac
 
 ### Child Learning
 
+- **One study queue.** "Iniciar estudos" builds a session — today's lesson first,
+  then what review is due, then the questions still owed — and drops straight
+  into the first card. The queue is stored, so **"Continuar de onde parou"** on
+  the home screen resumes the exact card the child stopped at, after a reload, a
+  closed app, or a day later. `GET /api/study/session` only reads: opening the
+  app never starts a session by itself.
+- **Nothing already mastered comes back.** A question answered right twice, with
+  the last answer also right, retires. The same rule runs on both sides
+  (`services/study_queue_service.py` and `lib/question-queue.ts`), and "Refazer
+  todas" is there for whoever wants the whole topic again.
+- **A guided first run.** `/onboarding` asks who is studying and which language,
+  then places the child with a five-question test instead of starting everyone at
+  level 1. The test needs no content and no AI, so it works in the account's
+  first minute.
+- **The day closes by studying.** Finishing a session (or any logged activity)
+  marks the day as studied; writing a note about it stays optional.
 - Daily lessons with target-language vocabulary, examples, and mini activities.
 - Quizzes with scoring and friendly feedback.
 - Mixed review sessions combining vocabulary and lesson-generated questions.
 - Audio playback through a local TTS provider with browser speech fallback.
 - Progress tracking, streaks, level analysis, and daily activity logs.
+
+### Content That Works Without AI
+
+- A curated English pack of **30 lessons × 8 phrases** (levels 1–4, A1 to A2),
+  each phrase with a translation, an example sentence, and a word-by-word
+  breakdown. The source of truth is `scripts/english_core_pack_data.py`; run
+  `python scripts/build_english_core_pack.py` to regenerate the seed files and
+  `python scripts/init_db.py` to load them.
+- Review questions and four-option practice questions are **derived from the
+  lesson itself** (`services/offline_question_service.py`) — deterministic, free,
+  and immediate. `POST /api/study/questions/ensure` fills an empty topic, and the
+  questions panel calls it before it would show an empty state.
+- `POST /api/study/questions/prefetch` tops a topic up **after** the response has
+  already been sent: free questions first, and a provider call only when a key
+  and credit are actually there. Nobody waits on a spinner for a question.
 
 ### Parent Area
 

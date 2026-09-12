@@ -1,0 +1,210 @@
+{
+  "title": "Ingles A1 - Sentimentos",
+  "theme": "Sentimentos",
+  "objective": "Dizer como voce se sente hoje.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I am happy",
+        "phrase_pt": "Eu estou feliz",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "happy",
+            "pt": "feliz"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am sad",
+        "phrase_pt": "Eu estou triste",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "sad",
+            "pt": "triste"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am tired",
+        "phrase_pt": "Eu estou cansado",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "tired",
+            "pt": "cansado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am afraid",
+        "phrase_pt": "Eu estou com medo",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "afraid",
+            "pt": "com medo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am excited",
+        "phrase_pt": "Eu estou animado",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "excited",
+            "pt": "animado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Are you okay?",
+        "phrase_pt": "Voce esta bem?",
+        "word_by_word": [
+          {
+            "en": "Are",
+            "pt": "esta"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "okay",
+            "pt": "bem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Do not worry",
+        "phrase_pt": "Nao se preocupe",
+        "word_by_word": [
+          {
+            "en": "Do",
+            "pt": "faco"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "worry",
+            "pt": "preocupe"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I feel better now",
+        "phrase_pt": "Eu me sinto melhor agora",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "feel",
+            "pt": "sinto"
+          },
+          {
+            "en": "better",
+            "pt": "melhor"
+          },
+          {
+            "en": "now",
+            "pt": "agora"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I am happy",
+      "word_pt": "Eu estou feliz",
+      "example_sentence_en": "I am happy to see you.",
+      "example_sentence_pt": "Eu estou feliz em te ver."
+    },
+    {
+      "word_en": "I am sad",
+      "word_pt": "Eu estou triste",
+      "example_sentence_en": "I am sad because it is raining.",
+      "example_sentence_pt": "Eu estou triste porque esta chovendo."
+    },
+    {
+      "word_en": "I am tired",
+      "word_pt": "Eu estou cansado",
+      "example_sentence_en": "I am tired after the game.",
+      "example_sentence_pt": "Eu estou cansado depois do jogo."
+    },
+    {
+      "word_en": "I am afraid",
+      "word_pt": "Eu estou com medo",
+      "example_sentence_en": "I am afraid of the dark.",
+      "example_sentence_pt": "Eu estou com medo do escuro."
+    },
+    {
+      "word_en": "I am excited",
+      "word_pt": "Eu estou animado",
+      "example_sentence_en": "I am excited about the trip.",
+      "example_sentence_pt": "Eu estou animado com a viagem."
+    },
+    {
+      "word_en": "Are you okay?",
+      "word_pt": "Voce esta bem?",
+      "example_sentence_en": "Are you okay, my friend?",
+      "example_sentence_pt": "Voce esta bem, meu amigo?"
+    },
+    {
+      "word_en": "Do not worry",
+      "word_pt": "Nao se preocupe",
+      "example_sentence_en": "Do not worry, I am here.",
+      "example_sentence_pt": "Nao se preocupe, eu estou aqui."
+    },
+    {
+      "word_en": "I feel better now",
+      "word_pt": "Eu me sinto melhor agora",
+      "example_sentence_en": "I feel better now, thank you.",
+      "example_sentence_pt": "Eu me sinto melhor agora, obrigado."
+    }
+  ]
+}

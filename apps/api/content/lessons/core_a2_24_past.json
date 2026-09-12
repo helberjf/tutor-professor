@@ -1,0 +1,210 @@
+{
+  "title": "Ingles A2 - Ontem",
+  "theme": "Passado",
+  "objective": "Contar o que aconteceu no passado.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I played",
+        "phrase_pt": "Eu joguei",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "played",
+            "pt": "joguei"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She went out",
+        "phrase_pt": "Ela saiu",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "went",
+            "pt": "saiu"
+          },
+          {
+            "en": "out",
+            "pt": "sair"
+          }
+        ]
+      },
+      {
+        "phrase_en": "We watched a film",
+        "phrase_pt": "Nos assistimos a um filme",
+        "word_by_word": [
+          {
+            "en": "We",
+            "pt": "nos"
+          },
+          {
+            "en": "watched",
+            "pt": "assistimos"
+          },
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "film",
+            "pt": "filme"
+          }
+        ]
+      },
+      {
+        "phrase_en": "He did not come",
+        "phrase_pt": "Ele nao veio",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "did",
+            "pt": "fez"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "come",
+            "pt": "vir"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Did you see it?",
+        "phrase_pt": "Voce viu?",
+        "word_by_word": [
+          {
+            "en": "Did",
+            "pt": "fez"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "see",
+            "pt": "ver"
+          },
+          {
+            "en": "it",
+            "pt": "isso"
+          }
+        ]
+      },
+      {
+        "phrase_en": "last week",
+        "phrase_pt": "semana passada",
+        "word_by_word": [
+          {
+            "en": "last",
+            "pt": "passada"
+          },
+          {
+            "en": "week",
+            "pt": "semana"
+          }
+        ]
+      },
+      {
+        "phrase_en": "two days ago",
+        "phrase_pt": "dois dias atras",
+        "word_by_word": [
+          {
+            "en": "two",
+            "pt": "dois"
+          },
+          {
+            "en": "days",
+            "pt": "dias"
+          },
+          {
+            "en": "ago",
+            "pt": "atras"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It was great",
+        "phrase_pt": "Foi otimo",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "was",
+            "pt": "foi"
+          },
+          {
+            "en": "great",
+            "pt": "otimo"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I played",
+      "word_pt": "Eu joguei",
+      "example_sentence_en": "I played football yesterday.",
+      "example_sentence_pt": "Eu joguei futebol ontem."
+    },
+    {
+      "word_en": "She went out",
+      "word_pt": "Ela saiu",
+      "example_sentence_en": "She went out with her friends.",
+      "example_sentence_pt": "Ela saiu com as amigas."
+    },
+    {
+      "word_en": "We watched a film",
+      "word_pt": "Nos assistimos a um filme",
+      "example_sentence_en": "We watched a film last night.",
+      "example_sentence_pt": "Nos assistimos a um filme ontem a noite."
+    },
+    {
+      "word_en": "He did not come",
+      "word_pt": "Ele nao veio",
+      "example_sentence_en": "He did not come to the party.",
+      "example_sentence_pt": "Ele nao veio a festa."
+    },
+    {
+      "word_en": "Did you see it?",
+      "word_pt": "Voce viu?",
+      "example_sentence_en": "Did you see the game?",
+      "example_sentence_pt": "Voce viu o jogo?"
+    },
+    {
+      "word_en": "last week",
+      "word_pt": "semana passada",
+      "example_sentence_en": "I was sick last week.",
+      "example_sentence_pt": "Eu estava doente semana passada."
+    },
+    {
+      "word_en": "two days ago",
+      "word_pt": "dois dias atras",
+      "example_sentence_en": "She called me two days ago.",
+      "example_sentence_pt": "Ela me ligou dois dias atras."
+    },
+    {
+      "word_en": "It was great",
+      "word_pt": "Foi otimo",
+      "example_sentence_en": "The trip was great.",
+      "example_sentence_pt": "A viagem foi otima."
+    }
+  ]
+}

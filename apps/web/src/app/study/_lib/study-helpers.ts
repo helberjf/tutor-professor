@@ -53,7 +53,7 @@ export function formatDateBadge(value: string) {
 }
 
 export function buildEmptyDay(studyDate: string): StudyDay {
-  return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, pomodoro_count: 0, created_at: null, updated_at: null };
+  return { id: null, study_date: studyDate, plan_text: '', studied_text: '', distractions: [], is_study_day: false, closed_by_activity: false, activity_count: 0, pomodoro_count: 0, created_at: null, updated_at: null };
 }
 
 export function getPomodoroCompletionMessage(mode: PomodoroMode) {

@@ -1,11 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardList, Loader2, Sparkles } from 'lucide-react';
+import { ClipboardList, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 
 import { api, type StudyQuestion, type StudyQuestionTarget } from '@/lib/api';
+import { buildPracticeQueue, countPending } from '@/lib/question-queue';
 
 import { PracticeQuestionsModal } from './PracticeQuestionsModal';
+
+/** Below this many unanswered questions, the topic is topped up in the background. */
+const PREFETCH_THRESHOLD = 3;
 
 /**
  * "Modo questões" for a study area outside the programming curriculum.
@@ -14,6 +18,17 @@ import { PracticeQuestionsModal } from './PracticeQuestionsModal';
  * topic, never repeat, and every answer shows the explanation for the correct
  * option. The panel owns loading, generation and the practice modal so a tab only
  * has to say which subject and topic it is looking at.
+ *
+ * Three things it does so the child does not have to:
+ *
+ * - **Fills itself.** An empty topic asks the API for the free, lesson-derived
+ *   bank before showing an empty state, so "modo questões" works with no AI key,
+ *   no credit left, and no provider.
+ * - **Practises what is owed.** The session starts on what was never answered or
+ *   was missed, and drops what was already mastered, instead of replaying the
+ *   whole topic from the first question every time.
+ * - **Stays stocked.** When the pile runs low, the next batch is requested in the
+ *   background, so the child is not left watching a spinner to get a question.
  */
 export function StudyQuestionsPanel({
   target,
@@ -33,10 +48,14 @@ export function StudyQuestionsPanel({
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
   const [practiceOpen, setPracticeOpen] = useState(false);
+  const [replayAll, setReplayAll] = useState(false);
   const [showContextForm, setShowContextForm] = useState(false);
   const [context, setContext] = useState('');
   const loadRequestRef = useRef(0);
   const mountedRef = useRef(true);
+  // One background top-up per topic per visit: the point is to stay ahead of the
+  // child, not to queue a provider call after every answer.
+  const prefetchedRef = useRef(false);
 
   const { area, subject_name: subjectName, topic_key: topicKey, topic_title: topicTitle } = target;
   const generationContextPrefix = generationContext?.trim() ?? '';
@@ -54,12 +73,19 @@ export function StudyQuestionsPanel({
     setLoading(true);
     setLoadError('');
     try {
-      const loaded = await api.getStudyQuestions({
+      const target = {
         area,
         subject_name: subjectName,
         topic_key: topicKey,
         topic_title: topicTitle,
-      });
+      };
+      let loaded = await api.getStudyQuestions(target);
+      if (loaded.length === 0) {
+        // Nothing saved for this topic yet. The free bank is derived from the
+        // lesson itself, so it costs nothing and arrives immediately — an empty
+        // screen here was only ever a missing question, never a missing lesson.
+        loaded = await api.ensureStudyQuestions(target).catch(() => loaded);
+      }
       if (requestId !== loadRequestRef.current || !mountedRef.current) return;
       setQuestions(loaded);
     } catch {
@@ -71,6 +97,7 @@ export function StudyQuestionsPanel({
   }, [area, subjectName, topicKey, topicTitle]);
 
   useEffect(() => {
+    prefetchedRef.current = false;
     void load();
     return () => {
       loadRequestRef.current += 1;
@@ -103,10 +130,25 @@ export function StudyQuestionsPanel({
     }
   }
 
+  /** Ask for the next batch before the child needs it, and only once. */
+  function topUpInBackground(remaining: number) {
+    if (prefetchedRef.current || remaining > PREFETCH_THRESHOLD) return;
+    prefetchedRef.current = true;
+    void api
+      .prefetchStudyQuestions(
+        { area, subject_name: subjectName, topic_key: topicKey, topic_title: topicTitle },
+        PREFETCH_THRESHOLD + 2,
+      )
+      .catch(() => {
+        // A top-up nobody asked for must never surface as an error.
+        prefetchedRef.current = false;
+      });
+  }
+
   async function handleAnswer(questionId: number, selectedOption: string) {
     const result = await api.submitStudyQuestionAttempt(questionId, { selected_option: selectedOption });
-    setQuestions((current) =>
-      current.map((item) =>
+    setQuestions((current) => {
+      const updated = current.map((item) =>
         item.id === questionId
           ? {
               ...item,
@@ -117,8 +159,10 @@ export function StudyQuestionsPanel({
               last_answered_at: result.last_answered_at,
             }
           : item,
-      ),
-    );
+      );
+      topUpInBackground(countPending(updated));
+      return updated;
+    });
     return result;
   }
 
@@ -141,8 +185,11 @@ export function StudyQuestionsPanel({
           field: 'border-amber-100 bg-amber-50/40 focus:border-amber-400',
         };
 
+  const pendingCount = countPending(questions);
+  const practiceList = buildPracticeQueue(questions, { includeMastered: replayAll });
   const countLabel = loading ? '...' : loadError ? 'erro' : String(questions.length);
   const busy = loading || generating;
+  const hasQuestions = questions.length > 0;
 
   return (
     <div className={`rounded-3xl border-2 p-5 ${palette.shell}`}>
@@ -153,21 +200,40 @@ export function StudyQuestionsPanel({
             Modo questões ({countLabel})
           </h3>
           <p className={`mt-1 text-xs font-bold ${palette.helper}`}>
-            {questions.length > 0
-              ? 'Cada resposta mostra a explicação da alternativa correta. Questões criadas não se repetem.'
-              : emptyHint || 'Gere questões de múltipla escolha para fazer o simulado desta lição.'}
+            {!hasQuestions
+              ? emptyHint || 'Gere questões de múltipla escolha para fazer o simulado desta lição.'
+              : pendingCount > 0
+                ? `${pendingCount} ${pendingCount === 1 ? 'questão' : 'questões'} para praticar. Começa pelas que você ainda não respondeu ou errou.`
+                : 'Você já acertou todas duas vezes. Gere novas questões ou refaça as antigas.'}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={() => setPracticeOpen(true)}
-            disabled={busy || questions.length === 0}
+            onClick={() => {
+              setReplayAll(false);
+              setPracticeOpen(true);
+            }}
+            disabled={busy || pendingCount === 0}
             className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-black text-white disabled:opacity-50 ${palette.primary}`}
           >
             <ClipboardList size={15} />
-            Fazer simulado
+            {pendingCount > 0 ? `Praticar o que falta (${pendingCount})` : 'Nada pendente'}
           </button>
+          {hasQuestions && (
+            <button
+              type="button"
+              onClick={() => {
+                setReplayAll(true);
+                setPracticeOpen(true);
+              }}
+              disabled={busy}
+              className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${palette.secondary}`}
+            >
+              <RotateCcw size={15} />
+              Refazer todas
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -253,11 +319,11 @@ export function StudyQuestionsPanel({
         </p>
       )}
 
-      {practiceOpen && questions.length > 0 && (
+      {practiceOpen && practiceList.length > 0 && (
         <PracticeQuestionsModal
           subjectName={subjectName}
           topicTitle={topicTitle}
-          questions={questions}
+          questions={practiceList}
           onAnswer={handleAnswer}
           onClose={() => setPracticeOpen(false)}
         />

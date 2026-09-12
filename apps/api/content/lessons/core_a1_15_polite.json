@@ -1,0 +1,194 @@
+{
+  "title": "Ingles A1 - Pedir com educacao",
+  "theme": "Pedidos",
+  "objective": "Pedir as coisas com educacao.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "please",
+        "phrase_pt": "por favor",
+        "word_by_word": [
+          {
+            "en": "please",
+            "pt": "por favor"
+          }
+        ]
+      },
+      {
+        "phrase_en": "thank you",
+        "phrase_pt": "obrigado",
+        "word_by_word": [
+          {
+            "en": "thank",
+            "pt": "obrigado"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "You are welcome",
+        "phrase_pt": "De nada",
+        "word_by_word": [
+          {
+            "en": "You",
+            "pt": "voce"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "welcome",
+            "pt": "de nada"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am sorry",
+        "phrase_pt": "Me desculpe",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "sorry",
+            "pt": "desculpe"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Excuse me",
+        "phrase_pt": "Com licenca",
+        "word_by_word": [
+          {
+            "en": "Excuse",
+            "pt": "com licenca"
+          },
+          {
+            "en": "me",
+            "pt": "mim"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Can I help you?",
+        "phrase_pt": "Posso ajudar?",
+        "word_by_word": [
+          {
+            "en": "Can",
+            "pt": "posso"
+          },
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "help",
+            "pt": "ajudo"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "May I have water?",
+        "phrase_pt": "Posso pegar agua?",
+        "word_by_word": [
+          {
+            "en": "May",
+            "pt": "posso"
+          },
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "have",
+            "pt": "tenho"
+          },
+          {
+            "en": "water",
+            "pt": "agua"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Of course",
+        "phrase_pt": "Claro",
+        "word_by_word": [
+          {
+            "en": "Of",
+            "pt": "de"
+          },
+          {
+            "en": "course",
+            "pt": "claro"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "please",
+      "word_pt": "por favor",
+      "example_sentence_en": "Can you help me, please?",
+      "example_sentence_pt": "Voce pode me ajudar, por favor?"
+    },
+    {
+      "word_en": "thank you",
+      "word_pt": "obrigado",
+      "example_sentence_en": "Thank you for your help.",
+      "example_sentence_pt": "Obrigado pela sua ajuda."
+    },
+    {
+      "word_en": "You are welcome",
+      "word_pt": "De nada",
+      "example_sentence_en": "You are welcome, my friend.",
+      "example_sentence_pt": "De nada, meu amigo."
+    },
+    {
+      "word_en": "I am sorry",
+      "word_pt": "Me desculpe",
+      "example_sentence_en": "I am sorry, it was my mistake.",
+      "example_sentence_pt": "Me desculpe, foi erro meu."
+    },
+    {
+      "word_en": "Excuse me",
+      "word_pt": "Com licenca",
+      "example_sentence_en": "Excuse me, where is the door?",
+      "example_sentence_pt": "Com licenca, onde fica a porta?"
+    },
+    {
+      "word_en": "Can I help you?",
+      "word_pt": "Posso ajudar?",
+      "example_sentence_en": "Can I help you with that?",
+      "example_sentence_pt": "Posso ajudar com isso?"
+    },
+    {
+      "word_en": "May I have water?",
+      "word_pt": "Posso pegar agua?",
+      "example_sentence_en": "May I have water, please?",
+      "example_sentence_pt": "Posso pegar agua, por favor?"
+    },
+    {
+      "word_en": "Of course",
+      "word_pt": "Claro",
+      "example_sentence_en": "Of course, take it.",
+      "example_sentence_pt": "Claro, pode pegar."
+    }
+  ]
+}

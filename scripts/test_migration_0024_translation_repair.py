@@ -40,6 +40,18 @@ def current_revision(database: Path) -> str:
         return connection.execute("SELECT version_num FROM alembic_version").fetchone()[0]
 
 
+def assert_at_least_0024(case: unittest.TestCase, database: Path) -> None:
+    """The database has been through 0024 — not that 0024 is still the head.
+
+    Pinning the head revision here made every later migration fail a test about
+    0024. What matters is that the repair ran and nothing after it undid the
+    columns.
+    """
+
+    revision = current_revision(database)
+    case.assertGreaterEqual(revision, "0024", f"expected a revision at or past 0024, found {revision}")
+
+
 class Migration0024Tests(unittest.TestCase):
     def migrated_database(self, name: str) -> Path:
         database = TMP_DIR / f"{name}.sqlite"
@@ -48,7 +60,7 @@ class Migration0024Tests(unittest.TestCase):
 
     def test_a_fresh_database_reaches_0024_with_both_columns(self) -> None:
         database = self.migrated_database("fresh")
-        self.assertEqual(current_revision(database), "0024")
+        assert_at_least_0024(self, database)
         self.assertTrue(TRANSLATION_COLUMNS <= lesson_question_columns(database))
 
     def test_a_database_stamped_past_0021_without_the_columns_is_repaired(self) -> None:
@@ -63,7 +75,7 @@ class Migration0024Tests(unittest.TestCase):
 
         database_bootstrap.bootstrap_database(sqlite_url(database))
 
-        self.assertEqual(current_revision(database), "0024")
+        assert_at_least_0024(self, database)
         self.assertTrue(TRANSLATION_COLUMNS <= lesson_question_columns(database))
 
     def test_a_single_missing_column_is_added_alone(self) -> None:
@@ -86,7 +98,7 @@ class Migration0024Tests(unittest.TestCase):
         database_bootstrap.bootstrap_database(sqlite_url(database))
 
         self.assertEqual(lesson_question_columns(database), before)
-        self.assertEqual(current_revision(database), "0024")
+        assert_at_least_0024(self, database)
 
 
 if __name__ == "__main__":

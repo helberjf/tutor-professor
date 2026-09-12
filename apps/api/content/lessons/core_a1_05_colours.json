@@ -1,0 +1,162 @@
+{
+  "title": "Ingles A1 - Cores",
+  "theme": "Cores",
+  "objective": "Falar as cores das coisas ao seu redor.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "red",
+        "phrase_pt": "vermelho",
+        "word_by_word": [
+          {
+            "en": "red",
+            "pt": "vermelho"
+          }
+        ]
+      },
+      {
+        "phrase_en": "blue",
+        "phrase_pt": "azul",
+        "word_by_word": [
+          {
+            "en": "blue",
+            "pt": "azul"
+          }
+        ]
+      },
+      {
+        "phrase_en": "green",
+        "phrase_pt": "verde",
+        "word_by_word": [
+          {
+            "en": "green",
+            "pt": "verde"
+          }
+        ]
+      },
+      {
+        "phrase_en": "yellow",
+        "phrase_pt": "amarelo",
+        "word_by_word": [
+          {
+            "en": "yellow",
+            "pt": "amarelo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "black",
+        "phrase_pt": "preto",
+        "word_by_word": [
+          {
+            "en": "black",
+            "pt": "preto"
+          }
+        ]
+      },
+      {
+        "phrase_en": "white",
+        "phrase_pt": "branco",
+        "word_by_word": [
+          {
+            "en": "white",
+            "pt": "branco"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What colour is it?",
+        "phrase_pt": "Que cor e?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "colour",
+            "pt": "cor"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "it",
+            "pt": "isso"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my favourite colour",
+        "phrase_pt": "minha cor favorita",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "favourite",
+            "pt": "favorita"
+          },
+          {
+            "en": "colour",
+            "pt": "cor"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "red",
+      "word_pt": "vermelho",
+      "example_sentence_en": "The apple is red.",
+      "example_sentence_pt": "A maca e vermelha."
+    },
+    {
+      "word_en": "blue",
+      "word_pt": "azul",
+      "example_sentence_en": "The sky is blue today.",
+      "example_sentence_pt": "O ceu esta azul hoje."
+    },
+    {
+      "word_en": "green",
+      "word_pt": "verde",
+      "example_sentence_en": "The grass is green.",
+      "example_sentence_pt": "A grama e verde."
+    },
+    {
+      "word_en": "yellow",
+      "word_pt": "amarelo",
+      "example_sentence_en": "The sun looks yellow.",
+      "example_sentence_pt": "O sol parece amarelo."
+    },
+    {
+      "word_en": "black",
+      "word_pt": "preto",
+      "example_sentence_en": "My cat is black.",
+      "example_sentence_pt": "Meu gato e preto."
+    },
+    {
+      "word_en": "white",
+      "word_pt": "branco",
+      "example_sentence_en": "The paper is white.",
+      "example_sentence_pt": "O papel e branco."
+    },
+    {
+      "word_en": "What colour is it?",
+      "word_pt": "Que cor e?",
+      "example_sentence_en": "What colour is your bag?",
+      "example_sentence_pt": "Que cor e a sua mochila?"
+    },
+    {
+      "word_en": "my favourite colour",
+      "word_pt": "minha cor favorita",
+      "example_sentence_en": "Green is my favourite colour.",
+      "example_sentence_pt": "Verde e a minha cor favorita."
+    }
+  ]
+}

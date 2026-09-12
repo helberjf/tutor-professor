@@ -1,0 +1,230 @@
+{
+  "title": "Ingles A2 - Rotina",
+  "theme": "Rotina",
+  "objective": "Contar o que voce faz todos os dias.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I wake up early",
+        "phrase_pt": "Eu acordo cedo",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "wake",
+            "pt": "acordo"
+          },
+          {
+            "en": "up",
+            "pt": "acima"
+          },
+          {
+            "en": "early",
+            "pt": "cedo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I brush my teeth",
+        "phrase_pt": "Eu escovo os dentes",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "brush",
+            "pt": "escovo"
+          },
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "teeth",
+            "pt": "dentes"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I go to school",
+        "phrase_pt": "Eu vou para a escola",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "go",
+            "pt": "vou"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          },
+          {
+            "en": "school",
+            "pt": "escola"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I do my homework",
+        "phrase_pt": "Eu faco a minha licao",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "homework",
+            "pt": "licao de casa"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I help at home",
+        "phrase_pt": "Eu ajudo em casa",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "help",
+            "pt": "ajudo"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "home",
+            "pt": "casa"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I go to bed at nine",
+        "phrase_pt": "Eu vou dormir as nove",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "go",
+            "pt": "vou"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          },
+          {
+            "en": "bed",
+            "pt": "cama"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "nine",
+            "pt": "nove"
+          }
+        ]
+      },
+      {
+        "phrase_en": "every morning",
+        "phrase_pt": "toda manha",
+        "word_by_word": [
+          {
+            "en": "every",
+            "pt": "todo"
+          },
+          {
+            "en": "morning",
+            "pt": "manha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "after lunch",
+        "phrase_pt": "depois do almoco",
+        "word_by_word": [
+          {
+            "en": "after",
+            "pt": "depois"
+          },
+          {
+            "en": "lunch",
+            "pt": "almoco"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I wake up early",
+      "word_pt": "Eu acordo cedo",
+      "example_sentence_en": "I wake up early every day.",
+      "example_sentence_pt": "Eu acordo cedo todo dia."
+    },
+    {
+      "word_en": "I brush my teeth",
+      "word_pt": "Eu escovo os dentes",
+      "example_sentence_en": "I brush my teeth after breakfast.",
+      "example_sentence_pt": "Eu escovo os dentes depois do cafe."
+    },
+    {
+      "word_en": "I go to school",
+      "word_pt": "Eu vou para a escola",
+      "example_sentence_en": "I go to school at seven.",
+      "example_sentence_pt": "Eu vou para a escola as sete."
+    },
+    {
+      "word_en": "I do my homework",
+      "word_pt": "Eu faco a minha licao",
+      "example_sentence_en": "I do my homework in the afternoon.",
+      "example_sentence_pt": "Eu faco a minha licao a tarde."
+    },
+    {
+      "word_en": "I help at home",
+      "word_pt": "Eu ajudo em casa",
+      "example_sentence_en": "I help at home on Saturdays.",
+      "example_sentence_pt": "Eu ajudo em casa aos sabados."
+    },
+    {
+      "word_en": "I go to bed at nine",
+      "word_pt": "Eu vou dormir as nove",
+      "example_sentence_en": "I go to bed at nine o'clock.",
+      "example_sentence_pt": "Eu vou dormir as nove horas."
+    },
+    {
+      "word_en": "every morning",
+      "word_pt": "toda manha",
+      "example_sentence_en": "Every morning I drink milk.",
+      "example_sentence_pt": "Toda manha eu bebo leite."
+    },
+    {
+      "word_en": "after lunch",
+      "word_pt": "depois do almoco",
+      "example_sentence_en": "After lunch I read a book.",
+      "example_sentence_pt": "Depois do almoco eu leio um livro."
+    }
+  ]
+}

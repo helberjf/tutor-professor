@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterable, Iterator, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -21,7 +21,7 @@ import requests
 from cryptography.fernet import Fernet, InvalidToken
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -63,7 +63,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -198,6 +198,19 @@ from schemas.schemas import (
     DailyActivityCreateSchema,
     DailyActivitySummarySchema,
     ActivityPeriodSummarySchema,
+    CompleteOnboardingSchema,
+    EnsureStudyQuestionsSchema,
+    OnboardingResultSchema,
+    OnboardingStateSchema,
+    PlacementQuestionSchema,
+    PrefetchStudyQuestionsResultSchema,
+    PrefetchStudyQuestionsSchema,
+    StudyQueueItemSchema,
+    StudySessionFinishResultSchema,
+    StudySessionFinishSchema,
+    StudySessionProgressSchema,
+    StudySessionSchema,
+    StudySessionStateSchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -276,6 +289,20 @@ from services.review_service import (
     count_due_mixed_review_items,
     register_review_attempt,
     seed_review_items_for_lesson,
+)
+from services.offline_question_service import (
+    build_offline_choice_questions,
+    build_offline_lesson_questions,
+    build_placement_questions,
+    level_from_placement,
+)
+from services.study_queue_service import (
+    DEFAULT_QUEUE_LIMIT,
+    build_study_queue,
+    count_pending_questions,
+    count_queue_sources,
+    is_mastered,
+    select_pending_questions,
 )
 from services.password_policy import password_policy_detail, validate_password_strength
 from services.tts_service import TTSService
@@ -903,6 +930,22 @@ def _run_schema_migrations() -> None:
         except Exception:
             try:
                 conn.execute(text("ALTER TABLE studyday ADD COLUMN pomodoro_count INTEGER NOT NULL DEFAULT 0"))
+            except Exception:
+                pass
+        # Add studyday.auto_completed_at: the day can close by studying now
+        try:
+            conn.execute(text("ALTER TABLE studyday ADD COLUMN IF NOT EXISTS auto_completed_at TIMESTAMP"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE studyday ADD COLUMN auto_completed_at TIMESTAMP"))
+            except Exception:
+                pass
+        # Add user.onboarding_completed_at for the guided first run
+        try:
+            conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMP'))
+        except Exception:
+            try:
+                conn.execute(text('ALTER TABLE "user" ADD COLUMN onboarding_completed_at TIMESTAMP'))
             except Exception:
                 pass
         # Ensure index on lesson.level (column added via ALTER above, so create_all
@@ -2386,6 +2429,9 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
 
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
     seed_review_items_for_lesson(session=session, child_id=child.id or 0, lesson_items=lesson_items)
+    # Free, lesson-derived questions so the review queue has something to ask
+    # about this lesson even if no provider is ever called for it.
+    ensure_offline_lesson_questions(session, child=child, lesson=lesson, items=lesson_items)
     now = datetime.utcnow()
     lesson_progress = get_or_create_lesson_progress(
         session=session,
@@ -2676,11 +2722,55 @@ def get_study_day_record(session: Session, child_id: int, target_date: date) -> 
     ).first()
 
 
-def build_study_day_schema(record: StudyDay | None, target_date: date) -> StudyDaySchema:
+def count_activities_by_date(
+    session: Session,
+    *,
+    child_id: int,
+    dates: Iterable[date],
+) -> dict[date, int]:
+    """How many activities each of `dates` holds, in one query.
+
+    The study day needs this to close itself: a child who answered a queue has
+    studied whether or not anybody wrote a line about it.
+    """
+
+    wanted = list({value for value in dates if value is not None})
+    if not wanted:
+        return {}
+    rows = session.exec(
+        select(DailyActivity.activity_date, func.count(DailyActivity.id))
+        .where(
+            DailyActivity.child_id == child_id,
+            DailyActivity.activity_date.in_(wanted),
+        )
+        .group_by(DailyActivity.activity_date)
+    ).all()
+    return {row[0]: int(row[1] or 0) for row in rows}
+
+
+def build_study_day_schema(
+    record: StudyDay | None,
+    target_date: date,
+    *,
+    activity_count: int = 0,
+) -> StudyDaySchema:
+    """The day as the client sees it.
+
+    `is_study_day` used to mean "somebody typed something", which put a text box
+    between a child and a closed day. It now means "this day was studied": a
+    finished session, a logged activity, or the written note — whichever came
+    first. The written record stays exactly as optional as it should be.
+    """
+
+    auto_closed = bool(record is not None and record.auto_completed_at is not None)
+    closed_by_activity = auto_closed or activity_count > 0
+
     if record is None:
         return StudyDaySchema(
             study_date=target_date,
-            is_study_day=False,
+            is_study_day=closed_by_activity,
+            closed_by_activity=closed_by_activity,
+            activity_count=activity_count,
         )
 
     studied_text = record.studied_text or ""
@@ -2690,7 +2780,9 @@ def build_study_day_schema(record: StudyDay | None, target_date: date) -> StudyD
         plan_text=record.plan_text or "",
         studied_text=studied_text,
         distractions=record.distractions or [],
-        is_study_day=bool(studied_text.strip()),
+        is_study_day=bool(studied_text.strip()) or closed_by_activity,
+        closed_by_activity=closed_by_activity,
+        activity_count=activity_count,
         pomodoro_count=record.pomodoro_count or 0,
         created_at=record.created_at,
         updated_at=record.updated_at,
@@ -2735,15 +2827,26 @@ def build_question_subject_metrics(session: Session, child_id: int) -> list[Ques
 
 
 def compute_study_streak(session: Session, child_id: int) -> tuple[int, date | None]:
+    """Consecutive days studied, counting days closed by doing rather than writing."""
+
     records = session.exec(
         select(StudyDay)
         .where(StudyDay.child_id == child_id)
         .order_by(StudyDay.study_date.desc())
     ).all()
-    study_dates = sorted(
-        {record.study_date for record in records if (record.studied_text or "").strip()},
-        reverse=True,
+    studied = {
+        record.study_date
+        for record in records
+        if (record.studied_text or "").strip() or record.auto_completed_at is not None
+    }
+    studied.update(
+        session.exec(
+            select(DailyActivity.activity_date)
+            .where(DailyActivity.child_id == child_id)
+            .distinct()
+        ).all()
     )
+    study_dates = sorted(studied, reverse=True)
     if not study_dates:
         return 0, None
 
@@ -2780,10 +2883,24 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
         .limit(30)
     ).all()
     streak_count, last_study_date = compute_study_streak(session=session, child_id=child_id)
+    activity_counts = count_activities_by_date(
+        session,
+        child_id=child_id,
+        dates=[today, *(record.study_date for record in recent_records)],
+    )
 
     return StudyDashboardSchema(
-        today=build_study_day_schema(today_record, today),
-        recent_days=[build_study_day_schema(record, record.study_date) for record in recent_records],
+        today=build_study_day_schema(
+            today_record, today, activity_count=activity_counts.get(today, 0)
+        ),
+        recent_days=[
+            build_study_day_schema(
+                record,
+                record.study_date,
+                activity_count=activity_counts.get(record.study_date, 0),
+            )
+            for record in recent_records
+        ],
         study_streak_count=streak_count,
         last_study_date=last_study_date,
         question_metrics=build_question_subject_metrics(session=session, child_id=child_id),
@@ -2798,8 +2915,12 @@ def get_study_day(
 ) -> StudyDaySchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    record = get_study_day_record(session=session, child_id=child.id or 0, target_date=study_date)
-    return build_study_day_schema(record, study_date)
+    child_id = child.id or 0
+    record = get_study_day_record(session=session, child_id=child_id, target_date=study_date)
+    activity_counts = count_activities_by_date(session, child_id=child_id, dates=[study_date])
+    return build_study_day_schema(
+        record, study_date, activity_count=activity_counts.get(study_date, 0)
+    )
 
 
 @app.put("/api/study/day/{study_date}", response_model=StudyDaySchema)
@@ -2852,7 +2973,590 @@ def upsert_study_day(
     session.add(record)
     session.commit()
     session.refresh(record)
-    return build_study_day_schema(record, record.study_date)
+    activity_counts = count_activities_by_date(session, child_id=child_id, dates=[record.study_date])
+    return build_study_day_schema(
+        record, record.study_date, activity_count=activity_counts.get(record.study_date, 0)
+    )
+
+
+# ── Study session: one queue, built once, resumable ───────────────────────────
+# The child used to choose what to study on three screens before answering
+# anything. A session is that choice made once: the queue is assembled, stored,
+# and handed back from the stored position, which is what "continuar de onde
+# parou" needs in order to be true rather than decorative.
+
+# The subject name English question banks are stored under. It has to match
+# what apps/web/.../EnglishQuestionsSection.tsx sends, or one lesson ends up
+# with two separate banks that never see each other.
+ENGLISH_QUESTION_SUBJECT = "Inglês"
+
+STUDY_SESSION_ACTIVE = "active"
+STUDY_SESSION_COMPLETED = "completed"
+# Below this, a lesson is treated as having no question bank of its own and the
+# free, lesson-derived one is seeded. Above it, whatever exists is enough.
+MIN_LESSON_QUESTIONS_PER_LESSON = 5
+OFFLINE_DISTRACTOR_ITEM_LIMIT = 60
+
+
+def get_active_study_session(session: Session, child_id: int) -> StudySession | None:
+    return session.exec(
+        select(StudySession)
+        .where(
+            StudySession.child_id == child_id,
+            StudySession.status == STUDY_SESSION_ACTIVE,
+        )
+        .order_by(StudySession.id.desc())
+    ).first()
+
+
+def study_session_items(record: StudySession) -> list[dict]:
+    items = record.items if isinstance(record.items, list) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def build_study_session_schema(record: StudySession) -> StudySessionSchema:
+    items = study_session_items(record)
+    return StudySessionSchema(
+        id=record.id or 0,
+        status=record.status,
+        session_date=record.session_date,
+        position=max(0, min(record.position, len(items))),
+        total=len(items),
+        answered_count=record.answered_count,
+        correct_count=record.correct_count,
+        items=[StudyQueueItemSchema.model_validate(item) for item in items],
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def resolve_pending_lesson(session: Session, child: ChildProfile) -> tuple[Lesson | None, list[LessonItem]]:
+    """The lesson still open for this child — never generating a new one.
+
+    Opening a session must not call a provider. A queue that needs AI to start is
+    exactly the friction this replaces, so an account with no lesson left simply
+    gets a queue made of review and questions.
+    """
+
+    lesson = get_current_lesson(
+        session=session,
+        child_id=child.id or 0,
+        child_level=child.current_level,
+        target_language=child.target_language,
+    )
+    if lesson is None:
+        return None, []
+    return lesson, list(get_lesson_items(session=session, lesson_id=lesson.id or 0))
+
+
+def collect_offline_distractor_items(
+    session: Session,
+    *,
+    child: ChildProfile,
+    exclude_lesson_id: int,
+) -> list[LessonItem]:
+    """Phrases from the child's other lessons, to use as plausible wrong answers."""
+
+    lessons = list_accessible_lessons(
+        session=session,
+        child_id=child.id or 0,
+        child_level=child.current_level,
+        target_language=child.target_language,
+    )
+    lesson_ids = [lesson.id or 0 for lesson in lessons if (lesson.id or 0) != exclude_lesson_id]
+    if not lesson_ids:
+        return []
+    return list(
+        session.exec(
+            select(LessonItem)
+            .where(LessonItem.lesson_id.in_(lesson_ids))
+            .order_by(LessonItem.id.desc())
+            .limit(OFFLINE_DISTRACTOR_ITEM_LIMIT)
+        ).all()
+    )
+
+
+def ensure_offline_lesson_questions(
+    session: Session,
+    *,
+    child: ChildProfile,
+    lesson: Lesson,
+    items: list[LessonItem],
+) -> int:
+    """Give a lesson review questions without asking a provider for them.
+
+    This is the floor, not a replacement: an account with AI keeps generating
+    richer batches on top. What it guarantees is that no lesson is ever a dead
+    end because the provider is down or the daily credit is spent.
+    """
+
+    child_id = child.id or 0
+    lesson_id = lesson.id or 0
+    if not items or not lesson_id:
+        return 0
+
+    existing = session.exec(
+        select(LessonQuestion).where(
+            LessonQuestion.child_id == child_id,
+            LessonQuestion.lesson_id == lesson_id,
+        )
+    ).all()
+    if len(existing) >= MIN_LESSON_QUESTIONS_PER_LESSON:
+        return 0
+
+    existing_keys = {question.front_key for question in existing}
+    created = 0
+    for question in build_offline_lesson_questions(items):
+        front_key = front_key_for(question.front)
+        if front_key in existing_keys:
+            continue
+        existing_keys.add(front_key)
+        session.add(
+            LessonQuestion(
+                child_id=child_id,
+                lesson_id=lesson_id,
+                target_language=lesson.target_language,
+                question_type=question.question_type,
+                front=question.front,
+                front_key=front_key,
+                back=question.back,
+                supporting_example=question.supporting_example,
+                front_translation=question.front_translation,
+                supporting_example_translation=question.supporting_example_translation,
+            )
+        )
+        created += 1
+
+    if not created:
+        return 0
+    try:
+        session.commit()
+    except IntegrityError:
+        # Another request seeded the same lesson first; its rows are as good.
+        session.rollback()
+        return 0
+    return created
+
+
+def ensure_offline_choice_questions(
+    session: Session,
+    *,
+    child: ChildProfile,
+    lesson: Lesson,
+    items: list[LessonItem],
+    subject_name: str,
+    topic_key: str,
+    topic_title: str,
+) -> int:
+    """Seed "modo questoes" for one lesson from its own phrases. No AI, no credit."""
+
+    child_id = child.id or 0
+    if not items:
+        return 0
+
+    existing = session.exec(
+        select(StudyQuestion).where(
+            StudyQuestion.child_id == child_id,
+            StudyQuestion.area == "english",
+            StudyQuestion.subject_name == subject_name,
+            StudyQuestion.topic_key == topic_key,
+        )
+    ).all()
+    existing_keys = {question.question_key for question in existing}
+
+    distractors = collect_offline_distractor_items(
+        session, child=child, exclude_lesson_id=lesson.id or 0
+    )
+    now = datetime.utcnow()
+    created = 0
+    for question in build_offline_choice_questions(items, distractor_items=distractors):
+        question_key = programming_question_key(question.question)
+        if question_key in existing_keys:
+            continue
+        existing_keys.add(question_key)
+        session.add(
+            StudyQuestion(
+                child_id=child_id,
+                area="english",
+                subject_name=subject_name,
+                topic_key=topic_key,
+                topic_title=topic_title,
+                question=question.question,
+                question_key=question_key,
+                options=list(question.options),
+                correct_option=question.correct_option,
+                explanation=question.explanation,
+                created_at=now,
+            )
+        )
+        created += 1
+
+    if not created:
+        return 0
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        return 0
+    return created
+
+
+def most_recent_completed_lesson(session: Session, child: ChildProfile) -> Lesson | None:
+    """The last lesson this child finished, among the ones they may see."""
+
+    accessible = {
+        lesson.id or 0: lesson
+        for lesson in list_accessible_lessons(
+            session=session,
+            child_id=child.id or 0,
+            child_level=child.current_level,
+            target_language=child.target_language,
+        )
+    }
+    if not accessible:
+        return None
+    progress_rows = session.exec(
+        select(ChildLessonProgress)
+        .where(
+            ChildLessonProgress.child_id == (child.id or 0),
+            ChildLessonProgress.is_completed == True,  # noqa: E712 - SQL truth, not Python
+        )
+        .order_by(ChildLessonProgress.completed_at.desc(), ChildLessonProgress.id.desc())
+    ).all()
+    for row in progress_rows:
+        lesson = accessible.get(row.lesson_id)
+        if lesson is not None:
+            return lesson
+    return None
+
+
+def seed_free_content_for_child(session: Session, *, child: ChildProfile) -> None:
+    """Make sure there is something to answer, without getting ahead of the lesson.
+
+    Questions are only ever derived from a lesson the child already finished.
+    Asking about a phrase before it was taught is how review earns its
+    reputation, so an account with nothing finished yet simply gets a queue made
+    of today's lesson.
+    """
+
+    if count_pending_questions(session, child.id or 0) > 0:
+        return
+    lesson = most_recent_completed_lesson(session, child)
+    if lesson is None:
+        return
+    items = list(get_lesson_items(session=session, lesson_id=lesson.id or 0))
+    if not items:
+        return
+    ensure_offline_lesson_questions(session, child=child, lesson=lesson, items=items)
+    ensure_offline_choice_questions(
+        session,
+        child=child,
+        lesson=lesson,
+        items=items,
+        subject_name=ENGLISH_QUESTION_SUBJECT,
+        topic_key=str(lesson.id or 0),
+        topic_title=lesson.title,
+    )
+
+
+@app.get("/api/study/session", response_model=StudySessionStateSchema)
+def get_study_session_state(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudySessionStateSchema:
+    """What the home screen needs to offer "continuar de onde parou" honestly.
+
+    It never builds or changes anything: a button that quietly started a session
+    just by rendering the page would take the decision away from the child.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+
+    lesson, _ = resolve_pending_lesson(session, child)
+    counts = count_queue_sources(
+        session,
+        child_id=child_id,
+        lesson_pending=lesson is not None,
+    )
+    state = StudySessionStateSchema(
+        due_review=int(counts["due_review"]),
+        pending_questions=int(counts["pending_questions"]),
+        lesson_pending=bool(counts["lesson_pending"]),
+    )
+
+    record = get_active_study_session(session, child_id)
+    if record is None:
+        return state
+
+    items = study_session_items(record)
+    position = max(0, min(record.position, len(items)))
+    remaining = len(items) - position
+    next_item = items[position] if remaining > 0 else {}
+    state.has_session = remaining > 0
+    state.session_id = record.id
+    state.position = position
+    state.total = len(items)
+    state.remaining = remaining
+    state.answered_count = record.answered_count
+    state.correct_count = record.correct_count
+    state.session_date = record.session_date
+    state.updated_at = record.updated_at
+    state.next_label = " ".join(
+        str(next_item.get("topic_title") or next_item.get("source_label") or "").split()
+    )
+    return state
+
+
+@app.post("/api/study/session/start", response_model=StudySessionSchema)
+def start_study_session(
+    request: Request,
+    restart: bool = Query(default=False, description="Discard the open session and build a new queue."),
+    limit: int = Query(default=DEFAULT_QUEUE_LIMIT, ge=1, le=30),
+    session: Session = Depends(get_session),
+) -> StudySessionSchema:
+    """Resume the open session, or assemble a new queue and store it."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    now = datetime.utcnow()
+
+    active = get_active_study_session(session, child_id)
+    if active is not None:
+        items = study_session_items(active)
+        if not restart and active.position < len(items):
+            return build_study_session_schema(active)
+        active.status = STUDY_SESSION_COMPLETED
+        active.completed_at = now
+        active.updated_at = now
+        session.add(active)
+        session.commit()
+
+    lesson, lesson_items = resolve_pending_lesson(session, child)
+    seed_free_content_for_child(session, child=child)
+
+    queue = build_study_queue(
+        session,
+        child_id=child_id,
+        lesson_id=(lesson.id or 0) if lesson else None,
+        lesson_title=lesson.title if lesson else "",
+        lesson_items=lesson_items,
+        limit=limit,
+    )
+    if not queue:
+        # Nothing owed: say so instead of storing an empty session that would be
+        # offered back forever as something to continue.
+        return StudySessionSchema(id=0, status="empty", session_date=activity_today())
+
+    record = StudySession(
+        child_id=child_id,
+        status=STUDY_SESSION_ACTIVE,
+        session_date=activity_today(),
+        items=queue,
+        position=0,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return build_study_session_schema(record)
+
+
+def get_owned_study_session(session: Session, *, session_id: int, child_id: int) -> StudySession:
+    record = session.get(StudySession, session_id)
+    if record is None or record.child_id != child_id:
+        raise HTTPException(status_code=404, detail="Sessao de estudo nao encontrada.")
+    return record
+
+
+@app.post("/api/study/session/{session_id}/progress", response_model=StudySessionSchema)
+def save_study_session_progress(
+    session_id: int,
+    payload: StudySessionProgressSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudySessionSchema:
+    """Move the bookmark. Forward only, so a stale client cannot rewind the child."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    record = get_owned_study_session(session, session_id=session_id, child_id=child.id or 0)
+
+    items = study_session_items(record)
+    record.position = max(record.position, min(payload.position, len(items)))
+    if payload.answered_count is not None:
+        record.answered_count = max(record.answered_count, min(payload.answered_count, len(items)))
+    if payload.correct_count is not None:
+        record.correct_count = max(record.correct_count, min(payload.correct_count, record.answered_count))
+    record.updated_at = datetime.utcnow()
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return build_study_session_schema(record)
+
+
+@app.post("/api/study/session/{session_id}/finish", response_model=StudySessionFinishResultSchema)
+def finish_study_session(
+    session_id: int,
+    payload: StudySessionFinishSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudySessionFinishResultSchema:
+    """Close the session and, with it, the day — without asking anybody to type."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    record = get_owned_study_session(session, session_id=session_id, child_id=child_id)
+
+    items = study_session_items(record)
+    now = datetime.utcnow()
+    if payload.answered_count is not None:
+        record.answered_count = max(record.answered_count, min(payload.answered_count, len(items)))
+    if payload.correct_count is not None:
+        record.correct_count = max(record.correct_count, min(payload.correct_count, record.answered_count))
+    record.position = len(items)
+    record.status = STUDY_SESSION_COMPLETED
+    record.completed_at = now
+    record.updated_at = now
+    session.add(record)
+
+    study_date = activity_today()
+    day_closed = False
+    if record.answered_count > 0:
+        day_record = get_study_day_record(session=session, child_id=child_id, target_date=study_date)
+        if day_record is None:
+            day_record = StudyDay(
+                child_id=child_id,
+                study_date=study_date,
+                created_at=now,
+                updated_at=now,
+            )
+        if day_record.auto_completed_at is None:
+            day_record.auto_completed_at = now
+        day_record.updated_at = now
+        session.add(day_record)
+        day_closed = True
+
+    session.commit()
+    return StudySessionFinishResultSchema(
+        session_id=record.id or 0,
+        answered_count=record.answered_count,
+        correct_count=record.correct_count,
+        day_closed=day_closed,
+        study_date=study_date,
+    )
+
+
+# ── Guided first run ──────────────────────────────────────────────────────────
+# Three steps: who is studying, which language, and a five-question placement so
+# the first lesson lands at the right level instead of always at level 1.
+
+
+@app.get("/api/onboarding/state", response_model=OnboardingStateSchema)
+def get_onboarding_state(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> OnboardingStateSchema:
+    session_record = require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    children = session.exec(
+        select(ChildProfile)
+        .where(ChildProfile.user_id == session_record.user_id)
+        .order_by(ChildProfile.id)
+    ).all()
+    first = children[0] if children else None
+    target_language = first.target_language if first else "English"
+    return OnboardingStateSchema(
+        completed=bool(user and user.onboarding_completed_at),
+        child_count=len(children),
+        child_name=first.name if first else "",
+        target_language=target_language,
+        placement_available=bool(build_placement_questions(target_language)),
+    )
+
+
+@app.get("/api/onboarding/placement", response_model=list[PlacementQuestionSchema])
+def get_onboarding_placement(
+    request: Request,
+    target_language: str = Query(default="English", max_length=40),
+    session: Session = Depends(get_session),
+) -> list[PlacementQuestionSchema]:
+    """The placement test. Answered before the account has any content of its own."""
+
+    require_parent_session(request, session)
+    return [
+        PlacementQuestionSchema(
+            level=question.level,
+            question=question.question,
+            options=list(question.options),
+            correct_option=question.correct_option,
+        )
+        for question in build_placement_questions(target_language)
+    ]
+
+
+@app.post("/api/onboarding/complete", response_model=OnboardingResultSchema)
+def complete_onboarding(
+    payload: CompleteOnboardingSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> OnboardingResultSchema:
+    """Create (or adopt) the first child and start it at the placed level."""
+
+    session_record = require_parent_session(request, session)
+    user = get_request_user(request=request, session=session)
+    user_id = session_record.user_id
+
+    children = session.exec(
+        select(ChildProfile)
+        .where(ChildProfile.user_id == user_id)
+        .order_by(ChildProfile.id)
+    ).all()
+    child = children[0] if children else None
+
+    if child is None:
+        entitlement = get_entitlement(session, user)
+        if not entitlement.may_add_child():
+            raise HTTPException(
+                status_code=402,
+                detail=upgrade_message(
+                    entitlement.plan,
+                    "children" if entitlement.is_entitled else "inactive",
+                ),
+            )
+        child = ChildProfile(user_id=user_id)
+
+    child.name = payload.child_name.strip()
+    child.age_group = payload.age_group.strip()
+    child.target_language = payload.target_language.strip() or "English"
+
+    level = 1 if payload.skipped_placement else level_from_placement(payload.correct_levels)
+    level = max(MIN_CHILD_LEVEL, min(level, MAX_CHILD_LEVEL))
+    child.current_level = level
+    # The automatic ladder counts questions answered, and a child who just
+    # arrived has answered none — it would drag a placed level back to 1 on the
+    # next read. So a placement above the floor is pinned, and the parents area
+    # can hand it back to the automatic ladder whenever it stops being right.
+    child.level_override = level if level > MIN_CHILD_LEVEL else None
+
+    session.add(child)
+    if user is not None:
+        user.onboarding_completed_at = datetime.utcnow()
+        session.add(user)
+    session.commit()
+    session.refresh(child)
+
+    return OnboardingResultSchema(
+        child_id=child.id or 0,
+        child_name=child.name,
+        level=child.current_level,
+        level_pinned=child.level_override is not None,
+        target_language=child.target_language,
+    )
 
 
 _DEFAULT_CODING_SUBJECTS: dict[str, list[dict]] = {
@@ -6712,6 +7416,239 @@ def generate_study_question_batch(
     for record in created:
         session.refresh(record)
     return [_study_question_schema(record) for record in created]
+
+
+def _english_lesson_for_topic(session: Session, *, child: ChildProfile, topic_key: str) -> Lesson | None:
+    """The lesson a question topic points at, when the child may see it."""
+
+    try:
+        lesson_id = resolve_english_lesson_topic_key(topic_key)
+    except HTTPException:
+        return None
+    lesson = session.get(Lesson, lesson_id)
+    if lesson is None:
+        return None
+    if lesson.child_id is not None and lesson.child_id != (child.id or 0):
+        return None
+    return lesson
+
+
+@app.post("/api/study/questions/ensure", response_model=list[StudyQuestionSchema])
+def ensure_study_questions(
+    payload: EnsureStudyQuestionsSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[StudyQuestionSchema]:
+    """Fill a topic's question bank from the lesson itself — no provider, no credit.
+
+    This is what keeps "modo questoes" from being an empty screen for an account
+    with no AI key, no credit left, or a provider having a bad day. Only English
+    is covered: its lessons are structured phrase pairs, which make honest
+    four-option questions. A free-form subject is not, so it is left to the AI
+    path rather than filled with something worse than nothing.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    subject_name = " ".join(payload.subject_name.split())
+    topic_key = payload.topic_key.strip()
+    topic_title = " ".join(payload.topic_title.split())
+
+    if payload.area == "english":
+        lesson = _english_lesson_for_topic(session, child=child, topic_key=topic_key)
+        if lesson is not None:
+            ensure_offline_choice_questions(
+                session,
+                child=child,
+                lesson=lesson,
+                items=list(get_lesson_items(session=session, lesson_id=lesson.id or 0)),
+                subject_name=subject_name,
+                topic_key=topic_key,
+                topic_title=topic_title,
+            )
+
+    questions = _list_study_questions(
+        session,
+        child_id=child_id,
+        area=payload.area,
+        subject_name=subject_name,
+        topic_key=topic_key,
+    )
+    return [
+        _study_question_schema(question)
+        for question in questions
+        if _study_question_has_usable_options(question)
+    ]
+
+
+def _prefetch_study_questions_job(
+    *,
+    child_id: int,
+    user_id: int,
+    area: str,
+    subject_name: str,
+    topic_key: str,
+    topic_title: str,
+    threshold: int,
+) -> None:
+    """Generate one batch for a topic running low, after the response was sent.
+
+    Nobody is waiting on this, so it never raises and never reports: a child who
+    keeps answering should find the next questions already there, and a child
+    whose provider failed should notice nothing at all.
+    """
+
+    try:
+        with Session(engine) as db:
+            existing = _list_study_questions(
+                db,
+                child_id=child_id,
+                area=area,
+                subject_name=subject_name,
+                topic_key=topic_key,
+            )
+            if sum(0 if is_mastered(question) else 1 for question in existing) >= threshold:
+                return
+            try:
+                ai_config = _get_user_ai_config_for_user_id(user_id, db)
+            except HTTPException:
+                # Out of credit or no key: the free bank is the fallback and it
+                # has already been filled by the caller.
+                return
+            if ai_config is None:
+                return
+
+            source_content = _study_question_source_content(
+                db,
+                child_id=child_id,
+                area=area,
+                subject_name=subject_name,
+                topic_key=topic_key,
+            )
+            existing_prompts = [question.question for question in existing]
+            raw_questions = generate_study_questions(
+                area=area,
+                subject_name=subject_name,
+                topic_title=topic_title,
+                source_content=source_content,
+                existing_questions=existing_prompts,
+                user_context="",
+                ai_config=ai_config,
+            )
+            validated = validate_study_question_batch(
+                raw_questions,
+                expected_count=QUESTIONS_PER_BATCH,
+                existing_questions=existing_prompts,
+            )
+
+            now = datetime.utcnow()
+            for question in validated:
+                db.add(
+                    StudyQuestion(
+                        child_id=child_id,
+                        area=area,
+                        subject_name=subject_name,
+                        topic_key=topic_key,
+                        topic_title=topic_title,
+                        question=question.question,
+                        question_key=programming_question_key(question.question),
+                        options=question.options,
+                        correct_option=question.correct_option,
+                        explanation=question.explanation,
+                        created_at=now,
+                    )
+                )
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+    except Exception:  # noqa: BLE001 - a background top-up must never escape
+        logger.warning(
+            "Background question top-up failed for %s/%s", subject_name, topic_key, exc_info=True
+        )
+
+
+@app.post("/api/study/questions/prefetch", response_model=PrefetchStudyQuestionsResultSchema)
+def prefetch_study_questions(
+    payload: PrefetchStudyQuestionsSchema,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> PrefetchStudyQuestionsResultSchema:
+    """Keep a topic stocked so the child never watches a spinner to get a question.
+
+    Free questions are added right away; a provider call, when one is warranted
+    and affordable, happens after this response is already on its way back.
+    """
+
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    subject_name = " ".join(payload.subject_name.split())
+    topic_key = payload.topic_key.strip()
+    topic_title = " ".join(payload.topic_title.split())
+
+    def pending_count() -> int:
+        questions = _list_study_questions(
+            session,
+            child_id=child_id,
+            area=payload.area,
+            subject_name=subject_name,
+            topic_key=topic_key,
+        )
+        return sum(0 if is_mastered(question) else 1 for question in questions)
+
+    pending = pending_count()
+    if pending >= payload.threshold:
+        return PrefetchStudyQuestionsResultSchema(scheduled=False, pending=pending, reason="suficiente")
+
+    if payload.area == "english":
+        lesson = _english_lesson_for_topic(session, child=child, topic_key=topic_key)
+        if lesson is not None:
+            ensure_offline_choice_questions(
+                session,
+                child=child,
+                lesson=lesson,
+                items=list(get_lesson_items(session=session, lesson_id=lesson.id or 0)),
+                subject_name=subject_name,
+                topic_key=topic_key,
+                topic_title=topic_title,
+            )
+            pending = pending_count()
+            if pending >= payload.threshold:
+                return PrefetchStudyQuestionsResultSchema(
+                    scheduled=False, pending=pending, reason="banco_proprio"
+                )
+
+    user_id = session_record.user_id
+    if user_id is None:
+        return PrefetchStudyQuestionsResultSchema(scheduled=False, pending=pending, reason="sem_conta")
+
+    ai_settings = get_user_ai_settings_record(user_id, session)
+    if ai_settings is None:
+        return PrefetchStudyQuestionsResultSchema(scheduled=False, pending=pending, reason="sem_ia")
+    if ai_settings.use_global_key:
+        user = session.get(User, user_id)
+        if user is None:
+            return PrefetchStudyQuestionsResultSchema(scheduled=False, pending=pending, reason="sem_conta")
+        refresh_daily_ai_credits(session, user)
+        if not user_has_ai_credit(user):
+            return PrefetchStudyQuestionsResultSchema(
+                scheduled=False, pending=pending, reason="sem_credito"
+            )
+
+    background_tasks.add_task(
+        _prefetch_study_questions_job,
+        child_id=child_id,
+        user_id=user_id,
+        area=payload.area,
+        subject_name=subject_name,
+        topic_key=topic_key,
+        topic_title=topic_title,
+        threshold=payload.threshold,
+    )
+    return PrefetchStudyQuestionsResultSchema(scheduled=True, pending=pending, reason="gerando")
 
 
 @app.delete("/api/coding/topics/{topic_id}", status_code=204)

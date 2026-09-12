@@ -224,7 +224,17 @@ def test_frontend_contract() -> None:
     )
 
     panel = read(QUESTIONS_PANEL)
-    for expected in ("Fazer simulado", "Modo questões", "api.generateStudyQuestions", "api.getStudyQuestions"):
+    # The practice button now names what it practises — what the child still
+    # owes — instead of replaying the whole topic from the first question.
+    for expected in (
+        "Praticar o que falta",
+        "Refazer todas",
+        "Modo questões",
+        "api.generateStudyQuestions",
+        "api.getStudyQuestions",
+        "api.ensureStudyQuestions",
+        "buildPracticeQueue",
+    ):
         require(expected in panel, f"study questions panel missing: {expected}")
 
     diverse = read(DIVERSE_TAB)

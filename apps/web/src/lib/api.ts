@@ -195,9 +195,102 @@ export interface StudyDay {
   studied_text: string;
   distractions: string[];
   is_study_day: boolean;
+  /** The day closed because the child studied, not because somebody typed. */
+  closed_by_activity: boolean;
+  activity_count: number;
   pomodoro_count: number;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** One card of the study queue. Four kinds share the shape; `kind` picks the UI. */
+export interface StudyQueueItem {
+  kind: 'lesson_item' | 'vocabulary' | 'lesson_question' | 'study_question';
+  ref_id: number;
+  source_label: string;
+  topic_title: string;
+  prompt: string;
+  answer: string;
+  options: string[];
+  correct_option: string | null;
+  explanation: string | null;
+  example: string | null;
+  example_translation: string | null;
+  supporting_example: string | null;
+  prompt_translation: string | null;
+  audio_text: string | null;
+  lesson_id: number | null;
+  /** Vocabulary cards only: the pair the review endpoint expects back. */
+  word_en: string | null;
+  word_pt: string | null;
+}
+
+export interface StudySession {
+  id: number;
+  /** active | completed | empty — "empty" means there was nothing owed. */
+  status: string;
+  session_date: string;
+  position: number;
+  total: number;
+  answered_count: number;
+  correct_count: number;
+  items: StudyQueueItem[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** What the home screen needs to choose between starting and continuing. */
+export interface StudySessionState {
+  has_session: boolean;
+  session_id: number | null;
+  position: number;
+  total: number;
+  remaining: number;
+  answered_count: number;
+  correct_count: number;
+  session_date: string | null;
+  updated_at: string | null;
+  next_label: string;
+  due_review: number;
+  pending_questions: number;
+  lesson_pending: boolean;
+}
+
+export interface StudySessionFinishResult {
+  session_id: number;
+  answered_count: number;
+  correct_count: number;
+  day_closed: boolean;
+  study_date: string;
+}
+
+export interface PrefetchQuestionsResult {
+  scheduled: boolean;
+  pending: number;
+  reason: string;
+}
+
+export interface PlacementQuestion {
+  level: number;
+  question: string;
+  options: string[];
+  correct_option: string;
+}
+
+export interface OnboardingState {
+  completed: boolean;
+  child_count: number;
+  child_name: string;
+  target_language: string;
+  placement_available: boolean;
+}
+
+export interface OnboardingResult {
+  child_id: number;
+  child_name: string;
+  level: number;
+  level_pinned: boolean;
+  target_language: string;
 }
 
 export interface StudyDashboard {
@@ -1390,6 +1483,52 @@ export const api = {
       body: JSON.stringify({ level }),
     }),
   getStudyDashboard: () => fetchAPI<StudyDashboard>('/api/study/dashboard'),
+  // ── One study queue, resumable ─────────────────────────────────────────────
+  /** Reads the queue state. Creates nothing, so it is safe on page load. */
+  getStudySessionState: () => fetchAPI<StudySessionState>('/api/study/session'),
+  /** Resumes the open session, or builds a new queue when there is none. */
+  startStudySession: (options: { restart?: boolean; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.restart) params.set('restart', 'true');
+    if (options.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return fetchAPI<StudySession>(`/api/study/session/start${query ? `?${query}` : ''}`, {
+      method: 'POST',
+    });
+  },
+  saveStudySessionProgress: (
+    sessionId: number,
+    payload: { position: number; answered_count?: number; correct_count?: number },
+  ) =>
+    fetchAPI<StudySession>(`/api/study/session/${sessionId}/progress`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  finishStudySession: (
+    sessionId: number,
+    payload: { answered_count?: number; correct_count?: number } = {},
+  ) =>
+    fetchAPI<StudySessionFinishResult>(`/api/study/session/${sessionId}/finish`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  // ── Guided first run ───────────────────────────────────────────────────────
+  getOnboardingState: () => fetchAPI<OnboardingState>('/api/onboarding/state'),
+  getPlacementQuestions: (targetLanguage = 'English') =>
+    fetchAPI<PlacementQuestion[]>(
+      `/api/onboarding/placement?target_language=${encodeURIComponent(targetLanguage)}`,
+    ),
+  completeOnboarding: (payload: {
+    child_name: string;
+    age_group: string;
+    target_language: string;
+    correct_levels: number[];
+    skipped_placement?: boolean;
+  }) =>
+    fetchAPI<OnboardingResult>('/api/onboarding/complete', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getStudyDay: (studyDate: string) => fetchAPI<StudyDay>(`/api/study/day/${studyDate}`),
   saveStudyDay: (studyDate: string, payload: StudyDayUpdatePayload) =>
     fetchAPI<StudyDay>(`/api/study/day/${studyDate}`, {
@@ -1791,6 +1930,18 @@ export const api = {
         `&subject_name=${encodeURIComponent(target.subject_name)}` +
         `&topic_key=${encodeURIComponent(target.topic_key)}`,
     ),
+  /** Fills a topic's bank from the lesson itself — no provider, no credit. */
+  ensureStudyQuestions: (target: StudyQuestionTarget) =>
+    fetchAPI<StudyQuestion[]>('/api/study/questions/ensure', {
+      method: 'POST',
+      body: JSON.stringify(target),
+    }),
+  /** Tops a topic up in the background so nobody waits on a spinner. */
+  prefetchStudyQuestions: (target: StudyQuestionTarget, threshold = 3) =>
+    fetchAPI<PrefetchQuestionsResult>('/api/study/questions/prefetch', {
+      method: 'POST',
+      body: JSON.stringify({ ...target, threshold }),
+    }),
   generateStudyQuestions: (target: StudyQuestionTarget, context?: string) =>
     fetchAPI<StudyQuestion[]>('/api/study/questions/generate', {
       method: 'POST',

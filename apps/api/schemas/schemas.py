@@ -238,9 +238,123 @@ class StudyDaySchema(BaseModel):
     studied_text: str = ""
     distractions: List[str] = Field(default_factory=list)
     is_study_day: bool = False
+    # True when the day closed by studying (a finished session or logged
+    # activity) rather than by somebody typing a note about it.
+    closed_by_activity: bool = False
+    activity_count: int = 0
     pomodoro_count: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class StudyQueueItemSchema(BaseModel):
+    """One card of the study queue.
+
+    Deliberately loose: four card kinds share it, and the session stores exactly
+    what it hands back, so a card built last night still renders tomorrow.
+    """
+
+    kind: Literal["lesson_item", "vocabulary", "lesson_question", "study_question"]
+    ref_id: int
+    source_label: str = ""
+    topic_title: str = ""
+    prompt: str = ""
+    answer: str = ""
+    options: List[str] = Field(default_factory=list)
+    correct_option: Optional[str] = None
+    explanation: Optional[str] = None
+    example: Optional[str] = None
+    example_translation: Optional[str] = None
+    supporting_example: Optional[str] = None
+    prompt_translation: Optional[str] = None
+    audio_text: Optional[str] = None
+    lesson_id: Optional[int] = None
+    # The review endpoint identifies a vocabulary card by its word pair.
+    word_en: Optional[str] = None
+    word_pt: Optional[str] = None
+
+
+class StudySessionSchema(BaseModel):
+    id: int
+    status: str
+    session_date: date
+    position: int = 0
+    total: int = 0
+    answered_count: int = 0
+    correct_count: int = 0
+    items: List[StudyQueueItemSchema] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class StudySessionStateSchema(BaseModel):
+    """What the home screen needs to decide between starting and continuing."""
+
+    has_session: bool = False
+    session_id: Optional[int] = None
+    position: int = 0
+    total: int = 0
+    remaining: int = 0
+    answered_count: int = 0
+    correct_count: int = 0
+    session_date: Optional[date] = None
+    updated_at: Optional[datetime] = None
+    next_label: str = ""
+    due_review: int = 0
+    pending_questions: int = 0
+    lesson_pending: bool = False
+
+
+class StudySessionProgressSchema(BaseModel):
+    position: int = Field(ge=0, le=500)
+    answered_count: Optional[int] = Field(default=None, ge=0, le=500)
+    correct_count: Optional[int] = Field(default=None, ge=0, le=500)
+
+
+class StudySessionFinishSchema(BaseModel):
+    answered_count: Optional[int] = Field(default=None, ge=0, le=500)
+    correct_count: Optional[int] = Field(default=None, ge=0, le=500)
+
+
+class StudySessionFinishResultSchema(BaseModel):
+    session_id: int
+    answered_count: int
+    correct_count: int
+    day_closed: bool
+    study_date: date
+
+
+class PlacementQuestionSchema(BaseModel):
+    level: int
+    question: str
+    options: List[str] = Field(default_factory=list)
+    correct_option: str
+
+
+class OnboardingStateSchema(BaseModel):
+    completed: bool = False
+    child_count: int = 0
+    child_name: str = ""
+    target_language: str = "English"
+    placement_available: bool = False
+
+
+class CompleteOnboardingSchema(BaseModel):
+    child_name: str = Field(min_length=1, max_length=80)
+    age_group: str = Field(min_length=1, max_length=20)
+    target_language: str = Field(default="English", min_length=1, max_length=40)
+    # Levels of the placement questions the child answered correctly. Empty is a
+    # valid answer: it means "start at the beginning".
+    correct_levels: List[int] = Field(default_factory=list, max_length=20)
+    skipped_placement: bool = False
+
+
+class OnboardingResultSchema(BaseModel):
+    child_id: int
+    child_name: str
+    level: int
+    level_pinned: bool
+    target_language: str
 
 
 class QuestionSubjectMetricsSchema(BaseModel):
@@ -828,6 +942,27 @@ class GenerateStudyQuestionsSchema(BaseModel):
     topic_key: str = Field(min_length=1, max_length=120)
     topic_title: str = Field(min_length=1, max_length=300)
     context: Optional[str] = Field(default=None, max_length=1000)
+
+
+class EnsureStudyQuestionsSchema(BaseModel):
+    """Ask for the free, lesson-derived question bank for one topic."""
+
+    area: StudyQuestionArea
+    subject_name: str = Field(min_length=1, max_length=120)
+    topic_key: str = Field(min_length=1, max_length=120)
+    topic_title: str = Field(min_length=1, max_length=300)
+
+
+class PrefetchStudyQuestionsSchema(EnsureStudyQuestionsSchema):
+    """Top the topic up in the background so nobody waits for the provider."""
+
+    threshold: int = Field(default=3, ge=1, le=20)
+
+
+class PrefetchStudyQuestionsResultSchema(BaseModel):
+    scheduled: bool
+    pending: int
+    reason: str = ""
 
 
 class StudyQuestionAttemptSchema(BaseModel):
