@@ -267,6 +267,22 @@ async def test_free_question_bank_needs_no_provider(
     again = await client.post("/api/study/questions/ensure", headers=headers, json=target)
     require(len(again.json()) == len(questions), "ensure must be idempotent")
 
+    # "Modo gramatica" is deliberately not filled from the same phrases:
+    # translation questions labelled as grammar practice would be a lie about
+    # what the child drilled, so that topic waits for the AI path.
+    grammar = await client.post(
+        "/api/study/questions/ensure",
+        headers=headers,
+        json={
+            "area": "english",
+            "subject_name": f"{main.ENGLISH_QUESTION_SUBJECT} - Gramatica",
+            "topic_key": f"grammar:{lesson_id}",
+            "topic_title": "Gramatica: Licao de teste",
+        },
+    )
+    require(grammar.status_code == 200, f"grammar ensure failed: {grammar.text}")
+    require(grammar.json() == [], "grammar mode must not be filled with vocabulary questions")
+
     # A topic that is already stocked schedules nothing at all.
     stocked = await client.post(
         "/api/study/questions/prefetch",

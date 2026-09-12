@@ -7418,6 +7418,21 @@ def generate_study_question_batch(
     return [_study_question_schema(record) for record in created]
 
 
+def _offline_bank_applies(area: str, topic_key: str) -> bool:
+    """Whether the free, lesson-derived bank is the right thing for this topic.
+
+    English lessons are structured phrase pairs, which make honest four-option
+    questions. Two topics are deliberately left to the AI path instead of being
+    filled with something worse than nothing:
+
+    * "modo gramática" (`grammar:<lesson id>`), because translation questions
+      dressed up as grammar practice would be a lie about what the child drilled;
+    * every free-form subject in the `diverse` area, whose material is prose.
+    """
+
+    return area == "english" and not topic_key.strip().casefold().startswith("grammar:")
+
+
 def _english_lesson_for_topic(session: Session, *, child: ChildProfile, topic_key: str) -> Lesson | None:
     """The lesson a question topic points at, when the child may see it."""
 
@@ -7442,10 +7457,8 @@ def ensure_study_questions(
     """Fill a topic's question bank from the lesson itself — no provider, no credit.
 
     This is what keeps "modo questoes" from being an empty screen for an account
-    with no AI key, no credit left, or a provider having a bad day. Only English
-    is covered: its lessons are structured phrase pairs, which make honest
-    four-option questions. A free-form subject is not, so it is left to the AI
-    path rather than filled with something worse than nothing.
+    with no AI key, no credit left, or a provider having a bad day. What it does
+    and does not cover is decided by `_offline_bank_applies`.
     """
 
     require_parent_session(request, session)
@@ -7455,7 +7468,7 @@ def ensure_study_questions(
     topic_key = payload.topic_key.strip()
     topic_title = " ".join(payload.topic_title.split())
 
-    if payload.area == "english":
+    if _offline_bank_applies(payload.area, topic_key):
         lesson = _english_lesson_for_topic(session, child=child, topic_key=topic_key)
         if lesson is not None:
             ensure_offline_choice_questions(
@@ -7603,7 +7616,7 @@ def prefetch_study_questions(
     if pending >= payload.threshold:
         return PrefetchStudyQuestionsResultSchema(scheduled=False, pending=pending, reason="suficiente")
 
-    if payload.area == "english":
+    if _offline_bank_applies(payload.area, topic_key):
         lesson = _english_lesson_for_topic(session, child=child, topic_key=topic_key)
         if lesson is not None:
             ensure_offline_choice_questions(
