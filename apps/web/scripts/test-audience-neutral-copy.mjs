@@ -59,17 +59,20 @@ for (const file of sourceFiles(srcRoot)) {
 
 assert.deepEqual(offenders, [], `copy that still says this app is for children:\n${offenders.join('\n')}`);
 
-// The age band is what tunes the content, so every band has to be offered.
+// The age band tunes the content, and it is derived from the date of birth
+// rather than picked from a list — a dropdown went stale the day after a
+// birthday, and it never told the product whether a minor was studying.
 const onboarding = readFileSync(resolve(srcRoot, 'app/onboarding/page.tsx'), 'utf8');
 const account = readFileSync(resolve(srcRoot, 'app/account/page.tsx'), 'utf8');
-for (const [source, name] of [[onboarding, 'onboarding'], [account, 'account']]) {
-  assert.match(source, /13-17/, `${name} should offer the teenage band`);
-  assert.match(source, /18\+/, `${name} should offer the adult band`);
+const register = readFileSync(resolve(srcRoot, 'app/register/page.tsx'), 'utf8');
+for (const [source, name] of [[onboarding, 'onboarding'], [account, 'account'], [register, 'register']]) {
+  assert.match(source, /type="date"/, `${name} should ask for the date of birth`);
+  assert.match(source, /age-band/, `${name} should derive the band from that date`);
 }
 assert.match(
-  onboarding,
-  /useState\('18\+'\)/,
-  'a profile nobody described is an adult, not a seven-year-old',
+  register,
+  /acompanhado por um adulto responsável/,
+  'signing a minor up must state the supervision clause from the terms',
 );
 
 // The account area is reachable under its own name, and the old link still works.

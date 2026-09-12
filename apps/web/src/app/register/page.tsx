@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowLeft, Bot, CheckCircle2, ChevronDown, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
+import { ArrowLeft, Bot, CalendarDays, CheckCircle2, ChevronDown, Chrome, Eye, EyeOff, Globe, KeyRound, Lock, Mail, User } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
 import { formatCpf, onlyDigits, validateCpf } from '@/lib/cpf';
 import { validatePasswordStrength } from '@/lib/password-validation';
+import { ageFromIsoDate, bandLabel, bandFromIsoDate, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 import { PasswordStrengthMeter } from '@/components/password-strength-meter';
 
 // ── Supported languages ──────────────────────────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ export default function RegisterPage() {
     first_name: '',
     last_name: '',
     child_name: '',
+    birth_date: '',
     email: '',
     cpf: '',
     password: '',
@@ -79,6 +81,8 @@ export default function RegisterPage() {
     ai_base_url: '',
   });
   const [targetLanguage, setTargetLanguage] = useState('English');
+  // Only shown, and only required, when the date entered is a minor's.
+  const [supervisionAccepted, setSupervisionAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Partial<typeof form & { submit: string }>>({});
@@ -87,6 +91,11 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
 
   const passwordCheck = validatePasswordStrength(form.password);
+  // The date decides the band and whether an adult has to be alongside; the
+  // form says so while it is still being filled in, not after saving.
+  const studentAge = ageFromIsoDate(form.birth_date);
+  const studentBand = bandFromIsoDate(form.birth_date);
+  const isMinorStudent = isMinorIsoDate(form.birth_date);
   const cpfDigits = onlyDigits(form.cpf);
   // Só reclama depois que a pessoa digitou algo, para o campo não nascer vermelho.
   const cpfTouchedAndInvalid = cpfDigits.length > 0 && !validateCpf(form.cpf);
@@ -114,6 +123,9 @@ export default function RegisterPage() {
     if (!form.first_name.trim()) next.first_name = 'Informe o nome.';
     if (!form.last_name.trim()) next.last_name = 'Informe o sobrenome.';
     if (!form.child_name.trim()) next.child_name = 'Informe o nome do estudante.';
+
+    const birthProblem = birthDateError(form.birth_date);
+    if (birthProblem) next.birth_date = birthProblem;
 
     const email = form.email.trim();
     if (!email) {
@@ -143,6 +155,13 @@ export default function RegisterPage() {
       next.confirm = 'As senhas não coincidem.';
     }
 
+    // A minor's profile only goes through with the supervision term accepted:
+    // it is the clause the terms of use state, so the form asks for it here
+    // rather than assuming somebody read the document.
+    if (!birthProblem && isMinorStudent && !supervisionAccepted) {
+      next.birth_date = 'Confirme que o estudo será acompanhado por um adulto responsável.';
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -163,6 +182,7 @@ export default function RegisterPage() {
         cpf: onlyDigits(form.cpf),
         password: form.password,
         child_name: form.child_name.trim(),
+        birth_date: form.birth_date || undefined,
         target_language: targetLanguage,
         ai_provider: form.ai_provider,
         ai_api_key: aiApiKey || undefined,
@@ -303,6 +323,56 @@ export default function RegisterPage() {
                 className={inputCls}
               />
             </Field>
+
+            <Field
+              id="birth_date"
+              label="Data de nascimento do estudante"
+              icon={<CalendarDays size={16} className="text-slate-400" />}
+              error={errors.birth_date}
+              required
+            >
+              <input
+                id="birth_date"
+                type="date"
+                required
+                max={new Date().toISOString().slice(0, 10)}
+                value={form.birth_date}
+                onChange={(e) => set('birth_date', e.target.value)}
+                className={inputCls}
+              />
+              {studentBand ? (
+                <p className="mt-1.5 text-xs font-bold text-slate-500">
+                  {studentAge} anos · conteúdo gerado para a faixa {bandLabel(studentBand)}.
+                </p>
+              ) : (
+                <p className="mt-1.5 text-xs font-semibold text-slate-400">
+                  É ela que define a faixa de idade do conteúdo — e continua certa depois do aniversário.
+                </p>
+              )}
+            </Field>
+
+            {isMinorStudent && (
+              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-bold leading-6 text-amber-800">
+                  {/* The terms are still a draft (docs/termos.md says so), so this
+                      states the clause instead of linking to a page that does not
+                      exist yet. */}
+                  Este perfil é de um menor de 18 anos. Pelos termos de uso, o estudo deve ser
+                  acompanhado por um adulto responsável, que responde pela conta.
+                </p>
+                <label className="mt-3 flex items-start gap-2.5 text-sm font-bold text-amber-900">
+                  <input
+                    type="checkbox"
+                    checked={supervisionAccepted}
+                    onChange={(event) => setSupervisionAccepted(event.target.checked)}
+                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-2 border-amber-300"
+                  />
+                  <span>
+                    Sou o responsável legal por este estudante e acompanho o uso do aplicativo.
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Language picker */}
             <div className="space-y-1.5">

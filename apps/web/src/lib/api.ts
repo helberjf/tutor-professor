@@ -281,6 +281,7 @@ export interface OnboardingState {
   completed: boolean;
   child_count: number;
   child_name: string;
+  birth_date: string | null;
   target_language: string;
   placement_available: boolean;
 }
@@ -291,6 +292,8 @@ export interface OnboardingResult {
   level: number;
   level_pinned: boolean;
   target_language: string;
+  age_group: string;
+  requires_adult_supervision: boolean;
 }
 
 export interface StudyDashboard {
@@ -531,7 +534,12 @@ export interface SpeakResponse {
 export interface ParentSettings {
   id: number;
   name: string;
+  /** Derived from birth_date when the profile has one. */
   age_group: string;
+  birth_date: string | null;
+  age: number | null;
+  requires_adult_supervision: boolean;
+  supervision_notice: string | null;
   base_language: string;
   current_level: number;
   streak_count: number;
@@ -544,7 +552,13 @@ export interface ParentSettings {
 export interface ChildProfile {
   id: number;
   name: string;
+  /** Derived from birth_date when the profile has one. */
   age_group: string;
+  birth_date: string | null;
+  age: number | null;
+  /** True for a profile under 18; the notice is the clause the terms state. */
+  requires_adult_supervision: boolean;
+  supervision_notice: string | null;
   base_language: string;
   current_level: number;
   streak_count: number;
@@ -557,6 +571,8 @@ export interface ChildProfile {
 export interface ParentSettingsUpdatePayload {
   child_name?: string;
   age_group?: string;
+  /** ISO date. Sending it also updates the age band derived from it. */
+  birth_date?: string | null;
   voice_preference?: string;
   auto_audio?: boolean;
   target_language?: string;
@@ -569,7 +585,8 @@ export interface GenerateLessonPayload {
 
 export interface CreateChildPayload {
   name: string;
-  age_group: string;
+  age_group?: string;
+  birth_date?: string | null;
   voice_preference?: string;
   auto_audio?: boolean;
   target_language?: string;
@@ -735,6 +752,8 @@ export interface UserRegisterPayload {
   cpf: string;
   password: string;
   child_name?: string;
+  /** ISO date of birth: it decides the age band and whether a minor is studying. */
+  birth_date?: string | null;
   target_language?: string;
   ai_provider?: string;
   ai_api_key?: string;
@@ -1520,7 +1539,8 @@ export const api = {
     ),
   completeOnboarding: (payload: {
     child_name: string;
-    age_group: string;
+    age_group?: string;
+    birth_date?: string | null;
     target_language: string;
     correct_levels: number[];
     skipped_placement?: boolean;

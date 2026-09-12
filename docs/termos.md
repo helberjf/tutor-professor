@@ -13,9 +13,25 @@
 
 O serviço é contratado por uma pessoa maior de 18 anos, que pode estudar na
 própria conta e também criar perfis para outras pessoas sob a sua
-responsabilidade. Ao criar o perfil de um menor de idade, o titular declara ser o
-responsável legal por ele, e o menor usa o aplicativo sob a conta e a supervisão
-desse responsável.
+responsabilidade.
+
+**A data de nascimento é pedida no cadastro e fica editável na área da conta.**
+É ela que define se um perfil é de um menor de 18 anos — o aplicativo não pergunta
+"é criança?", ele calcula a partir da data, e a faixa acompanha o aniversário
+sozinha.
+
+### 1.1 Perfil de menor de idade — uso acompanhado
+
+Quando a data de nascimento indicar menos de 18 anos:
+
+- o titular da conta declara ser o **responsável legal** por essa pessoa;
+- **o uso do aplicativo deve ser acompanhado por um adulto responsável.** O menor
+  não tem conta, senha ou e-mail próprios: estuda dentro da conta do responsável,
+  que responde por ela;
+- o conteúdo gerado é produzido para a faixa de idade do perfil, e o responsável
+  continua sendo quem confere o que foi gerado (item 4);
+- essa condição é mostrada no próprio aplicativo, no cadastro e na área da conta,
+  e não depende de o responsável ter lido este documento.
 
 ## 2. Conta
 

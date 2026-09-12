@@ -116,6 +116,28 @@ def test_user_facing_api_copy_dropped_the_child() -> None:
         require(not offenders, f"{relative} still says crianca: {offenders[:3]}")
 
 
+def test_the_supervision_clause_is_stated_where_it_is_promised() -> None:
+    """The terms say a minor studies with an adult; the app must carry that text."""
+
+    from services.audience import SUPERVISION_NOTICE  # noqa: PLC0415
+
+    require("adulto" in SUPERVISION_NOTICE, "the notice must name the adult")
+    require("menor de 18" in SUPERVISION_NOTICE, "the notice must say who it applies to")
+
+    terms = (ROOT / "docs" / "termos.md").read_text(encoding="utf-8")
+    require(
+        "acompanhado por um adulto responsável" in terms,
+        "the terms of use must state the supervision requirement",
+    )
+    require("data de nascimento" in terms.casefold(), "the terms must say where the age comes from")
+
+    privacy = (ROOT / "docs" / "privacidade.md").read_text(encoding="utf-8")
+    require(
+        "nascimento" in privacy.casefold(),
+        "the privacy draft must list the birth date among the data collected",
+    )
+
+
 def run() -> None:
     test_bands_are_classified()
     test_the_note_describes_the_learner_in_front_of_you()
@@ -123,6 +145,7 @@ def run() -> None:
     test_no_generator_hardcodes_a_child()
     test_the_tutor_prompt_speaks_to_a_student_of_any_age()
     test_user_facing_api_copy_dropped_the_child()
+    test_the_supervision_clause_is_stated_where_it_is_promised()
     print("audience neutrality: all checks passed")
 
 

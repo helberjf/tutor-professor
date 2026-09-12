@@ -205,7 +205,13 @@ class ChildProfile(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     name: str
-    age_group: str  # e.g., "4-6", "7-9", "10-12"
+    # The band content is written for. Derived from birth_date when there is one;
+    # kept as a column because profiles created before the date was asked for
+    # still carry only this.
+    age_group: str  # e.g., "4-6", "7-9", "10-12", "13-17", "18+"
+    # Asked for at signup and in the account area. It decides whether this is a
+    # minor's profile, which is what the supervision clause in the terms hangs on.
+    birth_date: Optional[date] = Field(default=None)
     base_language: str = "Portuguese"
     current_level: int = 1
     # When set, the child (or parent) pinned the level by hand and the automatic
