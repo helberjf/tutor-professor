@@ -1,0 +1,194 @@
+{
+  "title": "Ingles A1 - Numeros",
+  "theme": "Numeros",
+  "objective": "Contar de um a dez e falar quantidades.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "one, two, three",
+        "phrase_pt": "um, dois, tres",
+        "word_by_word": [
+          {
+            "en": "one",
+            "pt": "um"
+          },
+          {
+            "en": "two",
+            "pt": "dois"
+          },
+          {
+            "en": "three",
+            "pt": "tres"
+          }
+        ]
+      },
+      {
+        "phrase_en": "four, five, six",
+        "phrase_pt": "quatro, cinco, seis",
+        "word_by_word": [
+          {
+            "en": "four",
+            "pt": "quatro"
+          },
+          {
+            "en": "five",
+            "pt": "cinco"
+          },
+          {
+            "en": "six",
+            "pt": "seis"
+          }
+        ]
+      },
+      {
+        "phrase_en": "seven, eight, nine",
+        "phrase_pt": "sete, oito, nove",
+        "word_by_word": [
+          {
+            "en": "seven",
+            "pt": "sete"
+          },
+          {
+            "en": "eight",
+            "pt": "oito"
+          },
+          {
+            "en": "nine",
+            "pt": "nove"
+          }
+        ]
+      },
+      {
+        "phrase_en": "ten",
+        "phrase_pt": "dez",
+        "word_by_word": [
+          {
+            "en": "ten",
+            "pt": "dez"
+          }
+        ]
+      },
+      {
+        "phrase_en": "How many?",
+        "phrase_pt": "Quantos?",
+        "word_by_word": [
+          {
+            "en": "How",
+            "pt": "como"
+          },
+          {
+            "en": "many",
+            "pt": "muitos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I have two dogs",
+        "phrase_pt": "Eu tenho dois cachorros",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "have",
+            "pt": "tenho"
+          },
+          {
+            "en": "two",
+            "pt": "dois"
+          },
+          {
+            "en": "dogs",
+            "pt": "cachorros"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the first one",
+        "phrase_pt": "o primeiro",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "first",
+            "pt": "primeiro"
+          },
+          {
+            "en": "one",
+            "pt": "um"
+          }
+        ]
+      },
+      {
+        "phrase_en": "many books",
+        "phrase_pt": "muitos livros",
+        "word_by_word": [
+          {
+            "en": "many",
+            "pt": "muitos"
+          },
+          {
+            "en": "books",
+            "pt": "livros"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "one, two, three",
+      "word_pt": "um, dois, tres",
+      "example_sentence_en": "Count with me: one, two, three.",
+      "example_sentence_pt": "Conte comigo: um, dois, tres."
+    },
+    {
+      "word_en": "four, five, six",
+      "word_pt": "quatro, cinco, seis",
+      "example_sentence_en": "I have four, five, six pencils.",
+      "example_sentence_pt": "Eu tenho quatro, cinco, seis lapis."
+    },
+    {
+      "word_en": "seven, eight, nine",
+      "word_pt": "sete, oito, nove",
+      "example_sentence_en": "Seven, eight, nine birds are here.",
+      "example_sentence_pt": "Sete, oito, nove passaros estao aqui."
+    },
+    {
+      "word_en": "ten",
+      "word_pt": "dez",
+      "example_sentence_en": "There are ten children here.",
+      "example_sentence_pt": "Ha dez criancas aqui."
+    },
+    {
+      "word_en": "How many?",
+      "word_pt": "Quantos?",
+      "example_sentence_en": "How many apples do you have?",
+      "example_sentence_pt": "Quantas macas voce tem?"
+    },
+    {
+      "word_en": "I have two dogs",
+      "word_pt": "Eu tenho dois cachorros",
+      "example_sentence_en": "I have two dogs at home.",
+      "example_sentence_pt": "Eu tenho dois cachorros em casa."
+    },
+    {
+      "word_en": "the first one",
+      "word_pt": "o primeiro",
+      "example_sentence_en": "The first one is mine.",
+      "example_sentence_pt": "O primeiro e meu."
+    },
+    {
+      "word_en": "many books",
+      "word_pt": "muitos livros",
+      "example_sentence_en": "She reads many books.",
+      "example_sentence_pt": "Ela le muitos livros."
+    }
+  ]
+}

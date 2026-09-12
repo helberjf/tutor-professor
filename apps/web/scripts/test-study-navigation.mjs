@@ -32,11 +32,20 @@ assert.doesNotMatch(navbar, /Tutor de idiomas/, 'navbar should not keep the old 
 assert.match(layout, /title: 'Tutor and Professor'/, 'browser metadata should use Tutor and Professor as the app title');
 assert.match(layout, /description: 'Tutor and Professor/, 'browser metadata should describe the new brand');
 
+// The primary CTA opens the study queue itself. It used to land on /study, a
+// page of tabs and five more cards — a third screen of choosing before the first
+// question. /study is still reachable from both navs for planning and notes.
 assert.match(
   homePage,
-  /href="\/study"[\s\S]*?Iniciar estudos|Iniciar estudos[\s\S]*?href="\/study"/,
-  'home page primary study CTA should link to /study',
+  /href=\{hasOpenSession \? '\/session\?restart=1' : '\/session'\}[\s\S]*?Iniciar estudos/,
+  'home page primary study CTA should open the study session',
 );
+assert.match(
+  homePage,
+  /href="\/session"[\s\S]*?Continuar de onde parou/,
+  'home page should offer to continue the open session',
+);
+assert.match(navbar, /href: '\/study'/, 'the navbar should still reach the study planner');
 assert.match(homePage, /Vamos aprender tudo do seu jeito/, 'home hero should represent every supported subject');
 assert.doesNotMatch(homePage, /story-dots/, 'home hero should not use the white dotted background pattern');
 assert.match(homePage, /mx-auto max-w-6xl/, 'home page should use a wider responsive shell');

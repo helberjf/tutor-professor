@@ -1,0 +1,178 @@
+{
+  "title": "Ingles A2 - Comparar",
+  "theme": "Comparacoes",
+  "objective": "Comparar coisas e pessoas.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "bigger than",
+        "phrase_pt": "maior que",
+        "word_by_word": [
+          {
+            "en": "bigger",
+            "pt": "maior"
+          },
+          {
+            "en": "than",
+            "pt": "que"
+          }
+        ]
+      },
+      {
+        "phrase_en": "smaller than",
+        "phrase_pt": "menor que",
+        "word_by_word": [
+          {
+            "en": "smaller",
+            "pt": "menor"
+          },
+          {
+            "en": "than",
+            "pt": "que"
+          }
+        ]
+      },
+      {
+        "phrase_en": "better than",
+        "phrase_pt": "melhor que",
+        "word_by_word": [
+          {
+            "en": "better",
+            "pt": "melhor"
+          },
+          {
+            "en": "than",
+            "pt": "que"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the best",
+        "phrase_pt": "o melhor",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "best",
+            "pt": "melhor"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the same",
+        "phrase_pt": "o mesmo",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "same",
+            "pt": "mesmo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "as fast as",
+        "phrase_pt": "tao rapido quanto",
+        "word_by_word": [
+          {
+            "en": "as",
+            "pt": "tao"
+          },
+          {
+            "en": "fast",
+            "pt": "rapido"
+          },
+          {
+            "en": "as",
+            "pt": "tao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "more difficult",
+        "phrase_pt": "mais dificil",
+        "word_by_word": [
+          {
+            "en": "more",
+            "pt": "mais"
+          },
+          {
+            "en": "difficult",
+            "pt": "dificil"
+          }
+        ]
+      },
+      {
+        "phrase_en": "less noisy",
+        "phrase_pt": "menos barulhento",
+        "word_by_word": [
+          {
+            "en": "less",
+            "pt": "menos"
+          },
+          {
+            "en": "noisy",
+            "pt": "barulhento"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "bigger than",
+      "word_pt": "maior que",
+      "example_sentence_en": "My dog is bigger than yours.",
+      "example_sentence_pt": "Meu cachorro e maior que o seu."
+    },
+    {
+      "word_en": "smaller than",
+      "word_pt": "menor que",
+      "example_sentence_en": "This box is smaller than that one.",
+      "example_sentence_pt": "Esta caixa e menor que aquela."
+    },
+    {
+      "word_en": "better than",
+      "word_pt": "melhor que",
+      "example_sentence_en": "This book is better than the film.",
+      "example_sentence_pt": "Este livro e melhor que o filme."
+    },
+    {
+      "word_en": "the best",
+      "word_pt": "o melhor",
+      "example_sentence_en": "She is the best in the class.",
+      "example_sentence_pt": "Ela e a melhor da turma."
+    },
+    {
+      "word_en": "the same",
+      "word_pt": "o mesmo",
+      "example_sentence_en": "We have the same bag.",
+      "example_sentence_pt": "Nos temos a mesma mochila."
+    },
+    {
+      "word_en": "as fast as",
+      "word_pt": "tao rapido quanto",
+      "example_sentence_en": "He runs as fast as me.",
+      "example_sentence_pt": "Ele corre tao rapido quanto eu."
+    },
+    {
+      "word_en": "more difficult",
+      "word_pt": "mais dificil",
+      "example_sentence_en": "This exercise is more difficult.",
+      "example_sentence_pt": "Este exercicio e mais dificil."
+    },
+    {
+      "word_en": "less noisy",
+      "word_pt": "menos barulhento",
+      "example_sentence_en": "The new room is less noisy.",
+      "example_sentence_pt": "A sala nova e menos barulhenta."
+    }
+  ]
+}

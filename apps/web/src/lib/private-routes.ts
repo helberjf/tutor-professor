@@ -7,10 +7,12 @@ const PRIVATE_PATH_PREFIXES = [
   '/diverse',
   '/exams',
   '/lesson',
+  '/onboarding',
   '/parents',
   '/quick-review',
   '/quiz',
   '/review',
+  '/session',
   '/study',
 ];
 

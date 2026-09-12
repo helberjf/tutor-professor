@@ -1,0 +1,182 @@
+{
+  "title": "Ingles A1 - Em casa",
+  "theme": "Casa",
+  "objective": "Falar dos comodos e das coisas de casa.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "my house",
+        "phrase_pt": "minha casa",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "house",
+            "pt": "casa"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the kitchen",
+        "phrase_pt": "a cozinha",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "kitchen",
+            "pt": "cozinha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my bedroom",
+        "phrase_pt": "meu quarto",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "bedroom",
+            "pt": "quarto"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the bathroom",
+        "phrase_pt": "o banheiro",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "bathroom",
+            "pt": "banheiro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a table",
+        "phrase_pt": "uma mesa",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "table",
+            "pt": "mesa"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a bed",
+        "phrase_pt": "uma cama",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "bed",
+            "pt": "cama"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Come in, please",
+        "phrase_pt": "Entre, por favor",
+        "word_by_word": [
+          {
+            "en": "Come",
+            "pt": "vir"
+          },
+          {
+            "en": "in",
+            "pt": "em"
+          },
+          {
+            "en": "please",
+            "pt": "por favor"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Close the door",
+        "phrase_pt": "Feche a porta",
+        "word_by_word": [
+          {
+            "en": "Close",
+            "pt": "feche"
+          },
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "door",
+            "pt": "porta"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "my house",
+      "word_pt": "minha casa",
+      "example_sentence_en": "My house has a small garden.",
+      "example_sentence_pt": "Minha casa tem um jardim pequeno."
+    },
+    {
+      "word_en": "the kitchen",
+      "word_pt": "a cozinha",
+      "example_sentence_en": "We cook in the kitchen.",
+      "example_sentence_pt": "Nos cozinhamos na cozinha."
+    },
+    {
+      "word_en": "my bedroom",
+      "word_pt": "meu quarto",
+      "example_sentence_en": "My bedroom is upstairs.",
+      "example_sentence_pt": "Meu quarto fica em cima."
+    },
+    {
+      "word_en": "the bathroom",
+      "word_pt": "o banheiro",
+      "example_sentence_en": "The bathroom is on the left.",
+      "example_sentence_pt": "O banheiro fica a esquerda."
+    },
+    {
+      "word_en": "a table",
+      "word_pt": "uma mesa",
+      "example_sentence_en": "We eat at the table.",
+      "example_sentence_pt": "Nos comemos a mesa."
+    },
+    {
+      "word_en": "a bed",
+      "word_pt": "uma cama",
+      "example_sentence_en": "My bed is very soft.",
+      "example_sentence_pt": "Minha cama e bem macia."
+    },
+    {
+      "word_en": "Come in, please",
+      "word_pt": "Entre, por favor",
+      "example_sentence_en": "Come in, please, it is open.",
+      "example_sentence_pt": "Entre, por favor, esta aberto."
+    },
+    {
+      "word_en": "Close the door",
+      "word_pt": "Feche a porta",
+      "example_sentence_en": "Close the door, it is cold.",
+      "example_sentence_pt": "Feche a porta, esta frio."
+    }
+  ]
+}

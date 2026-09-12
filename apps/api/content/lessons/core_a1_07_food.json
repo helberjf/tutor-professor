@@ -1,0 +1,178 @@
+{
+  "title": "Ingles A1 - Comida",
+  "theme": "Comida",
+  "objective": "Falar de comida e bebida do dia a dia.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "bread",
+        "phrase_pt": "pao",
+        "word_by_word": [
+          {
+            "en": "bread",
+            "pt": "pao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "milk",
+        "phrase_pt": "leite",
+        "word_by_word": [
+          {
+            "en": "milk",
+            "pt": "leite"
+          }
+        ]
+      },
+      {
+        "phrase_en": "water",
+        "phrase_pt": "agua",
+        "word_by_word": [
+          {
+            "en": "water",
+            "pt": "agua"
+          }
+        ]
+      },
+      {
+        "phrase_en": "an apple",
+        "phrase_pt": "uma maca",
+        "word_by_word": [
+          {
+            "en": "an",
+            "pt": "uma"
+          },
+          {
+            "en": "apple",
+            "pt": "maca"
+          }
+        ]
+      },
+      {
+        "phrase_en": "rice and beans",
+        "phrase_pt": "arroz e feijao",
+        "word_by_word": [
+          {
+            "en": "rice",
+            "pt": "arroz"
+          },
+          {
+            "en": "and",
+            "pt": "e"
+          },
+          {
+            "en": "beans",
+            "pt": "feijao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am hungry",
+        "phrase_pt": "Eu estou com fome",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "hungry",
+            "pt": "com fome"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am thirsty",
+        "phrase_pt": "Eu estou com sede",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "thirsty",
+            "pt": "com sede"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is delicious",
+        "phrase_pt": "Esta delicioso",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "delicious",
+            "pt": "delicioso"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "bread",
+      "word_pt": "pao",
+      "example_sentence_en": "I eat bread for breakfast.",
+      "example_sentence_pt": "Eu como pao no cafe da manha."
+    },
+    {
+      "word_en": "milk",
+      "word_pt": "leite",
+      "example_sentence_en": "She drinks milk every morning.",
+      "example_sentence_pt": "Ela bebe leite toda manha."
+    },
+    {
+      "word_en": "water",
+      "word_pt": "agua",
+      "example_sentence_en": "Please give me water.",
+      "example_sentence_pt": "Por favor me de agua."
+    },
+    {
+      "word_en": "an apple",
+      "word_pt": "uma maca",
+      "example_sentence_en": "An apple is a good snack.",
+      "example_sentence_pt": "Uma maca e um bom lanche."
+    },
+    {
+      "word_en": "rice and beans",
+      "word_pt": "arroz e feijao",
+      "example_sentence_en": "We eat rice and beans at lunch.",
+      "example_sentence_pt": "Nos comemos arroz e feijao no almoco."
+    },
+    {
+      "word_en": "I am hungry",
+      "word_pt": "Eu estou com fome",
+      "example_sentence_en": "I am hungry, let us eat.",
+      "example_sentence_pt": "Eu estou com fome, vamos comer."
+    },
+    {
+      "word_en": "I am thirsty",
+      "word_pt": "Eu estou com sede",
+      "example_sentence_en": "I am thirsty after the game.",
+      "example_sentence_pt": "Eu estou com sede depois do jogo."
+    },
+    {
+      "word_en": "It is delicious",
+      "word_pt": "Esta delicioso",
+      "example_sentence_en": "This cake is delicious.",
+      "example_sentence_pt": "Este bolo esta delicioso."
+    }
+  ]
+}

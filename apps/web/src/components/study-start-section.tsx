@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Brain, ClipboardList, GraduationCap, Languages, SpellCheck2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, BookOpen, Brain, ClipboardList, GraduationCap, Languages, PlayCircle, SpellCheck2 } from 'lucide-react';
+
+import { api, type StudySessionState } from '@/lib/api';
 
 const studyActions = [
   {
@@ -41,7 +44,37 @@ const studyActions = [
   },
 ];
 
+/**
+ * The five modes, with the one-click path in front of them.
+ *
+ * This section (on the dashboard) used to be five equal cards, which is one more
+ * choice to make before studying anything, after the one the home screen already
+ * asked for. The queue button answers it: one tap and the first card is on
+ * screen. The five modes stay for whoever wants to pick a specific one.
+ */
 export function StudyStartSection() {
+  const [sessionState, setSessionState] = useState<StudySessionState | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Reading the state creates nothing, so this cannot start a session by
+    // accident just because the page was opened.
+    api
+      .getStudySessionState()
+      .then((state) => {
+        if (!cancelled) setSessionState(state);
+      })
+      .catch(() => {
+        /* The mode cards below work with or without this. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hasOpenSession = Boolean(sessionState?.has_session && sessionState.remaining > 0);
+  const remaining = sessionState?.remaining ?? 0;
+
   return (
     <section className="rounded-[1.6rem] border-2 border-slate-100 bg-white/95 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -57,6 +90,19 @@ export function StudyStartSection() {
           Ingles
         </div>
       </div>
+
+      <Link
+        href="/session"
+        className="mt-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-5 py-3 text-white transition hover:scale-[1.01]"
+      >
+        <span className="inline-flex items-center gap-2 text-base font-black sm:text-lg">
+          <PlayCircle size={22} />
+          {hasOpenSession ? 'Continuar de onde parou' : 'Estudar agora'}
+        </span>
+        <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/85">
+          {hasOpenSession ? `Faltam ${remaining}` : 'Fila do dia'}
+        </span>
+      </Link>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {studyActions.map((action) => {

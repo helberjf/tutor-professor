@@ -1,0 +1,202 @@
+{
+  "title": "Ingles A2 - Lugares",
+  "theme": "Lugares",
+  "objective": "Falar de lugares da cidade e como chegar.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "the park",
+        "phrase_pt": "o parque",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "park",
+            "pt": "parque"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the market",
+        "phrase_pt": "o mercado",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "market",
+            "pt": "mercado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the hospital",
+        "phrase_pt": "o hospital",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "hospital",
+            "pt": "hospital"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the bus stop",
+        "phrase_pt": "o ponto de onibus",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "bus",
+            "pt": "onibus"
+          },
+          {
+            "en": "stop",
+            "pt": "ponto"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Turn left",
+        "phrase_pt": "Vire a esquerda",
+        "word_by_word": [
+          {
+            "en": "Turn",
+            "pt": "vire"
+          },
+          {
+            "en": "left",
+            "pt": "esquerda"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Go straight ahead",
+        "phrase_pt": "Siga em frente",
+        "word_by_word": [
+          {
+            "en": "Go",
+            "pt": "vou"
+          },
+          {
+            "en": "straight",
+            "pt": "em frente"
+          },
+          {
+            "en": "ahead",
+            "pt": "em frente"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is near here",
+        "phrase_pt": "E perto daqui",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "near",
+            "pt": "perto"
+          },
+          {
+            "en": "here",
+            "pt": "aqui"
+          }
+        ]
+      },
+      {
+        "phrase_en": "How do I get there?",
+        "phrase_pt": "Como eu chego la?",
+        "word_by_word": [
+          {
+            "en": "How",
+            "pt": "como"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "get",
+            "pt": "chego"
+          },
+          {
+            "en": "there",
+            "pt": "la"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "the park",
+      "word_pt": "o parque",
+      "example_sentence_en": "The park is next to my house.",
+      "example_sentence_pt": "O parque fica ao lado da minha casa."
+    },
+    {
+      "word_en": "the market",
+      "word_pt": "o mercado",
+      "example_sentence_en": "We buy fruit at the market.",
+      "example_sentence_pt": "Nos compramos fruta no mercado."
+    },
+    {
+      "word_en": "the hospital",
+      "word_pt": "o hospital",
+      "example_sentence_en": "The hospital is far from here.",
+      "example_sentence_pt": "O hospital fica longe daqui."
+    },
+    {
+      "word_en": "the bus stop",
+      "word_pt": "o ponto de onibus",
+      "example_sentence_en": "I wait at the bus stop.",
+      "example_sentence_pt": "Eu espero no ponto de onibus."
+    },
+    {
+      "word_en": "Turn left",
+      "word_pt": "Vire a esquerda",
+      "example_sentence_en": "Turn left at the corner.",
+      "example_sentence_pt": "Vire a esquerda na esquina."
+    },
+    {
+      "word_en": "Go straight ahead",
+      "word_pt": "Siga em frente",
+      "example_sentence_en": "Go straight ahead for two streets.",
+      "example_sentence_pt": "Siga em frente por duas ruas."
+    },
+    {
+      "word_en": "It is near here",
+      "word_pt": "E perto daqui",
+      "example_sentence_en": "The school is near here.",
+      "example_sentence_pt": "A escola e perto daqui."
+    },
+    {
+      "word_en": "How do I get there?",
+      "word_pt": "Como eu chego la?",
+      "example_sentence_en": "How do I get there by bus?",
+      "example_sentence_pt": "Como eu chego la de onibus?"
+    }
+  ]
+}

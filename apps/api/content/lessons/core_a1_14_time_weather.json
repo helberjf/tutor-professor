@@ -1,0 +1,182 @@
+{
+  "title": "Ingles A1 - Dias e tempo",
+  "theme": "Dias e tempo",
+  "objective": "Falar dos dias da semana e do tempo.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "today",
+        "phrase_pt": "hoje",
+        "word_by_word": [
+          {
+            "en": "today",
+            "pt": "hoje"
+          }
+        ]
+      },
+      {
+        "phrase_en": "tomorrow",
+        "phrase_pt": "amanha",
+        "word_by_word": [
+          {
+            "en": "tomorrow",
+            "pt": "amanha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "yesterday",
+        "phrase_pt": "ontem",
+        "word_by_word": [
+          {
+            "en": "yesterday",
+            "pt": "ontem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "on Monday",
+        "phrase_pt": "na segunda-feira",
+        "word_by_word": [
+          {
+            "en": "on",
+            "pt": "em"
+          },
+          {
+            "en": "Monday",
+            "pt": "segunda-feira"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is sunny",
+        "phrase_pt": "Esta ensolarado",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "sunny",
+            "pt": "ensolarado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is raining",
+        "phrase_pt": "Esta chovendo",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "raining",
+            "pt": "chovendo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is cold",
+        "phrase_pt": "Esta frio",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "cold",
+            "pt": "frio"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What time is it?",
+        "phrase_pt": "Que horas sao?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "time",
+            "pt": "hora"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "it",
+            "pt": "isso"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "today",
+      "word_pt": "hoje",
+      "example_sentence_en": "Today is a good day.",
+      "example_sentence_pt": "Hoje e um bom dia."
+    },
+    {
+      "word_en": "tomorrow",
+      "word_pt": "amanha",
+      "example_sentence_en": "Tomorrow we go to school.",
+      "example_sentence_pt": "Amanha nos vamos para a escola."
+    },
+    {
+      "word_en": "yesterday",
+      "word_pt": "ontem",
+      "example_sentence_en": "Yesterday was very hot.",
+      "example_sentence_pt": "Ontem estava muito quente."
+    },
+    {
+      "word_en": "on Monday",
+      "word_pt": "na segunda-feira",
+      "example_sentence_en": "On Monday I have English.",
+      "example_sentence_pt": "Na segunda-feira eu tenho ingles."
+    },
+    {
+      "word_en": "It is sunny",
+      "word_pt": "Esta ensolarado",
+      "example_sentence_en": "It is sunny, let us go out.",
+      "example_sentence_pt": "Esta ensolarado, vamos sair."
+    },
+    {
+      "word_en": "It is raining",
+      "word_pt": "Esta chovendo",
+      "example_sentence_en": "It is raining a lot today.",
+      "example_sentence_pt": "Esta chovendo muito hoje."
+    },
+    {
+      "word_en": "It is cold",
+      "word_pt": "Esta frio",
+      "example_sentence_en": "It is cold in the morning.",
+      "example_sentence_pt": "Esta frio de manha."
+    },
+    {
+      "word_en": "What time is it?",
+      "word_pt": "Que horas sao?",
+      "example_sentence_en": "What time is it, please?",
+      "example_sentence_pt": "Que horas sao, por favor?"
+    }
+  ]
+}

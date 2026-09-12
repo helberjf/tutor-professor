@@ -78,11 +78,16 @@ export function EnglishTab({
   const historyDays = dashboard?.recent_days ?? [];
 
   const phrasesGoal = 3;
-  // The backend only knows whether anything was written down today, not how many
-  // phrases. Three separately-filling segments implied a per-phrase count that
-  // never existed: they could only be all empty or all full, which read as three
-  // grey placeholder bars. One bar for a yes/no fact, said plainly.
-  const goalMet = hasStudyText;
+  // The backend only knows whether the day was studied, not how many phrases.
+  // Three separately-filling segments implied a per-phrase count that never
+  // existed: they could only be all empty or all full, which read as three grey
+  // placeholder bars. One bar for a yes/no fact, said plainly.
+  //
+  // What counts as studied changed: answering the day's queue closes the day on
+  // its own. Writing a note is a record worth keeping, not a toll gate in front
+  // of a child who already did the work.
+  const closedByActivity = Boolean(selectedIsToday && dashboard?.today.closed_by_activity);
+  const goalMet = hasStudyText || closedByActivity;
   const isRegistered = Boolean(dashboard?.today.is_study_day);
 
   return (
@@ -120,7 +125,11 @@ export function EnglishTab({
           </span>
         </div>
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-          {goalMet ? 'Meta do dia cumprida. Salve para registrar.' : 'Escreva o que estudou para fechar a meta de hoje.'}
+          {closedByActivity && !hasStudyText
+            ? 'Meta do dia cumprida estudando. Escrever aqui é opcional.'
+            : goalMet
+              ? 'Meta do dia cumprida. Salve para registrar.'
+              : 'Estude na sessão de hoje ou escreva o que estudou para fechar a meta.'}
         </p>
 
         {/* The four nested cards became a stat row: same numbers, one card

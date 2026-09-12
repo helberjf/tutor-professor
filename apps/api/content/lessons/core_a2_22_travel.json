@@ -1,0 +1,202 @@
+{
+  "title": "Ingles A2 - Viagem",
+  "theme": "Viagem",
+  "objective": "Falar de viagens e transporte.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "a trip",
+        "phrase_pt": "uma viagem",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "trip",
+            "pt": "viagem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "by bus",
+        "phrase_pt": "de onibus",
+        "word_by_word": [
+          {
+            "en": "by",
+            "pt": "de"
+          },
+          {
+            "en": "bus",
+            "pt": "onibus"
+          }
+        ]
+      },
+      {
+        "phrase_en": "by plane",
+        "phrase_pt": "de aviao",
+        "word_by_word": [
+          {
+            "en": "by",
+            "pt": "de"
+          },
+          {
+            "en": "plane",
+            "pt": "aviao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a ticket",
+        "phrase_pt": "uma passagem",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "ticket",
+            "pt": "passagem"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Where is the station?",
+        "phrase_pt": "Onde fica a estacao?",
+        "word_by_word": [
+          {
+            "en": "Where",
+            "pt": "onde"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "station",
+            "pt": "estacao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am lost",
+        "phrase_pt": "Eu estou perdido",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "lost",
+            "pt": "perdido"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It takes two hours",
+        "phrase_pt": "Leva duas horas",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "takes",
+            "pt": "leva"
+          },
+          {
+            "en": "two",
+            "pt": "dois"
+          },
+          {
+            "en": "hours",
+            "pt": "horas"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Have a good trip",
+        "phrase_pt": "Boa viagem",
+        "word_by_word": [
+          {
+            "en": "Have",
+            "pt": "tenho"
+          },
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "good",
+            "pt": "bom"
+          },
+          {
+            "en": "trip",
+            "pt": "viagem"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "a trip",
+      "word_pt": "uma viagem",
+      "example_sentence_en": "We are planning a trip.",
+      "example_sentence_pt": "Nos estamos planejando uma viagem."
+    },
+    {
+      "word_en": "by bus",
+      "word_pt": "de onibus",
+      "example_sentence_en": "I go to school by bus.",
+      "example_sentence_pt": "Eu vou para a escola de onibus."
+    },
+    {
+      "word_en": "by plane",
+      "word_pt": "de aviao",
+      "example_sentence_en": "They travel by plane.",
+      "example_sentence_pt": "Eles viajam de aviao."
+    },
+    {
+      "word_en": "a ticket",
+      "word_pt": "uma passagem",
+      "example_sentence_en": "I need a ticket to Rio.",
+      "example_sentence_pt": "Eu preciso de uma passagem para o Rio."
+    },
+    {
+      "word_en": "Where is the station?",
+      "word_pt": "Onde fica a estacao?",
+      "example_sentence_en": "Excuse me, where is the station?",
+      "example_sentence_pt": "Com licenca, onde fica a estacao?"
+    },
+    {
+      "word_en": "I am lost",
+      "word_pt": "Eu estou perdido",
+      "example_sentence_en": "I am lost, can you help me?",
+      "example_sentence_pt": "Eu estou perdido, voce pode me ajudar?"
+    },
+    {
+      "word_en": "It takes two hours",
+      "word_pt": "Leva duas horas",
+      "example_sentence_en": "The trip takes two hours.",
+      "example_sentence_pt": "A viagem leva duas horas."
+    },
+    {
+      "word_en": "Have a good trip",
+      "word_pt": "Boa viagem",
+      "example_sentence_en": "Have a good trip, see you soon.",
+      "example_sentence_pt": "Boa viagem, ate logo."
+    }
+  ]
+}

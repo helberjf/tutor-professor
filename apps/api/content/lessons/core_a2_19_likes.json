@@ -1,0 +1,218 @@
+{
+  "title": "Ingles A2 - Gostos",
+  "theme": "Gostos",
+  "objective": "Dizer do que voce gosta e do que nao gosta.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I like music",
+        "phrase_pt": "Eu gosto de musica",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          },
+          {
+            "en": "music",
+            "pt": "musica"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I love reading",
+        "phrase_pt": "Eu amo ler",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "love",
+            "pt": "amo"
+          },
+          {
+            "en": "reading",
+            "pt": "lendo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I do not like waiting",
+        "phrase_pt": "Eu nao gosto de esperar",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          },
+          {
+            "en": "waiting",
+            "pt": "esperar"
+          }
+        ]
+      },
+      {
+        "phrase_en": "My favourite food",
+        "phrase_pt": "Minha comida favorita",
+        "word_by_word": [
+          {
+            "en": "My",
+            "pt": "meu"
+          },
+          {
+            "en": "favourite",
+            "pt": "favorita"
+          },
+          {
+            "en": "food",
+            "pt": "comida"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I prefer tea",
+        "phrase_pt": "Eu prefiro cha",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "prefer",
+            "pt": "prefiro"
+          },
+          {
+            "en": "tea",
+            "pt": "cha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What do you think?",
+        "phrase_pt": "O que voce acha?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "think",
+            "pt": "acha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I agree with you",
+        "phrase_pt": "Eu concordo com voce",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "agree",
+            "pt": "concordo"
+          },
+          {
+            "en": "with",
+            "pt": "com"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It depends",
+        "phrase_pt": "Depende",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "depends",
+            "pt": "depende"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I like music",
+      "word_pt": "Eu gosto de musica",
+      "example_sentence_en": "I like music from Brazil.",
+      "example_sentence_pt": "Eu gosto de musica do Brasil."
+    },
+    {
+      "word_en": "I love reading",
+      "word_pt": "Eu amo ler",
+      "example_sentence_en": "I love reading before bed.",
+      "example_sentence_pt": "Eu amo ler antes de dormir."
+    },
+    {
+      "word_en": "I do not like waiting",
+      "word_pt": "Eu nao gosto de esperar",
+      "example_sentence_en": "I do not like waiting in line.",
+      "example_sentence_pt": "Eu nao gosto de esperar na fila."
+    },
+    {
+      "word_en": "My favourite food",
+      "word_pt": "Minha comida favorita",
+      "example_sentence_en": "My favourite food is pizza.",
+      "example_sentence_pt": "Minha comida favorita e pizza."
+    },
+    {
+      "word_en": "I prefer tea",
+      "word_pt": "Eu prefiro cha",
+      "example_sentence_en": "I prefer tea to coffee.",
+      "example_sentence_pt": "Eu prefiro cha a cafe."
+    },
+    {
+      "word_en": "What do you think?",
+      "word_pt": "O que voce acha?",
+      "example_sentence_en": "What do you think about this song?",
+      "example_sentence_pt": "O que voce acha desta musica?"
+    },
+    {
+      "word_en": "I agree with you",
+      "word_pt": "Eu concordo com voce",
+      "example_sentence_en": "I agree with you about the film.",
+      "example_sentence_pt": "Eu concordo com voce sobre o filme."
+    },
+    {
+      "word_en": "It depends",
+      "word_pt": "Depende",
+      "example_sentence_en": "It depends on the weather.",
+      "example_sentence_pt": "Depende do tempo."
+    }
+  ]
+}

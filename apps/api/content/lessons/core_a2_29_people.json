@@ -1,0 +1,222 @@
+{
+  "title": "Ingles A2 - Descrever pessoas",
+  "theme": "Descricoes",
+  "objective": "Descrever como alguem e.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "He is tall",
+        "phrase_pt": "Ele e alto",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "tall",
+            "pt": "alto"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She is kind",
+        "phrase_pt": "Ela e gentil",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "kind",
+            "pt": "gentil"
+          }
+        ]
+      },
+      {
+        "phrase_en": "He is funny",
+        "phrase_pt": "Ele e engracado",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "funny",
+            "pt": "engracado"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She has curly hair",
+        "phrase_pt": "Ela tem cabelo cacheado",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "has",
+            "pt": "tem"
+          },
+          {
+            "en": "curly",
+            "pt": "cacheado"
+          },
+          {
+            "en": "hair",
+            "pt": "cabelo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "He wears glasses",
+        "phrase_pt": "Ele usa oculos",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "wears",
+            "pt": "usa"
+          },
+          {
+            "en": "glasses",
+            "pt": "oculos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She is my best friend",
+        "phrase_pt": "Ela e a minha melhor amiga",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "best",
+            "pt": "melhor"
+          },
+          {
+            "en": "friend",
+            "pt": "amigo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What is he like?",
+        "phrase_pt": "Como ele e?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "he",
+            "pt": "ele"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          }
+        ]
+      },
+      {
+        "phrase_en": "They look alike",
+        "phrase_pt": "Eles sao parecidos",
+        "word_by_word": [
+          {
+            "en": "They",
+            "pt": "eles"
+          },
+          {
+            "en": "look",
+            "pt": "olhe"
+          },
+          {
+            "en": "alike",
+            "pt": "parecidos"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "He is tall",
+      "word_pt": "Ele e alto",
+      "example_sentence_en": "My brother is tall and thin.",
+      "example_sentence_pt": "Meu irmao e alto e magro."
+    },
+    {
+      "word_en": "She is kind",
+      "word_pt": "Ela e gentil",
+      "example_sentence_en": "She is kind to everyone.",
+      "example_sentence_pt": "Ela e gentil com todos."
+    },
+    {
+      "word_en": "He is funny",
+      "word_pt": "Ele e engracado",
+      "example_sentence_en": "My cousin is very funny.",
+      "example_sentence_pt": "Meu primo e muito engracado."
+    },
+    {
+      "word_en": "She has curly hair",
+      "word_pt": "Ela tem cabelo cacheado",
+      "example_sentence_en": "She has curly hair and brown eyes.",
+      "example_sentence_pt": "Ela tem cabelo cacheado e olhos castanhos."
+    },
+    {
+      "word_en": "He wears glasses",
+      "word_pt": "Ele usa oculos",
+      "example_sentence_en": "My teacher wears glasses.",
+      "example_sentence_pt": "Meu professor usa oculos."
+    },
+    {
+      "word_en": "She is my best friend",
+      "word_pt": "Ela e a minha melhor amiga",
+      "example_sentence_en": "She is my best friend at school.",
+      "example_sentence_pt": "Ela e a minha melhor amiga na escola."
+    },
+    {
+      "word_en": "What is he like?",
+      "word_pt": "Como ele e?",
+      "example_sentence_en": "What is he like as a teacher?",
+      "example_sentence_pt": "Como ele e como professor?"
+    },
+    {
+      "word_en": "They look alike",
+      "word_pt": "Eles sao parecidos",
+      "example_sentence_en": "The twins look alike.",
+      "example_sentence_pt": "Os gemeos sao parecidos."
+    }
+  ]
+}

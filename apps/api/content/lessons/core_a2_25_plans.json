@@ -1,0 +1,206 @@
+{
+  "title": "Ingles A2 - Planos",
+  "theme": "Planos",
+  "objective": "Falar de planos e do futuro.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I am going to study",
+        "phrase_pt": "Eu vou estudar",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "going",
+            "pt": "vou"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          },
+          {
+            "en": "study",
+            "pt": "estudo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "We will travel",
+        "phrase_pt": "Nos vamos viajar",
+        "word_by_word": [
+          {
+            "en": "We",
+            "pt": "nos"
+          },
+          {
+            "en": "will",
+            "pt": "vai"
+          },
+          {
+            "en": "travel",
+            "pt": "viajar"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Next weekend",
+        "phrase_pt": "No proximo fim de semana",
+        "word_by_word": [
+          {
+            "en": "Next",
+            "pt": "proximo"
+          },
+          {
+            "en": "weekend",
+            "pt": "fim de semana"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What are your plans?",
+        "phrase_pt": "Quais sao os seus planos?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "plans",
+            "pt": "planos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Maybe later",
+        "phrase_pt": "Talvez mais tarde",
+        "word_by_word": [
+          {
+            "en": "Maybe",
+            "pt": "talvez"
+          },
+          {
+            "en": "later",
+            "pt": "mais tarde"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I hope so",
+        "phrase_pt": "Eu espero que sim",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "hope",
+            "pt": "espero"
+          },
+          {
+            "en": "so",
+            "pt": "sim"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I promise",
+        "phrase_pt": "Eu prometo",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "promise",
+            "pt": "prometo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "See you soon",
+        "phrase_pt": "Ate logo",
+        "word_by_word": [
+          {
+            "en": "See",
+            "pt": "ver"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "soon",
+            "pt": "logo"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I am going to study",
+      "word_pt": "Eu vou estudar",
+      "example_sentence_en": "I am going to study tonight.",
+      "example_sentence_pt": "Eu vou estudar hoje a noite."
+    },
+    {
+      "word_en": "We will travel",
+      "word_pt": "Nos vamos viajar",
+      "example_sentence_en": "We will travel in July.",
+      "example_sentence_pt": "Nos vamos viajar em julho."
+    },
+    {
+      "word_en": "Next weekend",
+      "word_pt": "No proximo fim de semana",
+      "example_sentence_en": "Next weekend we visit grandma.",
+      "example_sentence_pt": "No proximo fim de semana nos visitamos a vovo."
+    },
+    {
+      "word_en": "What are your plans?",
+      "word_pt": "Quais sao os seus planos?",
+      "example_sentence_en": "What are your plans for today?",
+      "example_sentence_pt": "Quais sao os seus planos para hoje?"
+    },
+    {
+      "word_en": "Maybe later",
+      "word_pt": "Talvez mais tarde",
+      "example_sentence_en": "Maybe later we can play.",
+      "example_sentence_pt": "Talvez mais tarde a gente possa brincar."
+    },
+    {
+      "word_en": "I hope so",
+      "word_pt": "Eu espero que sim",
+      "example_sentence_en": "Will it be sunny? I hope so.",
+      "example_sentence_pt": "Vai fazer sol? Eu espero que sim."
+    },
+    {
+      "word_en": "I promise",
+      "word_pt": "Eu prometo",
+      "example_sentence_en": "I promise I will help you.",
+      "example_sentence_pt": "Eu prometo que vou te ajudar."
+    },
+    {
+      "word_en": "See you soon",
+      "word_pt": "Ate logo",
+      "example_sentence_en": "See you soon, take care.",
+      "example_sentence_pt": "Ate logo, se cuida."
+    }
+  ]
+}

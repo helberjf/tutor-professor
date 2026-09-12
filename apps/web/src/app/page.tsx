@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
-import { ApiError, api, type LevelAnalysis, type Progress } from '@/lib/api';
+import { ApiError, api, type LevelAnalysis, type Progress, type StudySessionState } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
 type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
@@ -12,6 +12,9 @@ type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_miss
 export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [level, setLevel] = useState<LevelAnalysis | null>(null);
+  // What is still open in the study queue, so the first screen can offer to
+  // continue it instead of asking the child to find their way back to it.
+  const [sessionState, setSessionState] = useState<StudySessionState | null>(null);
   const [status, setStatus] = useState<HomeStatus>('loading');
   const [connection, setConnection] = useState(() => getApiConnectionDetails());
 
@@ -38,9 +41,12 @@ export default function HomePage() {
         return Promise.all([
           api.getProgress().catch(() => null),
           api.getChildLevel().catch(() => null),
-        ]).then(([progressData, levelData]) => {
+          // Reading the queue state creates nothing, so it is safe on load.
+          api.getStudySessionState().catch(() => null),
+        ]).then(([progressData, levelData, queueState]) => {
           setProgress(progressData);
           setLevel(levelData);
+          setSessionState(queueState);
           setStatus('authenticated');
         });
       })
@@ -66,6 +72,9 @@ export default function HomePage() {
   const cardHref = (href: string) =>
     isUnauthenticated ? `/login?next=${encodeURIComponent(href)}` : href;
   const levelProgress = getLevelProgress(progress, level);
+  const hasOpenSession = Boolean(sessionState?.has_session && sessionState.remaining > 0);
+  const remainingLabel = describeRemaining(sessionState);
+  const queueHint = describeQueue(sessionState, hasOpenSession);
 
   return (
     <main className="min-h-screen px-3 py-4 sm:px-5 sm:py-6 md:px-8 md:py-10">
@@ -150,20 +159,52 @@ export default function HomePage() {
                 </Link>
               </div>
             ) : isAuthenticated ? (
-              <div className="mt-1 flex flex-col items-start gap-2 sm:mt-6 sm:gap-3">
-                <div className="relative inline-flex w-full sm:w-auto">
-                  <span className="absolute inset-0 animate-ping rounded-2xl bg-primary opacity-20" aria-hidden />
-                  <Link
-                    href="/study"
-                    className="relative inline-flex min-h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-lg font-black text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-8 sm:text-xl"
-                  >
-                    <ClipboardList size={28} />
-                    Iniciar estudos
-                  </Link>
+              <div className="mt-1 flex flex-col items-start gap-2.5 sm:mt-6 sm:gap-3">
+                <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-stretch sm:gap-3">
+                  {/* Continuing comes first: to a child who was already in the
+                      middle of a session, it is the only thing on this screen
+                      they are looking for. */}
+                  {hasOpenSession && (
+                    <Link
+                      href="/session"
+                      className="relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-6 py-2 text-white shadow-[0_14px_34px_rgba(16,185,129,0.26)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7"
+                    >
+                      <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
+                        <PlayCircle size={26} />
+                        Continuar de onde parou
+                      </span>
+                      <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/85">
+                        {remainingLabel}
+                      </span>
+                    </Link>
+                  )}
+                  <div className="relative inline-flex w-full sm:w-auto">
+                    {!hasOpenSession && (
+                      <span className="absolute inset-0 animate-ping rounded-2xl bg-primary opacity-20" aria-hidden />
+                    )}
+                    <Link
+                      href={hasOpenSession ? '/session?restart=1' : '/session'}
+                      className={`relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl px-6 py-2 transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7 ${
+                        hasOpenSession
+                          ? 'border-2 border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
+                          : 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
+                        <ClipboardList size={26} />
+                        Iniciar estudos
+                      </span>
+                      {hasOpenSession && (
+                        <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Monta uma fila nova
+                        </span>
+                      )}
+                    </Link>
+                  </div>
                 </div>
-                {progress && progress.themes_completed > 0 && (
-                  <p className="text-xs font-semibold text-slate-500 sm:text-sm">Continue de onde parou</p>
-                )}
+                {queueHint ? (
+                  <p className="text-xs font-semibold text-slate-500 sm:text-sm">{queueHint}</p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -356,6 +397,39 @@ export default function HomePage() {
       </div>
     </main>
   );
+}
+
+/** "Faltam 4 itens - Revisao": what the continue button is promising. */
+function describeRemaining(state: StudySessionState | null): string {
+  if (!state || state.remaining <= 0) return '';
+  const items = state.remaining === 1 ? '1 item' : `${state.remaining} itens`;
+  return state.next_label ? `Faltam ${items} · ${state.next_label}` : `Faltam ${items}`;
+}
+
+/**
+ * One line saying what a new session would hold.
+ *
+ * It is here so the buttons are not a leap of faith: a child with nothing due
+ * should read that, rather than press a button and land on an empty screen.
+ */
+function describeQueue(state: StudySessionState | null, hasOpenSession: boolean): string {
+  if (!state) return '';
+  const parts: string[] = [];
+  if (state.lesson_pending) parts.push('licao de hoje');
+  if (state.due_review > 0) {
+    parts.push(state.due_review === 1 ? '1 revisao vencida' : `${state.due_review} revisoes vencidas`);
+  }
+  if (state.pending_questions > 0) {
+    parts.push(
+      state.pending_questions === 1
+        ? '1 questao pendente'
+        : `${state.pending_questions} questoes pendentes`,
+    );
+  }
+  if (parts.length === 0) {
+    return hasOpenSession ? 'Termine a sessao aberta para fechar o dia.' : 'Tudo em dia por aqui.';
+  }
+  return `Na fila: ${parts.join(' · ')}.`;
 }
 
 /**

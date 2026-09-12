@@ -1,0 +1,194 @@
+{
+  "title": "Ingles A1 - Roupas",
+  "theme": "Roupas",
+  "objective": "Falar do que voce esta vestindo.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "a shirt",
+        "phrase_pt": "uma camisa",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "shirt",
+            "pt": "camisa"
+          }
+        ]
+      },
+      {
+        "phrase_en": "trousers",
+        "phrase_pt": "calca",
+        "word_by_word": [
+          {
+            "en": "trousers",
+            "pt": "calca"
+          }
+        ]
+      },
+      {
+        "phrase_en": "shoes",
+        "phrase_pt": "sapatos",
+        "word_by_word": [
+          {
+            "en": "shoes",
+            "pt": "sapatos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a jacket",
+        "phrase_pt": "uma jaqueta",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "jacket",
+            "pt": "jaqueta"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a hat",
+        "phrase_pt": "um chapeu",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "hat",
+            "pt": "chapeu"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am wearing a dress",
+        "phrase_pt": "Eu estou usando um vestido",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "wearing",
+            "pt": "usando"
+          },
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "dress",
+            "pt": "vestido"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Put on your shoes",
+        "phrase_pt": "Calce os sapatos",
+        "word_by_word": [
+          {
+            "en": "Put",
+            "pt": "calce"
+          },
+          {
+            "en": "on",
+            "pt": "em"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "shoes",
+            "pt": "sapatos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It is too big",
+        "phrase_pt": "Esta grande demais",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "too",
+            "pt": "demais"
+          },
+          {
+            "en": "big",
+            "pt": "grande"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "a shirt",
+      "word_pt": "uma camisa",
+      "example_sentence_en": "He wears a blue shirt.",
+      "example_sentence_pt": "Ele usa uma camisa azul."
+    },
+    {
+      "word_en": "trousers",
+      "word_pt": "calca",
+      "example_sentence_en": "These trousers are new.",
+      "example_sentence_pt": "Esta calca e nova."
+    },
+    {
+      "word_en": "shoes",
+      "word_pt": "sapatos",
+      "example_sentence_en": "My shoes are dirty.",
+      "example_sentence_pt": "Meus sapatos estao sujos."
+    },
+    {
+      "word_en": "a jacket",
+      "word_pt": "uma jaqueta",
+      "example_sentence_en": "Take a jacket, it is cold.",
+      "example_sentence_pt": "Leve uma jaqueta, esta frio."
+    },
+    {
+      "word_en": "a hat",
+      "word_pt": "um chapeu",
+      "example_sentence_en": "She wears a hat in the sun.",
+      "example_sentence_pt": "Ela usa um chapeu no sol."
+    },
+    {
+      "word_en": "I am wearing a dress",
+      "word_pt": "Eu estou usando um vestido",
+      "example_sentence_en": "I am wearing a red dress.",
+      "example_sentence_pt": "Eu estou usando um vestido vermelho."
+    },
+    {
+      "word_en": "Put on your shoes",
+      "word_pt": "Calce os sapatos",
+      "example_sentence_en": "Put on your shoes, we are late.",
+      "example_sentence_pt": "Calce os sapatos, estamos atrasados."
+    },
+    {
+      "word_en": "It is too big",
+      "word_pt": "Esta grande demais",
+      "example_sentence_en": "This shirt is too big for me.",
+      "example_sentence_pt": "Esta camisa esta grande demais para mim."
+    }
+  ]
+}

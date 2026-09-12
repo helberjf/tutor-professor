@@ -1,0 +1,190 @@
+{
+  "title": "Ingles A1 - Na escola",
+  "theme": "Escola",
+  "objective": "Falar das coisas e das pessoas da escola.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "my school",
+        "phrase_pt": "minha escola",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "school",
+            "pt": "escola"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my teacher",
+        "phrase_pt": "meu professor",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "teacher",
+            "pt": "professor"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a book",
+        "phrase_pt": "um livro",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "book",
+            "pt": "livro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "a pencil",
+        "phrase_pt": "um lapis",
+        "word_by_word": [
+          {
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "pencil",
+            "pt": "lapis"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my backpack",
+        "phrase_pt": "minha mochila",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "backpack",
+            "pt": "mochila"
+          }
+        ]
+      },
+      {
+        "phrase_en": "the classroom",
+        "phrase_pt": "a sala de aula",
+        "word_by_word": [
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "classroom",
+            "pt": "sala de aula"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I study every day",
+        "phrase_pt": "Eu estudo todo dia",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "study",
+            "pt": "estudo"
+          },
+          {
+            "en": "every",
+            "pt": "todo"
+          },
+          {
+            "en": "day",
+            "pt": "dia"
+          }
+        ]
+      },
+      {
+        "phrase_en": "May I go out?",
+        "phrase_pt": "Posso sair?",
+        "word_by_word": [
+          {
+            "en": "May",
+            "pt": "posso"
+          },
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "go",
+            "pt": "vou"
+          },
+          {
+            "en": "out",
+            "pt": "sair"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "my school",
+      "word_pt": "minha escola",
+      "example_sentence_en": "My school is near my house.",
+      "example_sentence_pt": "Minha escola e perto da minha casa."
+    },
+    {
+      "word_en": "my teacher",
+      "word_pt": "meu professor",
+      "example_sentence_en": "My teacher is very kind.",
+      "example_sentence_pt": "Meu professor e muito gentil."
+    },
+    {
+      "word_en": "a book",
+      "word_pt": "um livro",
+      "example_sentence_en": "I read a book every night.",
+      "example_sentence_pt": "Eu leio um livro toda noite."
+    },
+    {
+      "word_en": "a pencil",
+      "word_pt": "um lapis",
+      "example_sentence_en": "I write with a pencil.",
+      "example_sentence_pt": "Eu escrevo com um lapis."
+    },
+    {
+      "word_en": "my backpack",
+      "word_pt": "minha mochila",
+      "example_sentence_en": "My backpack is heavy today.",
+      "example_sentence_pt": "Minha mochila esta pesada hoje."
+    },
+    {
+      "word_en": "the classroom",
+      "word_pt": "a sala de aula",
+      "example_sentence_en": "The classroom is big and bright.",
+      "example_sentence_pt": "A sala de aula e grande e clara."
+    },
+    {
+      "word_en": "I study every day",
+      "word_pt": "Eu estudo todo dia",
+      "example_sentence_en": "I study every day after school.",
+      "example_sentence_pt": "Eu estudo todo dia depois da escola."
+    },
+    {
+      "word_en": "May I go out?",
+      "word_pt": "Posso sair?",
+      "example_sentence_en": "Teacher, may I go out?",
+      "example_sentence_pt": "Professora, posso sair?"
+    }
+  ]
+}

@@ -12,11 +12,12 @@ muda de prioridade.
 
 ---
 
-## Resumo: as cinco que mais mudam o produto
+## Resumo: as que mais mudam o produto
 
 | # | Melhoria | Por quê | Impacto | Esforço |
 |---|---|---|---|---|
-| 1 | **Conteúdo base de verdade sem IA** | O conteúdo fixo é 1 lição de 3 itens por nível — 120 itens no total, 5 quizzes e 1 história — e o plano gratuito não acrescenta franquia mensal: sobra o crédito diário da conta, 3 por padrão. Sem IA, a criança esgota o app no primeiro dia. | Muito alto | M |
+| 0 | **Uma fila só, com "continuar de onde parou"** | Eram três telas de escolha antes da primeira questão e quatro filas de revisão que ninguém somava. | Muito alto | P–M — **feito em 2026-09-11** |
+| 1 | **Conteúdo base de verdade sem IA** | O conteúdo fixo era 1 lição de 3 itens por nível — 120 itens no acervo inteiro — e o plano gratuito não acrescenta franquia mensal: sobra o crédito diário da conta, 3 por padrão. | Muito alto | M — **feito em 2026-09-11** |
 | 2 | **Modo criança com PIN para a área de pais** | Hoje a mesma sessão abre a área de pais, onde dá para trocar a chave de IA, apagar alunos e excluir a conta. | Alto | P |
 | 3 | **Relatório semanal para o responsável** | É o que faz o pagante perceber valor. O serviço de e-mail já existe. | Alto | P–M |
 | 4 | **Simulado de qualquer matéria** | O modo simulado é genérico, mas só tinha acervo para a certificação AWS DVA-C02, vindo de script; nenhuma outra matéria virava prova. | Alto | P — feito em 2026-09-11 |
@@ -26,7 +27,36 @@ muda de prioridade.
 
 ## 1. Experiência da criança
 
-### 1.1 Conteúdo base que funcione sem IA — prioridade máxima
+### 1.0 Sessão única de estudo — feito em 2026-09-11
+- **Observado:** para chegar à primeira questão a criança passava por três telas
+  de escolha (home com 8 cards → `/study` com 3 abas → `study-start-section` com
+  mais 5 cards), e havia **quatro filas de revisão separadas** sem nenhuma soma:
+  `/api/review`, `/api/coding/review`, o deck FSRS e o "modo questões". O
+  `PracticeQuestionsModal` recomeçava sempre do índice 0 com todas as questões do
+  tópico, mesmo as já acertadas, embora `attempt_count`, `error_count` e
+  `last_answered_at` já existissem em cada linha. Nada guardava a posição: fechar
+  o app perdia o lugar.
+- **Feito:**
+  - `StudySession` (migration `0025`) guarda a fila montada, a posição, quantas
+    foram respondidas e quantas acertou. A fila é um **retrato**, não uma consulta
+    refeita a cada visita — é isso que faz "continuar de onde parou" ser verdade.
+  - `GET /api/study/session` diz o que falta **sem criar nada**;
+    `POST /api/study/session/start` retoma a sessão aberta (ou monta outra com
+    `?restart=true`); `/progress` move o marcador só para frente;
+    `/finish` encerra e fecha o dia.
+  - `services/study_queue_service.py` monta a fila: lição de hoje primeiro
+    (ensinar antes de perguntar), depois a revisão vencida, depois as questões
+    devidas. Nada que já foi dominado volta — `is_mastered` = dois acertos com o
+    último também certo, a mesma regra que o front aplica em
+    `lib/question-queue.ts`.
+  - Tela `/session`: barra de progresso, um card por vez, áudio, e nada para
+    escolher. Cada resposta vai pelo endpoint que já era dono daquele tipo de
+    card, então métricas, nível e log diário continuam iguais.
+  - A home ganhou **"Continuar de onde parou"** ao lado de "Iniciar estudos",
+    com "faltam N · <assunto>". O botão só aparece quando há algo a continuar.
+- **Impacto:** muito alto (é o atrito que segurava todo o resto). **Esforço:** P–M.
+
+### 1.1 Conteúdo base que funcione sem IA — feito em 2026-09-11
 - **Observado:** `apps/api/content/lessons/` tem 40 arquivos, **uma lição por
   nível por idioma, cada uma com 3 itens**. Quizzes fixos: 5, só inglês.
   Histórias fixas: 1 — 120 itens de lição no acervo inteiro. O plano Gratuito tem
@@ -35,14 +65,26 @@ muda de prioridade.
   quando o administrador libera a chave dele.
 - **Consequência:** a proposta de valor depende de IA, e justamente a conta que
   mais precisa ser convencida (gratuita, em trial) é a que tem menos IA.
-- **Proposta:**
-  1. Pacote curado de inglês A1–A2 para começar: ~30 lições × 8–10 itens, com
-     quiz e revisão, revisado por humano.
-  2. **Cache compartilhado de conteúdo gerado:** uma lição gerada para "inglês,
-     A1, tema animais, 7–9 anos" serve para todas as contas. Corta custo de IA e
-     elimina espera. Conteúdo pessoal continua privado; só o genérico é
-     reaproveitado, e só depois de passar pela validação que já existe.
-- **Impacto:** muito alto. **Esforço:** M (conteúdo) + M (cache).
+- **Feito:**
+  1. **Pacote curado de inglês A1–A2:** 30 lições × 8 frases (240 no total,
+     níveis 1 a 4), com tradução, frase de exemplo e decomposição palavra a
+     palavra em 100% das frases. Os dados ficam em
+     `scripts/english_core_pack_data.py` e viram JSON com
+     `python scripts/build_english_core_pack.py`; `scripts/init_db.py` semeia como
+     sempre. Gerar em vez de escrever 30 arquivos à mão é o que mantém o
+     glossário consistente — "my" é traduzido igual nas trinta lições.
+  2. **Questões sem IA:** `services/offline_question_service.py` deriva da própria
+     lição as perguntas de revisão (`LessonQuestion`) e as de múltipla escolha
+     (`StudyQuestion`), determinísticas e sem gastar crédito.
+     `POST /api/study/questions/ensure` preenche um tópico vazio, e o painel de
+     questões chama isso sozinho antes de mostrar tela vazia.
+  3. **Fila de reposição em segundo plano:** `POST /api/study/questions/prefetch`
+     completa o banco antes de acabar — primeiro de graça, pela lição; só depois,
+     se houver chave e crédito, agenda uma geração que roda **depois** da resposta
+     já ter voltado. A criança nunca espera o provedor.
+  4. O cache compartilhado de lições geradas já existia (`auto_generate_lesson_for_child`
+     reaproveita a lição do nível e materializa as perguntas por criança).
+- **Impacto:** muito alto. **Esforço:** M.
 
 ### 1.2 Pronúncia com reconhecimento de fala
 - **Observado:** há TTS (Kokoro, com fallback do navegador), mas nenhum uso de
@@ -90,11 +132,16 @@ muda de prioridade.
   manter, e o intervalo passa a se adaptar ao desempenho real.
 - **Impacto:** médio (qualidade pedagógica). **Esforço:** M.
 
-### 1.6 Onboarding guiado
-- **Observado:** não há fluxo de primeiros passos no front (já listado no `TODO-SAAS.md`).
-- **Proposta:** 3 telas logo após o cadastro: nome e idade da criança, idioma e
-  nível (com um teste de nivelamento de 5 perguntas), e a primeira lição. Meta:
-  primeira lição concluída em menos de 3 minutos.
+### 1.6 Onboarding guiado — feito em 2026-09-11
+- **Observado:** não havia fluxo de primeiros passos no front (estava no `TODO-SAAS.md`).
+- **Feito:** `/onboarding` em 3 passos — nome e idade, idioma, e um teste de
+  nivelamento de 5 perguntas que sobe de "Hello" a um passado simples. O banco do
+  teste é fixo (`build_placement_questions`), porque um teste que dependesse de
+  conteúdo semeado falharia justamente no primeiro minuto da conta. Acertar até o
+  nível 3 começa no 4; o nível colocado é **fixado** (`level_override`), senão a
+  escada automática — que conta questões respondidas — puxaria de volta para 1 na
+  primeira leitura. A área de pais devolve ao automático quando quiser.
+  O primeiro login cai em `/onboarding`; um `?next=` explícito sempre ganha.
 - **Impacto:** alto (ativação). **Esforço:** P.
 
 ---
@@ -118,6 +165,15 @@ muda de prioridade.
   Na Vercel, dá para disparar com Vercel Cron numa rota protegida por segredo.
   Inclua link para desligar o envio.
 - **Impacto:** alto (renovação). **Esforço:** P–M.
+
+### 2.2b O dia fecha estudando, não digitando — feito em 2026-09-11
+- **Observado:** na aba English a meta do dia só fechava com texto escrito
+  (`goalMet = hasStudyText`), e `is_study_day` era `bool(studied_text)`. Um diário
+  de adulto no caminho de uma criança que já tinha feito o trabalho.
+- **Feito:** `is_study_day` passou a significar "este dia foi estudado": sessão
+  concluída (`StudyDay.auto_completed_at`), atividade registrada, ou o texto —
+  o que vier primeiro. A sequência de dias (`compute_study_streak`) segue a mesma
+  regra. O registro escrito continua existindo, como registro e não como pedágio.
 
 ### 2.3 Painel de pais mais útil
 - **Observado:** o card por aluno em `/parents` mostra 3 números (Dias, Temas, Frases).
@@ -213,24 +269,32 @@ muda de prioridade.
 ## 5. Roteiro sugerido
 
 **Feito em 2026-09-11:** CI (testes + `pnpm audit`, incluindo o RCE do Next.js),
-hash de senha, mensagens de erro de IA (3.4), README e simulado para toda matéria (3.1).
+hash de senha, mensagens de erro de IA (3.4), README, simulado para toda matéria
+(3.1), sessão única com "continuar de onde parou" (1.0), fila que não repete o
+que já foi acertado (1.0), reposição de questões em segundo plano (1.1), pacote
+curado de inglês A1–A2 e questões sem IA (1.1), dia que fecha estudando (2.2b) e
+onboarding em 3 telas com nivelamento (1.6).
+
+**Antes do próximo deploy**
+1. Rodar a migration `0025` no Supabase pelo bootstrap e conferir as colunas
+   (`studysession`, `studyday.auto_completed_at`, `user.onboarding_completed_at`),
+   não só o `alembic_version`.
+2. `python scripts/init_db.py --dry-run` contra produção antes de semear as 30
+   lições novas; depois sem `--dry-run`.
 
 **Agora (1–2 semanas)**
-1. PIN da área de pais (2.1). Precisa de migration (a próxima livre é a `0025`) e
-   de rodar o bootstrap no Supabase antes do push.
-2. Onboarding em 3 telas (1.6).
-3. Atualizar FastAPI/requests validando no CI (seção 4).
-4. Gerar questões de simulado com IA na própria tela (3.1).
+3. PIN da área de pais (2.1). Precisa de migration (a próxima livre é a `0026`).
+4. Atualizar FastAPI/requests validando no CI (seção 4).
+5. Gerar questões de simulado com IA na própria tela (3.1).
 
 **Próximo (2–6 semanas)**
-6. Pacote curado de inglês A1–A2 e cache compartilhado de conteúdo (1.1).
-7. Relatório semanal por e-mail (2.2) e painel de pais mais rico (2.3).
-8. Gateway com Pix (3.2).
-9. Meta diária, conquistas e proteção de sequência (1.4).
+6. Relatório semanal por e-mail (2.2) e painel de pais mais rico (2.3).
+7. Gateway com Pix (3.2).
+8. Meta diária, conquistas e proteção de sequência (1.4).
 
 **Depois**
-10. Pronúncia com reconhecimento de fala (1.2).
-11. Tutor com IA contextual (1.3).
-12. FSRS na revisão de idiomas (1.5).
-13. Lembretes por Web Push (2.6), limite de tempo (2.4), curadoria de IA (2.5).
-14. Perfil criança × adulto completo (3.1) e quebra do `main.py` em routers.
+9. Pronúncia com reconhecimento de fala (1.2).
+10. Tutor com IA contextual (1.3).
+11. FSRS na revisão de idiomas (1.5) — a fila única já é o lugar natural para ele.
+12. Lembretes por Web Push (2.6), limite de tempo (2.4), curadoria de IA (2.5).
+13. Perfil criança × adulto completo (3.1) e quebra do `main.py` em routers.

@@ -1,0 +1,182 @@
+{
+  "title": "Ingles A1 - O corpo",
+  "theme": "Corpo",
+  "objective": "Nomear partes do corpo.",
+  "level": 2,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "my head",
+        "phrase_pt": "minha cabeca",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "head",
+            "pt": "cabeca"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my hand",
+        "phrase_pt": "minha mao",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "hand",
+            "pt": "mao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my foot",
+        "phrase_pt": "meu pe",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "foot",
+            "pt": "pe"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my eyes",
+        "phrase_pt": "meus olhos",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "eyes",
+            "pt": "olhos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my hair",
+        "phrase_pt": "meu cabelo",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "hair",
+            "pt": "cabelo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my mouth",
+        "phrase_pt": "minha boca",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "mouth",
+            "pt": "boca"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Wash your hands",
+        "phrase_pt": "Lave as maos",
+        "word_by_word": [
+          {
+            "en": "Wash",
+            "pt": "lave"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "hands",
+            "pt": "maos"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Look at me",
+        "phrase_pt": "Olhe para mim",
+        "word_by_word": [
+          {
+            "en": "Look",
+            "pt": "olhe"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "me",
+            "pt": "mim"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "my head",
+      "word_pt": "minha cabeca",
+      "example_sentence_en": "My head hurts a little.",
+      "example_sentence_pt": "Minha cabeca doi um pouco."
+    },
+    {
+      "word_en": "my hand",
+      "word_pt": "minha mao",
+      "example_sentence_en": "I write with my hand.",
+      "example_sentence_pt": "Eu escrevo com a minha mao."
+    },
+    {
+      "word_en": "my foot",
+      "word_pt": "meu pe",
+      "example_sentence_en": "My foot is in the water.",
+      "example_sentence_pt": "Meu pe esta na agua."
+    },
+    {
+      "word_en": "my eyes",
+      "word_pt": "meus olhos",
+      "example_sentence_en": "My eyes are brown.",
+      "example_sentence_pt": "Meus olhos sao castanhos."
+    },
+    {
+      "word_en": "my hair",
+      "word_pt": "meu cabelo",
+      "example_sentence_en": "My hair is long and black.",
+      "example_sentence_pt": "Meu cabelo e longo e preto."
+    },
+    {
+      "word_en": "my mouth",
+      "word_pt": "minha boca",
+      "example_sentence_en": "I open my mouth to speak.",
+      "example_sentence_pt": "Eu abro a boca para falar."
+    },
+    {
+      "word_en": "Wash your hands",
+      "word_pt": "Lave as maos",
+      "example_sentence_en": "Wash your hands before lunch.",
+      "example_sentence_pt": "Lave as maos antes do almoco."
+    },
+    {
+      "word_en": "Look at me",
+      "word_pt": "Olhe para mim",
+      "example_sentence_en": "Look at me, please.",
+      "example_sentence_pt": "Olhe para mim, por favor."
+    }
+  ]
+}

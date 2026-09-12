@@ -1,0 +1,234 @@
+{
+  "title": "Ingles A2 - Convites",
+  "theme": "Convites",
+  "objective": "Convidar alguem e combinar um encontro.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "Do you want to come?",
+        "phrase_pt": "Voce quer vir?",
+        "word_by_word": [
+          {
+            "en": "Do",
+            "pt": "faco"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "want",
+            "pt": "quer"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          },
+          {
+            "en": "come",
+            "pt": "vir"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Let us meet at four",
+        "phrase_pt": "Vamos nos encontrar as quatro",
+        "word_by_word": [
+          {
+            "en": "Let",
+            "pt": "vamos"
+          },
+          {
+            "en": "us",
+            "pt": "nos"
+          },
+          {
+            "en": "meet",
+            "pt": "conhecer"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "four",
+            "pt": "quatro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I would love to",
+        "phrase_pt": "Eu adoraria",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "would",
+            "pt": "queria"
+          },
+          {
+            "en": "love",
+            "pt": "amo"
+          },
+          {
+            "en": "to",
+            "pt": "para"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I cannot today",
+        "phrase_pt": "Eu nao posso hoje",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "cannot",
+            "pt": "nao posso"
+          },
+          {
+            "en": "today",
+            "pt": "hoje"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Another day, maybe",
+        "phrase_pt": "Outro dia, talvez",
+        "word_by_word": [
+          {
+            "en": "Another",
+            "pt": "outro"
+          },
+          {
+            "en": "day",
+            "pt": "dia"
+          },
+          {
+            "en": "maybe",
+            "pt": "talvez"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Bring your friend",
+        "phrase_pt": "Traga o seu amigo",
+        "word_by_word": [
+          {
+            "en": "Bring",
+            "pt": "traga"
+          },
+          {
+            "en": "your",
+            "pt": "seu"
+          },
+          {
+            "en": "friend",
+            "pt": "amigo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "It starts at six",
+        "phrase_pt": "Comeca as seis",
+        "word_by_word": [
+          {
+            "en": "It",
+            "pt": "isso"
+          },
+          {
+            "en": "starts",
+            "pt": "comeca"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "six",
+            "pt": "seis"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Thanks for inviting me",
+        "phrase_pt": "Obrigado por me convidar",
+        "word_by_word": [
+          {
+            "en": "Thanks",
+            "pt": "obrigado"
+          },
+          {
+            "en": "for",
+            "pt": "para"
+          },
+          {
+            "en": "inviting",
+            "pt": "convidar"
+          },
+          {
+            "en": "me",
+            "pt": "mim"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "Do you want to come?",
+      "word_pt": "Voce quer vir?",
+      "example_sentence_en": "Do you want to come with us?",
+      "example_sentence_pt": "Voce quer vir com a gente?"
+    },
+    {
+      "word_en": "Let us meet at four",
+      "word_pt": "Vamos nos encontrar as quatro",
+      "example_sentence_en": "Let us meet at four at the park.",
+      "example_sentence_pt": "Vamos nos encontrar as quatro no parque."
+    },
+    {
+      "word_en": "I would love to",
+      "word_pt": "Eu adoraria",
+      "example_sentence_en": "A party? I would love to.",
+      "example_sentence_pt": "Uma festa? Eu adoraria."
+    },
+    {
+      "word_en": "I cannot today",
+      "word_pt": "Eu nao posso hoje",
+      "example_sentence_en": "I cannot today, I have class.",
+      "example_sentence_pt": "Eu nao posso hoje, eu tenho aula."
+    },
+    {
+      "word_en": "Another day, maybe",
+      "word_pt": "Outro dia, talvez",
+      "example_sentence_en": "Another day, maybe next week.",
+      "example_sentence_pt": "Outro dia, talvez semana que vem."
+    },
+    {
+      "word_en": "Bring your friend",
+      "word_pt": "Traga o seu amigo",
+      "example_sentence_en": "Bring your friend to the party.",
+      "example_sentence_pt": "Traga o seu amigo para a festa."
+    },
+    {
+      "word_en": "It starts at six",
+      "word_pt": "Comeca as seis",
+      "example_sentence_en": "The film starts at six.",
+      "example_sentence_pt": "O filme comeca as seis."
+    },
+    {
+      "word_en": "Thanks for inviting me",
+      "word_pt": "Obrigado por me convidar",
+      "example_sentence_en": "Thanks for inviting me to lunch.",
+      "example_sentence_pt": "Obrigado por me convidar para o almoco."
+    }
+  ]
+}

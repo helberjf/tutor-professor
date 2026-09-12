@@ -1,0 +1,198 @@
+{
+  "title": "Ingles A2 - Verbos do dia a dia",
+  "theme": "Verbos",
+  "objective": "Usar verbos comuns no presente.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I eat",
+        "phrase_pt": "Eu como",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "eat",
+            "pt": "como"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She works",
+        "phrase_pt": "Ela trabalha",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "works",
+            "pt": "trabalha"
+          }
+        ]
+      },
+      {
+        "phrase_en": "He studies",
+        "phrase_pt": "Ele estuda",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "studies",
+            "pt": "estuda"
+          }
+        ]
+      },
+      {
+        "phrase_en": "We live here",
+        "phrase_pt": "Nos moramos aqui",
+        "word_by_word": [
+          {
+            "en": "We",
+            "pt": "nos"
+          },
+          {
+            "en": "live",
+            "pt": "moramos"
+          },
+          {
+            "en": "here",
+            "pt": "aqui"
+          }
+        ]
+      },
+      {
+        "phrase_en": "They play",
+        "phrase_pt": "Eles brincam",
+        "word_by_word": [
+          {
+            "en": "They",
+            "pt": "eles"
+          },
+          {
+            "en": "play",
+            "pt": "brincam"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I do not like it",
+        "phrase_pt": "Eu nao gosto disso",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "do",
+            "pt": "faco"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "like",
+            "pt": "gosto"
+          },
+          {
+            "en": "it",
+            "pt": "isso"
+          }
+        ]
+      },
+      {
+        "phrase_en": "Does she know?",
+        "phrase_pt": "Ela sabe?",
+        "word_by_word": [
+          {
+            "en": "Does",
+            "pt": "faz"
+          },
+          {
+            "en": "she",
+            "pt": "ela"
+          },
+          {
+            "en": "know",
+            "pt": "sei"
+          }
+        ]
+      },
+      {
+        "phrase_en": "He never forgets",
+        "phrase_pt": "Ele nunca esquece",
+        "word_by_word": [
+          {
+            "en": "He",
+            "pt": "ele"
+          },
+          {
+            "en": "never",
+            "pt": "nunca"
+          },
+          {
+            "en": "forgets",
+            "pt": "esquece"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I eat",
+      "word_pt": "Eu como",
+      "example_sentence_en": "I eat fruit every day.",
+      "example_sentence_pt": "Eu como fruta todo dia."
+    },
+    {
+      "word_en": "She works",
+      "word_pt": "Ela trabalha",
+      "example_sentence_en": "She works at a hospital.",
+      "example_sentence_pt": "Ela trabalha em um hospital."
+    },
+    {
+      "word_en": "He studies",
+      "word_pt": "Ele estuda",
+      "example_sentence_en": "He studies English at night.",
+      "example_sentence_pt": "Ele estuda ingles a noite."
+    },
+    {
+      "word_en": "We live here",
+      "word_pt": "Nos moramos aqui",
+      "example_sentence_en": "We live here with our dog.",
+      "example_sentence_pt": "Nos moramos aqui com o nosso cachorro."
+    },
+    {
+      "word_en": "They play",
+      "word_pt": "Eles brincam",
+      "example_sentence_en": "They play in the park.",
+      "example_sentence_pt": "Eles brincam no parque."
+    },
+    {
+      "word_en": "I do not like it",
+      "word_pt": "Eu nao gosto disso",
+      "example_sentence_en": "I do not like cold soup.",
+      "example_sentence_pt": "Eu nao gosto de sopa fria."
+    },
+    {
+      "word_en": "Does she know?",
+      "word_pt": "Ela sabe?",
+      "example_sentence_en": "Does she know the answer?",
+      "example_sentence_pt": "Ela sabe a resposta?"
+    },
+    {
+      "word_en": "He never forgets",
+      "word_pt": "Ele nunca esquece",
+      "example_sentence_en": "He never forgets my birthday.",
+      "example_sentence_pt": "Ele nunca esquece o meu aniversario."
+    }
+  ]
+}

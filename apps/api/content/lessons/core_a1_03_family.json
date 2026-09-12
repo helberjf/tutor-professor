@@ -1,0 +1,190 @@
+{
+  "title": "Ingles A1 - Familia",
+  "theme": "Familia",
+  "objective": "Falar das pessoas da sua familia.",
+  "level": 1,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "my mother",
+        "phrase_pt": "minha mae",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "mother",
+            "pt": "mae"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my father",
+        "phrase_pt": "meu pai",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "father",
+            "pt": "pai"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my sister",
+        "phrase_pt": "minha irma",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "sister",
+            "pt": "irma"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my brother",
+        "phrase_pt": "meu irmao",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "brother",
+            "pt": "irmao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my grandmother",
+        "phrase_pt": "minha avo",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "grandmother",
+            "pt": "avo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "my grandfather",
+        "phrase_pt": "meu avo",
+        "word_by_word": [
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "grandfather",
+            "pt": "avo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I love my family",
+        "phrase_pt": "Eu amo a minha familia",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "love",
+            "pt": "amo"
+          },
+          {
+            "en": "my",
+            "pt": "meu"
+          },
+          {
+            "en": "family",
+            "pt": "familia"
+          }
+        ]
+      },
+      {
+        "phrase_en": "We are at home",
+        "phrase_pt": "Nos estamos em casa",
+        "word_by_word": [
+          {
+            "en": "We",
+            "pt": "nos"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "home",
+            "pt": "casa"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "my mother",
+      "word_pt": "minha mae",
+      "example_sentence_en": "My mother cooks very well.",
+      "example_sentence_pt": "Minha mae cozinha muito bem."
+    },
+    {
+      "word_en": "my father",
+      "word_pt": "meu pai",
+      "example_sentence_en": "My father works in the city.",
+      "example_sentence_pt": "Meu pai trabalha na cidade."
+    },
+    {
+      "word_en": "my sister",
+      "word_pt": "minha irma",
+      "example_sentence_en": "My sister is six years old.",
+      "example_sentence_pt": "Minha irma tem seis anos."
+    },
+    {
+      "word_en": "my brother",
+      "word_pt": "meu irmao",
+      "example_sentence_en": "My brother plays football.",
+      "example_sentence_pt": "Meu irmao joga futebol."
+    },
+    {
+      "word_en": "my grandmother",
+      "word_pt": "minha avo",
+      "example_sentence_en": "My grandmother tells good stories.",
+      "example_sentence_pt": "Minha avo conta boas historias."
+    },
+    {
+      "word_en": "my grandfather",
+      "word_pt": "meu avo",
+      "example_sentence_en": "My grandfather has a garden.",
+      "example_sentence_pt": "Meu avo tem um jardim."
+    },
+    {
+      "word_en": "I love my family",
+      "word_pt": "Eu amo a minha familia",
+      "example_sentence_en": "I love my family very much.",
+      "example_sentence_pt": "Eu amo muito a minha familia."
+    },
+    {
+      "word_en": "We are at home",
+      "word_pt": "Nos estamos em casa",
+      "example_sentence_en": "We are at home today.",
+      "example_sentence_pt": "Nos estamos em casa hoje."
+    }
+  ]
+}

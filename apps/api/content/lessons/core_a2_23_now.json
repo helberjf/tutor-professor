@@ -1,0 +1,210 @@
+{
+  "title": "Ingles A2 - Agora mesmo",
+  "theme": "Presente continuo",
+  "objective": "Dizer o que esta acontecendo agora.",
+  "level": 3,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "I am reading",
+        "phrase_pt": "Eu estou lendo",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "reading",
+            "pt": "lendo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "She is cooking",
+        "phrase_pt": "Ela esta cozinhando",
+        "word_by_word": [
+          {
+            "en": "She",
+            "pt": "ela"
+          },
+          {
+            "en": "is",
+            "pt": "e"
+          },
+          {
+            "en": "cooking",
+            "pt": "cozinhando"
+          }
+        ]
+      },
+      {
+        "phrase_en": "They are playing",
+        "phrase_pt": "Eles estao brincando",
+        "word_by_word": [
+          {
+            "en": "They",
+            "pt": "eles"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "playing",
+            "pt": "brincando"
+          }
+        ]
+      },
+      {
+        "phrase_en": "We are studying",
+        "phrase_pt": "Nos estamos estudando",
+        "word_by_word": [
+          {
+            "en": "We",
+            "pt": "nos"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "studying",
+            "pt": "estudando"
+          }
+        ]
+      },
+      {
+        "phrase_en": "What are you doing?",
+        "phrase_pt": "O que voce esta fazendo?",
+        "word_by_word": [
+          {
+            "en": "What",
+            "pt": "o que"
+          },
+          {
+            "en": "are",
+            "pt": "esta"
+          },
+          {
+            "en": "you",
+            "pt": "voce"
+          },
+          {
+            "en": "doing",
+            "pt": "fazendo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "I am not sleeping",
+        "phrase_pt": "Eu nao estou dormindo",
+        "word_by_word": [
+          {
+            "en": "I",
+            "pt": "eu"
+          },
+          {
+            "en": "am",
+            "pt": "estou"
+          },
+          {
+            "en": "not",
+            "pt": "nao"
+          },
+          {
+            "en": "sleeping",
+            "pt": "dormindo"
+          }
+        ]
+      },
+      {
+        "phrase_en": "right now",
+        "phrase_pt": "agora mesmo",
+        "word_by_word": [
+          {
+            "en": "right",
+            "pt": "agora"
+          },
+          {
+            "en": "now",
+            "pt": "agora"
+          }
+        ]
+      },
+      {
+        "phrase_en": "at the moment",
+        "phrase_pt": "no momento",
+        "word_by_word": [
+          {
+            "en": "at",
+            "pt": "em"
+          },
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "moment",
+            "pt": "momento"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "I am reading",
+      "word_pt": "Eu estou lendo",
+      "example_sentence_en": "I am reading a funny book.",
+      "example_sentence_pt": "Eu estou lendo um livro engracado."
+    },
+    {
+      "word_en": "She is cooking",
+      "word_pt": "Ela esta cozinhando",
+      "example_sentence_en": "She is cooking dinner now.",
+      "example_sentence_pt": "Ela esta cozinhando o jantar agora."
+    },
+    {
+      "word_en": "They are playing",
+      "word_pt": "Eles estao brincando",
+      "example_sentence_en": "They are playing outside.",
+      "example_sentence_pt": "Eles estao brincando la fora."
+    },
+    {
+      "word_en": "We are studying",
+      "word_pt": "Nos estamos estudando",
+      "example_sentence_en": "We are studying for the test.",
+      "example_sentence_pt": "Nos estamos estudando para a prova."
+    },
+    {
+      "word_en": "What are you doing?",
+      "word_pt": "O que voce esta fazendo?",
+      "example_sentence_en": "What are you doing right now?",
+      "example_sentence_pt": "O que voce esta fazendo agora?"
+    },
+    {
+      "word_en": "I am not sleeping",
+      "word_pt": "Eu nao estou dormindo",
+      "example_sentence_en": "I am not sleeping, I am thinking.",
+      "example_sentence_pt": "Eu nao estou dormindo, eu estou pensando."
+    },
+    {
+      "word_en": "right now",
+      "word_pt": "agora mesmo",
+      "example_sentence_en": "I am busy right now.",
+      "example_sentence_pt": "Eu estou ocupado agora mesmo."
+    },
+    {
+      "word_en": "at the moment",
+      "word_pt": "no momento",
+      "example_sentence_en": "He is away at the moment.",
+      "example_sentence_pt": "Ele esta fora no momento."
+    }
+  ]
+}

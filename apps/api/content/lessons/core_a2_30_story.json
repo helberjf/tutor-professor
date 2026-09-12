@@ -1,0 +1,154 @@
+{
+  "title": "Ingles A2 - Contar uma historia",
+  "theme": "Historias",
+  "objective": "Ligar as partes de uma historia.",
+  "level": 4,
+  "target_language": "English",
+  "content": {
+    "daily_goal": "8 frases para praticar",
+    "phrase_breakdowns": [
+      {
+        "phrase_en": "first",
+        "phrase_pt": "primeiro",
+        "word_by_word": [
+          {
+            "en": "first",
+            "pt": "primeiro"
+          }
+        ]
+      },
+      {
+        "phrase_en": "then",
+        "phrase_pt": "entao",
+        "word_by_word": [
+          {
+            "en": "then",
+            "pt": "entao"
+          }
+        ]
+      },
+      {
+        "phrase_en": "after that",
+        "phrase_pt": "depois disso",
+        "word_by_word": [
+          {
+            "en": "after",
+            "pt": "depois"
+          },
+          {
+            "en": "that",
+            "pt": "aquele"
+          }
+        ]
+      },
+      {
+        "phrase_en": "finally",
+        "phrase_pt": "finalmente",
+        "word_by_word": [
+          {
+            "en": "finally",
+            "pt": "finalmente"
+          }
+        ]
+      },
+      {
+        "phrase_en": "because",
+        "phrase_pt": "porque",
+        "word_by_word": [
+          {
+            "en": "because",
+            "pt": "porque"
+          }
+        ]
+      },
+      {
+        "phrase_en": "but",
+        "phrase_pt": "mas",
+        "word_by_word": [
+          {
+            "en": "but",
+            "pt": "mas"
+          }
+        ]
+      },
+      {
+        "phrase_en": "suddenly",
+        "phrase_pt": "de repente",
+        "word_by_word": [
+          {
+            "en": "suddenly",
+            "pt": "de repente"
+          }
+        ]
+      },
+      {
+        "phrase_en": "in the end",
+        "phrase_pt": "no fim",
+        "word_by_word": [
+          {
+            "en": "in",
+            "pt": "em"
+          },
+          {
+            "en": "the",
+            "pt": "o"
+          },
+          {
+            "en": "end",
+            "pt": "fim"
+          }
+        ]
+      }
+    ]
+  },
+  "items": [
+    {
+      "word_en": "first",
+      "word_pt": "primeiro",
+      "example_sentence_en": "First, we packed our bags.",
+      "example_sentence_pt": "Primeiro, nos arrumamos as malas."
+    },
+    {
+      "word_en": "then",
+      "word_pt": "entao",
+      "example_sentence_en": "Then we took the bus.",
+      "example_sentence_pt": "Entao nos pegamos o onibus."
+    },
+    {
+      "word_en": "after that",
+      "word_pt": "depois disso",
+      "example_sentence_en": "After that we had lunch.",
+      "example_sentence_pt": "Depois disso nos almocamos."
+    },
+    {
+      "word_en": "finally",
+      "word_pt": "finalmente",
+      "example_sentence_en": "Finally we arrived home.",
+      "example_sentence_pt": "Finalmente nos chegamos em casa."
+    },
+    {
+      "word_en": "because",
+      "word_pt": "porque",
+      "example_sentence_en": "I was late because of the rain.",
+      "example_sentence_pt": "Eu me atrasei por causa da chuva."
+    },
+    {
+      "word_en": "but",
+      "word_pt": "mas",
+      "example_sentence_en": "It was cold but sunny.",
+      "example_sentence_pt": "Estava frio mas ensolarado."
+    },
+    {
+      "word_en": "suddenly",
+      "word_pt": "de repente",
+      "example_sentence_en": "Suddenly the dog barked.",
+      "example_sentence_pt": "De repente o cachorro latiu."
+    },
+    {
+      "word_en": "in the end",
+      "word_pt": "no fim",
+      "example_sentence_en": "In the end everybody was happy.",
+      "example_sentence_pt": "No fim todo mundo estava feliz."
+    }
+  ]
+}
