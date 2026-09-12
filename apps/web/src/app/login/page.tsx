@@ -121,7 +121,7 @@ function LoginForm() {
             <ShieldCheck className="text-primary-dark" size={32} />
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">Área restrita</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Área dos pais</h1>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Entrar na sua conta</h1>
           <p className="mt-2 text-sm text-slate-500">
             Não tem conta?{' '}
             <Link href="/register" className="font-bold text-primary hover:underline">
@@ -130,7 +130,7 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="kid-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
+        <div className="app-surface border-slate-200/60 p-5 sm:p-7 md:p-9">
           <button
             type="button"
             onClick={() => void handleGoogleLogin()}
@@ -217,7 +217,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading || lockedOut || !email.trim() || !password}
-              className="kid-button w-full bg-primary hover:bg-primary-dark"
+              className="app-button w-full bg-primary hover:bg-primary-dark"
             >
               {loading ? 'Entrando…' : 'Entrar'}
             </button>

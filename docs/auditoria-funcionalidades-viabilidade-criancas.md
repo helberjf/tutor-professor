@@ -1,5 +1,12 @@
 # Auditoria do Tutor and Professor
 
+> **Nota de 2026-09-12.** Esta auditoria é de 2026-05-31, quando o produto era
+> voltado exclusivamente a crianças. O app passou a servir qualquer pessoa que
+> queira estudar: o perfil carrega uma faixa de idade (4-6 até 18+) e o conteúdo
+> é gerado para ela. As recomendações abaixo continuam valendo para os perfis
+> que são de menores de idade — que é exatamente o público de que tratam.
+
+
 Data da analise: 2026-05-31
 
 ## Resumo executivo

@@ -60,7 +60,7 @@ assert.match(
 assert.match(
   homePage,
   /Faltam \$\{items\}/,
-  'the label should count the items the child still owes',
+  'the label should count the items the student still owes',
 );
 
 // ── the session screen ─────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ assert.match(
 assert.match(
   sessionPage,
   /api\s*\n?\s*\.saveStudySessionProgress|api\.saveStudySessionProgress/,
-  'the bookmark should be saved as the child advances',
+  'the bookmark should be saved as the student advances',
 );
 assert.match(sessionPage, /api\.finishStudySession/, 'finishing the queue should close the session');
 assert.match(
@@ -94,7 +94,7 @@ assert.match(
 assert.match(
   sessionPage,
   /O dia já foi marcado como estudado|O dia ja foi marcado como estudado/,
-  'the summary should tell the child the day is closed',
+  'the summary should tell the student the day is closed',
 );
 
 // ── the API client ─────────────────────────────────────────────────────────

@@ -8,10 +8,12 @@ function read(relativePath) {
   return readFileSync(new URL(relativePath, webSrc), 'utf8');
 }
 
-const parentsPage = read('app/parents/page.tsx');
-assert.match(parentsPage, /await api\.userLogout\(\)/, 'parents logout must clear the user session token');
-assert.doesNotMatch(parentsPage, /await api\.parentLogout\(\)/, 'parents logout must not use the legacy parent-only logout');
-assert.match(parentsPage, /router\.replace\('\/login\?next=\/parents'\)/, 'logout should leave private pages immediately');
+// The area moved from /parents to /account when the app stopped being
+// a children's app; /parents is now just a redirect.
+const accountPage = read('app/account/page.tsx');
+assert.match(accountPage, /await api\.userLogout\(\)/, 'account logout must clear the user session token');
+assert.doesNotMatch(accountPage, /await api\.parentLogout\(\)/, 'account logout must not use the legacy parent-only logout');
+assert.match(accountPage, /router\.replace\('\/login\?next=\/account'\)/, 'logout should leave private pages immediately');
 
 const apiMain = readFileSync(new URL('apps/api/main.py', root), 'utf8');
 const clearSessionStart = apiMain.indexOf('def clear_parent_session(');

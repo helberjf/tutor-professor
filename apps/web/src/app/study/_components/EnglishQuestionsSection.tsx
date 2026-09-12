@@ -44,7 +44,7 @@ export function EnglishQuestionsSection() {
 
   return (
     <div className="space-y-6">
-    <section id="english-questions" className="kid-surface scroll-mt-24 border-sky-100 p-5 md:p-7">
+    <section id="english-questions" className="app-surface scroll-mt-24 border-sky-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
         <ClipboardList size={18} className="text-sky-600" />
         <h2 className="text-xl font-black text-slate-800">Modo questões</h2>
@@ -99,7 +99,7 @@ export function EnglishQuestionsSection() {
       )}
     </section>
 
-    <section id="english-grammar" className="kid-surface scroll-mt-24 border-violet-100 p-5 md:p-7">
+    <section id="english-grammar" className="app-surface scroll-mt-24 border-violet-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
         <ClipboardList size={18} className="text-violet-600" />
         <h2 className="text-xl font-black text-slate-800">Modo gramática</h2>

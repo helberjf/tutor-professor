@@ -11,7 +11,7 @@ import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
   title: 'Tutor and Professor',
-  description: 'Tutor and Professor: aulas, revisoes e estudos guiados em um app seguro e acolhedor.',
+  description: 'Tutor and Professor: aulas, revisao espacada e estudo guiado para quem quiser aprender.',
   applicationName: 'Tutor and Professor',
   manifest: '/manifest.webmanifest',
   appleWebApp: {

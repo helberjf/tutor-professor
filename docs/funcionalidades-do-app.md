@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-O Tutor and Professor é uma plataforma de aprendizagem para crianças e famílias que combina:
+O Tutor and Professor é uma plataforma de aprendizagem para estudantes e famílias que combina:
 
 - lições curtas de inglês;
 - quizzes e reforço de conteúdo;
@@ -13,11 +13,11 @@ O Tutor and Professor é uma plataforma de aprendizagem para crianças e famíli
 - estudo em temas gerais e programação;
 - dashboard de progresso e atividades diárias.
 
-O app foi pensado como um ambiente completo para aprendizado guiado, com foco em crianças, supervisão dos responsáveis e ferramentas de apoio para estudo contínuo.
+O app foi pensado como um ambiente completo para aprendizado guiado, com foco em estudantes, supervisão dos responsáveis e ferramentas de apoio para estudo contínuo.
 
 ---
 
-## 1. Funcionalidades para crianças
+## 1. Funcionalidades para estudantes
 
 ### 1.1 Lição diária
 - Aulas curtas e objetivas, com foco em vocabulário e frases do dia.
@@ -41,7 +41,7 @@ O app foi pensado como um ambiente completo para aprendizado guiado, com foco em
 - Reprodução de palavras e frases em áudio.
 - Suporte a TTS local e fallback via navegador.
 - Melhora a pronúncia e a acessibilidade.
-- Útil para crianças que aprendem melhor por escuta e repetição.
+- Útil para estudantes que aprendem melhor por escuta e repetição.
 
 ### 1.5 Aprendizado guiado por tutor
 - Chat do tutor para suporte durante a aprendizagem.
@@ -52,7 +52,7 @@ O app foi pensado como um ambiente completo para aprendizado guiado, com foco em
 ### 1.6 Progresso individual
 - Registro de atividades diárias.
 - Acompanhamento de streaks, níveis e evolução.
-- Visualização do desempenho por criança.
+- Visualização do desempenho por estudante.
 - Permite entender quais temas exigem mais atenção.
 
 ---
@@ -65,16 +65,16 @@ O app foi pensado como um ambiente completo para aprendizado guiado, com foco em
 - Estrutura que separa dados de cada família e responsável.
 
 ### 2.2 Perfil de filhos
-- Criação e gerenciamento de perfis de crianças.
+- Criação e gerenciamento de perfis de estudantes.
 - Configuração de idioma alvo e preferências de áudio.
 - Organização do progresso por aluno.
-- Possibilidade de diferentes níveis de aprendizado para cada criança.
+- Possibilidade de diferentes níveis de aprendizado para cada estudante.
 
 ### 2.3 Dashboard dos pais
 - Painel com resumo por aluno.
 - Acompanhamento de dias estudados, temas e atividades.
 - Visualização de última atividade, progresso e palavras com dificuldade.
-- Apoio ao monitoramento do comportamento de estudo da criança.
+- Apoio ao monitoramento do comportamento de estudo do estudante.
 
 ### 2.4 Configurações do responsável
 - Ajustes de conta e preferências gerais.
@@ -231,4 +231,4 @@ O app reúne as seguintes capacidades centrais:
 
 ## 9. Conclusão
 
-O Tutor and Professor atua como uma plataforma de estudo completa para crianças, com foco em aprendizado leve, motivador e supervisionado. Ele combina educação, progresso, monitoramento familiar e automação com IA para entregar uma experiência de estudo mais rica, organizada e adaptável.
+O Tutor and Professor atua como uma plataforma de estudo completa para estudantes, com foco em aprendizado leve, motivador e supervisionado. Ele combina educação, progresso, monitoramento familiar e automação com IA para entregar uma experiência de estudo mais rica, organizada e adaptável.

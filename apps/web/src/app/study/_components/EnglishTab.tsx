@@ -93,7 +93,7 @@ export function EnglishTab({
   return (
     <div className="space-y-6">
       {/* Dashboard header */}
-      <section className="kid-surface border-primary/30 p-4 sm:p-6 md:p-8">
+      <section className="app-surface border-primary/30 p-4 sm:p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Inglês · meta do dia</p>
@@ -162,7 +162,7 @@ export function EnglishTab({
 
       <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         {/* Main record */}
-        <div className="kid-surface border-sky-100 p-5 md:p-7">
+        <div className="app-surface border-sky-100 p-5 md:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Registro</p>
@@ -245,7 +245,7 @@ export function EnglishTab({
             )}
 
             <button type="button" onClick={onSave} disabled={saving || loadingDay || dayLoadFailed}
-              className="kid-button w-full bg-primary hover:bg-primary-dark">
+              className="app-button w-full bg-primary hover:bg-primary-dark">
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               Salvar registro
             </button>
@@ -261,7 +261,7 @@ export function EnglishTab({
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
 
-          <div className="kid-surface border-emerald-100 p-5 md:p-6">
+          <div className="app-surface border-emerald-100 p-5 md:p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700"><BookOpen size={24} /></div>
               <div>
@@ -277,7 +277,7 @@ export function EnglishTab({
           </div>
 
           {/* Generate lesson with AI */}
-          <div className="kid-surface border-violet-100 p-5 md:p-6">
+          <div className="app-surface border-violet-100 p-5 md:p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
                 <Sparkles size={24} />
@@ -305,7 +305,7 @@ export function EnglishTab({
           </div>
 
           {historyDays.length > 0 && (
-            <div className="kid-surface border-slate-100 p-5 md:p-6">
+            <div className="app-surface border-slate-100 p-5 md:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Historico recente</p>
               <div className="mt-4 space-y-3">
                 {historyDays.map((item) => (

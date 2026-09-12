@@ -24,7 +24,7 @@ SUBSCRIPTION_ACTIVE = "active"
 SUBSCRIPTION_PAST_DUE = "past_due"
 SUBSCRIPTION_CANCELED = "canceled"
 # The states that still entitle an account to its plan. past_due is deliberately
-# included: a card that failed this morning should not lock a child out of their
+# included: a card that failed this morning should not lock a student out of their
 # lesson before the gateway has finished retrying.
 ENTITLED_STATUSES = (SUBSCRIPTION_TRIALING, SUBSCRIPTION_ACTIVE, SUBSCRIPTION_PAST_DUE)
 
@@ -54,7 +54,7 @@ PLANS: tuple[Plan, ...] = (
         code=PLAN_FREE,
         name="Gratuito",
         description=(
-            "Uma crianca, licoes e revisao. A IA com Gemini usa o limite diario "
+            "Um estudante, licoes e revisao. A IA com Gemini usa o limite diario "
             "definido para a conta."
         ),
         price_cents=0,
@@ -64,7 +64,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_FAMILY,
         name="Familia",
-        description="Ate 3 criancas, com o mesmo controle diario de IA da conta.",
+        description="Ate 3 estudantes, com o mesmo controle diario de IA da conta.",
         price_cents=3490,
         max_children=3,
         monthly_ai_generations=300,
@@ -73,7 +73,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_STUDY,
         name="Estudo",
-        description="Criancas ilimitadas e controle diario de IA pelo administrador.",
+        description="Estudantes ilimitados e controle diario de IA pelo administrador.",
         price_cents=6900,
         max_children=UNLIMITED,
         monthly_ai_generations=1500,
@@ -177,7 +177,7 @@ def upgrade_message(plan: Plan, reason: str) -> str:
     if reason == "children":
         limit = "ilimitadas" if plan.max_children == UNLIMITED else plan.max_children
         return (
-            f"Seu plano {plan.name} permite {limit} criancas. "
+            f"Seu plano {plan.name} permite {limit} estudantes. "
             "Mude de plano em Configuracoes para adicionar mais."
         )
     if reason == "generations":

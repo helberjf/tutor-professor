@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
         <ArrowLeft size={20} /> Voltar para o login
       </Link>
 
-      <div className="kid-surface border-primary/40 p-6 md:p-8">
+      <div className="app-surface border-primary/40 p-6 md:p-8">
         <div className="flex items-center gap-3">
           <ShieldCheck className="text-primary-dark" size={28} />
           <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Esqueci minha senha</h1>

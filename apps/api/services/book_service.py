@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 
+from services.audience import audience_note, content_rule, story_format
 from schemas.schemas import BookOutlinePageSchema, BookOutlineSchema, GeneratedBookDraftSchema, GeneratedBookPageDraftSchema
 from services.phrase_generator_service import AIProviderConfig, PhraseGenerationService
 
@@ -10,7 +11,7 @@ from services.phrase_generator_service import AIProviderConfig, PhraseGeneration
 _LEVEL_DIFFICULTY: dict[tuple[int, int], str] = {
     (1, 2): (
         "BEGINNER (level 1-2). Use only the simplest words: colors, animals, family, numbers, greetings. "
-        "Sentences of 4-6 words max. Vocabulary: everyday items a 4-year-old knows. "
+        "Sentences of 4-6 words max. Vocabulary: the first words any beginner meets. "
         "Example sentence: 'The cat is red. I have a ball.'"
     ),
     (3, 4): (
@@ -30,7 +31,7 @@ _LEVEL_DIFFICULTY: dict[tuple[int, int], str] = {
     ),
     (9, 10): (
         "ADVANCED (level 9-10). Rich vocabulary, idiomatic expressions, varied sentence structures. "
-        "Topics: history, technology, social issues (child-safe). "
+        "Topics: history, technology, social issues, appropriate for the stated learner. "
         "Sentences of 15-22 words. Use subordinate clauses, passive voice, modal verbs."
     ),
 }
@@ -65,7 +66,7 @@ class BookGenerationService:
         level: int,
         num_pages: int,
         theme: str | None = None,
-        age_group: str = "7-9",
+        age_group: str = "",
         max_retries: int | None = None,
         target_language: str = "English",
         ai_config: AIProviderConfig | None = None,
@@ -93,8 +94,8 @@ class BookGenerationService:
                 target_language=target_language,
             )
             system_text = (
-                f"You create child-safe {target_language} illustrated mini picture-books "
-                "for Brazilian Portuguese-speaking learners. "
+                f"You create {target_language} illustrated mini books for Brazilian "
+                "Portuguese-speaking learners, written for the learner described in the prompt. "
                 f"Each page has a small amount of {target_language} text, its Portuguese translation, "
                 "and 3-5 vocabulary words. Always return valid JSON only, with no markdown fences, "
                 "no comments, and no extra keys."
@@ -151,7 +152,7 @@ class BookGenerationService:
         theme_instruction = (
             f'Theme: "{theme.strip()}". Base the whole story on this theme.\n'
             if theme and theme.strip()
-            else "Theme: choose a fun, child-safe adventure or daily-life topic.\n"
+            else f"Theme: choose an engaging daily-life or adventure topic. {content_rule(age_group)}\n"
         )
 
         pages_example = ",\n".join(
@@ -172,10 +173,10 @@ class BookGenerationService:
         else:
             story_structure = f"page 1 = introduction, pages 2-{num_pages - 1} = development, page {num_pages} = resolution."
 
-        return f"""Create a children's {target_language} mini picture-book with EXACTLY {num_pages} pages.{retry_warning}
+        return f"""Create a {story_format(age_group)} in {target_language} with EXACTLY {num_pages} pages.{retry_warning}
 This is a real illustrated learning book. Each page has a small illustration and just a few lines of text. Keep text short and punchy.
 Difficulty: {difficulty}
-{theme_instruction}Age group: {age_group} years old (Brazilian learner studying {target_language}).
+{theme_instruction}{audience_note(age_group)} Brazilian learner studying {target_language}.
 
 CRITICAL RULES:
 1. The "pages" array MUST have EXACTLY {num_pages} items (page_number 1 through {num_pages}).
@@ -183,7 +184,7 @@ CRITICAL RULES:
 3. Story structure: {story_structure}
 4. Portuguese must be natural Brazilian Portuguese, not word-for-word literal.
 5. vocabulary: 3-5 key {target_language} words per page drawn from that page's text, no repeats across pages.
-6. Child-safe and positive content only.
+6. Positive content. {content_rule(age_group)}
 
 Return ONLY this exact JSON structure with {num_pages} page objects:
 {{
@@ -202,7 +203,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         theme: str | None = None,
         target_language: str = "English",
         ai_config: AIProviderConfig | None = None,
-        age_group: str = "7-9",
+        age_group: str = "",
     ) -> BookOutlineSchema:
         if not self.is_configured(ai_config):
             raise RuntimeError("Chave de API da IA nao esta configurada.")
@@ -214,7 +215,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         theme_instruction = (
             f'Theme: "{theme.strip()}". Base the whole story on this theme.\n'
             if theme and theme.strip()
-            else "Theme: choose a fun, child-safe adventure or daily-life topic.\n"
+            else f"Theme: choose an engaging daily-life or adventure topic. {content_rule(age_group)}\n"
         )
 
         pages_outline_example = ",\n".join(
@@ -223,11 +224,11 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         )
 
         prompt = (
-            f"Create a story outline for a children's {target_language} picture-book.\n"
+            f"Create a story outline for a {story_format(age_group)} in {target_language}.\n"
             f"Difficulty: {difficulty}\n"
             f"{theme_instruction}"
             f"Pages: {num_pages}\n"
-            f"Age group: {age_group} years old (Brazilian learner).\n\n"
+            f"{audience_note(age_group)} Brazilian learner.\n\n"
             "Return ONLY valid JSON in this exact format:\n"
             "{\n"
             f'  "title": "<book title in {target_language}>",\n'
@@ -240,7 +241,8 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             "}"
         )
         system_text = (
-            f"You create child-safe {target_language} story outlines for Brazilian Portuguese-speaking learners. "
+            f"You create {target_language} story outlines for Brazilian Portuguese-speaking learners, "
+            "written for the learner described in the prompt. "
             "Return ONLY valid JSON, no markdown fences, no extra keys."
         )
         try:
@@ -286,7 +288,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         context_pages: list[GeneratedBookPageDraftSchema],
         target_language: str = "English",
         ai_config: AIProviderConfig | None = None,
-        age_group: str = "7-9",
+        age_group: str = "",
     ) -> GeneratedBookPageDraftSchema:
         if not self.is_configured(ai_config):
             raise RuntimeError("Chave de API da IA nao esta configurada.")
@@ -320,19 +322,19 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             context_text = "\n\nPREVIOUS PAGES:\n" + "\n".join(parts)
 
         prompt = (
-            f"Write page {page_number} of {outline.num_pages} for a children's {target_language} picture-book.\n\n"
+            f"Write page {page_number} of {outline.num_pages} of a {story_format(age_group)} in {target_language}.\n\n"
             f"BOOK: \"{outline.title}\"\n"
             f"SYNOPSIS: {outline.synopsis}\n"
             f"CHARACTERS: {characters_text}\n"
             f"THIS PAGE SCENE: {page_scene}\n"
             f"DIFFICULTY: {difficulty}\n"
-            f"AGE GROUP: {age_group} years old (Brazilian learner).{context_text}\n\n"
+            f"{audience_note(age_group)} Brazilian learner.{context_text}\n\n"
             "RULES:\n"
             f"- Write EXACTLY {sentences_rule} in {target_language}\n"
             "- Natural Brazilian Portuguese translation (not word-for-word)\n"
             "- 3-5 vocabulary words from this page's text only\n"
             "- Story must flow naturally from previous pages\n"
-            "- Child-safe content only\n\n"
+            f"- {content_rule(age_group)}\n\n"
             "Return ONLY this exact JSON:\n"
             "{\n"
             f'  "page_number": {page_number},\n'
@@ -342,8 +344,8 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             "}"
         )
         system_text = (
-            f"You write individual pages of child-safe {target_language} picture-books "
-            "for Brazilian Portuguese-speaking learners. "
+            f"You write individual pages of {target_language} illustrated books for Brazilian "
+            "Portuguese-speaking learners, following the audience stated in the prompt. "
             "Return ONLY valid JSON, no markdown, no extra keys."
         )
         last_error: Exception | None = None

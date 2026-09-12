@@ -47,7 +47,7 @@ export function AccountSecuritySection() {
   }
 
   return (
-    <section className="kid-surface mb-6 border-slate-200 p-5 md:p-8">
+    <section className="app-surface mb-6 border-slate-200 p-5 md:p-8">
       <div className="flex items-center gap-3">
         <KeyRound className="text-slate-700" size={28} />
         <div>

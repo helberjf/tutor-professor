@@ -1148,7 +1148,7 @@ export default function StudyPage() {
   if (authState.status === 'server_missing') {
     return (
       <StatusCard tone="offline" title="Servidor nao disponivel" message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }
@@ -1158,7 +1158,7 @@ export default function StudyPage() {
   if (error?.isUnconfigured || error?.isOffline) {
     return (
       <StatusCard tone="offline" title="Nao consegui conectar" message={error.message}
-        primaryAction={<Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/" secondaryLabel="Voltar ao inicio" />
     );
   }
@@ -1173,7 +1173,7 @@ export default function StudyPage() {
             <ArrowLeft size={18} /> Voltar
           </Link>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <span className="kid-tag w-fit text-xs">Painel de disciplina</span>
+            <span className="app-tag w-fit text-xs">Painel de disciplina</span>
             <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
               <CalendarDays size={14} />
               <span className="sr-only">Data</span>

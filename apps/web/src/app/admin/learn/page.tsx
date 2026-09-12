@@ -210,7 +210,7 @@ function ModulesTab() {
             {selected.quiz.length > 0 && (
               <button
                 onClick={startQuiz}
-                className="kid-button mt-6 bg-primary hover:bg-primary-dark"
+                className="app-button mt-6 bg-primary hover:bg-primary-dark"
               >
                 <Brain size={16} className="mr-2" />
                 Iniciar Quiz ({selected.quiz.length} perguntas)
@@ -230,7 +230,7 @@ function ModulesTab() {
             </p>
             <button
               onClick={() => setQuizActive(false)}
-              className="kid-button mt-6 bg-primary hover:bg-primary-dark"
+              className="app-button mt-6 bg-primary hover:bg-primary-dark"
             >
               Voltar ao conteúdo
             </button>
@@ -279,7 +279,7 @@ function ModulesTab() {
                   </p>
                   <button
                     onClick={nextQuestion}
-                    className="kid-button bg-primary hover:bg-primary-dark"
+                    className="app-button bg-primary hover:bg-primary-dark"
                   >
                     {quizIndex < selected.quiz.length - 1 ? 'Próxima →' : 'Ver resultado'}
                   </button>
@@ -564,7 +564,7 @@ function FlashcardsTab() {
           <button
             type="submit"
             disabled={saving}
-            className="kid-button mt-4 bg-primary hover:bg-primary-dark"
+            className="app-button mt-4 bg-primary hover:bg-primary-dark"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             <span className="ml-2">{saving ? 'Salvando...' : 'Criar flashcard'}</span>

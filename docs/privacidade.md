@@ -4,7 +4,7 @@
 > com precisão o que o software realmente faz hoje, para que um advogado possa
 > transformá-lo em uma política válida. Não publique como está: os campos entre
 > `[colchetes]` precisam ser preenchidos e o texto precisa de revisão jurídica,
-> especialmente por envolver dados de crianças.
+> especialmente quanto às contas que criam perfis de menores de idade.
 
 **Controlador:** [razão social, CNPJ, endereço]
 **Encarregado (DPO):** [nome e e-mail de contato]
@@ -14,12 +14,13 @@
 
 ## 1. O que este serviço é
 
-O Tutor and Professor é um aplicativo de estudo usado por um responsável adulto,
-que cria perfis para as crianças sob sua responsabilidade e acompanha o
-progresso delas.
+O Tutor and Professor é um aplicativo de estudo. A conta pertence a uma pessoa
+adulta, que pode estudar na própria conta e também criar perfis para outras
+pessoas sob a sua responsabilidade — inclusive menores de idade.
 
-**A conta é sempre do adulto.** A criança não cria conta, não tem senha e não
-recebe e-mail. O que existe é um perfil dentro da conta do responsável.
+**A conta é sempre do adulto.** Um perfil de estudante não cria conta, não tem
+senha e não recebe e-mail: ele existe dentro da conta do titular. Quando o perfil
+é de um menor de idade, valem também as seções escritas para esse caso.
 
 ## 2. Dados que coletamos
 
@@ -34,7 +35,7 @@ recebe e-mail. O que existe é um perfil dentro da conta do responsável.
 | Data e hora de acessos, IP da requisição (em log) | Segurança e limite de abuso | Legítimo interesse |
 | Chave de API de IA, se você fornecer (criptografada) | Usar seu próprio provedor de IA | Execução de contrato |
 
-**Do perfil da criança**
+**Do perfil de estudante**
 
 | Dado | Por quê |
 |---|---|
@@ -43,20 +44,22 @@ recebe e-mail. O que existe é um perfil dentro da conta do responsável.
 | Idioma de origem e idioma-alvo | Escolher o conteúdo |
 | Respostas, acertos, erros e datas de estudo | Repetição espaçada e relatório de progresso |
 
-Não pedimos endereço, escola, telefone, foto ou data de nascimento exata da
-criança. **Recomendamos usar apenas o primeiro nome ou um apelido no perfil.**
+Não pedimos endereço, escola, telefone, foto ou data de nascimento exata de
+ninguém. **Quando o perfil for de uma criança ou adolescente, recomendamos usar
+apenas o primeiro nome ou um apelido.**
 
 ## 3. Consentimento do responsável
 
-O cadastro é feito por um adulto, que declara ser responsável legal pela criança
-cujo perfil cria. Registramos a data e a hora desse aceite junto com a conta.
+O cadastro é feito por um adulto. Ao criar um perfil para outra pessoa menor de
+idade, ele declara ser o responsável legal por ela. Registramos a data e a hora
+desse aceite junto com a conta.
 
 ## 4. Inteligência artificial
 
 Parte do conteúdo é gerada por um provedor de IA externo ([nome do provedor]).
 
 - O que é enviado ao provedor: o tema ou assunto de estudo, o nível e o idioma.
-- O que **não** é enviado: o nome da criança, o e-mail do responsável, o CPF ou
+- O que **não** é enviado: o nome do estudante, o e-mail do titular, o CPF ou
   qualquer identificador da conta.
 - Se você configurar a sua própria chave de API, as chamadas saem sob a sua
   conta no provedor e passam a seguir a política dele.
@@ -67,7 +70,7 @@ Parte do conteúdo é gerada por um provedor de IA externo ([nome do provedor]).
 
 A leitura em voz alta é gerada por um serviço de síntese de voz e o arquivo fica
 em cache no servidor. Os links de áudio são assinados e expiram em poucas horas.
-Nenhum áudio da criança é gravado: o aplicativo não usa o microfone.
+Nenhum áudio do estudante é gravado: o aplicativo não usa o microfone.
 
 ## 6. Com quem compartilhamos
 
@@ -77,7 +80,8 @@ Nenhum áudio da criança é gravado: o aplicativo não usa o microfone.
   dados de cobrança. **Não armazenamos número de cartão em nenhum momento.**
 - Autoridades, quando houver obrigação legal.
 
-Não vendemos dados e não usamos os dados das crianças para publicidade.
+Não vendemos dados e não usamos os dados de estudo para publicidade — em nenhuma
+conta, e muito menos nos perfis de menores de idade.
 
 ## 7. Por quanto tempo guardamos
 
@@ -93,10 +97,10 @@ Não vendemos dados e não usamos os dados das crianças para publicidade.
 
 Você pode, a qualquer momento e sem falar com ninguém:
 
-- **Obter uma cópia dos seus dados** — área de pais, ou `GET /api/account/export`.
-- **Apagar a conta e tudo que está sob ela** — área de pais, ou
+- **Obter uma cópia dos seus dados** — área da conta, ou `GET /api/account/export`.
+- **Apagar a conta e tudo que está sob ela** — área da conta, ou
   `POST /api/account/delete`. É irreversível e pede a senha novamente.
-- **Corrigir dados** — a área de pais permite editar nome, perfil e preferências.
+- **Corrigir dados** — a área da conta permite editar nome, perfil e preferências.
 - **Encerrar sessões** em todos os aparelhos.
 
 Para qualquer outro pedido: [e-mail do encarregado]. Prazo de resposta: 15 dias.
@@ -124,7 +128,8 @@ Avisaremos por e-mail antes de mudanças relevantes.
 
 ## Pendências antes de publicar
 
-- [ ] Revisão por advogado com prática em LGPD e dados de crianças.
+- [ ] Revisão por advogado com prática em LGPD, incluindo o caso das contas que
+      criam perfis de menores de idade.
 - [ ] Preencher todos os `[colchetes]`.
 - [ ] Confirmar e anexar o DPA do provedor de IA e a desativação de treinamento.
 - [ ] Definir os prazos de retenção `[X]` e `[Y]`.

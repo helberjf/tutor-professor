@@ -19,7 +19,7 @@ const PREFETCH_THRESHOLD = 3;
  * option. The panel owns loading, generation and the practice modal so a tab only
  * has to say which subject and topic it is looking at.
  *
- * Three things it does so the child does not have to:
+ * Three things it does so the student does not have to:
  *
  * - **Fills itself.** An empty topic asks the API for the free, lesson-derived
  *   bank before showing an empty state, so "modo questões" works with no AI key,
@@ -28,7 +28,7 @@ const PREFETCH_THRESHOLD = 3;
  *   was missed, and drops what was already mastered, instead of replaying the
  *   whole topic from the first question every time.
  * - **Stays stocked.** When the pile runs low, the next batch is requested in the
- *   background, so the child is not left watching a spinner to get a question.
+ *   background, so the student is not left watching a spinner to get a question.
  */
 export function StudyQuestionsPanel({
   target,
@@ -130,7 +130,7 @@ export function StudyQuestionsPanel({
     }
   }
 
-  /** Ask for the next batch before the child needs it, and only once. */
+  /** Ask for the next batch before the student needs it, and only once. */
   function topUpInBackground(remaining: number) {
     if (prefetchedRef.current || remaining > PREFETCH_THRESHOLD) return;
     prefetchedRef.current = true;

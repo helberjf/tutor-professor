@@ -2,14 +2,14 @@
  * Which saved questions are still worth answering, and in what order.
  *
  * "Fazer simulado" used to replay every question of a topic from the first one,
- * every time, so a child who answered five questions yesterday met the same five
+ * every time, so a student who answered five questions yesterday met the same five
  * today before reaching anything new — with the metrics needed to do better
  * (`attempt_count`, `correct_count`, `error_count`, `last_selected_option`)
  * already sitting in each row, unused.
  *
  * This is the same rule the backend applies in
  * `apps/api/services/study_queue_service.py`. Keep them in step: the practice
- * screen and the study queue must not disagree about what the child still owes.
+ * screen and the study queue must not disagree about what the student still owes.
  */
 
 /** The metrics every question row carries, whatever bank it came from. */
@@ -29,7 +29,7 @@ export const MASTERY_CORRECT_COUNT = 2;
 export function isMastered(question: PracticeCandidate): boolean {
   if (question.correct_count < MASTERY_CORRECT_COUNT) return false;
   // Right twice and then missed is not mastered: the last answer is the one
-  // that says what the child knows today.
+  // that says what the student knows today.
   if (question.last_selected_option === null) return true;
   return question.last_selected_option === question.correct_option;
 }
@@ -70,7 +70,7 @@ export function pendingQuestions<T extends PracticeCandidate>(questions: readonl
  * The list to practise now.
  *
  * With `includeMastered`, nothing is dropped — that is the "refazer todas"
- * escape hatch, for the child who wants the whole topic again.
+ * escape hatch, for the student who wants the whole topic again.
  */
 export function buildPracticeQueue<T extends PracticeCandidate>(
   questions: readonly T[],

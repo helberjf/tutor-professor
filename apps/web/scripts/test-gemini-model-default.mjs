@@ -12,7 +12,7 @@ const productFiles = [
   '../../../apps/api/services/book_service.py',
   '../../../apps/api/services/phrase_generator_service.py',
   '../src/app/admin/learn/page.tsx',
-  '../src/app/parents/page.tsx',
+  '../src/app/account/page.tsx',
   '../src/app/register/page.tsx',
 ];
 

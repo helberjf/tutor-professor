@@ -24,7 +24,7 @@ import { playAudioWithFallback } from '@/lib/browser-speech';
  * One study run, start to finish, with nothing to choose on the way in.
  *
  * The queue is assembled and stored by the API, so this screen opens on the card
- * the child stopped at — that is what makes "continuar de onde parou" true after
+ * the student stopped at — that is what makes "continuar de onde parou" true after
  * the app was closed, the tab was reloaded, or the phone was handed back.
  *
  * Every answer is recorded through the endpoint that already owns that card type
@@ -99,7 +99,7 @@ export default function StudySessionPage() {
   const card = items[index] ?? null;
   const progressPercent = total > 0 ? Math.round((index / total) * 100) : 0;
 
-  /** Saves the bookmark without blocking the child: a failed save is not fatal. */
+  /** Saves the bookmark without blocking the student: a failed save is not fatal. */
   function saveProgress(nextIndex: number, nextAnswered: number, nextCorrect: number) {
     if (!session || session.id <= 0) return;
     void api
@@ -223,7 +223,7 @@ export default function StudySessionPage() {
     setSelected(option);
     const expected = card.kind === 'study_question' ? card.correct_option ?? '' : card.answer;
     const wasCorrect = option === expected;
-    // The answer stays on screen for a beat so the child sees what was right
+    // The answer stays on screen for a beat so the student sees what was right
     // before the next card replaces it.
     window.setTimeout(() => {
       if (mountedRef.current) void answerCard(option, wasCorrect);
@@ -269,7 +269,7 @@ export default function StudySessionPage() {
     return (
       <main className="min-h-screen px-4 py-10">
         <div className="mx-auto max-w-xl space-y-4 text-center">
-          <div className="kid-surface border-emerald-200 p-8">
+          <div className="app-surface border-emerald-200 p-8">
             <PartyPopper size={40} className="mx-auto text-emerald-500" />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Tudo em dia!</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
@@ -302,7 +302,7 @@ export default function StudySessionPage() {
       <main className="min-h-screen px-4 py-10">
         <CelebrationOverlay show={celebrate} />
         <div className="mx-auto max-w-xl">
-          <div className="kid-surface border-emerald-200 p-8 text-center">
+          <div className="app-surface border-emerald-200 p-8 text-center">
             <CheckCircle2 size={44} className="mx-auto text-emerald-500" />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Sessao concluida</h1>
             <p className="mt-2 text-sm font-bold text-slate-500">
@@ -369,7 +369,7 @@ export default function StudySessionPage() {
           {card.topic_title ? ` · ${card.topic_title}` : ''}
         </p>
 
-        <section className="kid-surface mt-2 border-sky-100 p-5 sm:p-7">
+        <section className="app-surface mt-2 border-sky-100 p-5 sm:p-7">
           {card.kind === 'lesson_item' && (
             <LessonItemCard
               card={card}
@@ -546,7 +546,7 @@ function ChoiceCard({
   );
 }
 
-/** Lesson questions have no options, so the child says whether they knew it. */
+/** Lesson questions have no options, so the student says whether they knew it. */
 function SelfRatedCard({
   card,
   revealed,

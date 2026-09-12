@@ -306,7 +306,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             </div>
 
             {error && (
-              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-kid-pink">
+              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-brand-pink">
                 {error}
               </p>
             )}
@@ -399,7 +399,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             </div>
 
             {error && (
-              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-kid-pink">
+              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-brand-pink">
                 {error}
               </p>
             )}
@@ -496,7 +496,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             )}
 
             {error && (
-              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-kid-pink">
+              <p className="rounded-xl bg-pink-50 px-4 py-3 text-sm font-medium text-brand-pink">
                 {error}
               </p>
             )}
@@ -661,7 +661,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
               <Sparkles size={12} />
               Nivel {book.level} — {levelLabel(book.level)}
             </span>
-            <p className="kid-tag text-xs">{pageIndex + 1} / {book.pages.length}</p>
+            <p className="app-tag text-xs">{pageIndex + 1} / {book.pages.length}</p>
             <button
               onClick={() => setReadingMode((m) => !m)}
               title={readingMode ? 'Modo dividido' : 'Modo leitura'}
@@ -682,12 +682,12 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
         {pageIndex === 0 && (
           <div className="mb-4 flex items-center gap-3">
             <KidsBookLogo size={44} />
-            <p className="kid-tag text-xs">{book.title}</p>
+            <p className="app-tag text-xs">{book.title}</p>
           </div>
         )}
 
         {readingMode ? (
-          <div className="kid-surface overflow-hidden border-sky-200">
+          <div className="app-surface overflow-hidden border-sky-200">
             <div className="p-6 md:p-8">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
@@ -743,7 +743,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="kid-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
+            <div className="app-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
                   {langMeta.flag} {langMeta.label}
@@ -761,7 +761,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                 {page.text_en}
               </p>
             </div>
-            <div className="kid-surface flex flex-col gap-4 border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
+            <div className="app-surface flex flex-col gap-4 border-emerald-200 bg-emerald-50/60 p-5 md:p-6">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
                   🇧🇷 Português
@@ -919,7 +919,7 @@ function BooksPageContent() {
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadBooks()} className="kid-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -946,7 +946,7 @@ function BooksPageContent() {
         title="Conecte o tutor primeiro"
         message="Nao foi possivel carregar a configuracao do aplicativo agora."
         primaryAction={
-          <button onClick={() => void loadBooks()} className="kid-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
         secondaryLabel="Voltar ao inicio"
@@ -961,7 +961,7 @@ function BooksPageContent() {
         title="Sistema indisponivel"
         message="Nao foi possivel acessar os livros. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadBooks()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
+          <button onClick={() => void loadBooks()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
@@ -1001,7 +1001,7 @@ function BooksPageContent() {
           </div>
 
           {books.length === 0 ? (
-            <div className="kid-surface flex flex-col items-center gap-5 border-primary/30 py-14 text-center">
+            <div className="app-surface flex flex-col items-center gap-5 border-primary/30 py-14 text-center">
               <KidsBookLogo size={80} />
               <div>
                 <p className="text-lg font-black text-slate-800">Nenhum livro ainda</p>
@@ -1023,7 +1023,7 @@ function BooksPageContent() {
                 <button
                   key={book.id}
                   onClick={() => void openBookById(book.id)}
-                  className="kid-surface flex flex-col gap-3 border-slate-200 p-5 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  className="app-surface flex flex-col gap-3 border-slate-200 p-5 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-100">

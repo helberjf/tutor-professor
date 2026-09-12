@@ -12,9 +12,9 @@ import { ApiError, api, type PlacementQuestion } from '@/lib/api';
  * The guided first run: who is studying, which language, and where to start.
  *
  * A new account used to land on a dashboard of eight cards with nothing in it,
- * at level 1 regardless of what the child already knew. Three steps fix both:
- * the profile exists before the first lesson, and five questions place the child
- * on a level that matches them.
+ * at level 1 regardless of what the person already knew. Three steps fix both:
+ * the profile exists before the first lesson, and five questions place the
+ * student on a level that matches them.
  *
  * The placement test is derived from a fixed bank in the API, so it works on the
  * very first minute of an account — before any content, any AI key, any credit.
@@ -29,10 +29,15 @@ const LANGUAGES = [
   { value: 'Russian', flag: '🇷🇺', label: 'Russo' },
 ];
 
+// The band the generated content is written for. It is not a gate: it tunes
+// vocabulary and tone, and the AI prompts keep the extra safety rules for the
+// bands that are minors.
 const AGE_GROUPS = [
   { value: '4-6', label: '4 a 6 anos' },
   { value: '7-9', label: '7 a 9 anos' },
   { value: '10-12', label: '10 a 12 anos' },
+  { value: '13-17', label: '13 a 17 anos' },
+  { value: '18+', label: '18 anos ou mais' },
 ];
 
 type Step = 'profile' | 'language' | 'placement' | 'done';
@@ -43,7 +48,7 @@ export default function OnboardingPage() {
 
   const [step, setStep] = useState<Step>('profile');
   const [name, setName] = useState('');
-  const [ageGroup, setAgeGroup] = useState('7-9');
+  const [ageGroup, setAgeGroup] = useState('18+');
   const [language, setLanguage] = useState('English');
 
   const [questions, setQuestions] = useState<PlacementQuestion[]>([]);
@@ -160,11 +165,11 @@ export default function OnboardingPage() {
         <StepDots step={step} />
 
         {step === 'profile' && (
-          <section className="kid-surface mt-4 border-sky-100 p-6 sm:p-8">
+          <section className="app-surface mt-4 border-sky-100 p-6 sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Passo 1 de 3</p>
             <h1 className="mt-2 text-2xl font-black text-slate-800">Quem vai estudar?</h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              O nome aparece nas telas da criança e o grupo de idade ajusta o tom das lições.
+              O nome aparece nas telas de estudo e a faixa de idade ajusta o vocabulário e o tom das lições.
             </p>
 
             <label className="mt-6 block">
@@ -210,11 +215,11 @@ export default function OnboardingPage() {
         )}
 
         {step === 'language' && (
-          <section className="kid-surface mt-4 border-sky-100 p-6 sm:p-8">
+          <section className="app-surface mt-4 border-sky-100 p-6 sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Passo 2 de 3</p>
             <h1 className="mt-2 text-2xl font-black text-slate-800">Qual idioma vamos estudar?</h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              Dá para mudar depois na área dos pais.
+              Dá para mudar depois na área da conta.
             </p>
 
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
@@ -275,7 +280,7 @@ export default function OnboardingPage() {
         )}
 
         {step === 'placement' && questions[questionIndex] && (
-          <section className="kid-surface mt-4 border-violet-100 p-6 sm:p-8">
+          <section className="app-surface mt-4 border-violet-100 p-6 sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
               Passo 3 de 3 · pergunta {questionIndex + 1} de {questions.length}
             </p>
@@ -283,7 +288,7 @@ export default function OnboardingPage() {
               {questions[questionIndex].question}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Não tem problema errar: isso é o que diz por onde começar.
+              Não tem problema errar: é isso que diz por onde começar.
             </p>
 
             <div className="mt-5 grid gap-2.5">
@@ -325,13 +330,13 @@ export default function OnboardingPage() {
         )}
 
         {step === 'done' && (
-          <section className="kid-surface mt-4 border-emerald-200 p-6 text-center sm:p-8">
+          <section className="app-surface mt-4 border-emerald-200 p-6 text-center sm:p-8">
             <PartyPopper size={40} className="mx-auto text-emerald-500" />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Tudo pronto, {name.trim()}!</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
               Começando no nível {placedLevel}.
               {levelPinned
-                ? ' O nível ficou fixo nesse ponto; na área dos pais dá para voltar ao automático quando quiser.'
+                ? ' O nível ficou fixo nesse ponto; na área da conta dá para voltar ao automático quando quiser.'
                 : ' O nível sobe sozinho conforme as questões vão sendo respondidas.'}
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">

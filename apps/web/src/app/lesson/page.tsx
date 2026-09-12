@@ -389,7 +389,7 @@ function LessonPageContent() {
         title="Servidor nao disponivel"
         message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
             Conectar
           </Link>
         }
@@ -422,7 +422,7 @@ function LessonPageContent() {
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary mb-6">
             <ArrowLeft size={18} /> Voltar
           </Link>
-          <div className="kid-surface border-emerald-200 p-8 text-center md:p-12">
+          <div className="app-surface border-emerald-200 p-8 text-center md:p-12">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="text-emerald-600" size={44} />
             </div>
@@ -464,7 +464,7 @@ function LessonPageContent() {
         title="Tutor temporariamente indisponivel"
         message="Nao foi possivel carregar esta licao agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="kid-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
             Abrir configuracao de conexao
           </Link>
         }
@@ -481,7 +481,7 @@ function LessonPageContent() {
         title="A licao nao conseguiu se conectar"
         message="Nao foi possivel carregar esta licao agora. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadLesson()} className="kid-button bg-kid-orange hover:bg-secondary-dark">
+          <button onClick={() => void loadLesson()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
@@ -498,7 +498,7 @@ function LessonPageContent() {
         title="Chave Gemini nao configurada"
         message="Nao foi possivel gerar uma licao agora. Tente novamente mais tarde."
         primaryAction={
-          <button onClick={() => void loadLesson()} className="kid-button bg-kid-pink hover:bg-pink-500">
+          <button onClick={() => void loadLesson()} className="app-button bg-brand-pink hover:bg-pink-500">
             Tentar de novo
           </button>
         }
@@ -515,7 +515,7 @@ function LessonPageContent() {
         title="A licao encontrou um problema"
         message={error.message}
         primaryAction={
-          <button onClick={() => void loadLesson()} className="kid-button bg-kid-pink hover:bg-pink-500">
+          <button onClick={() => void loadLesson()} className="app-button bg-brand-pink hover:bg-pink-500">
             Recarregar licao
           </button>
         }
@@ -545,11 +545,11 @@ function LessonPageContent() {
           <div className="mx-auto flex max-w-2xl flex-col items-center gap-5">
 
             {/* Celebration card */}
-            <div className="kid-surface w-full border-accent/60 p-7 text-center md:p-12 celebrate-pop">
+            <div className="app-surface w-full border-accent/60 p-7 text-center md:p-12 celebrate-pop">
               <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
                 <PartyPopper className="text-accent-dark" size={52} />
               </div>
-              <p className="kid-tag mb-3">Licao concluida!</p>
+              <p className="app-tag mb-3">Licao concluida!</p>
               <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Voce terminou</h1>
               <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
               <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
@@ -584,7 +584,7 @@ function LessonPageContent() {
             <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
               <Link
                 href="/quick-review"
-                className="kid-surface flex flex-col items-center gap-2 border-amber-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
+                className="app-surface flex flex-col items-center gap-2 border-amber-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <ChevronRight size={28} className="text-amber-500" />
                 <p className="text-sm font-black text-slate-800">Revisao Rapida</p>
@@ -592,7 +592,7 @@ function LessonPageContent() {
               </Link>
               <Link
                 href="/"
-                className="kid-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
+                className="app-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <CheckCircle2 size={28} className="text-slate-400" />
                 <p className="text-sm font-black text-slate-800">Voltar ao inicio</p>
@@ -689,14 +689,14 @@ function LessonPageContent() {
               <Link href="/lesson/history" className="inline-flex items-center gap-1.5 rounded-full border-2 border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary">
                 <History size={14} /> Anteriores
               </Link>
-              <p className="kid-tag text-xs md:text-sm">
+              <p className="app-tag text-xs md:text-sm">
                 {currentIndex + 1} / {lesson.items.length}
               </p>
             </div>
           </div>
 
           {/* Card */}
-          <div className="kid-surface overflow-hidden border-primary/40">
+          <div className="app-surface overflow-hidden border-primary/40">
 
             {/* Progress bar */}
             <div className="h-3 w-full bg-slate-100">
@@ -707,7 +707,7 @@ function LessonPageContent() {
 
               {/* Phrase */}
               <div className="flex flex-wrap items-center gap-2">
-                <p className="kid-tag text-xs">{lesson.title}</p>
+                <p className="app-tag text-xs">{lesson.title}</p>
               </div>
               <h1 className="mt-3 break-words text-2xl font-black leading-tight text-slate-800 sm:text-3xl md:text-4xl">{currentItem.word_en}</h1>
               <p className="mt-2 text-base leading-7 text-slate-500 md:text-lg md:leading-8">
@@ -758,7 +758,7 @@ function LessonPageContent() {
                     : isCorrectOption
                       ? 'border-accent bg-accent-light text-accent-dark'
                       : isSelected
-                        ? 'border-kid-pink bg-rose-50 text-rose-700'
+                        ? 'border-brand-pink bg-rose-50 text-rose-700'
                         : 'border-slate-200 opacity-60';
 
                   return (
@@ -787,7 +787,7 @@ function LessonPageContent() {
                   <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base md:leading-7">{currentItem.example_sentence_en}</p>
                   <p className="text-xs leading-5 text-slate-500 md:text-sm md:leading-6">{currentItem.example_sentence_pt}</p>
                   {renderPhraseBreakdown(lesson, currentItem, currentIndex)}
-                  {saveError ? <p className="mt-3 text-sm font-bold text-kid-pink">{saveError}</p> : null}
+                  {saveError ? <p className="mt-3 text-sm font-bold text-brand-pink">{saveError}</p> : null}
                 </div>
               ) : (
                 /* Miniatividade hint — fica no final do card antes de responder */
@@ -801,7 +801,7 @@ function LessonPageContent() {
             </div>
           </div>
 
-          <section className="kid-surface mt-6 border-violet-200 p-5 md:p-7" aria-labelledby="lesson-questions-title">
+          <section className="app-surface mt-6 border-violet-200 p-5 md:p-7" aria-labelledby="lesson-questions-title">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">Perguntas da licao</p>

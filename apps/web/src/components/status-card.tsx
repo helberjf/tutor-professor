@@ -8,16 +8,16 @@ type Tone = 'loading' | 'offline' | 'empty' | 'error';
 
 const toneStyles: Record<Tone, string> = {
   loading: 'border-primary bg-white/95',
-  offline: 'border-kid-orange bg-white/95',
+  offline: 'border-brand-orange bg-white/95',
   empty: 'border-accent bg-white/95',
-  error: 'border-kid-pink bg-white/95',
+  error: 'border-brand-pink bg-white/95',
 };
 
 const toneIcons: Record<Tone, ReactNode> = {
   loading: <Loader2 className="animate-spin text-primary" size={48} />,
-  offline: <WifiOff className="text-kid-orange" size={48} />,
+  offline: <WifiOff className="text-brand-orange" size={48} />,
   empty: <Sparkles className="text-accent-dark" size={48} />,
-  error: <AlertCircle className="text-kid-pink" size={48} />,
+  error: <AlertCircle className="text-brand-pink" size={48} />,
 };
 
 interface StatusCardProps {

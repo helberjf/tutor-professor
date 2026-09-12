@@ -1,7 +1,7 @@
 """The curated English core pack: 30 lessons of 8 phrases, levels 1 to 4.
 
 Why this exists: the app's fixed content was one three-phrase lesson per level,
-so a child without an AI key (or with the day's credits spent) ran out of
+so a student without an AI key (or with the day's credits spent) ran out of
 material on the first afternoon. This pack is the floor the product stands on —
 enough real English, written and checked by a person, that the app is useful
 before a single provider call is made.
@@ -9,8 +9,8 @@ before a single provider call is made.
 Shape of a lesson entry:
 
     slug      file name and stable identity of the lesson
-    level     the child level it is shown at (1..4 here; A1 to A2)
-    title     what the child sees
+    level     the student level it is shown at (1..4 here; A1 to A2)
+    title     what the student sees
     theme     grouping, also used as the lesson's subject name
     objective one sentence about what the lesson is for
     items     8 tuples of (phrase_en, phrase_pt, example_en, example_pt)
@@ -52,7 +52,7 @@ LESSONS: list[dict] = [
         "items": [
             ("My name is Ana", "Meu nome e Ana", "Hello, my name is Ana.", "Ola, meu nome e Ana."),
             ("What is your name?", "Qual e o seu nome?", "Hi! What is your name?", "Oi! Qual e o seu nome?"),
-            ("I am eight years old", "Eu tenho oito anos", "I am eight years old today.", "Eu tenho oito anos hoje."),
+            ("I am twenty years old", "Eu tenho vinte anos", "She is thirty years old.", "Ela tem trinta anos."),
             ("How old are you?", "Quantos anos voce tem?", "How old are you, Lucas?", "Quantos anos voce tem, Lucas?"),
             ("I am from Brazil", "Eu sou do Brasil", "I am from Brazil, from Recife.", "Eu sou do Brasil, de Recife."),
             ("Where are you from?", "De onde voce e?", "Where are you from, Mia?", "De onde voce e, Mia?"),
@@ -87,7 +87,7 @@ LESSONS: list[dict] = [
             ("one, two, three", "um, dois, tres", "Count with me: one, two, three.", "Conte comigo: um, dois, tres."),
             ("four, five, six", "quatro, cinco, seis", "I have four, five, six pencils.", "Eu tenho quatro, cinco, seis lapis."),
             ("seven, eight, nine", "sete, oito, nove", "Seven, eight, nine birds are here.", "Sete, oito, nove passaros estao aqui."),
-            ("ten", "dez", "There are ten children here.", "Ha dez criancas aqui."),
+            ("ten", "dez", "There are ten students here.", "Ha dez estudantes aqui."),
             ("How many?", "Quantos?", "How many apples do you have?", "Quantas macas voce tem?"),
             ("I have two dogs", "Eu tenho dois cachorros", "I have two dogs at home.", "Eu tenho dois cachorros em casa."),
             ("the first one", "o primeiro", "The first one is mine.", "O primeiro e meu."),
@@ -148,9 +148,9 @@ LESSONS: list[dict] = [
     {
         "slug": "core_a1_08_school",
         "level": 1,
-        "title": "Ingles A1 - Na escola",
-        "theme": "Escola",
-        "objective": "Falar das coisas e das pessoas da escola.",
+        "title": "Ingles A1 - Estudar",
+        "theme": "Estudos",
+        "objective": "Falar das coisas e das pessoas do seu lugar de estudo.",
         "items": [
             ("my school", "minha escola", "My school is near my house.", "Minha escola e perto da minha casa."),
             ("my teacher", "meu professor", "My teacher is very kind.", "Meu professor e muito gentil."),
@@ -159,7 +159,7 @@ LESSONS: list[dict] = [
             ("my backpack", "minha mochila", "My backpack is heavy today.", "Minha mochila esta pesada hoje."),
             ("the classroom", "a sala de aula", "The classroom is big and bright.", "A sala de aula e grande e clara."),
             ("I study every day", "Eu estudo todo dia", "I study every day after school.", "Eu estudo todo dia depois da escola."),
-            ("May I go out?", "Posso sair?", "Teacher, may I go out?", "Professora, posso sair?"),
+            ("I have a question", "Eu tenho uma pergunta", "I have a question about this word.", "Eu tenho uma pergunta sobre esta palavra."),
         ],
     },
     # ── Level 2 · A1, the everyday world ──────────────────────────────────────
@@ -234,11 +234,11 @@ LESSONS: list[dict] = [
     {
         "slug": "core_a1_13_play",
         "level": 2,
-        "title": "Ingles A1 - Brincar",
-        "theme": "Brincadeiras",
-        "objective": "Falar de brincadeiras e jogos.",
+        "title": "Ingles A1 - Jogos e lazer",
+        "theme": "Jogos e lazer",
+        "objective": "Falar de jogos e tempo livre.",
         "items": [
-            ("Let us play", "Vamos brincar", "Let us play in the garden.", "Vamos brincar no jardim."),
+            ("Let us play", "Vamos jogar", "Let us play a game after lunch.", "Vamos jogar depois do almoco."),
             ("a ball", "uma bola", "Throw me the ball, please.", "Jogue a bola para mim, por favor."),
             ("a game", "um jogo", "This game is really fun.", "Este jogo e bem divertido."),
             ("my turn", "minha vez", "It is my turn now.", "Agora e a minha vez."),
@@ -328,7 +328,7 @@ LESSONS: list[dict] = [
             ("She works", "Ela trabalha", "She works at a hospital.", "Ela trabalha em um hospital."),
             ("He studies", "Ele estuda", "He studies English at night.", "Ele estuda ingles a noite."),
             ("We live here", "Nos moramos aqui", "We live here with our dog.", "Nos moramos aqui com o nosso cachorro."),
-            ("They play", "Eles brincam", "They play in the park.", "Eles brincam no parque."),
+            ("They play", "Eles jogam", "They play in the park.", "Eles jogam no parque."),
             ("I do not like it", "Eu nao gosto disso", "I do not like cold soup.", "Eu nao gosto de sopa fria."),
             ("Does she know?", "Ela sabe?", "Does she know the answer?", "Ela sabe a resposta?"),
             ("He never forgets", "Ele nunca esquece", "He never forgets my birthday.", "Ele nunca esquece o meu aniversario."),
@@ -411,7 +411,7 @@ LESSONS: list[dict] = [
         "items": [
             ("I am reading", "Eu estou lendo", "I am reading a funny book.", "Eu estou lendo um livro engracado."),
             ("She is cooking", "Ela esta cozinhando", "She is cooking dinner now.", "Ela esta cozinhando o jantar agora."),
-            ("They are playing", "Eles estao brincando", "They are playing outside.", "Eles estao brincando la fora."),
+            ("They are playing", "Eles estao jogando", "They are playing outside.", "Eles estao jogando la fora."),
             ("We are studying", "Nos estamos estudando", "We are studying for the test.", "Nos estamos estudando para a prova."),
             ("What are you doing?", "O que voce esta fazendo?", "What are you doing right now?", "O que voce esta fazendo agora?"),
             ("I am not sleeping", "Eu nao estou dormindo", "I am not sleeping, I am thinking.", "Eu nao estou dormindo, eu estou pensando."),
@@ -748,14 +748,15 @@ GLOSSARY: dict[str, str] = {
     "pencil": "lapis",
     "plane": "aviao",
     "plans": "planos",
-    "play": "brincam",
+    "play": "jogam",
     "played": "joguei",
-    "playing": "brincando",
+    "playing": "jogando",
     "please": "por favor",
     "portuguese": "portugues",
     "prefer": "prefiro",
     "promise": "prometo",
     "put": "calce",
+    "question": "pergunta",
     "rabbit": "coelho",
     "raining": "chovendo",
     "reading": "lendo",
@@ -820,6 +821,7 @@ GLOSSARY: dict[str, str] = {
     "tomorrow": "amanha",
     "too": "demais",
     "travel": "viajar",
+    "twenty": "vinte",
     "trip": "viagem",
     "trousers": "calca",
     "try": "tentar",

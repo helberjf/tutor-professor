@@ -45,7 +45,7 @@ function VerifyEmail() {
 
   if (state.kind === 'checking') {
     return (
-      <div className="kid-surface flex items-center justify-center gap-3 p-10">
+      <div className="app-surface flex items-center justify-center gap-3 p-10">
         <Loader2 className="animate-spin text-primary" size={26} />
         <span className="text-base font-bold text-slate-600">Confirmando seu e-mail...</span>
       </div>
@@ -54,7 +54,7 @@ function VerifyEmail() {
 
   if (state.kind === 'done') {
     return (
-      <div className="kid-surface border-emerald-200 p-6 md:p-8">
+      <div className="app-surface border-emerald-200 p-6 md:p-8">
         <div className="flex items-center gap-3">
           <CheckCircle2 className="text-emerald-600" size={28} />
           <h1 className="text-2xl font-black text-slate-800 md:text-3xl">E-mail confirmado</h1>
@@ -75,7 +75,7 @@ function VerifyEmail() {
   }
 
   return (
-    <div className="kid-surface border-amber-200 p-6 md:p-8">
+    <div className="app-surface border-amber-200 p-6 md:p-8">
       <div className="flex items-center gap-3">
         <MailWarning className="text-amber-600" size={28} />
         <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Link invalido ou expirado</h1>
@@ -121,7 +121,7 @@ function VerifyEmail() {
 export default function VerifyEmailPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-10">
-      <Suspense fallback={<div className="kid-surface p-6">Carregando...</div>}>
+      <Suspense fallback={<div className="app-surface p-6">Carregando...</div>}>
         <VerifyEmail />
       </Suspense>
     </main>

@@ -56,7 +56,7 @@ export function AccountDataSection() {
   }
 
   return (
-    <section className="kid-surface mb-6 border-rose-200 p-5 md:p-8">
+    <section className="app-surface mb-6 border-rose-200 p-5 md:p-8">
       <div className="flex items-center gap-3">
         <Download className="text-slate-700" size={28} />
         <div>
@@ -71,7 +71,7 @@ export function AccountDataSection() {
 
       <p className="mt-4 text-sm leading-6 text-slate-500">
         Baixe uma copia de tudo que guardamos sobre sua conta e sobre os perfis
-        das criancas. A senha e a chave de IA nunca entram no arquivo.
+        dos estudantes. A senha e a chave de IA nunca entram no arquivo.
       </p>
       <button
         type="button"
@@ -89,7 +89,7 @@ export function AccountDataSection() {
           <div className="min-w-0">
             <p className="text-lg font-black text-rose-800">Apagar a conta</p>
             <p className="mt-1 text-sm font-semibold text-rose-700">
-              Remove a conta, os perfis das criancas e todo o historico de estudo.
+              Remove a conta, os perfis de estudante e todo o historico de estudo.
               Nao da para desfazer. Exporte seus dados antes, se quiser guarda-los.
             </p>
           </div>

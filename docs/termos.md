@@ -11,9 +11,11 @@
 
 ## 1. Quem pode usar
 
-O serviço é contratado por uma pessoa maior de 18 anos, que declara ser
-responsável legal pelas crianças cujos perfis criar. A criança usa o aplicativo
-sob a conta e a supervisão desse responsável.
+O serviço é contratado por uma pessoa maior de 18 anos, que pode estudar na
+própria conta e também criar perfis para outras pessoas sob a sua
+responsabilidade. Ao criar o perfil de um menor de idade, o titular declara ser o
+responsável legal por ele, e o menor usa o aplicativo sob a conta e a supervisão
+desse responsável.
 
 ## 2. Conta
 
@@ -37,15 +39,17 @@ sob a conta e a supervisão desse responsável.
 ## 4. Uso da inteligência artificial
 
 - O conteúdo gerado por IA pode conter erros. **Ele é material de estudo, não
-  fonte de verdade**, e deve ser conferido por um adulto.
+  fonte de verdade**, e deve ser conferido antes de virar estudo definitivo.
+  Quando o perfil for de um menor de idade, essa conferência cabe ao responsável.
 - Cada plano inclui uma franquia mensal de gerações. Você também pode usar a sua
   própria chave de API, sem consumir a franquia.
-- É proibido usar o serviço para gerar conteúdo ilegal, ofensivo ou impróprio
-  para crianças.
+- É proibido usar o serviço para gerar conteúdo ilegal ou ofensivo, ou conteúdo
+  impróprio para a faixa de idade do perfil que vai recebê-lo.
 
 ## 5. O que você não pode fazer
 
-- Compartilhar uma conta entre famílias diferentes para burlar limites de plano.
+- Compartilhar uma conta entre pessoas ou famílias diferentes para burlar limites
+  de plano.
 - Tentar acessar dados de outra conta, sondar falhas sem autorização, ou
   automatizar acesso de forma a degradar o serviço.
 - Revender o acesso sem contrato específico.
@@ -71,7 +75,7 @@ meses. Nada aqui limita direitos que o Código de Defesa do Consumidor garante.
 ## 9. Encerramento
 
 Você pode apagar a conta a qualquer momento pela área de pais. A exclusão é
-irreversível e remove os perfis das crianças e todo o histórico.
+irreversível e remove os perfis de estudante e todo o histórico.
 
 ## 10. Foro e lei aplicável
 

@@ -1,13 +1,13 @@
 """The one queue behind "Estudar agora" and "Continuar de onde parou".
 
 Before this, four separate review queues existed (language review, coding review,
-the FSRS deck and "modo questoes") and nothing added them up, so the child had to
+the FSRS deck and "modo questoes") and nothing added them up, so the student had to
 decide what to study before studying anything — a decision taken three times, on
 three screens, before the first question.
 
-This module answers that question once: given a child, return the cards to
+This module answers that question once: given a student, return the cards to
 answer next, in order, as plain JSON-able dicts that a `StudySession` can store
-and hand back unchanged when the child comes back.
+and hand back unchanged when the student comes back.
 
 Two rules matter more than the mix:
 
@@ -15,7 +15,7 @@ Two rules matter more than the mix:
   last answer was also right, is done. That is `is_mastered`, and it is the same
   rule the frontend applies in `lib/question-queue.ts`.
 * **The queue is a snapshot.** It is built once, stored, and replayed from the
-  stored position. Rebuilding it on every visit would move the card the child
+  stored position. Rebuilding it on every visit would move the card the student
   was looking at.
 """
 
@@ -30,7 +30,7 @@ from sqlmodel import Session, select
 from models.database import LessonItem, StudyQuestion
 from services.review_service import build_mixed_review_cards, count_due_mixed_review_items
 
-# A session the child can finish in one sitting. Longer queues were the reason
+# A session the student can finish in one sitting. Longer queues were the reason
 # review felt like homework; this is about five to eight minutes of work.
 DEFAULT_QUEUE_LIMIT = 12
 MAX_LESSON_CARDS = 3
@@ -47,7 +47,7 @@ def is_mastered(question: StudyQuestion) -> bool:
     if question.correct_count < MASTERY_CORRECT_COUNT:
         return False
     # A question answered right twice and then missed is not mastered: the last
-    # answer is the one that says what the child knows today.
+    # answer is the one that says what the student knows today.
     if question.last_selected_option is None:
         return True
     return question.last_selected_option == question.correct_option
@@ -91,10 +91,10 @@ def select_pending_questions(
 
 
 def count_pending_questions(session: Session, child_id: int) -> int:
-    """How many saved questions the child has not mastered yet.
+    """How many saved questions the student has not mastered yet.
 
     Counted in SQL rather than by loading every row: the home screen asks for this
-    on every visit, and a child who has been studying for a while has hundreds of
+    on every visit, and a student who has been studying for a while has hundreds of
     questions. The condition is `is_mastered` negated, and the two must stay in
     step — a question is still owed when it has fewer than two correct answers, or
     when the last answer was wrong.
@@ -209,7 +209,7 @@ def build_study_queue(
     """The next cards to answer: today's lesson, what is due, then what is owed.
 
     Teaching comes first because a queue that opens with a question about a
-    phrase the child has not met yet is how review earns its reputation. The
+    phrase the student has not met yet is how review earns its reputation. The
     caller resolves the lesson (only `main` knows which lesson is current) and
     passes it in, which keeps this module free of the app's routing layer.
     """

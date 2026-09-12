@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Tutor and Professor',
     short_name: 'Tutor',
     description:
-      'Licoes, revisoes e estudos guiados em um app seguro e acolhedor.',
+      'Licoes, revisao espacada e estudo guiado para quem quiser aprender.',
     lang: 'pt-BR',
     dir: 'ltr',
     start_url: '/',
@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait-primary',
     background_color: '#F8FAFC',
     theme_color: '#0EA5E9',
-    categories: ['education', 'kids'],
+    categories: ['education', 'productivity'],
     icons: [
       {
         src: '/icons/icon-192.png',

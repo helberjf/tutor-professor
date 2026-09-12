@@ -13,7 +13,7 @@ export default function HomePage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [level, setLevel] = useState<LevelAnalysis | null>(null);
   // What is still open in the study queue, so the first screen can offer to
-  // continue it instead of asking the child to find their way back to it.
+  // continue it instead of asking the student to find their way back to it.
   const [sessionState, setSessionState] = useState<StudySessionState | null>(null);
   const [status, setStatus] = useState<HomeStatus>('loading');
   const [connection, setConnection] = useState(() => getApiConnectionDetails());
@@ -103,7 +103,7 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center md:gap-6">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100 sm:px-3 sm:py-2">
-                <Sparkles size={15} /> Seu amigo tutor
+                <Sparkles size={15} /> Seu tutor pessoal
               </span>
             <h1 className="mt-3 max-w-3xl text-[1.7rem] sm:mt-4 font-semibold leading-tight text-slate-800 sm:text-4xl sm:leading-tight md:text-5xl">
               Vamos aprender tudo do seu jeito
@@ -161,7 +161,7 @@ export default function HomePage() {
             ) : isAuthenticated ? (
               <div className="mt-1 flex flex-col items-start gap-2.5 sm:mt-6 sm:gap-3">
                 <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-stretch sm:gap-3">
-                  {/* Continuing comes first: to a child who was already in the
+                  {/* Continuing comes first: to a student who was already in the
                       middle of a session, it is the only thing on this screen
                       they are looking for. */}
                   {hasOpenSession && (
@@ -358,7 +358,7 @@ export default function HomePage() {
             emoji="📚"
             icon={<Library size={28} />}
             title="Livros"
-            description="Leia historinhas em inglês"
+            description="Leia histórias no idioma que você estuda"
             bg="bg-violet-50"
             border="border-violet-200"
             iconColor="text-violet-600"
@@ -368,7 +368,7 @@ export default function HomePage() {
 
         {/* Difficult words — only when there's data */}
         {isAuthenticated && progress?.difficult_words && progress.difficult_words.length > 0 && (
-          <section className="mt-6 kid-surface border-slate-200/60 p-6">
+          <section className="mt-6 app-surface border-slate-200/60 p-6">
             <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Para praticar mais</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {progress.difficult_words.map((word) => (
@@ -384,12 +384,12 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Parents area link — hidden while logged out, where it only led to a
+        {/* Account area link — hidden while logged out, where it only led to a
             login wall for an area a visitor has nothing to do in yet. */}
         {isAuthenticated && (
           <div className="mt-6 text-center">
-            <Link href="/parents" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
-              Área dos pais
+            <Link href="/account" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
+              Área da conta
             </Link>
           </div>
         )}
@@ -409,7 +409,7 @@ function describeRemaining(state: StudySessionState | null): string {
 /**
  * One line saying what a new session would hold.
  *
- * It is here so the buttons are not a leap of faith: a child with nothing due
+ * It is here so the buttons are not a leap of faith: a student with nothing due
  * should read that, rather than press a button and land on an empty screen.
  */
 function describeQueue(state: StudySessionState | null, hasOpenSession: boolean): string {
@@ -433,7 +433,7 @@ function describeQueue(state: StudySessionState | null, hasOpenSession: boolean)
 }
 
 /**
- * How far the child is through the current level, or null when the backend did
+ * How far the student is through the current level, or null when the backend did
  * not give a usable target. Clamped because `next_level_at` is a threshold the
  * child can already be sitting on top of.
  */
@@ -478,7 +478,7 @@ function ActivityCard({
 }) {
   const inner = (
     <div
-      className={`kid-surface flex h-full min-h-[5.5rem] items-center gap-3.5 p-3.5 transition duration-200 sm:block sm:min-h-[7.5rem] sm:gap-4 sm:p-5 md:p-6 ${border} ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
+      className={`app-surface flex h-full min-h-[5.5rem] items-center gap-3.5 p-3.5 transition duration-200 sm:block sm:min-h-[7.5rem] sm:gap-4 sm:p-5 md:p-6 ${border} ${disabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:-translate-y-1 hover:shadow-lg'} ${highlight && !disabled ? 'ring-2 ring-amber-300 ring-offset-1' : ''}`}
     >
       <div className={`inline-flex shrink-0 rounded-2xl p-2.5 sm:p-3 ${bg}`}>
         <span className={iconColor}>{icon}</span>

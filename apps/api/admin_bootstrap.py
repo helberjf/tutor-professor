@@ -106,7 +106,7 @@ def run(argv: list[str] | None = None) -> int:
         session.refresh(user)
 
         if not session.exec(select(ChildProfile).where(ChildProfile.user_id == user.id)).first():
-            session.add(ChildProfile(name=user.first_name, age_group="7-9", user_id=user.id))
+            session.add(ChildProfile(name=user.first_name, age_group=main.DEFAULT_AGE_GROUP, user_id=user.id))
             session.commit()
 
     print(f"{'Conta criada' if created else 'Conta atualizada'}: {email}")

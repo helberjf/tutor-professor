@@ -7,7 +7,7 @@ const files = {
   register: '../src/app/register/page.tsx',
   connect: '../src/app/connect/page.tsx',
   dashboard: '../src/app/dashboard/page.tsx',
-  parents: '../src/app/parents/page.tsx',
+  account: '../src/app/account/page.tsx',
   lesson: '../src/app/lesson/page.tsx',
   books: '../src/app/books/page.tsx',
 };
@@ -26,8 +26,8 @@ assert.match(source.register, /grid gap-3 sm:grid-cols-2/);
 assert.match(source.register, /grid grid-cols-2 gap-2 sm:grid-cols-3/);
 assert.match(source.connect, /mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between/);
 assert.match(source.dashboard, /px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10/);
-assert.match(source.parents, /grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6/);
-assert.match(source.parents, /relative inline-flex w-full items-center justify-center/);
+assert.match(source.account, /grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6/);
+assert.match(source.account, /relative inline-flex w-full items-center justify-center/);
 assert.match(source.lesson, /grid w-full grid-cols-1 gap-3 sm:grid-cols-2/);
 assert.match(source.lesson, /relative inline-flex w-full items-center justify-center/);
 assert.match(source.books, /mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between/);

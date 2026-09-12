@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Na escola",
-  "theme": "Escola",
-  "objective": "Falar das coisas e das pessoas da escola.",
+  "title": "Ingles A1 - Estudar",
+  "theme": "Estudos",
+  "objective": "Falar das coisas e das pessoas do seu lugar de estudo.",
   "level": 1,
   "target_language": "English",
   "content": {
@@ -114,24 +114,24 @@
         ]
       },
       {
-        "phrase_en": "May I go out?",
-        "phrase_pt": "Posso sair?",
+        "phrase_en": "I have a question",
+        "phrase_pt": "Eu tenho uma pergunta",
         "word_by_word": [
-          {
-            "en": "May",
-            "pt": "posso"
-          },
           {
             "en": "I",
             "pt": "eu"
           },
           {
-            "en": "go",
-            "pt": "vou"
+            "en": "have",
+            "pt": "tenho"
           },
           {
-            "en": "out",
-            "pt": "sair"
+            "en": "a",
+            "pt": "um"
+          },
+          {
+            "en": "question",
+            "pt": "pergunta"
           }
         ]
       }
@@ -181,10 +181,10 @@
       "example_sentence_pt": "Eu estudo todo dia depois da escola."
     },
     {
-      "word_en": "May I go out?",
-      "word_pt": "Posso sair?",
-      "example_sentence_en": "Teacher, may I go out?",
-      "example_sentence_pt": "Professora, posso sair?"
+      "word_en": "I have a question",
+      "word_pt": "Eu tenho uma pergunta",
+      "example_sentence_en": "I have a question about this word.",
+      "example_sentence_pt": "Eu tenho uma pergunta sobre esta palavra."
     }
   ]
 }

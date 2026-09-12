@@ -28,7 +28,7 @@ const config: Config = {
           DEFAULT: "#22C55E",
           dark: "#15803D",
         },
-        kid: {
+        brand: {
           pink: "#F472B6",
           purple: "#A78BFA",
           orange: "#FB923C",
@@ -36,7 +36,7 @@ const config: Config = {
         }
       },
       borderRadius: {
-        "kid": "1.5rem",
+        "card": "1.5rem",
       }
     },
   },
