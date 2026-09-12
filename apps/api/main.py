@@ -3010,8 +3010,30 @@ def get_active_study_session(session: Session, child_id: int) -> StudySession | 
 
 
 def study_session_items(record: StudySession) -> list[dict]:
+    """The stored queue, or nothing at all if it cannot be read back.
+
+    The cards are JSON written by a past release, so a card shape that no longer
+    validates is a real possibility. Dropping only the bad ones would shift every
+    index after it and land the child on a different card than the one they
+    stopped at, so an unreadable queue is discarded whole: `start` then completes
+    the session and builds a fresh one in the same request.
+    """
+
     items = record.items if isinstance(record.items, list) else []
-    return [item for item in items if isinstance(item, dict)]
+    readable: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            return []
+        try:
+            StudyQueueItemSchema.model_validate(item)
+        except ValidationError:
+            logger.warning(
+                "Study session %s holds a card this version cannot read; rebuilding it",
+                record.id,
+            )
+            return []
+        readable.append(item)
+    return readable
 
 
 def build_study_session_schema(record: StudySession) -> StudySessionSchema:
