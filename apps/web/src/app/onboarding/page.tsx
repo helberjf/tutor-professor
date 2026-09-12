@@ -7,6 +7,7 @@ import { ArrowRight, CheckCircle2, Loader2, PartyPopper, Sparkles, XCircle } fro
 
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { ApiError, api, type PlacementQuestion } from '@/lib/api';
+import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 
 /**
  * The guided first run: who is studying, which language, and where to start.
@@ -29,17 +30,6 @@ const LANGUAGES = [
   { value: 'Russian', flag: '🇷🇺', label: 'Russo' },
 ];
 
-// The band the generated content is written for. It is not a gate: it tunes
-// vocabulary and tone, and the AI prompts keep the extra safety rules for the
-// bands that are minors.
-const AGE_GROUPS = [
-  { value: '4-6', label: '4 a 6 anos' },
-  { value: '7-9', label: '7 a 9 anos' },
-  { value: '10-12', label: '10 a 12 anos' },
-  { value: '13-17', label: '13 a 17 anos' },
-  { value: '18+', label: '18 anos ou mais' },
-];
-
 type Step = 'profile' | 'language' | 'placement' | 'done';
 
 export default function OnboardingPage() {
@@ -48,7 +38,7 @@ export default function OnboardingPage() {
 
   const [step, setStep] = useState<Step>('profile');
   const [name, setName] = useState('');
-  const [ageGroup, setAgeGroup] = useState('18+');
+  const [birthDate, setBirthDate] = useState('');
   const [language, setLanguage] = useState('English');
 
   const [questions, setQuestions] = useState<PlacementQuestion[]>([]);
@@ -60,6 +50,11 @@ export default function OnboardingPage() {
   const [error, setError] = useState('');
   const [placedLevel, setPlacedLevel] = useState(1);
   const [levelPinned, setLevelPinned] = useState(false);
+
+  const age = ageFromIsoDate(birthDate);
+  const band = bandFromIsoDate(birthDate);
+  const minor = isMinorIsoDate(birthDate);
+  const birthProblem = birthDateError(birthDate);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -82,6 +77,7 @@ export default function OnboardingPage() {
           return;
         }
         if (state.child_name) setName(state.child_name);
+        if (state.birth_date) setBirthDate(state.birth_date);
         if (state.target_language) setLanguage(state.target_language);
       })
       .catch(() => {
@@ -109,7 +105,7 @@ export default function OnboardingPage() {
     try {
       const result = await api.completeOnboarding({
         child_name: name.trim() || 'Estudante',
-        age_group: ageGroup,
+        birth_date: birthDate || undefined,
         target_language: language,
         correct_levels: levels,
         skipped_placement: skipped,
@@ -183,30 +179,40 @@ export default function OnboardingPage() {
               />
             </label>
 
-            <div className="mt-5">
-              <span className="text-sm font-black text-slate-700">Idade</span>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                {AGE_GROUPS.map((group) => (
-                  <button
-                    key={group.value}
-                    type="button"
-                    onClick={() => setAgeGroup(group.value)}
-                    className={`min-h-12 rounded-2xl border-2 px-3 text-sm font-black transition ${
-                      ageGroup === group.value
-                        ? 'border-sky-400 bg-sky-50 text-sky-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-sky-200'
-                    }`}
-                  >
-                    {group.label}
-                  </button>
-                ))}
+            <label className="mt-5 block">
+              <span className="text-sm font-black text-slate-700">Data de nascimento</span>
+              <input
+                type="date"
+                value={birthDate}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(event) => setBirthDate(event.target.value)}
+                className="mt-2 min-h-12 w-full rounded-2xl border-2 border-slate-200 px-4 text-base font-bold text-slate-700 outline-none transition focus:border-primary"
+              />
+              {/* The band is read off the date, so it stays right after a
+                  birthday without anybody coming back to edit it. */}
+              <span className="mt-1.5 block text-xs font-bold text-slate-500">
+                {band
+                  ? `${age} anos · conteúdo na faixa ${bandLabel(band)}`
+                  : 'É ela que define a faixa de idade do conteúdo.'}
+              </span>
+              {birthProblem && birthDate ? (
+                <span role="alert" className="mt-1 block text-xs font-bold text-rose-600">{birthProblem}</span>
+              ) : null}
+            </label>
+
+            {minor && (
+              <div className="mt-4 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-bold leading-6 text-amber-800">
+                  Menor de 18 anos: pelos termos de uso, o estudo deve ser acompanhado por um
+                  adulto responsável, que responde pela conta.
+                </p>
               </div>
-            </div>
+            )}
 
             <button
               type="button"
               onClick={() => setStep('language')}
-              disabled={!name.trim()}
+              disabled={!name.trim() || Boolean(birthProblem)}
               className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-base font-black text-white transition hover:bg-sky-600 disabled:opacity-40"
             >
               Continuar <ArrowRight size={18} />
@@ -334,7 +340,7 @@ export default function OnboardingPage() {
             <PartyPopper size={40} className="mx-auto text-emerald-500" />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Tudo pronto, {name.trim()}!</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Começando no nível {placedLevel}.
+              Começando no nível {placedLevel}{band ? `, com conteúdo na faixa ${bandLabel(band)}` : ''}.
               {levelPinned
                 ? ' O nível ficou fixo nesse ponto; na área da conta dá para voltar ao automático quando quiser.'
                 : ' O nível sobe sozinho conforme as questões vão sendo respondidas.'}

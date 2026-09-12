@@ -11,7 +11,14 @@ class ChildProfileSchema(FromAttributesModel):
     id: int
     user_id: Optional[int] = None
     name: str
+    # Derived from birth_date when the profile has one; see services/audience.py.
     age_group: str
+    birth_date: Optional[date] = None
+    age: Optional[int] = None
+    # True when this profile belongs to a minor, so the client can show the
+    # supervision clause the terms of use state — the text comes with it.
+    requires_adult_supervision: bool = False
+    supervision_notice: Optional[str] = None
     base_language: str = "Portuguese"
     current_level: int = 1
     streak_count: int = 0
@@ -335,13 +342,15 @@ class OnboardingStateSchema(BaseModel):
     completed: bool = False
     child_count: int = 0
     child_name: str = ""
+    birth_date: Optional[date] = None
     target_language: str = "English"
     placement_available: bool = False
 
 
 class CompleteOnboardingSchema(BaseModel):
     child_name: str = Field(min_length=1, max_length=80)
-    age_group: str = Field(min_length=1, max_length=20)
+    age_group: str = Field(default="18+", min_length=1, max_length=20)
+    birth_date: Optional[date] = None
     target_language: str = Field(default="English", min_length=1, max_length=40)
     # Levels of the placement questions the child answered correctly. Empty is a
     # valid answer: it means "start at the beginning".
@@ -355,6 +364,8 @@ class OnboardingResultSchema(BaseModel):
     level: int
     level_pinned: bool
     target_language: str
+    age_group: str = "18+"
+    requires_adult_supervision: bool = False
 
 
 class QuestionSubjectMetricsSchema(BaseModel):
@@ -1292,6 +1303,9 @@ class UserRegisterSchema(BaseModel):
     # name what is missing; this bound only keeps absurd input out of hashing.
     password: str = Field(min_length=8, max_length=128)
     child_name: Optional[str] = Field(default=None, max_length=80)
+    # Asked for at signup: it decides whether this is a minor's profile, and with
+    # it whether the supervision clause in the terms applies.
+    birth_date: Optional[date] = None
     target_language: Optional[str] = Field(default=None, max_length=40)
     ai_provider: Optional[str] = Field(default=None, max_length=40)
     ai_api_key: Optional[str] = Field(default=None, max_length=500)
@@ -1440,6 +1454,7 @@ class UserAISettingsUpdateSchema(BaseModel):
 class ParentSettingsUpdateSchema(BaseModel):
     child_name: Optional[str] = None
     age_group: Optional[str] = None
+    birth_date: Optional[date] = None
     voice_preference: Optional[str] = None
     auto_audio: Optional[bool] = None
     rhythm: Optional[str] = None
@@ -1448,7 +1463,10 @@ class ParentSettingsUpdateSchema(BaseModel):
 
 class CreateChildProfileSchema(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    age_group: str = Field(min_length=1, max_length=20)
+    # Optional now that the birth date decides the band; kept for callers that
+    # still send it, and used as the fallback when no date is given.
+    age_group: str = Field(default="18+", min_length=1, max_length=20)
+    birth_date: Optional[date] = None
     voice_preference: Optional[str] = Field(default=None, max_length=40)
     auto_audio: Optional[bool] = None
     target_language: Optional[str] = Field(default=None, max_length=40)

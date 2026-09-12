@@ -11,6 +11,7 @@ import { AccountSecuritySection } from '@/components/account-security-section';
 import { AccountDataSection } from '@/components/account-data-section';
 import { BillingSection } from '@/components/billing-section';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
+import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
 const LANGUAGES = [
@@ -29,6 +30,7 @@ const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fr
 interface ParentFormState {
   child_name: string;
   age_group: string;
+  birth_date: string;
   voice_preference: string;
   auto_audio: boolean;
   target_language: string;
@@ -36,7 +38,8 @@ interface ParentFormState {
 
 const DEFAULT_FORM: ParentFormState = {
   child_name: '',
-  age_group: '7-9',
+  age_group: '18+',
+  birth_date: '',
   voice_preference: 'af_bella',
   auto_audio: true,
   target_language: 'English',
@@ -54,7 +57,7 @@ export default function ParentsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState<ApiError | null>(null);
   const [newChildName, setNewChildName] = useState('');
-  const [newChildAgeGroup, setNewChildAgeGroup] = useState('7-9');
+  const [newChildBirthDate, setNewChildBirthDate] = useState('');
   const [newChildTargetLanguage, setNewChildTargetLanguage] = useState('English');
   const [creatingChild, setCreatingChild] = useState(false);
   const [generatorTopic, setGeneratorTopic] = useState('');
@@ -114,6 +117,7 @@ export default function ParentsPage() {
       setForm({
         child_name: activeSettings.name,
         age_group: activeSettings.age_group,
+        birth_date: activeSettings.birth_date ?? '',
         voice_preference: activeSettings.voice_preference,
         auto_audio: activeSettings.auto_audio,
         target_language: activeSettings.target_language ?? 'English',
@@ -133,6 +137,15 @@ export default function ParentsPage() {
     }
   }, [router]);
 
+  // The date is the fact; everything below is read off it, including whether the
+  // supervision clause in the terms applies to this profile.
+  const formAge = ageFromIsoDate(form.birth_date);
+  const formBand = bandFromIsoDate(form.birth_date);
+  const formIsMinor = isMinorIsoDate(form.birth_date);
+  const formBirthProblem = form.birth_date ? birthDateError(form.birth_date) : '';
+  const newChildBand = bandFromIsoDate(newChildBirthDate);
+  const newChildIsMinor = isMinorIsoDate(newChildBirthDate);
+
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
@@ -146,6 +159,7 @@ export default function ParentsPage() {
       setForm({
         child_name: settings.name,
         age_group: settings.age_group,
+        birth_date: settings.birth_date ?? '',
         voice_preference: settings.voice_preference,
         auto_audio: settings.auto_audio,
         target_language: settings.target_language ?? 'English',
@@ -250,7 +264,7 @@ export default function ParentsPage() {
     try {
       const child = await api.createParentChild({
         name: newChildName.trim(),
-        age_group: newChildAgeGroup,
+        birth_date: newChildBirthDate || undefined,
         voice_preference: form.voice_preference,
         auto_audio: form.auto_audio,
         target_language: newChildTargetLanguage,
@@ -258,7 +272,7 @@ export default function ParentsPage() {
       saveActiveChildId(child.id);
       setActiveChildId(child.id);
       setNewChildName('');
-      setNewChildAgeGroup('7-9');
+      setNewChildBirthDate('');
       setNewChildTargetLanguage('English');
       setMessage(`Novo aluno criado: ${child.name}.`);
       await loadSettings();
@@ -453,6 +467,15 @@ export default function ParentsPage() {
                   <GraduationCap className="text-primary-dark" size={28} />
                   <h2 className="text-xl font-black text-slate-800 md:text-2xl">Perfil do estudante</h2>
                 </div>
+
+                {formIsMinor && (
+                  <div className="mt-4 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-sm font-bold leading-6 text-amber-800">
+                      Este perfil é de um menor de 18 anos: pelos termos de uso, o estudo deve ser
+                      acompanhado por um adulto responsável, que responde pela conta.
+                    </p>
+                  </div>
+                )}
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome do estudante</label>
@@ -465,18 +488,27 @@ export default function ParentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Faixa etaria</label>
-                    <select
-                      value={form.age_group}
-                      onChange={(event) => setForm((current) => ({ ...current, age_group: event.target.value }))}
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
+                      Data de nascimento
+                    </label>
+                    <input
+                      aria-label="Data de nascimento do estudante"
+                      type="date"
+                      max={new Date().toISOString().slice(0, 10)}
+                      value={form.birth_date}
+                      onChange={(event) => setForm((current) => ({ ...current, birth_date: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
-                    >
-                      <option value="4-6">4 a 6 anos</option>
-                      <option value="7-9">7 a 9 anos</option>
-                      <option value="10-12">10 a 12 anos</option>
-                      <option value="13-17">13 a 17 anos</option>
-                      <option value="18+">18 anos ou mais</option>
-                    </select>
+                    />
+                    {/* The band is a conclusion, not a choice: it is shown, not
+                        picked, and it follows the birthday on its own. */}
+                    <p className="mt-2 text-xs font-bold text-slate-500">
+                      {formBand
+                        ? `${formAge} anos · conteúdo na faixa ${bandLabel(formBand)}`
+                        : `Sem data ainda · conteúdo na faixa ${bandLabel(form.age_group)}`}
+                    </p>
+                    {formBirthProblem && form.birth_date ? (
+                      <p role="alert" className="mt-1 text-xs font-bold text-rose-600">{formBirthProblem}</p>
+                    ) : null}
                   </div>
                   <div className="sm:col-span-2">
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
@@ -594,18 +626,27 @@ export default function ParentsPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Faixa etaria</label>
-                  <select
-                    value={newChildAgeGroup}
-                    onChange={(event) => setNewChildAgeGroup(event.target.value)}
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Data de nascimento
+                  </label>
+                  <input
+                    aria-label="Data de nascimento do novo estudante"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={newChildBirthDate}
+                    onChange={(event) => setNewChildBirthDate(event.target.value)}
                     className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
-                  >
-                    <option value="4-6">4 a 6 anos</option>
-                    <option value="7-9">7 a 9 anos</option>
-                    <option value="10-12">10 a 12 anos</option>
-                    <option value="13-17">13 a 17 anos</option>
-                    <option value="18+">18 anos ou mais</option>
-                  </select>
+                  />
+                  <p className="mt-2 text-xs font-bold text-slate-500">
+                    {newChildBand
+                      ? `Conteúdo na faixa ${bandLabel(newChildBand)}`
+                      : 'Define a faixa de idade do conteúdo.'}
+                  </p>
+                  {newChildIsMinor && (
+                    <p className="mt-1 text-xs font-bold text-amber-700">
+                      Menor de 18 anos: o estudo deve ser acompanhado por um adulto responsável.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>

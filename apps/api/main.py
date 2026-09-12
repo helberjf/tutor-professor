@@ -290,6 +290,14 @@ from services.review_service import (
     register_review_attempt,
     seed_review_items_for_lesson,
 )
+from services.audience import (
+    MAX_SUPPORTED_AGE,
+    MIN_SUPPORTED_AGE,
+    SUPERVISION_NOTICE,
+    age_on,
+    requires_adult_supervision,
+    resolve_age_group,
+)
 from services.offline_question_service import (
     build_offline_choice_questions,
     build_offline_lesson_questions,
@@ -940,6 +948,14 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE studyday ADD COLUMN auto_completed_at TIMESTAMP"))
             except Exception:
                 pass
+        # Add childprofile.birth_date: the age band is derived from it
+        try:
+            conn.execute(text("ALTER TABLE childprofile ADD COLUMN IF NOT EXISTS birth_date DATE"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE childprofile ADD COLUMN birth_date DATE"))
+            except Exception:
+                pass
         # Add user.onboarding_completed_at for the guided first run
         try:
             conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMP'))
@@ -1343,6 +1359,71 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
             return normalize_child_voice_preference(selected_child, session=session)
 
     return get_default_child(session=session, user_id=logged_user_id)
+
+
+def child_age_group(child: ChildProfile) -> str:
+    """The band to write this profile's content for.
+
+    Derived from the birth date when the profile has one, so a profile that was
+    "10-12" last week is "13-17" the day after the birthday without anybody
+    editing it. A profile saved before the date was asked for keeps its stored
+    band until somebody fills the date in.
+    """
+
+    return resolve_age_group(getattr(child, "birth_date", None), child.age_group)
+
+
+def child_needs_supervision(child: ChildProfile) -> bool:
+    """Whether the terms' adult-supervision clause applies to this profile."""
+
+    return requires_adult_supervision(getattr(child, "birth_date", None), child.age_group)
+
+
+def validate_birth_date(value: date | None) -> date | None:
+    """Reject a date that cannot belong to a person, and pass the rest through."""
+
+    if value is None:
+        return None
+    today = activity_today()
+    if value > today:
+        raise HTTPException(status_code=422, detail="A data de nascimento nao pode estar no futuro.")
+    age = age_on(value, today) or 0
+    if age > MAX_SUPPORTED_AGE:
+        raise HTTPException(status_code=422, detail="Confira a data de nascimento informada.")
+    return value
+
+
+def apply_birth_date(child: ChildProfile, birth_date: date | None) -> None:
+    """Store the date and keep the band column in step with it."""
+
+    if birth_date is None:
+        return
+    child.birth_date = birth_date
+    child.age_group = resolve_age_group(birth_date, child.age_group)
+
+
+def child_profile_schema(child: ChildProfile) -> ChildProfileSchema:
+    """The profile as the client sees it, with the band resolved from the date."""
+
+    birth_date = getattr(child, "birth_date", None)
+    supervised = child_needs_supervision(child)
+    return ChildProfileSchema(
+        id=child.id or 0,
+        user_id=child.user_id,
+        name=child.name,
+        age_group=child_age_group(child),
+        birth_date=birth_date,
+        age=age_on(birth_date),
+        requires_adult_supervision=supervised,
+        supervision_notice=SUPERVISION_NOTICE if supervised else None,
+        base_language=child.base_language,
+        current_level=child.current_level,
+        streak_count=child.streak_count,
+        last_activity=child.last_activity,
+        voice_preference=child.voice_preference,
+        auto_audio=child.auto_audio,
+        target_language=child.target_language,
+    )
 
 
 def get_child_id_from_session(request: Request, session: Session = Depends(get_session)) -> int:
@@ -1755,7 +1836,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
     try:
         draft = phrase_generation_service.generate_lesson_draft(
             next_day=next_day,
-            age_group=child.age_group,
+            age_group=child_age_group(child),
             existing_phrases=existing_phrases,
             level=level,
             target_language=child.target_language,
@@ -3500,6 +3581,7 @@ def get_onboarding_state(
         completed=bool(user and user.onboarding_completed_at),
         child_count=len(children),
         child_name=first.name if first else "",
+        birth_date=getattr(first, "birth_date", None) if first else None,
         target_language=target_language,
         placement_available=bool(build_placement_questions(target_language)),
     )
@@ -3557,7 +3639,10 @@ def complete_onboarding(
         child = ChildProfile(user_id=user_id)
 
     child.name = payload.child_name.strip()
-    child.age_group = payload.age_group.strip()
+    birth_date = validate_birth_date(payload.birth_date)
+    child.age_group = resolve_age_group(birth_date, payload.age_group.strip())
+    if birth_date is not None:
+        child.birth_date = birth_date
     child.target_language = payload.target_language.strip() or "English"
 
     level = 1 if payload.skipped_placement else level_from_placement(payload.correct_levels)
@@ -3582,6 +3667,8 @@ def complete_onboarding(
         level=child.current_level,
         level_pinned=child.level_override is not None,
         target_language=child.target_language,
+        age_group=child_age_group(child),
+        requires_adult_supervision=child_needs_supervision(child),
     )
 
 
@@ -8742,9 +8829,11 @@ def user_register(
         send_verification_email(user, session)
 
     child_name = (payload.child_name or payload.first_name).strip() or "Estudante"
+    birth_date = validate_birth_date(payload.birth_date)
     child = ChildProfile(
         name=child_name,
-        age_group=DEFAULT_AGE_GROUP,
+        age_group=resolve_age_group(birth_date, DEFAULT_AGE_GROUP),
+        birth_date=birth_date,
         target_language=payload.target_language or "English",
         user_id=user.id,
     )
@@ -9304,7 +9393,7 @@ def get_parent_settings(
 ) -> ChildProfileSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    return ChildProfileSchema.model_validate(child)
+    return child_profile_schema(child)
 
 
 @app.get("/api/parent/children", response_model=list[ChildProfileSchema])
@@ -9326,7 +9415,10 @@ def list_parent_children(
             .where(ChildProfile.user_id == None)
             .order_by(ChildProfile.created_at, ChildProfile.id)
         ).all()
-    return [ChildProfileSchema.model_validate(normalize_child_voice_preference(child, session=session)) for child in children]
+    return [
+        child_profile_schema(normalize_child_voice_preference(child, session=session))
+        for child in children
+    ]
 
 
 @app.get("/api/parent/progress", response_model=list[ChildProgressSummarySchema])
@@ -9343,7 +9435,7 @@ def list_parent_progress(
         normalized_child = normalize_child_voice_preference(child, session=session)
         summaries.append(
             ChildProgressSummarySchema(
-                child=ChildProfileSchema.model_validate(normalized_child),
+                child=child_profile_schema(normalized_child),
                 progress=build_progress_for_child(session=session, child=normalized_child),
             )
         )
@@ -9367,9 +9459,11 @@ def create_parent_child(
                 "children" if entitlement.is_entitled else "inactive",
             ),
         )
+    birth_date = validate_birth_date(payload.birth_date)
     child = ChildProfile(
         name=payload.name.strip(),
-        age_group=payload.age_group.strip(),
+        age_group=resolve_age_group(birth_date, payload.age_group.strip()),
+        birth_date=birth_date,
         voice_preference=tts_service.normalize_voice(payload.voice_preference),
         auto_audio=True if payload.auto_audio is None else payload.auto_audio,
         target_language=payload.target_language or "English",
@@ -9378,7 +9472,7 @@ def create_parent_child(
     session.add(child)
     session.commit()
     session.refresh(child)
-    return ChildProfileSchema.model_validate(child)
+    return child_profile_schema(child)
 
 @app.post("/api/parent/settings", response_model=ChildProfileSchema)
 def update_parent_settings(
@@ -9393,6 +9487,9 @@ def update_parent_settings(
         child.name = payload.child_name
     if payload.age_group:
         child.age_group = payload.age_group
+    # The date wins over any band sent alongside it: it is the fact, the band is
+    # the conclusion drawn from it.
+    apply_birth_date(child, validate_birth_date(payload.birth_date))
     if payload.voice_preference:
         child.voice_preference = tts_service.normalize_voice(payload.voice_preference)
     if payload.auto_audio is not None:
@@ -9403,7 +9500,7 @@ def update_parent_settings(
     session.add(child)
     session.commit()
     session.refresh(child)
-    return ChildProfileSchema.model_validate(child)
+    return child_profile_schema(child)
 
 
 @app.post("/api/parent/generate-lesson", response_model=GenerateLessonResponseSchema)
@@ -9444,7 +9541,7 @@ def generate_parent_lesson(
         try:
             draft = phrase_generation_service.generate_lesson_draft(
                 next_day=next_day,
-                age_group=child.age_group,
+                age_group=child_age_group(child),
                 existing_phrases=existing_phrases,
                 topic=payload.topic,
                 level=level,
@@ -10196,7 +10293,7 @@ def generate_book(
             level=level,
             num_pages=payload.num_pages,
             theme=payload.theme or None,
-            age_group=child.age_group,
+            age_group=child_age_group(child),
             target_language=child.target_language,
             ai_config=ai_config,
         )
@@ -10257,7 +10354,7 @@ def generate_book_outline(
             theme=payload.theme or None,
             target_language=child.target_language,
             ai_config=ai_config,
-            age_group=child.age_group,
+            age_group=child_age_group(child),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -10320,7 +10417,7 @@ def generate_and_add_book_page(
             context_pages=payload.context_pages,
             target_language=book.target_language,
             ai_config=ai_config,
-            age_group=child.age_group,
+            age_group=child_age_group(child),
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

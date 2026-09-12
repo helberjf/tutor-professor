@@ -40,7 +40,7 @@ senha e não recebe e-mail: ele existe dentro da conta do titular. Quando o perf
 | Dado | Por quê |
 |---|---|
 | Primeiro nome ou apelido | Personalizar as lições |
-| Faixa etária | Ajustar o nível do conteúdo |
+| Data de nascimento | Definir a faixa de idade do conteúdo e saber se o perfil é de um menor de idade (ver Termos, item 1.1) |
 | Idioma de origem e idioma-alvo | Escolher o conteúdo |
 | Respostas, acertos, erros e datas de estudo | Repetição espaçada e relatório de progresso |
 
@@ -50,9 +50,11 @@ apenas o primeiro nome ou um apelido.**
 
 ## 3. Consentimento do responsável
 
-O cadastro é feito por um adulto. Ao criar um perfil para outra pessoa menor de
-idade, ele declara ser o responsável legal por ela. Registramos a data e a hora
-desse aceite junto com a conta.
+O cadastro é feito por um adulto. A data de nascimento informada no cadastro é o
+que diz se o perfil é de um menor de idade; quando for, o titular declara ser o
+responsável legal por essa pessoa e que **o uso será acompanhado por um adulto**,
+como está nos Termos de Uso (item 1.1). Registramos a data e a hora desse aceite
+junto com a conta.
 
 ## 4. Inteligência artificial
 
