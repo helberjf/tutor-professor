@@ -383,6 +383,34 @@ async def test_mastered_questions_stop_coming_back(
     require(mastered_id not in queued_ids, "the queue must not serve a mastered question")
 
 
+async def test_an_unreadable_queue_is_rebuilt(client: httpx.AsyncClient, headers: dict[str, str]) -> None:
+    """A card written by an older release must not 500 the session screen."""
+
+    child_id = child_id_of_account()
+    with Session(main.engine) as session:
+        record = session.exec(
+            select(main.StudySession)
+            .where(main.StudySession.child_id == child_id)
+            .order_by(main.StudySession.id.desc())
+        ).first()
+        require(record is not None, "there should be a session to corrupt")
+        record.status = "active"
+        record.position = 1
+        record.items = [{"kind": "something_this_version_never_heard_of", "ref_id": 1}]
+        session.add(record)
+        session.commit()
+        broken_id = record.id
+
+    state = await client.get("/api/study/session", headers=headers)
+    require(state.status_code == 200, f"state should survive an unreadable queue: {state.text}")
+    require(state.json()["has_session"] is False, "an unreadable queue is not something to continue")
+
+    started = await client.post("/api/study/session/start", headers=headers)
+    require(started.status_code == 200, f"start should rebuild, not fail: {started.text}")
+    require(started.json()["id"] != broken_id, "the unreadable session should be replaced")
+    require(started.json()["total"] > 0, "the rebuilt queue should carry the work that is still owed")
+
+
 async def test_onboarding_places_the_child(client: httpx.AsyncClient, headers: dict[str, str]) -> None:
     state = await client.get("/api/onboarding/state", headers=headers)
     require(state.status_code == 200, f"onboarding state failed: {state.text}")
@@ -433,6 +461,7 @@ async def run() -> None:
         await test_day_also_closes_from_plain_activity(client, headers)
         await test_free_question_bank_needs_no_provider(client, headers, lesson_id)
         await test_mastered_questions_stop_coming_back(client, headers, lesson_id)
+        await test_an_unreadable_queue_is_rebuilt(client, headers)
         await test_onboarding_places_the_child(client, headers)
 
     print("study session flow: all checks passed")
