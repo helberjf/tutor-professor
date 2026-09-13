@@ -117,9 +117,11 @@ export default function OnboardingPage() {
     } catch (err) {
       if (!mountedRef.current) return;
       setError(
-        err instanceof ApiError
-          ? (err.detail ?? err.message)
-          : 'Não foi possível salvar. Tente novamente.',
+        err instanceof ApiError && err.status === 404
+          ? 'O servidor ainda está numa versão anterior e não conhece esta etapa. Você pode seguir para o início e começar a estudar.'
+          : err instanceof ApiError
+            ? (err.detail ?? err.message)
+            : 'Não foi possível salvar. Tente novamente.',
       );
     } finally {
       if (mountedRef.current) setSaving(false);

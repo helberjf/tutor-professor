@@ -33,7 +33,7 @@ import { playAudioWithFallback } from '@/lib/browser-speech';
  * screen owns is the bookmark.
  */
 
-type Phase = 'loading' | 'running' | 'finished' | 'empty' | 'error';
+type Phase = 'loading' | 'running' | 'finished' | 'empty' | 'error' | 'outdated-server';
 
 export default function StudySessionPage() {
   const authState = useRequireAuth();
@@ -81,6 +81,12 @@ export default function StudySessionPage() {
       setPhase(resumeAt >= data.total ? 'finished' : 'running');
     } catch (err) {
       if (!mountedRef.current) return;
+      // A 404 on an endpoint this build ships means the API is older than the
+      // app — the two deploy separately. Anything else is a real failure.
+      if (err instanceof ApiError && err.status === 404) {
+        setPhase('outdated-server');
+        return;
+      }
       setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel abrir a sessao.'));
       setPhase('error');
     }
@@ -260,6 +266,43 @@ export default function StudySessionPage() {
             secondaryHref="/"
             secondaryLabel="Voltar ao inicio"
           />
+        </div>
+      </main>
+    );
+  }
+
+  if (phase === 'outdated-server') {
+    return (
+      <main className="min-h-screen px-4 py-10">
+        <div className="mx-auto max-w-xl">
+          <div className="app-surface border-amber-200 p-8 text-center">
+            <Sparkles size={40} className="mx-auto text-amber-500" />
+            <h1 className="mt-4 text-2xl font-black text-slate-800">A sessao ainda nao chegou ao servidor</h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+              Esta tela ja existe no aplicativo, mas o servidor ainda esta numa versao anterior.
+              Enquanto isso, a licao e a revisao funcionam normalmente.
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Link
+                href="/lesson"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-sm font-black text-white hover:bg-sky-600"
+              >
+                <ArrowRight size={16} /> Abrir a licao
+              </Link>
+              <Link
+                href="/review"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                Ir para a revisao
+              </Link>
+              <Link
+                href="/"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                <Home size={16} /> Inicio
+              </Link>
+            </div>
+          </div>
         </div>
       </main>
     );
