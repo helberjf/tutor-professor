@@ -29,9 +29,9 @@
       },
       {
         "phrase_en": "Llevo dos años aprendiendo este idioma.",
-        "phrase_pt": "Eu aprendo esse idioma há dóis anos.",
+        "phrase_pt": "Eu aprendo esse idioma há dois anos.",
         "word_by_word": [
-          { "en": "Llevo dos años", "pt": "há dóis anos" },
+          { "en": "Llevo dos años", "pt": "há dois anos" },
           { "en": "aprendiendo", "pt": "aprendendo" },
           { "en": "este idioma", "pt": "esse idioma" }
         ]
@@ -53,7 +53,7 @@
     },
     {
       "word_en": "Llevo dos años aprendiendo este idioma.",
-      "word_pt": "Eu aprendo esse idioma há dóis anos.",
+      "word_pt": "Eu aprendo esse idioma há dois anos.",
       "example_sentence_en": "\"Llevar\" + time + gerund shows how long an action has been happening.",
       "example_sentence_pt": "\"Llevar\" + tempo + gerundio mostra há quanto tempo uma ação acontece."
     }

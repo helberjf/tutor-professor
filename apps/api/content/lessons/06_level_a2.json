@@ -20,7 +20,7 @@
         "phrase_en": "She is going to call you later.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "She", "pt": "elá" },
+          { "en": "She", "pt": "ela" },
           { "en": "is going to", "pt": "vai" },
           { "en": "call you", "pt": "te ligar" },
           { "en": "later", "pt": "mais tarde" }
@@ -32,7 +32,7 @@
         "word_by_word": [
           { "en": "Can you", "pt": "você pode" },
           { "en": "help me", "pt": "me ajudar" },
-          { "en": "with this", "pt": "com issó" },
+          { "en": "with this", "pt": "com isso" },
           { "en": "please", "pt": "por favor" }
         ]
       }

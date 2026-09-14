@@ -20,7 +20,7 @@
         "phrase_en": "Она позвонит тебе позже.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Она позвонит", "pt": "elá vai ligar" },
+          { "en": "Она позвонит", "pt": "ela vai ligar" },
           { "en": "тебе", "pt": "te" },
           { "en": "позже", "pt": "mais tarde" }
         ]
@@ -31,7 +31,7 @@
         "word_by_word": [
           { "en": "Ты можешь помочь", "pt": "você pode ajudar" },
           { "en": "мне", "pt": "me" },
-          { "en": "с этим", "pt": "com issó" },
+          { "en": "с этим", "pt": "com isso" },
           { "en": "пожалуйста", "pt": "por favor" }
         ]
       }

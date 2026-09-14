@@ -20,7 +20,7 @@
         "phrase_en": "У неё удивительная способность читать между строк.",
         "phrase_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
         "word_by_word": [
-          { "en": "У неё", "pt": "elá tem" },
+          { "en": "У неё", "pt": "ela tem" },
           { "en": "удивительная способность", "pt": "uma habilidade impressionante" },
           { "en": "читать между строк", "pt": "de ler nas entrelinhas" }
         ]

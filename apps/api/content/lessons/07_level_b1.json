@@ -28,11 +28,11 @@
       },
       {
         "phrase_en": "I've been learning English for two years.",
-        "phrase_pt": "Eu tenho aprendido inglês há dóis anos.",
+        "phrase_pt": "Eu tenho aprendido inglês há dois anos.",
         "word_by_word": [
           { "en": "I've been learning", "pt": "eu tenho aprendido" },
           { "en": "English", "pt": "inglês" },
-          { "en": "for two years", "pt": "há dóis anos" }
+          { "en": "for two years", "pt": "há dois anos" }
         ]
       }
     ]
@@ -52,7 +52,7 @@
     },
     {
       "word_en": "I've been learning English for two years.",
-      "word_pt": "Eu tenho aprendido inglês há dóis anos.",
+      "word_pt": "Eu tenho aprendido inglês há dois anos.",
       "example_sentence_en": "The present perfect continuous shows an action that started in the past and continues now.",
       "example_sentence_pt": "O present perfect continuous mostra uma ação que começou no passado e continua agora."
     }

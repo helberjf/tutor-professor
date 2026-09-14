@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "one, two, three",
-        "phrase_pt": "um, dóis, três",
+        "phrase_pt": "um, dois, três",
         "word_by_word": [
           {
             "en": "one",
@@ -17,7 +17,7 @@
           },
           {
             "en": "two",
-            "pt": "dóis"
+            "pt": "dois"
           },
           {
             "en": "three",
@@ -87,7 +87,7 @@
       },
       {
         "phrase_en": "I have two dogs",
-        "phrase_pt": "Eu tenho dóis cachorros",
+        "phrase_pt": "Eu tenho dois cachorros",
         "word_by_word": [
           {
             "en": "I",
@@ -99,7 +99,7 @@
           },
           {
             "en": "two",
-            "pt": "dóis"
+            "pt": "dois"
           },
           {
             "en": "dogs",
@@ -144,9 +144,9 @@
   "items": [
     {
       "word_en": "one, two, three",
-      "word_pt": "um, dóis, três",
+      "word_pt": "um, dois, três",
       "example_sentence_en": "Count with me: one, two, three.",
-      "example_sentence_pt": "Conte comigo: um, dóis, três."
+      "example_sentence_pt": "Conte comigo: um, dois, três."
     },
     {
       "word_en": "four, five, six",
@@ -174,9 +174,9 @@
     },
     {
       "word_en": "I have two dogs",
-      "word_pt": "Eu tenho dóis cachorros",
+      "word_pt": "Eu tenho dois cachorros",
       "example_sentence_en": "I have two dogs at home.",
-      "example_sentence_pt": "Eu tenho dóis cachorros em casa."
+      "example_sentence_pt": "Eu tenho dois cachorros em casa."
     },
     {
       "word_en": "the first one",

@@ -20,7 +20,7 @@
         "phrase_en": "Elle va t'appeler plus tard.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Elle va", "pt": "elá vai" },
+          { "en": "Elle va", "pt": "ela vai" },
           { "en": "t'appeler", "pt": "te ligar" },
           { "en": "plus tard", "pt": "mais tarde" }
         ]
@@ -31,7 +31,7 @@
         "word_by_word": [
           { "en": "Peux-tu", "pt": "você pode" },
           { "en": "m'aider", "pt": "me ajudar" },
-          { "en": "avec ca", "pt": "com issó" },
+          { "en": "avec ca", "pt": "com isso" },
           { "en": "s'il te plait", "pt": "por favor" }
         ]
       }

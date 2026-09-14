@@ -1,7 +1,7 @@
 {
   "title": "Inglês A1 - Cumprimentos",
   "theme": "Cumprimentos",
-  "objective": "Dizer oi, tcháu e como você está.",
+  "objective": "Dizer oi, tchau e como você está.",
   "level": 1,
   "target_language": "English",
   "content": {
@@ -119,11 +119,11 @@
       },
       {
         "phrase_en": "Goodbye!",
-        "phrase_pt": "Tcháu!",
+        "phrase_pt": "Tchau!",
         "word_by_word": [
           {
             "en": "Goodbye",
-            "pt": "tcháu"
+            "pt": "tchau"
           }
         ]
       }
@@ -174,9 +174,9 @@
     },
     {
       "word_en": "Goodbye!",
-      "word_pt": "Tcháu!",
+      "word_pt": "Tchau!",
       "example_sentence_en": "Goodbye! See you tomorrow.",
-      "example_sentence_pt": "Tcháu! Até amanhã."
+      "example_sentence_pt": "Tchau! Até amanhã."
     }
   ]
 }

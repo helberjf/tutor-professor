@@ -29,11 +29,11 @@
       },
       {
         "phrase_en": "J'apprends cette langue depuis deux ans.",
-        "phrase_pt": "Eu aprendo esse idioma há dóis anos.",
+        "phrase_pt": "Eu aprendo esse idioma há dois anos.",
         "word_by_word": [
           { "en": "J'apprends", "pt": "eu aprendo" },
           { "en": "cette langue", "pt": "esse idioma" },
-          { "en": "depuis deux ans", "pt": "há dóis anos" }
+          { "en": "depuis deux ans", "pt": "há dois anos" }
         ]
       }
     ]
@@ -53,7 +53,7 @@
     },
     {
       "word_en": "J'apprends cette langue depuis deux ans.",
-      "word_pt": "Eu aprendo esse idioma há dóis anos.",
+      "word_pt": "Eu aprendo esse idioma há dois anos.",
       "example_sentence_en": "French uses the present tense with \"depuis\" for an action still happening.",
       "example_sentence_pt": "O francês usa o presente com \"depuis\" para uma ação que ainda está acontecendo."
     }
