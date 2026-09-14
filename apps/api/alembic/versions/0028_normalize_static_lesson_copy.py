@@ -50,6 +50,7 @@ def upgrade() -> None:
     metadata = sa.MetaData()
     lesson = sa.Table("lesson", metadata, autoload_with=bind)
     lesson_item = sa.Table("lessonitem", metadata, autoload_with=bind)
+    lesson_columns = set(lesson.c.keys())
     shared_rows = list(
         bind.execute(sa.select(lesson).where(lesson.c.child_id.is_(None))).mappings()
     )
@@ -57,7 +58,11 @@ def upgrade() -> None:
     by_title = {}
     for row in shared_rows:
         by_title.setdefault(
-            (_title_key(str(row["title"] or "")), str(row["target_language"] or "").casefold(), row["level"]),
+            (
+                _title_key(str(row["title"] or "")),
+                str(row.get("target_language") or "").casefold(),
+                row.get("level"),
+            ),
             [],
         ).append(row)
 
@@ -85,6 +90,7 @@ def upgrade() -> None:
             "level": seed.get("level"),
             "target_language": seed.get("target_language", "English"),
         }
+        fields = {name: value for name, value in fields.items() if name in lesson_columns}
         bind.execute(lesson.update().where(lesson.c.id == row["id"]).values(**fields))
 
         incoming = seed.get("items", [])
