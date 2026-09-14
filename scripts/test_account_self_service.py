@@ -4,6 +4,11 @@ Covers the flows that turned into a message to the owner before: verifying an
 address, resetting a forgotten password, changing a password, signing out
 everywhere. Also covers the two things that must NOT happen: telling a stranger
 whether an address has an account, and letting a spent link work twice.
+
+The last pass exercises the LGPD pair — export and erasure — and checks the
+database afterwards rather than trusting the endpoint's own count: a table left
+out of delete_account() reports success while its rows stay behind, pointing at
+a child that no longer exists.
 """
 from __future__ import annotations
 
@@ -36,8 +41,10 @@ sys.path.insert(0, str(API_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import httpx  # noqa: E402
+from sqlmodel import Session as DbSession, select as db_select  # noqa: E402
 
 import main  # noqa: E402
+from models.database import ChildProfile, StudySession, User  # noqa: E402
 
 
 EMAIL = "familia@example.com"
@@ -207,6 +214,92 @@ async def run_checks() -> None:
         assert_status(await client.get("/api/auth/me"), 401, "sessions dropped after the change")
 
 
+def study_session_count() -> int:
+    with DbSession(main.engine) as db:
+        return len(db.exec(db_select(StudySession)).all())
+
+
+def ensure_study_session(child_id: int) -> None:
+    """Make sure the child owns a stored study queue.
+
+    /api/study/session/start answers "empty" when the child owes nothing, and a
+    check that only runs when the queue happens to be non-empty is a check that
+    silently stops running. So fall back to storing a queue directly.
+    """
+
+    if study_session_count() > 0:
+        return
+    with DbSession(main.engine) as db:
+        db.add(
+            StudySession(
+                child_id=child_id,
+                status="active",
+                session_date=main.activity_today(),
+                items=[{"kind": "word", "front": "cat", "back": "gato"}],
+                position=0,
+            )
+        )
+        db.commit()
+
+
+async def run_account_data_checks() -> None:
+    """Export and erasure: the copy is complete and the erasure leaves nothing."""
+
+    async with new_client() as client:
+        assert_status(
+            await client.post("/api/auth/login", json={"email": EMAIL, "password": PASSWORD}),
+            200,
+            "login before the export",
+        )
+
+        with DbSession(main.engine) as db:
+            child = db.exec(db_select(ChildProfile)).first()
+        require(child is not None and child.id is not None, "the account should own a child")
+        child_id = child.id
+
+        # Best effort over HTTP, so the real queue builder stays in the path.
+        assert_status(
+            await client.post("/api/study/session/start"), 200, "start a study session"
+        )
+        ensure_study_session(child_id)
+        require(study_session_count() > 0, "a study session should be stored by now")
+
+        export = await client.get("/api/account/export")
+        assert_status(export, 200, "export own account")
+        data = export.json()
+        require(
+            "study_sessions" in data,
+            f"the export must carry the study queues, got keys {sorted(data)}",
+        )
+        require(
+            any(row["child_id"] == child_id for row in data["study_sessions"]),
+            "the export must carry this child's study session",
+        )
+        # The export is a file someone downloads: no secrets in it.
+        require("password_hash" not in data["account"], "the export must not carry the hash")
+
+        assert_status(
+            await client.post("/api/account/delete", json={"password": "errada"}),
+            401,
+            "erasure needs the password",
+        )
+
+        deleted = await client.post("/api/account/delete", json={"password": PASSWORD})
+        assert_status(deleted, 200, "delete own account")
+
+    with DbSession(main.engine) as db:
+        require(
+            db.exec(db_select(User).where(User.email == EMAIL)).first() is None,
+            "the account row must be gone",
+        )
+        leftovers = db.exec(db_select(StudySession)).all()
+        require(
+            not leftovers,
+            f"erasure left {len(leftovers)} studysession row(s) orphaned on a deleted child",
+        )
+        require(not db.exec(db_select(ChildProfile)).all(), "child profiles must be gone")
+
+
 def test_audio_links_are_signed() -> None:
     """A cached audio file is reachable only through a link the API signed."""
 
@@ -251,6 +344,8 @@ def test_audio_links_are_signed() -> None:
 def main_entry() -> None:
     asyncio.run(run_checks())
     test_audio_links_are_signed()
+    # Last: it erases the account the checks above built.
+    asyncio.run(run_account_data_checks())
     print("account self-service: ok")
 
 
