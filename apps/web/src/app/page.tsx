@@ -286,6 +286,17 @@ export default function HomePage() {
             disabled={cardsDisabled}
           />
           <ActivityCard
+            href={cardHref('/objectives')}
+            emoji="🎯"
+            icon={<Target size={28} />}
+            title="Objetivos"
+            description="Defina aonde quer chegar e acompanhe o alcance"
+            bg="bg-cyan-50"
+            border="border-cyan-200"
+            iconColor="text-cyan-700"
+            disabled={cardsDisabled}
+          />
+          <ActivityCard
             href={cardHref('/lesson')}
             emoji="📖"
             icon={<BookOpen size={28} />}

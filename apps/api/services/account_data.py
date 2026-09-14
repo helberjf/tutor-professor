@@ -35,6 +35,8 @@ from models.database import (
     Lesson,
     LessonItem,
     LessonQuestion,
+    Objective,
+    ObjectiveItem,
     ProgrammingFlashcard,
     ProgrammingQuestion,
     ProgrammingSubject,
@@ -179,6 +181,10 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
         "leetcode_methods": _dump(
             _rows(session, LeetCodeMethod, LeetCodeMethod.child_id, child_ids)
         ),
+        "objectives": _dump(_rows(session, Objective, Objective.child_id, child_ids)),
+        "objective_items": _dump(
+            _rows(session, ObjectiveItem, ObjectiveItem.child_id, child_ids)
+        ),
         "exams": _dump(exams),
         "exam_questions": _dump(_rows(session, ExamQuestion, ExamQuestion.exam_id, exam_ids)),
         "exam_attempts": _dump(attempts),
@@ -257,6 +263,8 @@ def delete_account(session: Session, user: User) -> dict[str, int]:
     remove(CodingDay, CodingDay.child_id, child_ids)
     remove(DailyActivity, DailyActivity.child_id, child_ids)
     remove(LeetCodeMethod, LeetCodeMethod.child_id, child_ids)
+    remove(ObjectiveItem, ObjectiveItem.child_id, child_ids)
+    remove(Objective, Objective.child_id, child_ids)
 
     remove(ChildProfile, ChildProfile.user_id, [user.id])
 

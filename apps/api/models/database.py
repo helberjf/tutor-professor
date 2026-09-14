@@ -682,3 +682,60 @@ class LeetCodeMethod(SQLModel, table=True):
     complexity_space: Optional[str] = Field(default=None, max_length=60)
     order_index: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Objective(SQLModel, table=True):
+    """Something the learner is working towards, plus the study that gets there.
+
+    An objective on its own is a wish ("passar na DVA-C02"). What makes it
+    measurable is the list of items hanging off it: each one is a piece of study
+    the person wrote down, and the percentage is how much of that list is done.
+    So the progress here is never guessed from activity elsewhere in the app —
+    it is exactly what the learner said the objective requires.
+    """
+
+    __table_args__ = (Index("ix_objective_child_status", "child_id", "status"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    title: str = Field(min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    # Optional deadline. Only ever shown, never enforced: a missed date should
+    # not delete the objective or reset what was already studied.
+    target_date: Optional[date] = Field(default=None)
+    # active | archived. Archived keeps the history without crowding the list.
+    status: str = Field(default="active", max_length=12)
+    # Set the first time the list reaches 100% and cleared if an item is
+    # unchecked afterwards, so "conquistado" always matches the current items.
+    achieved_at: Optional[datetime] = Field(default=None)
+    order_index: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ObjectiveItem(SQLModel, table=True):
+    """One thing to study for an objective, and whether it is done.
+
+    ``weight`` exists because the items are rarely the same size: reading one
+    chapter and finishing a whole course both check one box, and counting them
+    equally would make the percentage lie. The default of 1 keeps the simple
+    case simple — a plain checklist.
+    """
+
+    __table_args__ = (Index("ix_objectiveitem_objective_done", "objective_id", "done"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    objective_id: int = Field(foreign_key="objective.id", index=True)
+    # Denormalized from the objective so every query can be scoped by tenant
+    # without a join, the way the rest of the child-owned tables are.
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    title: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    # Which part of the app this belongs to: language | coding | diverse | exam | free.
+    area: str = Field(default="free", max_length=20)
+    weight: int = Field(default=1)
+    done: bool = Field(default=False)
+    completed_at: Optional[datetime] = Field(default=None)
+    order_index: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

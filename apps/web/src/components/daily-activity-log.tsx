@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, X } from 'lucide-react';
+import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, Target, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
 import { ActivityDetails } from './activity-details';
@@ -32,6 +32,7 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   leetcode: <span aria-hidden="true">🏆</span>,
   question: <HelpCircle className="text-amber-500" size={20} />,
   exam: <CheckCircle2 className="text-indigo-500" size={20} />,
+  objective: <Target className="text-sky-600" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   leetcode: 'LeetCode',
   question: 'Questão',
   exam: 'Simulado',
+  objective: 'Objetivo',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -50,6 +52,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   leetcode: 'bg-amber-50 border-amber-200',
   question: 'bg-amber-50 border-amber-200',
   exam: 'bg-indigo-50 border-indigo-200',
+  objective: 'bg-sky-50 border-sky-200',
 };
 
 interface DailyActivityLogProps {

@@ -1455,6 +1455,12 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     throw await parseError(response);
   }
 
+  // A 204 has no body by definition, so asking for JSON would fail on a call
+  // that actually succeeded — which is what every DELETE here answers with.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   try {
     return (await response.json()) as T;
   } catch (error) {
@@ -1476,6 +1482,89 @@ function getReviewSession(
   return fetchAPI<ReviewSession>(
     `/api/review?limit=${limit}${vocabularyOnly ? '&vocabulary_only=true' : ''}`,
   );
+}
+
+// ── Objetivos ────────────────────────────────────────────────────────────────
+// Um objetivo carrega a lista do que precisa ser estudado e a porcentagem que
+// essa lista já alcançou. Toda escrita devolve o objetivo inteiro e recalculado,
+// então a tela nunca precisa refazer a conta do backend.
+
+export type ObjectiveArea = 'free' | 'language' | 'coding' | 'diverse' | 'exam';
+
+export interface ObjectiveItem {
+  id: number;
+  objective_id: number;
+  title: string;
+  notes: string | null;
+  area: ObjectiveArea;
+  weight: number;
+  done: boolean;
+  completed_at: string | null;
+  order_index: number;
+  created_at: string;
+}
+
+export interface Objective {
+  id: number;
+  child_id: number;
+  title: string;
+  description: string | null;
+  icon_emoji: string | null;
+  target_date: string | null;
+  status: 'active' | 'archived';
+  achieved_at: string | null;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+  items: ObjectiveItem[];
+  item_count: number;
+  done_count: number;
+  total_weight: number;
+  done_weight: number;
+  progress_percent: number;
+  days_remaining: number | null;
+}
+
+export interface ObjectivesSummary {
+  active_count: number;
+  achieved_count: number;
+  archived_count: number;
+  total_items: number;
+  done_items: number;
+  average_progress_percent: number;
+  objectives: Objective[];
+}
+
+export interface CreateObjectiveItemPayload {
+  title: string;
+  notes?: string | null;
+  area?: ObjectiveArea;
+  weight?: number;
+}
+
+export interface CreateObjectivePayload {
+  title: string;
+  description?: string | null;
+  icon_emoji?: string | null;
+  target_date?: string | null;
+  items?: CreateObjectiveItemPayload[];
+}
+
+export interface UpdateObjectivePayload {
+  title?: string;
+  description?: string | null;
+  icon_emoji?: string | null;
+  target_date?: string | null;
+  clear_target_date?: boolean;
+  status?: 'active' | 'archived';
+}
+
+export interface UpdateObjectiveItemPayload {
+  title?: string;
+  notes?: string | null;
+  area?: ObjectiveArea;
+  weight?: number;
+  done?: boolean;
 }
 
 export const api = {
@@ -2000,6 +2089,22 @@ export const api = {
     fetchAPI<LeetCodeMethod>('/api/coding/leetcode/generate', { method: 'POST', body: JSON.stringify(payload) }),
   deleteLeetCodeMethod: (id: number) =>
     fetchAPI<void>(`/api/coding/leetcode/${id}`, { method: 'DELETE' }),
+  // Objetivos
+  getObjectives: (options: { includeArchived?: boolean } = {}) =>
+    fetchAPI<Objective[]>(`/api/objectives${options.includeArchived ? '?include_archived=true' : ''}`),
+  getObjectivesSummary: () => fetchAPI<ObjectivesSummary>('/api/objectives/summary'),
+  createObjective: (payload: CreateObjectivePayload) =>
+    fetchAPI<Objective>('/api/objectives', { method: 'POST', body: JSON.stringify(payload) }),
+  updateObjective: (id: number, payload: UpdateObjectivePayload) =>
+    fetchAPI<Objective>(`/api/objectives/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteObjective: (id: number) =>
+    fetchAPI<void>(`/api/objectives/${id}`, { method: 'DELETE' }),
+  addObjectiveItem: (objectiveId: number, payload: CreateObjectiveItemPayload) =>
+    fetchAPI<Objective>(`/api/objectives/${objectiveId}/items`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateObjectiveItem: (itemId: number, payload: UpdateObjectiveItemPayload) =>
+    fetchAPI<Objective>(`/api/objectives/items/${itemId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteObjectiveItem: (itemId: number) =>
+    fetchAPI<Objective>(`/api/objectives/items/${itemId}`, { method: 'DELETE' }),
   // Daily Activity Tracking
   logActivity: (payload: DailyActivityCreatePayload) =>
     fetchAPI<DailyActivity>('/api/activity/log', { method: 'POST', body: JSON.stringify(payload) }),
