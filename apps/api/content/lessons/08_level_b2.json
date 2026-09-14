@@ -1,25 +1,25 @@
 {
   "level": 7,
-  "title": "Ingles de hoje - Nivel B2",
+  "title": "Inglês de hoje - Nível B2",
   "theme": "Frases do dia",
-  "objective": "Pratique voz passiva, phrasal verbs e oracoes concessivas em ingles (nivel B2).",
+  "objective": "Pratique voz passiva, phrasal verbs e orações concessivas em inglês (nível B2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "The meeting has been postponed until next week.",
-        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "phrase_pt": "A reunião foi adiada para a próxima semana.",
         "word_by_word": [
-          { "en": "The meeting", "pt": "a reuniao" },
+          { "en": "The meeting", "pt": "a reunião" },
           { "en": "has been postponed", "pt": "foi adiada" },
-          { "en": "until next week", "pt": "para a proxima semana" }
+          { "en": "until next week", "pt": "para a próxima semana" }
         ]
       },
       {
         "phrase_en": "I ran into an old friend at the mall.",
         "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
         "word_by_word": [
-          { "en": "I ran into", "pt": "eu encontrei por acaso" },
+          { "en": "I ran into", "pt": "eu encontrei por acasó" },
           { "en": "an old friend", "pt": "um velho amigo" },
           { "en": "at the mall", "pt": "no shopping" }
         ]
@@ -38,15 +38,15 @@
   "items": [
     {
       "word_en": "The meeting has been postponed until next week.",
-      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "word_pt": "A reunião foi adiada para a próxima semana.",
       "example_sentence_en": "Passive voice is common in formal or business English.",
-      "example_sentence_pt": "A voz passiva e comum no ingles formal ou de negocios."
+      "example_sentence_pt": "A voz passiva é comum no inglês formal ou de negócios."
     },
     {
       "word_en": "I ran into an old friend at the mall.",
       "word_pt": "Eu encontrei por acaso um velho amigo no shopping.",
       "example_sentence_en": "\"Ran into\" is a phrasal verb meaning to meet someone by chance.",
-      "example_sentence_pt": "\"Ran into\" e um phrasal verb que significa encontrar alguem por acaso."
+      "example_sentence_pt": "\"Ran into\" é um phrasal verb que significa encontrar alguém por acaso."
     },
     {
       "word_en": "Despite the rain, they decided to go hiking.",

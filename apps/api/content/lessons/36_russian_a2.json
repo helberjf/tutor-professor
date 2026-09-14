@@ -1,9 +1,9 @@
 {
   "level": 3,
   "target_language": "Russian",
-  "title": "Russo de hoje - Nivel A2",
+  "title": "Russo de hoje - Nível A2",
   "theme": "Frases do dia",
-  "objective": "Pratique passado, futuro e pedidos em russo (nivel A2).",
+  "objective": "Pratique passado, futuro e pedidos em russo (nível A2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
@@ -20,18 +20,18 @@
         "phrase_en": "Она позвонит тебе позже.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Она позвонит", "pt": "ela vai ligar" },
+          { "en": "Она позвонит", "pt": "elá vai ligar" },
           { "en": "тебе", "pt": "te" },
           { "en": "позже", "pt": "mais tarde" }
         ]
       },
       {
         "phrase_en": "Ты можешь мне помочь с этим, пожалуйста?",
-        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "phrase_pt": "Você pode me ajudar com isso, por favor?",
         "word_by_word": [
-          { "en": "Ты можешь помочь", "pt": "voce pode ajudar" },
+          { "en": "Ты можешь помочь", "pt": "você pode ajudar" },
           { "en": "мне", "pt": "me" },
-          { "en": "с этим", "pt": "com isso" },
+          { "en": "с этим", "pt": "com issó" },
           { "en": "пожалуйста", "pt": "por favor" }
         ]
       }
@@ -42,7 +42,7 @@
       "word_en": "Вчера я ходил на рынок.",
       "word_pt": "Eu fui ao mercado ontem.",
       "example_sentence_en": "\"Ходил\" is the past tense of the multidirectional verb \"ходить\" (to go, on foot).",
-      "example_sentence_pt": "\"Ходил\" e o passado do verbo multidirecional \"ходить\" (ir, a pe)."
+      "example_sentence_pt": "\"Ходил\" é o passado do verbo multidirecional \"ходить\" (ir, a pé)."
     },
     {
       "word_en": "Она позвонит тебе позже.",
@@ -52,9 +52,9 @@
     },
     {
       "word_en": "Ты можешь мне помочь с этим, пожалуйста?",
-      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "word_pt": "Você pode me ajudar com isso, por favor?",
       "example_sentence_en": "A polite way to ask someone for help.",
-      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguém."
     }
   ]
 }

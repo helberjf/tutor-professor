@@ -7,7 +7,7 @@ lesson always carries practice with it:
 
 * `build_offline_lesson_questions` feeds the spaced-repetition queue
   (`LessonQuestion`), the same rows the AI path writes.
-* `build_offline_choice_questions` feeds "modo questoes" (`StudyQuestion`) with
+* `build_offline_choice_questions` feeds "modo questões" (`StudyQuestion`) with
   four-option multiple choice.
 * `build_placement_questions` is the five-question onboarding test, which must
   work before the account has any content at all.
@@ -37,7 +37,7 @@ OPTIONS_PER_QUESTION = 4
 _FALLBACK_PT_DISTRACTORS = (
     "a casa",
     "o livro",
-    "a agua",
+    "a água",
     "o amigo",
     "a escola",
     "o dia",
@@ -244,7 +244,7 @@ def build_offline_choice_questions(
     distractor_items: Iterable[object] = (),
     limit: int = MAX_OFFLINE_CHOICE_QUESTIONS,
 ) -> list[OfflineChoiceQuestion]:
-    """Four-option questions for "modo questoes", built from the lesson itself.
+    """Four-option questions for "modo questões", built from the lesson itself.
 
     `distractor_items` widens the pool of wrong answers with phrases from other
     lessons, which is what keeps a three-phrase lesson from asking questions
@@ -287,7 +287,7 @@ def build_offline_choice_questions(
         )
         add(
             OfflineChoiceQuestion(
-                question=f'Como se diz "{item.word_pt}" em ingles?',
+                question=f'Como se diz "{item.word_pt}" em inglês?',
                 options=_build_options(
                     item.word_en,
                     [value for value in en_pool if value != item.word_en],
@@ -319,7 +319,7 @@ _PLACEMENT_BANK: tuple[PlacementQuestion, ...] = (
     ),
     PlacementQuestion(
         level=2,
-        question='Como se diz "Eu tenho um cachorro" em ingles?',
+        question='Como se diz "Eu tenho um cachorro" em inglês?',
         options=["I have a dog", "I am a dog", "I like a dog", "I has a dog"],
         correct_option="I have a dog",
     ),
@@ -358,7 +358,7 @@ def build_placement_questions(target_language: str = "English") -> list[Placemen
     which is where the automatic ladder would have put them anyway.
     """
 
-    if _clean(target_language).casefold() not in {"english", "ingles", "inglês"}:
+    if _clean(target_language).casefold() not in {"english", "inglês", "inglês"}:
         return []
     return list(_PLACEMENT_BANK)
 

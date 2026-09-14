@@ -1,9 +1,9 @@
 {
   "level": 3,
   "target_language": "German",
-  "title": "Alemao de hoje - Nivel A2",
+  "title": "Alemão de hoje - Nível A2",
   "theme": "Frases do dia",
-  "objective": "Pratique passado, futuro proximo e pedidos em alemao (nivel A2).",
+  "objective": "Pratique passado, futuro próximo e pedidos em alemão (nível A2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
@@ -20,18 +20,18 @@
         "phrase_en": "Sie wird dich spater anrufen.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Sie wird anrufen", "pt": "ela vai ligar" },
+          { "en": "Sie wird anrufen", "pt": "elá vai ligar" },
           { "en": "dich", "pt": "te" },
           { "en": "spater", "pt": "mais tarde" }
         ]
       },
       {
         "phrase_en": "Kannst du mir bitte damit helfen?",
-        "phrase_pt": "Voce pode me ajudar com isso, por favor?",
+        "phrase_pt": "Você pode me ajudar com isso, por favor?",
         "word_by_word": [
-          { "en": "Kannst du helfen", "pt": "voce pode ajudar" },
+          { "en": "Kannst du helfen", "pt": "você pode ajudar" },
           { "en": "mir", "pt": "me" },
-          { "en": "damit", "pt": "com isso" },
+          { "en": "damit", "pt": "com issó" },
           { "en": "bitte", "pt": "por favor" }
         ]
       }
@@ -48,13 +48,13 @@
       "word_en": "Sie wird dich spater anrufen.",
       "word_pt": "Ela vai te ligar mais tarde.",
       "example_sentence_en": "\"Werden\" + infinitive builds the future tense in German.",
-      "example_sentence_pt": "\"Werden\" + infinitivo forma o futuro em alemao."
+      "example_sentence_pt": "\"Werden\" + infinitivo forma o futuro em alemão."
     },
     {
       "word_en": "Kannst du mir bitte damit helfen?",
-      "word_pt": "Voce pode me ajudar com isso, por favor?",
+      "word_pt": "Você pode me ajudar com isso, por favor?",
       "example_sentence_en": "A polite way to ask someone for help.",
-      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguem."
+      "example_sentence_pt": "Uma forma educada de pedir ajuda a alguém."
     }
   ]
 }

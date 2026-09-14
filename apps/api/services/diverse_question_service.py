@@ -169,7 +169,7 @@ def normalize_subjects(raw_subjects: Any) -> list[dict]:
         else:
             subject_id = _stable_entity_id(
                 "subject",
-                str(item.get("name") or "Materia"),
+                str(item.get("name") or "Matéria"),
                 ordinal,
                 reserved_ids | used_ids,
             )
@@ -279,7 +279,7 @@ def normalize_subject(raw: dict) -> dict:
     Questions found only in lessons are merged with one another normally.
     """
     source = deepcopy(raw) if isinstance(raw, dict) else {}
-    name = _limited_text(source.get("name"), 60) or "Materia"
+    name = _limited_text(source.get("name"), 60) or "Matéria"
     subject_id = _limited_text(source.get("id"), 80) or _stable_entity_id(
         "subject", name, 0, set()
     )
@@ -349,7 +349,7 @@ def normalize_subject(raw: dict) -> dict:
         else:
             lesson_id = _stable_entity_id(
                 "lesson",
-                f"{subject_id}|{raw_lesson.get('title') or 'Licao'}",
+                f"{subject_id}|{raw_lesson.get('title') or 'Lição'}",
                 lesson_ordinal,
                 reserved_lesson_ids | used_lesson_ids,
             )
@@ -379,7 +379,7 @@ def normalize_subject(raw: dict) -> dict:
         lessons.append(
             {
                 "id": lesson_id,
-                "title": _limited_text(raw_lesson.get("title"), 80) or "Licao",
+                "title": _limited_text(raw_lesson.get("title"), 80) or "Lição",
                 "created_at": (
                     _limited_text(raw_lesson.get("created_at"), 40)
                     if raw_lesson.get("created_at")

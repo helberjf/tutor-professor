@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Roupas",
+  "title": "Inglês A1 - Roupas",
   "theme": "Roupas",
-  "objective": "Falar do que voce esta vestindo.",
+  "objective": "Falar do que você está vestindo.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -23,11 +23,11 @@
       },
       {
         "phrase_en": "trousers",
-        "phrase_pt": "calca",
+        "phrase_pt": "calça",
         "word_by_word": [
           {
             "en": "trousers",
-            "pt": "calca"
+            "pt": "calça"
           }
         ]
       },
@@ -57,7 +57,7 @@
       },
       {
         "phrase_en": "a hat",
-        "phrase_pt": "um chapeu",
+        "phrase_pt": "um chápeu",
         "word_by_word": [
           {
             "en": "a",
@@ -65,7 +65,7 @@
           },
           {
             "en": "hat",
-            "pt": "chapeu"
+            "pt": "chápeu"
           }
         ]
       },
@@ -119,11 +119,11 @@
       },
       {
         "phrase_en": "It is too big",
-        "phrase_pt": "Esta grande demais",
+        "phrase_pt": "Está grande demais",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "is",
@@ -150,27 +150,27 @@
     },
     {
       "word_en": "trousers",
-      "word_pt": "calca",
+      "word_pt": "calça",
       "example_sentence_en": "These trousers are new.",
-      "example_sentence_pt": "Esta calca e nova."
+      "example_sentence_pt": "Esta calça é nova."
     },
     {
       "word_en": "shoes",
       "word_pt": "sapatos",
       "example_sentence_en": "My shoes are dirty.",
-      "example_sentence_pt": "Meus sapatos estao sujos."
+      "example_sentence_pt": "Meus sapatos estão sujos."
     },
     {
       "word_en": "a jacket",
       "word_pt": "uma jaqueta",
       "example_sentence_en": "Take a jacket, it is cold.",
-      "example_sentence_pt": "Leve uma jaqueta, esta frio."
+      "example_sentence_pt": "Leve uma jaqueta, está frio."
     },
     {
       "word_en": "a hat",
-      "word_pt": "um chapeu",
+      "word_pt": "um chápeu",
       "example_sentence_en": "She wears a hat in the sun.",
-      "example_sentence_pt": "Ela usa um chapeu no sol."
+      "example_sentence_pt": "Ela usa um chápeu no sol."
     },
     {
       "word_en": "I am wearing a dress",
@@ -182,13 +182,13 @@
       "word_en": "Put on your shoes",
       "word_pt": "Calce os sapatos",
       "example_sentence_en": "Put on your shoes, we are late.",
-      "example_sentence_pt": "Calce os sapatos, estamos atrasados."
+      "example_sentence_pt": "Calce os sapatos, estamos atrásados."
     },
     {
       "word_en": "It is too big",
-      "word_pt": "Esta grande demais",
+      "word_pt": "Está grande demais",
       "example_sentence_en": "This shirt is too big for me.",
-      "example_sentence_pt": "Esta camisa esta grande demais para mim."
+      "example_sentence_pt": "Esta camisa está grande demais para mim."
     }
   ]
 }

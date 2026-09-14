@@ -29,7 +29,7 @@ export function ActivityLogSection() {
 
       <div className="flex items-center gap-2 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-medium text-sky-700">
         <ClipboardList size={16} />
-        Metodo Feynman como guia: licoes, questoes, revisoes e simulados podem ser feitos em qualquer ordem. Programacao aparece quando o modulo esta ativo.
+        Método Feynman como guia: lições, questões, revisões e simulados podem ser feitos em qualquer ordem. Programação aparece quando o módulo está ativo.
       </div>
     </section>
   );

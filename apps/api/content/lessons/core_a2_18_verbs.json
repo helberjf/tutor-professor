@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Verbos do dia a dia",
+  "title": "Inglês A2 - Verbos do dia a dia",
   "theme": "Verbos",
   "objective": "Usar verbos comuns no presente.",
   "level": 3,
@@ -27,7 +27,7 @@
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "works",
@@ -83,7 +83,7 @@
       },
       {
         "phrase_en": "I do not like it",
-        "phrase_pt": "Eu nao gosto disso",
+        "phrase_pt": "Eu não gosto disso",
         "word_by_word": [
           {
             "en": "I",
@@ -91,11 +91,11 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "like",
@@ -103,7 +103,7 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
@@ -117,7 +117,7 @@
           },
           {
             "en": "she",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "know",
@@ -162,7 +162,7 @@
       "word_en": "He studies",
       "word_pt": "Ele estuda",
       "example_sentence_en": "He studies English at night.",
-      "example_sentence_pt": "Ele estuda ingles a noite."
+      "example_sentence_pt": "Ele estuda inglês à noite."
     },
     {
       "word_en": "We live here",
@@ -178,9 +178,9 @@
     },
     {
       "word_en": "I do not like it",
-      "word_pt": "Eu nao gosto disso",
+      "word_pt": "Eu não gosto disso",
       "example_sentence_en": "I do not like cold soup.",
-      "example_sentence_pt": "Eu nao gosto de sopa fria."
+      "example_sentence_pt": "Eu não gosto de sopa fria."
     },
     {
       "word_en": "Does she know?",

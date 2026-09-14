@@ -1,25 +1,25 @@
 {
   "level": 1,
   "target_language": "Italian",
-  "title": "Italiano de hoje - Nivel A1",
+  "title": "Italiano de hoje - Nível A1",
   "theme": "Frases do dia",
-  "objective": "Aprenda 3 frases uteis em italiano hoje (nivel A1).",
+  "objective": "Aprenda 3 frases úteis em italiano hoje (nível A1).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "Ciao! Come stai?",
-        "phrase_pt": "Ola! Como voce esta?",
+        "phrase_pt": "Olá! Como você está?",
         "word_by_word": [
-          { "en": "Ciao", "pt": "ola" },
-          { "en": "Come stai", "pt": "como voce esta" }
+          { "en": "Ciao", "pt": "olá" },
+          { "en": "Come stai", "pt": "como você está" }
         ]
       },
       {
         "phrase_en": "Mi chiamo Ana.",
-        "phrase_pt": "Meu nome e Ana.",
+        "phrase_pt": "Meu nome é Ana.",
         "word_by_word": [
-          { "en": "Mi chiamo", "pt": "meu nome e" },
+          { "en": "Mi chiamo", "pt": "meu nome é" },
           { "en": "Ana", "pt": "Ana" }
         ]
       },
@@ -36,13 +36,13 @@
   "items": [
     {
       "word_en": "Ciao! Come stai?",
-      "word_pt": "Ola! Como voce esta?",
+      "word_pt": "Olá! Como você está?",
       "example_sentence_en": "A friendly, informal greeting used with friends or peers.",
-      "example_sentence_pt": "Uma saudacao amigavel e informal usada com amigos ou colegas."
+      "example_sentence_pt": "Uma saudação amigável e informal usada com amigos ou colegas."
     },
     {
       "word_en": "Mi chiamo Ana.",
-      "word_pt": "Meu nome e Ana.",
+      "word_pt": "Meu nome é Ana.",
       "example_sentence_en": "Use this phrase to introduce yourself.",
       "example_sentence_pt": "Use essa frase para se apresentar."
     },
@@ -50,7 +50,7 @@
       "word_en": "Grazie mille.",
       "word_pt": "Muito obrigado(a).",
       "example_sentence_en": "Say this to thank someone warmly.",
-      "example_sentence_pt": "Diga isso para agradecer alguem calorosamente."
+      "example_sentence_pt": "Diga isso para agradecer alguém calorosamente."
     }
   ]
 }

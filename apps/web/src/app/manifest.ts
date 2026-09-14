@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Tutor and Professor',
     short_name: 'Tutor',
     description:
-      'Licoes, revisao espacada e estudo guiado para quem quiser aprender.',
+      'Lições, revisão espaçada e estudo guiado para quem quiser aprender.',
     lang: 'pt-BR',
     dir: 'ltr',
     start_url: '/',
@@ -46,8 +46,8 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       { name: 'Estudos', url: '/study' },
-      { name: 'Licao do dia', url: '/lesson' },
-      { name: 'Revisao', url: '/review' },
+      { name: 'Lição do dia', url: '/lesson' },
+      { name: 'Revisão', url: '/review' },
     ],
   };
 }

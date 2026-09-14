@@ -50,8 +50,8 @@ function getLangMeta(lang: string) {
 }
 
 const LEVEL_LABELS: Record<number, string> = {
-  1: 'Iniciante', 2: 'Iniciante', 3: 'Basico', 4: 'Basico',
-  5: 'Intermediario', 6: 'Intermediario', 7: 'Avancado', 8: 'Avancado',
+  1: 'Iniciante', 2: 'Iniciante', 3: 'Básico', 4: 'Básico',
+  5: 'Intermediário', 6: 'Intermediário', 7: 'Avançado', 8: 'Avançado',
   9: 'Expert', 10: 'Expert',
 };
 
@@ -101,7 +101,7 @@ export default function BooksPage() {
           title="Carregando livros"
           message="Buscando seus livros..."
           secondaryHref="/"
-          secondaryLabel="Voltar ao inicio"
+          secondaryLabel="Voltar ao início"
         />
       }
     >
@@ -215,7 +215,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
       }
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : `Erro ao gerar pagina ${nextPageNum}.`,
+        err instanceof ApiError ? err.message : `Erro ao gerar página ${nextPageNum}.`,
       );
     } finally {
       setIsGeneratingPage(false);
@@ -228,7 +228,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
       case 'generating-outline': return 'Criando roteiro';
       case 'outline': return 'Roteiro do livro';
       case 'starting': return 'Preparando';
-      case 'generating-pages': return 'Gerando paginas';
+      case 'generating-pages': return 'Gerando páginas';
       case 'complete': return 'Livro pronto!';
     }
   }
@@ -240,8 +240,8 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
       case 'outline': return 'Revise antes de criar';
       case 'starting': return 'Aguarde...';
       case 'generating-pages':
-        return outline ? `${pages.length}/${outline.num_pages} paginas` : '';
-      case 'complete': return 'Parabens!';
+        return outline ? `${pages.length}/${outline.num_pages} páginas` : '';
+      case 'complete': return 'Parabéns!';
     }
   }
 
@@ -255,8 +255,8 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 Dificuldade
                 <span className="ml-2 font-normal text-slate-400">
                   {level === 0
-                    ? '— Automatica (usa seu nivel)'
-                    : `— Nivel ${level}: ${levelLabel(level)}`}
+                    ? '— Automática (usa seu nível)'
+                    : `— Nível ${level}: ${levelLabel(level)}`}
                 </span>
               </label>
               <input
@@ -268,7 +268,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               <div className="mt-1 flex justify-between text-xs text-slate-400">
                 <span>Auto</span>
                 <span>Iniciante</span>
-                <span>Intermediario</span>
+                <span>Intermediário</span>
                 <span>Expert</span>
               </div>
             </div>
@@ -301,7 +301,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 className="w-full resize-none rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary"
               />
               <p className="mt-1 text-xs font-semibold text-slate-400">
-                A IA usa esse contexto para planejar o livro e depois cria uma pagina por vez.
+                A IA usa esse contexto para planejar o livro e depois cria uma página por vez.
               </p>
             </div>
 
@@ -314,7 +314,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <button
               type="submit"
               disabled={!bookContext.trim()}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-dark py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles size={20} />
               Criar roteiro com IA
@@ -329,7 +329,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <div className="text-center">
               <p className="text-base font-black text-slate-800">Criando roteiro...</p>
               <p className="mt-1 text-sm text-slate-500">
-                A IA esta planejando o titulo, personagens e cada cena
+                A IA está planejando o título, personagens e cada cena
               </p>
             </div>
           </div>
@@ -340,7 +340,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
         return (
           <div className="space-y-5">
             <div className="rounded-2xl border-2 border-sky-100 bg-sky-50 p-5">
-              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-sky-500">Titulo</p>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-sky-500">Título</p>
               <p className="text-xl font-black text-slate-800">{outline.title}</p>
               {outline.synopsis && (
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{outline.synopsis}</p>
@@ -367,7 +367,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
 
             <div>
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">
-                Roteiro — {outline.num_pages} paginas
+                Roteiro — {outline.num_pages} páginas
               </p>
               <ol className="space-y-2">
                 {outline.page_outlines.map((p) => (
@@ -375,7 +375,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                     key={p.page_number}
                     className="flex gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3"
                   >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-dark text-xs font-black text-white">
                       {p.page_number}
                     </span>
                     <div>
@@ -415,7 +415,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               <button
                 type="button"
                 onClick={() => void handleStartBook()}
-                className="flex flex-[2] items-center justify-center gap-3 rounded-2xl bg-primary py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+                className="flex flex-[2] items-center justify-center gap-3 rounded-2xl bg-primary-dark py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
               >
                 <BookOpen size={18} />
                 Criar livro
@@ -449,7 +449,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  className="h-full rounded-full bg-primary-dark transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -458,7 +458,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             {lastPage && (
               <div className="rounded-2xl border-2 border-sky-100 bg-sky-50 p-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-black text-white">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-dark text-[10px] font-black text-white">
                     {lastPage.page_number}
                   </span>
                   <p className="text-xs font-bold uppercase tracking-widest text-sky-500">
@@ -505,17 +505,17 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               type="button"
               onClick={() => void handleGeneratePage()}
               disabled={isGeneratingPage}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-dark py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
             >
               {isGeneratingPage ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  Gerando pagina {nextPageNum}...
+                  Gerando página {nextPageNum}...
                 </>
               ) : (
                 <>
                   <Sparkles size={20} />
-                  Gerar pagina {nextPageNum} de {total}
+                  Gerar página {nextPageNum} de {total}
                 </>
               )}
             </button>
@@ -532,13 +532,13 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <div>
               <p className="text-xl font-black text-slate-800">{completeBook?.title}</p>
               <p className="mt-1 text-sm text-slate-500">
-                Livro completo com {completeBook?.pages.length} paginas!
+                Livro completo com {completeBook?.pages.length} páginas!
               </p>
             </div>
             <button
               type="button"
               onClick={() => completeBook && onBookComplete(completeBook)}
-              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600"
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800"
             >
               <BookOpen size={20} />
               Ler livro
@@ -565,7 +565,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <h2 className="mt-1 text-2xl font-black text-slate-800">{stepTitle()}</h2>
             {aiCredits?.metered ? (
               <p className="mt-1 text-xs font-black text-indigo-600">
-                {aiCredits.credits} de {aiCredits.daily_limit} creditos disponiveis hoje
+                {aiCredits.credits} de {aiCredits.daily_limit} créditos disponíveis hoje
               </p>
             ) : null}
           </div>
@@ -606,7 +606,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-lg font-black text-slate-700">Este livro nao tem paginas ainda.</p>
+          <p className="text-lg font-black text-slate-700">Este livro não tem páginas ainda.</p>
           <button onClick={onBack} className="mt-4 text-sm font-bold text-primary hover:text-primary-dark">
             Voltar
           </button>
@@ -674,7 +674,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
 
         <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
+            className="h-full rounded-full bg-primary-dark transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -697,7 +697,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
                   title={`Ouvir em ${langMeta.label}`}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-dark text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
                 </button>
@@ -730,7 +730,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                     onClick={() => void playPt()}
                     disabled={audioLoadingPt}
                     title="Ouvir em português"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800 disabled:opacity-60"
                   >
                     {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
                   </button>
@@ -752,7 +752,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
                   title={`Ouvir em ${langMeta.label}`}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-dark text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
                 </button>
@@ -770,7 +770,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                   onClick={() => void playPt()}
                   disabled={audioLoadingPt}
                   title="Ouvir em português"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600 disabled:opacity-60"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800 disabled:opacity-60"
                 >
                   {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
                 </button>
@@ -810,14 +810,14 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
           {isLast ? (
             <button
               onClick={onBack}
-              className="flex items-center gap-2 rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(16,185,129,0.3)] transition hover:bg-emerald-600"
+              className="flex items-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800"
             >
               Fim do livro! <BookOpen size={18} />
             </button>
           ) : (
             <button
               onClick={goNext}
-              className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+              className="flex items-center gap-2 rounded-2xl bg-primary-dark px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
             >
               Proxima <ChevronRight size={18} />
             </button>
@@ -863,7 +863,7 @@ function BooksPageContent() {
       if (err instanceof ApiError) {
         setError({ isUnconfigured: err.isUnconfigured, isOffline: err.isOffline, message: err.message });
       } else {
-        setError({ message: 'Nao foi possivel carregar os livros.' });
+        setError({ message: 'Não foi possível carregar os livros.' });
       }
     } finally {
       setLoading(false);
@@ -908,7 +908,7 @@ function BooksPageContent() {
         title="Verificando acesso"
         message="Confirmando seu cadastro..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -916,13 +916,13 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadBooks()} className="app-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -934,7 +934,7 @@ function BooksPageContent() {
         title="Carregando livros"
         message="Buscando seus livros..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -944,12 +944,12 @@ function BooksPageContent() {
       <StatusCard
         tone="offline"
         title="Conecte o tutor primeiro"
-        message="Nao foi possivel carregar a configuracao do aplicativo agora."
+        message="Não foi possível carregar a configuração do aplicativo agora."
         primaryAction={
-          <button onClick={() => void loadBooks()} className="app-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -958,15 +958,15 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Sistema indisponivel"
-        message="Nao foi possivel acessar os livros. Tente novamente em instantes."
+        title="Sistema indisponível"
+        message="Não foi possível acessar os livros. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadBooks()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -986,14 +986,14 @@ function BooksPageContent() {
                 <div>
                   <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Livros Pequenos</h1>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Historias em ingles criadas por IA no seu nivel
+                    Histórias em inglês criadas por IA no seu nível
                   </p>
                 </div>
               </div>
             </div>
             <button
               onClick={() => setShowForm(true)}
-              className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+              className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl bg-primary-dark px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
             >
               <Plus size={18} />
               <span className="hidden sm:inline">Novo livro</span>
@@ -1006,12 +1006,12 @@ function BooksPageContent() {
               <div>
                 <p className="text-lg font-black text-slate-800">Nenhum livro ainda</p>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Gere o seu primeiro livro em ingles com a IA!
+                    Gere o seu primeiro livro em inglês com a IA!
                 </p>
               </div>
               <button
                 onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
+                className="flex items-center gap-2 rounded-2xl bg-primary-dark px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
               >
                 <Sparkles size={18} />
                 Gerar primeiro livro
@@ -1038,7 +1038,7 @@ function BooksPageContent() {
                     <p className="mt-0.5 text-xs capitalize text-slate-500">{book.theme}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span>{book.num_pages} paginas</span>
+                    <span>{book.num_pages} páginas</span>
                     <span>·</span>
                     <span>{levelLabel(book.level)}</span>
                   </div>

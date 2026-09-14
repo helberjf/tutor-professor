@@ -72,7 +72,7 @@ class BookGenerationService:
         ai_config: AIProviderConfig | None = None,
     ) -> GeneratedBookDraftSchema:
         if not self.is_configured(ai_config):
-            raise RuntimeError("Chave de API da IA nao esta configurada.")
+            raise RuntimeError("Chave de API da IA não está configurada.")
 
         active_config = ai_config or AIProviderConfig(
             provider="gemini",
@@ -121,8 +121,8 @@ class BookGenerationService:
                 last_error = exc
 
         raise RuntimeError(
-            f"IA nao gerou {num_pages} paginas apos {max_retries} tentativas. "
-            f"Ultimo erro: {last_error}"
+            f"IA não gerou {num_pages} páginas após {max_retries} tentativas. "
+            f"Último erro: {last_error}"
         )
 
     def _build_prompt(
@@ -156,7 +156,7 @@ class BookGenerationService:
         )
 
         pages_example = ",\n".join(
-            f'    {{\n      "page_number": {i},\n      "text_en": "<{sentences_rule} for page {i}>",\n      "text_pt": "<traducao portuguesa da pagina {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
+            f'    {{\n      "page_number": {i},\n      "text_en": "<{sentences_rule} for page {i}>",\n      "text_pt": "<tradução portuguesa da página {i}>",\n      "vocabulary": ["word1", "word2", "word3"]\n    }}'
             for i in range(1, num_pages + 1)
         )
 
@@ -206,7 +206,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         age_group: str = "",
     ) -> BookOutlineSchema:
         if not self.is_configured(ai_config):
-            raise RuntimeError("Chave de API da IA nao esta configurada.")
+            raise RuntimeError("Chave de API da IA não está configurada.")
 
         active_config = ai_config or AIProviderConfig(
             provider="gemini", api_key=self.api_key, model=self.model, base_url=self.api_base_url,
@@ -252,7 +252,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             )
             data = json.loads(self._strip_fences(raw_text))
         except json.JSONDecodeError:
-            raise RuntimeError("IA retornou JSON invalido para o roteiro.")
+            raise RuntimeError("IA retornou JSON inválido para o roteiro.")
         except Exception as exc:
             raise RuntimeError(f"Erro ao gerar roteiro: {exc}") from exc
 
@@ -266,7 +266,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             for i, p in enumerate(raw_outlines[:num_pages])
         ]
         if not page_outlines:
-            raise RuntimeError("IA nao gerou paginas no roteiro.")
+            raise RuntimeError("IA não gerou páginas no roteiro.")
 
         return BookOutlineSchema(
             title=str(data.get("title", "")).strip()[:200] or "My Story",
@@ -291,7 +291,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         age_group: str = "",
     ) -> GeneratedBookPageDraftSchema:
         if not self.is_configured(ai_config):
-            raise RuntimeError("Chave de API da IA nao esta configurada.")
+            raise RuntimeError("Chave de API da IA não está configurada.")
 
         active_config = ai_config or AIProviderConfig(
             provider="gemini", api_key=self.api_key, model=self.model, base_url=self.api_base_url,
@@ -365,7 +365,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
                 )
             except Exception as exc:
                 last_error = exc
-        raise RuntimeError(f"Erro ao gerar pagina {page_number}: {last_error}") from last_error
+        raise RuntimeError(f"Erro ao gerar página {page_number}: {last_error}") from last_error
 
     @staticmethod
     def _strip_fences(text: str) -> str:

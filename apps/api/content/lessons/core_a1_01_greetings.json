@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Cumprimentos",
+  "title": "Inglês A1 - Cumprimentos",
   "theme": "Cumprimentos",
-  "objective": "Dizer oi, tchau e como voce esta.",
+  "objective": "Dizer oi, tcháu e como você está.",
   "level": 1,
   "target_language": "English",
   "content": {
@@ -27,7 +27,7 @@
           },
           {
             "en": "morning",
-            "pt": "manha"
+            "pt": "manhã"
           }
         ]
       },
@@ -61,7 +61,7 @@
       },
       {
         "phrase_en": "How are you?",
-        "phrase_pt": "Como voce esta?",
+        "phrase_pt": "Como você está?",
         "word_by_word": [
           {
             "en": "How",
@@ -69,11 +69,11 @@
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           }
         ]
       },
@@ -97,7 +97,7 @@
       },
       {
         "phrase_en": "Nice to meet you",
-        "phrase_pt": "Prazer em conhecer voce",
+        "phrase_pt": "Prazer em conhecer você",
         "word_by_word": [
           {
             "en": "Nice",
@@ -113,17 +113,17 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           }
         ]
       },
       {
         "phrase_en": "Goodbye!",
-        "phrase_pt": "Tchau!",
+        "phrase_pt": "Tcháu!",
         "word_by_word": [
           {
             "en": "Goodbye",
-            "pt": "tchau"
+            "pt": "tcháu"
           }
         ]
       }
@@ -156,9 +156,9 @@
     },
     {
       "word_en": "How are you?",
-      "word_pt": "Como voce esta?",
+      "word_pt": "Como você está?",
       "example_sentence_en": "Hi Ana, how are you?",
-      "example_sentence_pt": "Oi Ana, como voce esta?"
+      "example_sentence_pt": "Oi Ana, como você está?"
     },
     {
       "word_en": "I am fine",
@@ -168,15 +168,15 @@
     },
     {
       "word_en": "Nice to meet you",
-      "word_pt": "Prazer em conhecer voce",
+      "word_pt": "Prazer em conhecer você",
       "example_sentence_en": "Nice to meet you, Lucas.",
-      "example_sentence_pt": "Prazer em conhecer voce, Lucas."
+      "example_sentence_pt": "Prazer em conhecer você, Lucas."
     },
     {
       "word_en": "Goodbye!",
-      "word_pt": "Tchau!",
+      "word_pt": "Tcháu!",
       "example_sentence_en": "Goodbye! See you tomorrow.",
-      "example_sentence_pt": "Tchau! Ate amanha."
+      "example_sentence_pt": "Tcháu! Até amanhã."
     }
   ]
 }

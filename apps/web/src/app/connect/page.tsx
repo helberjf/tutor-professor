@@ -21,7 +21,7 @@ function describeConnection() {
   if (!connection.baseUrl) {
     return {
       ...connection,
-      title: 'Ainda nao existe um backend conectado neste aparelho.',
+      title: 'Ainda não existe um backend conectado neste aparelho.',
       detail: 'Cole a URL HTTPS atual do seu Cloudflare Tunnel para conectar o app.',
     };
   }
@@ -30,7 +30,7 @@ function describeConnection() {
     return {
       ...connection,
       title: `Conectado a ${connection.host}`,
-      detail: 'Essa URL manual vale neste aparelho enquanto nao houver uma URL global publicada na Vercel.',
+      detail: 'Essa URL manual vale neste aparelho enquanto não houver uma URL global publicada na Vercel.',
     };
   }
 
@@ -38,7 +38,7 @@ function describeConnection() {
     return {
       ...connection,
       title: `Usando backend global em ${connection.host}`,
-      detail: 'Essa URL vem da configuracao compartilhada publicada na Vercel e vale como padrao para todos os aparelhos no proximo acesso.',
+      detail: 'Essa URL vem da configuração compartilhada publicada na Vercel e vale como padrão para todos os aparelhos no próximo acesso.',
     };
   }
 
@@ -46,14 +46,14 @@ function describeConnection() {
     return {
       ...connection,
       title: `Usando backend local em ${connection.host}`,
-      detail: 'Isso vem do modo de desenvolvimento local nesta maquina.',
+      detail: 'Isso vem do modo de desenvolvimento local nesta máquina.',
     };
   }
 
   return {
     ...connection,
-    title: `Usando backend padrao em ${connection.host}`,
-    detail: 'Essa URL padrao veio de NEXT_PUBLIC_API_BASE_URL.',
+    title: `Usando backend padrão em ${connection.host}`,
+    detail: 'Essa URL padrão veio de NEXT_PUBLIC_API_BASE_URL.',
   };
 }
 
@@ -110,7 +110,7 @@ export default function ConnectPage() {
 
     async function autoConnectFromLink() {
       setSaving(true);
-      setMessage('Validando a URL recebida do seu link de conexao...');
+      setMessage('Validando a URL recebida do seu link de conexão...');
       setError('');
 
       const result = await verifySavedApiBaseUrl(apiUrl);
@@ -128,7 +128,7 @@ export default function ConnectPage() {
       saveApiBaseUrl(result.baseUrl);
       setDraft(result.baseUrl);
       setConnection(describeConnection());
-      setMessage('Backend conectado automaticamente neste aparelho. Agora voce ja pode voltar ao inicio.');
+      setMessage('Backend conectado automaticamente neste aparelho. Agora você já pode voltar ao início.');
       setSaving(false);
       window.history.replaceState({}, '', '/connect');
     }
@@ -156,20 +156,20 @@ export default function ConnectPage() {
     saveApiBaseUrl(result.baseUrl);
     setDraft(result.baseUrl);
     setConnection(describeConnection());
-    setMessage('Backend conectado neste aparelho. Agora voce ja pode voltar ao inicio.');
+    setMessage('Backend conectado neste aparelho. Agora você já pode voltar ao início.');
     setSaving(false);
   }
 
   function handleClearOverride() {
     clearSavedApiBaseUrl();
     setDraft('');
-    setMessage('A conexao salva foi removida. O app vai usar a configuracao global ou a URL padrao, se existir.');
+    setMessage('A conexão salva foi removida. O app vai usar a configuração global ou a URL padrão, se existir.');
     setError('');
     setConnection(describeConnection());
   }
 
   if (!accessChecked) {
-    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando permissoes de administrador..." />;
+    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando permissões de administrador..." />;
   }
 
   if (!isAdmin) {
@@ -177,9 +177,9 @@ export default function ConnectPage() {
       <StatusCard
         tone="error"
         title="Acesso restrito"
-        message="A configuracao tecnica do backend esta disponivel somente para o administrador."
+        message="A configuração técnica do backend está disponível somente para o administrador."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -191,7 +191,7 @@ export default function ConnectPage() {
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
             <ArrowLeft size={22} /> Voltar
           </Link>
-          <p className="app-tag">Conexao com o backend</p>
+          <p className="app-tag">Conexão com o backend</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
@@ -205,7 +205,7 @@ export default function ConnectPage() {
             </p>
 
             <div className="mt-8 rounded-[1.5rem] border-2 border-slate-200 bg-slate-50 p-5">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexao atual</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexão atual</p>
               <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">{connection.title}</p>
               <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{connection.detail}</p>
               {connection.baseUrl ? (
@@ -245,15 +245,15 @@ cloudflared tunnel --url http://127.0.0.1:8001
               {message ? <p className="text-center text-sm font-bold text-emerald-600">{message}</p> : null}
 
               <div className="flex flex-col gap-4 sm:flex-row">
-                <button type="submit" disabled={saving || !draft.trim()} className="app-button bg-primary hover:bg-primary-dark">
-                  {saving ? 'Verificando...' : 'Salvar conexao'}
+                <button type="submit" disabled={saving || !draft.trim()} className="app-button bg-primary-dark hover:bg-primary-dark">
+                  {saving ? 'Verificando...' : 'Salvar conexão'}
                   <CheckCircle2 className="ml-2" size={18} />
                 </button>
                 <Link
                   href="/"
                   className="rounded-full border-2 border-slate-200 px-6 py-4 text-center text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                 >
-                  Abrir inicio
+                  Abrir início
                 </Link>
                 {connection.source === 'saved' ? (
                   <button
@@ -274,10 +274,10 @@ cloudflared tunnel --url http://127.0.0.1:8001
             </div>
             <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
             <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
-              <p>A URL manual continua funcionando neste navegador quando nao houver uma URL global publicada. Se voce usar outro celular, tablet ou computador, voce ainda pode salvar uma URL diferente so naquele aparelho.</p>
-              <p>Quando o launcher publica uma configuracao global na Vercel, o app troca automaticamente para essa URL no proximo acesso.</p>
-              <p>Quando a URL do tunnel mudar em outro dia, abra esta pagina de novo, cole a nova URL HTTPS e salve. Nao precisa fazer novo deploy na Vercel.</p>
-              <p>Se depois voce mover o backend para uma VPS, pode continuar usando esta pagina como override de emergencia ou limpar e voltar para a URL padrao.</p>
+              <p>A URL manual continua funcionando neste navegador quando não houver uma URL global publicada. Se você usar outro celular, tablet ou computador, você ainda pode salvar uma URL diferente so naquele aparelho.</p>
+              <p>Quando o launcher pública uma configuração global na Vercel, o app troca automaticamente para essa URL no próximo acesso.</p>
+              <p>Quando a URL do tunnel mudar em outro dia, abra esta página de novo, cole a nova URL HTTPS e salve. Não precisa fazer novo deploy na Vercel.</p>
+              <p>Se depois você mover o backend para uma VPS, pode continuar usando esta página como override de emergência ou limpar e voltar para a URL padrão.</p>
             </div>
 
             <div className="mt-8 rounded-[1.5rem] border-2 border-amber-100 bg-amber-50 p-5">
@@ -286,7 +286,7 @@ cloudflared tunnel --url http://127.0.0.1:8001
                 <p className="text-lg font-black">Checagem do dia</p>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-700">
-                Antes de abrir o site de outro lugar, confirme que o seu computador esta ligado, o backend FastAPI esta rodando e o tunnel esta ativo.
+                Antes de abrir o site de outro lugar, confirme que o seu computador está ligado, o backend FastAPI está rodando e o túnel está ativo.
               </p>
               <p className="mt-3 text-base leading-7 text-slate-700">
                 Se preferir, envie o link pronto do terminal. Quando ele abrir este `/connect`, o app tenta salvar a URL automaticamente neste aparelho.

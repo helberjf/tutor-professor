@@ -1,19 +1,19 @@
 {
   "level": 7,
   "target_language": "German",
-  "title": "Alemao de hoje - Nivel B2",
+  "title": "Alemão de hoje - Nível B2",
   "theme": "Frases do dia",
-  "objective": "Pratique voz passiva e concessao em alemao (nivel B2).",
+  "objective": "Pratique voz passiva e concessão em alemão (nível B2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "Das Treffen wurde auf nachste Woche verschoben.",
-        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "phrase_pt": "A reunião foi adiada para a próxima semana.",
         "word_by_word": [
-          { "en": "Das Treffen", "pt": "a reuniao" },
+          { "en": "Das Treffen", "pt": "a reunião" },
           { "en": "wurde verschoben", "pt": "foi adiada" },
-          { "en": "auf nachste Woche", "pt": "para a proxima semana" }
+          { "en": "auf nachste Woche", "pt": "para a próxima semana" }
         ]
       },
       {
@@ -21,7 +21,7 @@
         "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
         "word_by_word": [
           { "en": "Ich bin begegnet", "pt": "eu encontrei" },
-          { "en": "zufallig", "pt": "por acaso" },
+          { "en": "zufallig", "pt": "por acasó" },
           { "en": "einem alten Freund", "pt": "um velho amigo" },
           { "en": "im Einkaufszentrum", "pt": "no shopping" }
         ]
@@ -40,9 +40,9 @@
   "items": [
     {
       "word_en": "Das Treffen wurde auf nachste Woche verschoben.",
-      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "word_pt": "A reunião foi adiada para a próxima semana.",
       "example_sentence_en": "Passive voice with \"werden\" + past participle is common in formal German.",
-      "example_sentence_pt": "A voz passiva com \"werden\" + participio e comum no alemao formal."
+      "example_sentence_pt": "A voz passiva com \"werden\" + particípio é comum no alemão formal."
     },
     {
       "word_en": "Ich bin zufallig einem alten Freund im Einkaufszentrum begegnet.",

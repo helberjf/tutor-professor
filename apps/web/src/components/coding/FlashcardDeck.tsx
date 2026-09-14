@@ -324,7 +324,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
                 type="button"
                 onClick={start}
                 disabled={loading}
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} Começar
               </button>
@@ -349,7 +349,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
           <Tally label="Bom" value={finalCounts.good} cls="text-sky-600" />
           <Tally label="Fácil" value={finalCounts.easy} cls="text-emerald-600" />
         </div>
-        <button type="button" onClick={start} disabled={loading} className="inline-flex items-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+        <button type="button" onClick={start} disabled={loading} className="inline-flex items-center gap-2 rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50">
           {loading ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />} Buscar mais
         </button>
       </div>
@@ -387,7 +387,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
           </div>
 
           <div className="h-1.5 w-full rounded-full bg-slate-100">
-            <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${(index / queue.length) * 100}%` }} />
+            <div className="h-1.5 rounded-full bg-primary-dark transition-all" style={{ width: `${(index / queue.length) * 100}%` }} />
           </div>
 
           <div className="min-h-48 rounded-3xl border-2 border-slate-100 bg-white p-5 sm:p-6">
@@ -458,7 +458,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
                       type="button"
                       onClick={compareTypedAnswer}
                       disabled={!typed.trim()}
-                      className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
                     >
                       <CheckCircle2 size={18} /> Comparar
                     </button>
@@ -649,7 +649,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
             setCreating((value) => !value);
           }}
           disabled={generatingWithAi}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 font-black text-white hover:bg-primary-dark disabled:opacity-50"
         >
           <Plus size={18} /> Novo card
         </button>
@@ -726,7 +726,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
             type="button"
             onClick={() => void generateWithAi()}
             disabled={generatingWithAi || !selectedTopicId || topics.length === 0 || Boolean(topicsError)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50"
           >
             {generatingWithAi ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {generatingWithAi ? 'Criando...' : 'Criar 5 questões'}
@@ -875,7 +875,7 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
       <textarea value={back} onChange={(e) => setBack(e.target.value)} disabled={disabled || busy} placeholder="Verso (resposta / explicação)" rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       <textarea value={code} onChange={(e) => setCode(e.target.value)} disabled={disabled || busy} placeholder="Exemplo de código (opcional)" rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       {err && <p className="text-xs font-bold text-rose-600">{err}</p>}
-      <button type="button" onClick={save} disabled={busy || disabled} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+      <button type="button" onClick={save} disabled={busy || disabled} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50">
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar
       </button>
     </div>
@@ -959,7 +959,7 @@ function OptionsTab({ subjectId, config, onSaved }: { subjectId: number; config?
       </Group>
 
       {msg && <p className="text-sm font-bold text-emerald-600">{msg}</p>}
-      <button type="button" onClick={save} disabled={busy} className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+      <button type="button" onClick={save} disabled={busy} className="flex items-center justify-center gap-2 rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50">
         {busy ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Salvar opções
       </button>
     </div>
@@ -1013,7 +1013,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
       className="flex items-center justify-between gap-3 rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-left"
     >
       <span className="text-sm font-bold text-slate-600">{label}</span>
-      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${value ? 'bg-primary' : 'bg-slate-300'}`}>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${value ? 'bg-primary-dark' : 'bg-slate-300'}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${value ? 'left-[22px]' : 'left-0.5'}`} />
       </span>
     </button>

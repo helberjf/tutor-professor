@@ -1,17 +1,17 @@
 {
   "id": 2,
-  "title": "Ingles de hoje - Dia 2",
+  "title": "Inglês de hoje - Dia 2",
   "theme": "Frases do dia",
-  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "objective": "Aprenda 3 frases úteis em inglês hoje.",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "Can you help me?",
-        "phrase_pt": "Voce pode me ajudar?",
+        "phrase_pt": "Você pode me ajudar?",
         "word_by_word": [
           { "en": "Can", "pt": "pode" },
-          { "en": "you", "pt": "voce" },
+          { "en": "you", "pt": "você" },
           { "en": "help", "pt": "ajudar" },
           { "en": "me", "pt": "me" }
         ]
@@ -22,7 +22,7 @@
         "word_by_word": [
           { "en": "Yes", "pt": "sim" },
           { "en": "I", "pt": "eu" },
-          { "en": "can", "pt": "posso" },
+          { "en": "can", "pt": "possó" },
           { "en": "help", "pt": "ajudar" }
         ]
       },
@@ -31,7 +31,7 @@
         "phrase_pt": "Muito obrigado.",
         "word_by_word": [
           { "en": "Thank", "pt": "obrigado" },
-          { "en": "you", "pt": "voce" },
+          { "en": "you", "pt": "você" },
           { "en": "very", "pt": "muito" },
           { "en": "much", "pt": "muito" }
         ]
@@ -41,7 +41,7 @@
   "items": [
     {
       "word_en": "Can you help me?",
-      "word_pt": "Voce pode me ajudar?",
+      "word_pt": "Você pode me ajudar?",
       "example_sentence_en": "Say this when you need help with a game or task.",
       "example_sentence_pt": "Diga isso quando precisar de ajuda com um jogo ou tarefa."
     },
@@ -49,7 +49,7 @@
       "word_en": "Yes, I can help.",
       "word_pt": "Sim, eu posso ajudar.",
       "example_sentence_en": "This phrase is a kind answer when someone asks for help.",
-      "example_sentence_pt": "Essa frase e uma resposta gentil quando alguem pede ajuda."
+      "example_sentence_pt": "Essa frase é uma resposta gentil quando alguém pede ajuda."
     },
     {
       "word_en": "Thank you very much.",

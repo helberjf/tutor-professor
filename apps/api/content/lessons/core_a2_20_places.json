@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Lugares",
+  "title": "Inglês A2 - Lugares",
   "theme": "Lugares",
   "objective": "Falar de lugares da cidade e como chegar.",
   "level": 3,
@@ -51,7 +51,7 @@
       },
       {
         "phrase_en": "the bus stop",
-        "phrase_pt": "o ponto de onibus",
+        "phrase_pt": "o ponto de ônibus",
         "word_by_word": [
           {
             "en": "the",
@@ -59,7 +59,7 @@
           },
           {
             "en": "bus",
-            "pt": "onibus"
+            "pt": "ônibus"
           },
           {
             "en": "stop",
@@ -69,7 +69,7 @@
       },
       {
         "phrase_en": "Turn left",
-        "phrase_pt": "Vire a esquerda",
+        "phrase_pt": "Vire à esquerda",
         "word_by_word": [
           {
             "en": "Turn",
@@ -101,11 +101,11 @@
       },
       {
         "phrase_en": "It is near here",
-        "phrase_pt": "E perto daqui",
+        "phrase_pt": "É perto daqui",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "is",
@@ -123,7 +123,7 @@
       },
       {
         "phrase_en": "How do I get there?",
-        "phrase_pt": "Como eu chego la?",
+        "phrase_pt": "Como eu chego lá?",
         "word_by_word": [
           {
             "en": "How",
@@ -131,7 +131,7 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "I",
@@ -143,7 +143,7 @@
           },
           {
             "en": "there",
-            "pt": "la"
+            "pt": "lá"
           }
         ]
       }
@@ -170,15 +170,15 @@
     },
     {
       "word_en": "the bus stop",
-      "word_pt": "o ponto de onibus",
+      "word_pt": "o ponto de ônibus",
       "example_sentence_en": "I wait at the bus stop.",
-      "example_sentence_pt": "Eu espero no ponto de onibus."
+      "example_sentence_pt": "Eu espero no ponto de ônibus."
     },
     {
       "word_en": "Turn left",
-      "word_pt": "Vire a esquerda",
+      "word_pt": "Vire à esquerda",
       "example_sentence_en": "Turn left at the corner.",
-      "example_sentence_pt": "Vire a esquerda na esquina."
+      "example_sentence_pt": "Vire à esquerda na esquina."
     },
     {
       "word_en": "Go straight ahead",
@@ -188,15 +188,15 @@
     },
     {
       "word_en": "It is near here",
-      "word_pt": "E perto daqui",
+      "word_pt": "É perto daqui",
       "example_sentence_en": "The school is near here.",
-      "example_sentence_pt": "A escola e perto daqui."
+      "example_sentence_pt": "A escola é perto daqui."
     },
     {
       "word_en": "How do I get there?",
-      "word_pt": "Como eu chego la?",
+      "word_pt": "Como eu chego lá?",
       "example_sentence_en": "How do I get there by bus?",
-      "example_sentence_pt": "Como eu chego la de onibus?"
+      "example_sentence_pt": "Como eu chego lá de ônibus?"
     }
   ]
 }

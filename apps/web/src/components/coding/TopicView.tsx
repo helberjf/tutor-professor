@@ -56,7 +56,7 @@ function buildSpeakableReadingText(step: ReadingStudyStep, topicTitle: string): 
 
   return [
     topicTitle,
-    `Questao ${step.quizIndex + 1}: ${step.question.question}`,
+    `Questão ${step.quizIndex + 1}: ${step.question.question}`,
     `Alternativas: ${step.question.options.join('; ')}`,
     `Resposta correta: ${step.question.correct_option}`,
     step.question.explanation,
@@ -97,8 +97,8 @@ function normalizeFlashcardDraft(item: unknown): FlashcardDraft | null {
   if (!item || typeof item !== 'object') return null;
   const record = item as Record<string, unknown>;
   const front = pickTextField(record, ['front', 'question', 'pergunta', 'term', 'conceito']).slice(0, 500);
-  const back = pickTextField(record, ['back', 'answer', 'resposta', 'definition', 'explicacao']).slice(0, 2000);
-  const code = pickTextField(record, ['code_example', 'code', 'codigo', 'example']).slice(0, 3000);
+  const back = pickTextField(record, ['back', 'answer', 'resposta', 'definition', 'explicação']).slice(0, 2000);
+  const code = pickTextField(record, ['code_example', 'code', 'código', 'example']).slice(0, 3000);
   if (!front || !back) return null;
   return { front, back, ...(code ? { code_example: code } : {}) };
 }
@@ -141,7 +141,7 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
 
   const drafts = parseTextFlashcards(text);
   if (drafts.length === 0) {
-    throw new Error('Cole JSON valido ou texto no formato Frente | Verso.');
+    throw new Error('Cole JSON válido ou texto no formato Frente | Verso.');
   }
   return drafts;
 }
@@ -472,7 +472,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     } catch {
       setImportFcText(text);
       setShowImportFc(true);
-      setCopyMessage('Nao consegui copiar automaticamente; deixei o JSON no campo de importacao.');
+      setCopyMessage('Não consegui copiar automaticamente; deixei o JSON no campo de importacao.');
     }
   }
 
@@ -582,7 +582,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <button
                 type="button"
                 onClick={handleStartReadingStudy}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
               >
                 <BookOpen size={16} />
                 Iniciar estudo
@@ -592,7 +592,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               type="button"
               onClick={handleStartQuestionPractice}
               disabled={questionActionsDisabled}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-800 disabled:opacity-50 sm:w-auto"
             >
               <ClipboardList size={16} />
               Fazer simulado
@@ -630,7 +630,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <button
                 type="button"
                 onClick={() => handleSetStatus(topic.status === 'studied' ? 'mastered' : 'studied')}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-white hover:bg-emerald-600 sm:w-auto"
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-black text-white hover:bg-emerald-800 sm:w-auto"
               >
                 {topic.status === 'studied' ? <><Star size={14} /> Dominar</> : <><CheckCircle2 size={14} /> Estudado</>}
               </button>
@@ -693,7 +693,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               type="button"
               onClick={handleStartQuestionPractice}
               disabled={questionActionsDisabled || questions.length === 0}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-50"
             >
               <ClipboardList size={15} />
               Fazer simulado
@@ -755,7 +755,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <button
                 type="submit"
                 disabled={questionActionsDisabled}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-2 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-50"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-50"
               >
                 {generatingQuestions ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
                 {generatingQuestions ? 'Gerando questões...' : 'Criar 5 questões'}
@@ -865,7 +865,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           type="button"
           onClick={handleSaveNotes}
           disabled={savingNotes || notes === (topic.notes ?? '')}
-          className="mt-2 min-h-11 rounded-2xl bg-primary px-5 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:opacity-40"
+          className="mt-2 min-h-11 rounded-2xl bg-primary-dark px-5 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:opacity-40"
         >
           {savingNotes ? 'Salvando...' : 'Salvar Notas'}
         </button>
@@ -986,7 +986,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             <textarea
               value={importFcText}
               onChange={(e) => setImportFcText(e.target.value)}
-              placeholder={'[\n  {"front":"O que e closure?","back":"Funcao que lembra o escopo onde foi criada.","code_example":"function outer() { return function inner() {} }"}\n]\n\nou:\nPergunta | Resposta\nOutra pergunta => Outra resposta'}
+              placeholder={'[\n  {"front":"O que é closure?","back":"Função que lembra o escopo onde foi criada.","code_example":"function outer() { return function inner() {} }"}\n]\n\nou:\nPergunta | Resposta\nOutra pergunta => Outra resposta'}
               rows={8}
               className="w-full resize-y rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary"
             />
@@ -1007,7 +1007,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               aria-label="Frente (conceito / pergunta)" value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder="Frente (conceito / pergunta)" maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder="Verso (resposta / explicação)" maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder="Exemplo de código (opcional)" maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
-            <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
+            <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
               {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar Flashcard
             </button>
           </form>
@@ -1240,7 +1240,7 @@ function ReadingStudyModal({
                 {topicTitle}
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
-                {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questao'}
+                {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questão'}
               </p>
             </div>
             {/* Close stays anchored top-right; the reading controls sit on their
@@ -1350,7 +1350,7 @@ function ReadingStudyModal({
             </form>
           )}
           <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-2 rounded-full bg-primary-dark transition-all" style={{ width: `${progress}%` }} />
           </div>
         </header>
 
@@ -1399,10 +1399,10 @@ function ReadingStudyModal({
             <button
               type="button"
               onClick={goNext}
-              aria-label="Proxima etapa do estudo"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white hover:bg-primary-dark"
+              aria-label="Próxima etapa do estudo"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 py-3 text-sm font-black text-white hover:bg-primary-dark"
             >
-              {isLast ? 'Concluir' : 'Proximo'}
+              {isLast ? 'Concluir' : 'Próximo'}
               {!isLast && <ChevronRight size={17} />}
             </button>
           </div>
@@ -1462,7 +1462,7 @@ function ReadingQuizStep({
       </div>
       {state?.answered && (
         <div className={`mt-6 rounded-2xl px-4 py-3 text-[0.9em] font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
-          {state.correct ? 'Correto. ' : 'Ainda nao. '}
+          {state.correct ? 'Correto. ' : 'Ainda não. '}
           {question.explanation}
         </div>
       )}

@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A1 - Cores",
+  "title": "Inglês A1 - Cores",
   "theme": "Cores",
   "objective": "Falar as cores das coisas ao seu redor.",
   "level": 1,
@@ -69,7 +69,7 @@
       },
       {
         "phrase_en": "What colour is it?",
-        "phrase_pt": "Que cor e?",
+        "phrase_pt": "Que cor é?",
         "word_by_word": [
           {
             "en": "What",
@@ -85,7 +85,7 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
@@ -114,19 +114,19 @@
       "word_en": "red",
       "word_pt": "vermelho",
       "example_sentence_en": "The apple is red.",
-      "example_sentence_pt": "A maca e vermelha."
+      "example_sentence_pt": "A maçã é vermelha."
     },
     {
       "word_en": "blue",
       "word_pt": "azul",
       "example_sentence_en": "The sky is blue today.",
-      "example_sentence_pt": "O ceu esta azul hoje."
+      "example_sentence_pt": "O céu está azul hoje."
     },
     {
       "word_en": "green",
       "word_pt": "verde",
       "example_sentence_en": "The grass is green.",
-      "example_sentence_pt": "A grama e verde."
+      "example_sentence_pt": "A grama é verde."
     },
     {
       "word_en": "yellow",
@@ -138,25 +138,25 @@
       "word_en": "black",
       "word_pt": "preto",
       "example_sentence_en": "My cat is black.",
-      "example_sentence_pt": "Meu gato e preto."
+      "example_sentence_pt": "Meu gato é preto."
     },
     {
       "word_en": "white",
       "word_pt": "branco",
       "example_sentence_en": "The paper is white.",
-      "example_sentence_pt": "O papel e branco."
+      "example_sentence_pt": "O papel é branco."
     },
     {
       "word_en": "What colour is it?",
-      "word_pt": "Que cor e?",
+      "word_pt": "Que cor é?",
       "example_sentence_en": "What colour is your bag?",
-      "example_sentence_pt": "Que cor e a sua mochila?"
+      "example_sentence_pt": "Que cor é a sua mochila?"
     },
     {
       "word_en": "my favourite colour",
       "word_pt": "minha cor favorita",
       "example_sentence_en": "Green is my favourite colour.",
-      "example_sentence_pt": "Verde e a minha cor favorita."
+      "example_sentence_pt": "Verde é a minha cor favorita."
     }
   ]
 }

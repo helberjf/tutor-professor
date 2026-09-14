@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Viagem",
+  "title": "Inglês A2 - Viagem",
   "theme": "Viagem",
   "objective": "Falar de viagens e transporte.",
   "level": 3,
@@ -23,7 +23,7 @@
       },
       {
         "phrase_en": "by bus",
-        "phrase_pt": "de onibus",
+        "phrase_pt": "de ônibus",
         "word_by_word": [
           {
             "en": "by",
@@ -31,13 +31,13 @@
           },
           {
             "en": "bus",
-            "pt": "onibus"
+            "pt": "ônibus"
           }
         ]
       },
       {
         "phrase_en": "by plane",
-        "phrase_pt": "de aviao",
+        "phrase_pt": "de avião",
         "word_by_word": [
           {
             "en": "by",
@@ -45,7 +45,7 @@
           },
           {
             "en": "plane",
-            "pt": "aviao"
+            "pt": "avião"
           }
         ]
       },
@@ -65,7 +65,7 @@
       },
       {
         "phrase_en": "Where is the station?",
-        "phrase_pt": "Onde fica a estacao?",
+        "phrase_pt": "Onde fica a estação?",
         "word_by_word": [
           {
             "en": "Where",
@@ -81,7 +81,7 @@
           },
           {
             "en": "station",
-            "pt": "estacao"
+            "pt": "estação"
           }
         ]
       },
@@ -109,7 +109,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "takes",
@@ -117,7 +117,7 @@
           },
           {
             "en": "two",
-            "pt": "dois"
+            "pt": "dóis"
           },
           {
             "en": "hours",
@@ -154,19 +154,19 @@
       "word_en": "a trip",
       "word_pt": "uma viagem",
       "example_sentence_en": "We are planning a trip.",
-      "example_sentence_pt": "Nos estamos planejando uma viagem."
+      "example_sentence_pt": "Nós estamos planejando uma viagem."
     },
     {
       "word_en": "by bus",
-      "word_pt": "de onibus",
+      "word_pt": "de ônibus",
       "example_sentence_en": "I go to school by bus.",
-      "example_sentence_pt": "Eu vou para a escola de onibus."
+      "example_sentence_pt": "Eu vou para a escola de ônibus."
     },
     {
       "word_en": "by plane",
-      "word_pt": "de aviao",
+      "word_pt": "de avião",
       "example_sentence_en": "They travel by plane.",
-      "example_sentence_pt": "Eles viajam de aviao."
+      "example_sentence_pt": "Eles viajam de avião."
     },
     {
       "word_en": "a ticket",
@@ -176,15 +176,15 @@
     },
     {
       "word_en": "Where is the station?",
-      "word_pt": "Onde fica a estacao?",
+      "word_pt": "Onde fica a estação?",
       "example_sentence_en": "Excuse me, where is the station?",
-      "example_sentence_pt": "Com licenca, onde fica a estacao?"
+      "example_sentence_pt": "Com licença, onde fica a estação?"
     },
     {
       "word_en": "I am lost",
       "word_pt": "Eu estou perdido",
       "example_sentence_en": "I am lost, can you help me?",
-      "example_sentence_pt": "Eu estou perdido, voce pode me ajudar?"
+      "example_sentence_pt": "Eu estou perdido, você pode me ajudar?"
     },
     {
       "word_en": "It takes two hours",
@@ -196,7 +196,7 @@
       "word_en": "Have a good trip",
       "word_pt": "Boa viagem",
       "example_sentence_en": "Have a good trip, see you soon.",
-      "example_sentence_pt": "Boa viagem, ate logo."
+      "example_sentence_pt": "Boa viagem, até logo."
     }
   ]
 }

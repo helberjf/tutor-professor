@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Pedir com educacao",
+  "title": "Inglês A1 - Pedir com educação",
   "theme": "Pedidos",
-  "objective": "Pedir as coisas com educacao.",
+  "objective": "Pedir as coisas com educação.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -27,7 +27,7 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           }
         ]
       },
@@ -37,11 +37,11 @@
         "word_by_word": [
           {
             "en": "You",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "welcome",
@@ -69,11 +69,11 @@
       },
       {
         "phrase_en": "Excuse me",
-        "phrase_pt": "Com licenca",
+        "phrase_pt": "Com licença",
         "word_by_word": [
           {
             "en": "Excuse",
-            "pt": "com licenca"
+            "pt": "com licença"
           },
           {
             "en": "me",
@@ -87,7 +87,7 @@
         "word_by_word": [
           {
             "en": "Can",
-            "pt": "posso"
+            "pt": "possó"
           },
           {
             "en": "I",
@@ -99,17 +99,17 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           }
         ]
       },
       {
         "phrase_en": "May I have water?",
-        "phrase_pt": "Posso pegar agua?",
+        "phrase_pt": "Posso pegar água?",
         "word_by_word": [
           {
             "en": "May",
-            "pt": "posso"
+            "pt": "possó"
           },
           {
             "en": "I",
@@ -121,7 +121,7 @@
           },
           {
             "en": "water",
-            "pt": "agua"
+            "pt": "água"
           }
         ]
       },
@@ -135,7 +135,7 @@
           },
           {
             "en": "course",
-            "pt": "claro"
+            "pt": "cláro"
           }
         ]
       }
@@ -146,7 +146,7 @@
       "word_en": "please",
       "word_pt": "por favor",
       "example_sentence_en": "Can you help me, please?",
-      "example_sentence_pt": "Voce pode me ajudar, por favor?"
+      "example_sentence_pt": "Você pode me ajudar, por favor?"
     },
     {
       "word_en": "thank you",
@@ -168,9 +168,9 @@
     },
     {
       "word_en": "Excuse me",
-      "word_pt": "Com licenca",
+      "word_pt": "Com licença",
       "example_sentence_en": "Excuse me, where is the door?",
-      "example_sentence_pt": "Com licenca, onde fica a porta?"
+      "example_sentence_pt": "Com licença, onde fica a porta?"
     },
     {
       "word_en": "Can I help you?",
@@ -180,9 +180,9 @@
     },
     {
       "word_en": "May I have water?",
-      "word_pt": "Posso pegar agua?",
+      "word_pt": "Posso pegar água?",
       "example_sentence_en": "May I have water, please?",
-      "example_sentence_pt": "Posso pegar agua, por favor?"
+      "example_sentence_pt": "Posso pegar água, por favor?"
     },
     {
       "word_en": "Of course",

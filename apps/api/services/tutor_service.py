@@ -58,7 +58,7 @@ class TutorService:
             word_en=hardest_item.word_en,
             word_pt=hardest_item.word_pt,
             example_sentence_en=f"{hardest_item.word_en} is a fun English phrase.",
-            example_sentence_pt=f"{hardest_item.word_pt} e uma palavra divertida.",
+            example_sentence_pt=f"{hardest_item.word_pt} é uma palavra divertida.",
         )
 
     def build_response(
@@ -69,35 +69,35 @@ class TutorService:
     ) -> str:
         normalized_message = self._normalize(message)
         prompt_rules = self._normalize(self.system_prompt)
-        use_bilingual = "portugues" in prompt_rules or "portuguese" in prompt_rules
+        use_bilingual = "português" in prompt_rules or "portuguese" in prompt_rules
         _ = history
 
         if any(term in normalized_message for term in ["violence", "blood", "weapon", "sex", "kill", "matar", "arma"]):
             if use_bilingual:
-                return "Vamos falar de ingles com seguranca. Quer praticar uma cor ou um animal?"
-            return "Vamos manter o chat focado em aprender ingles. Quer praticar uma cor?"
+                return "Vamos falar de inglês com segurança. Quer praticar uma cor ou um animal?"
+            return "Vamos manter o chat focado em aprender inglês. Quer praticar uma cor?"
 
-        if any(term in normalized_message for term in ["hello", "hi", "ola", "oi"]):
+        if any(term in normalized_message for term in ["hello", "hi", "olá", "oi"]):
             if use_bilingual:
                 return "Oi! Vamos aprender uma frase nova? Tente dizer: Hello!"
             return "Oi! Vamos aprender uma frase nova? Tente dizer: Hello!"
 
         if any(term in normalized_message for term in ["thank you", "thanks", "obrigado", "obrigada"]):
             if use_bilingual:
-                return "De nada! Quer aprender mais uma frase em ingles?"
-            return "De nada! Quer aprender mais uma frase em ingles?"
+                return "De nada! Quer aprender mais uma frase em inglês?"
+            return "De nada! Quer aprender mais uma frase em inglês?"
 
         if "your name" in normalized_message or "seu nome" in normalized_message:
             if use_bilingual:
-                return "I am Tutor and Professor. Eu adoro aprender com voce!"
+                return "I am Tutor and Professor. Eu adoro aprender com você!"
             return "I am Tutor and Professor. I love learning with you!"
 
         known_word = self._find_known_word(session=session, normalized_message=normalized_message)
         if known_word is not None:
             if self._normalize(known_word.word_pt) in normalized_message:
                 return (
-                    f"{known_word.word_pt} em ingles e {known_word.word_en}. "
-                    f"Voce consegue dizer: {known_word.word_en}?"
+                    f"{known_word.word_pt} em inglês e {known_word.word_en}. "
+                    f"Você consegue dizer: {known_word.word_en}?"
                 )
 
             return (
@@ -108,10 +108,10 @@ class TutorService:
         focus_word = self._get_focus_word(session=session)
         if focus_word is None:
             if use_bilingual:
-                return "Oi! Vamos aprender ingles juntos. Diga: Hello!"
-            return "Oi! Vamos aprender ingles juntos. Diga: Hello!"
+                return "Oi! Vamos aprender inglês juntos. Diga: Hello!"
+            return "Oi! Vamos aprender inglês juntos. Diga: Hello!"
 
         return (
             f"Vamos praticar uma frase. {focus_word.word_en} significa {focus_word.word_pt}. "
-            f"Voce pode repetir: {focus_word.word_en}?"
+            f"Você pode repetir: {focus_word.word_en}?"
         )

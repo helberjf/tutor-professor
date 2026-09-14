@@ -36,7 +36,7 @@ _SYSTEM_TEXT = (
 _QUESTIONS_PROMPT_TEMPLATE = """\
 Create exactly {expected_count} multiple-choice questions for the study material below.
 
-Area: {area_label}
+Área: {area_label}
 Subject: {subject_name}
 Topic: {topic_title}
 
@@ -146,10 +146,10 @@ def generate_study_questions(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("IA retornou JSON invalido para as questoes do simulado.") from exc
+        raise RuntimeError("IA retornou JSON inválido para as questões do simulado.") from exc
     questions = data.get("questions") if isinstance(data, dict) else None
     if not isinstance(questions, list):
-        raise RuntimeError("IA nao retornou uma lista de questoes.")
+        raise RuntimeError("IA não retornou uma lista de questões.")
     return questions
 
 

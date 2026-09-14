@@ -14,7 +14,7 @@ type ChatBubble = ChatMessage & {
 
 const SUGGESTIONS = [
   'Oi!',
-  'Como se diz azul em ingles?',
+  'Como se diz azul em inglês?',
   'Podemos praticar cores?',
 ];
 
@@ -23,7 +23,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatBubble[]>([
     {
       role: 'assistant',
-      content: 'Oi! Me peça uma frase em ingles e vamos praticar juntos.',
+      content: 'Oi! Me peça uma frase em inglês e vamos praticar juntos.',
     },
   ]);
   const [draft, setDraft] = useState('');
@@ -65,7 +65,7 @@ export default function ChatPage() {
 
       setMessages((current) => [...current, assistantMessage]);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel enviar a mensagem do chat.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível enviar a mensagem do chat.');
       setError(nextError);
       setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && message.role === 'user' && message.content === trimmed)));
     } finally {
@@ -93,8 +93,8 @@ export default function ChatPage() {
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center">
           <WifiOff size={32} className="mx-auto mb-3 text-slate-400" />
-          <p className="font-bold text-slate-700">Servidor nao disponivel</p>
-          <p className="mt-1 text-sm text-slate-500">O sistema esta temporariamente indisponivel.</p>
+          <p className="font-bold text-slate-700">Servidor não disponível</p>
+          <p className="mt-1 text-sm text-slate-500">O sistema está temporariamente indisponível.</p>
           <Link href="/offline" className="mt-4 inline-block font-bold text-primary hover:underline">Ver status</Link>
         </div>
       </main>
@@ -132,7 +132,7 @@ export default function ChatPage() {
               ))}
             </div>
             <div className="mt-6 flex flex-col gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade do audio</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade do áudio</span>
               <div className="flex gap-2">
                 {([0.5, 0.75, 1.0] as const).map((speed) => (
                   <button
@@ -157,23 +157,23 @@ export default function ChatPage() {
                   <p className="text-xl font-black">Conecte o tutor primeiro.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  O chat esta temporariamente indisponivel. Tente novamente em instantes.
+                  O chat está temporariamente indisponível. Tente novamente em instantes.
                 </p>
                 <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Abrir configuracao de conexao
+                  Abrir configuração de conexão
                 </Link>
               </div>
             ) : error?.isOffline ? (
               <div className="mt-8 rounded-[1.5rem] border-2 border-brand-orange bg-orange-50 p-5">
                 <div className="flex items-center gap-3 text-brand-orange">
                   <WifiOff size={26} />
-                  <p className="text-xl font-black">O backend esta offline agora.</p>
+                  <p className="text-xl font-black">O backend está offline agora.</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Nao foi possivel acessar o chat agora. Tente novamente em instantes.
+                  Não foi possível acessar o chat agora. Tente novamente em instantes.
                 </p>
                 <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Abrir configuracao de conexao
+                  Abrir configuração de conexão
                 </Link>
               </div>
             ) : null}
@@ -190,7 +190,7 @@ export default function ChatPage() {
                     <div
                       className={`max-w-[85%] rounded-[1.75rem] px-5 py-4 shadow-sm ${
                         message.role === 'user'
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary-dark text-white'
                           : 'bg-slate-100 text-slate-800'
                       }`}
                     >
@@ -222,7 +222,7 @@ export default function ChatPage() {
                   placeholder="Peça uma frase ou diga oi..."
                   maxLength={300}
                 />
-                <button type="submit" disabled={sending || !draft.trim()} className="app-button bg-primary hover:bg-primary-dark">
+                <button type="submit" disabled={sending || !draft.trim()} className="app-button bg-primary-dark hover:bg-primary-dark">
                   {sending ? 'Enviando...' : 'Enviar'}
                   <Send className="ml-2" size={18} />
                 </button>

@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Contar uma historia",
-  "theme": "Historias",
-  "objective": "Ligar as partes de uma historia.",
+  "title": "Inglês A2 - Contar uma história",
+  "theme": "Histórias",
+  "objective": "Ligar as partes de uma história.",
   "level": 4,
   "target_language": "English",
   "content": {
@@ -19,11 +19,11 @@
       },
       {
         "phrase_en": "then",
-        "phrase_pt": "entao",
+        "phrase_pt": "então",
         "word_by_word": [
           {
             "en": "then",
-            "pt": "entao"
+            "pt": "então"
           }
         ]
       },
@@ -106,31 +106,31 @@
       "word_en": "first",
       "word_pt": "primeiro",
       "example_sentence_en": "First, we packed our bags.",
-      "example_sentence_pt": "Primeiro, nos arrumamos as malas."
+      "example_sentence_pt": "Primeiro, nós arrumamos as malas."
     },
     {
       "word_en": "then",
-      "word_pt": "entao",
+      "word_pt": "então",
       "example_sentence_en": "Then we took the bus.",
-      "example_sentence_pt": "Entao nos pegamos o onibus."
+      "example_sentence_pt": "Então nós pegamos o ônibus."
     },
     {
       "word_en": "after that",
       "word_pt": "depois disso",
       "example_sentence_en": "After that we had lunch.",
-      "example_sentence_pt": "Depois disso nos almocamos."
+      "example_sentence_pt": "Depois disso nós almoçamos."
     },
     {
       "word_en": "finally",
       "word_pt": "finalmente",
       "example_sentence_en": "Finally we arrived home.",
-      "example_sentence_pt": "Finalmente nos chegamos em casa."
+      "example_sentence_pt": "Finalmente nós chegamos em casa."
     },
     {
       "word_en": "because",
       "word_pt": "porque",
       "example_sentence_en": "I was late because of the rain.",
-      "example_sentence_pt": "Eu me atrasei por causa da chuva."
+      "example_sentence_pt": "Eu me atrásei por causa da chuva."
     },
     {
       "word_en": "but",

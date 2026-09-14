@@ -87,7 +87,7 @@ export default function StudySessionPage() {
         setPhase('outdated-server');
         return;
       }
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel abrir a sessao.'));
+      setError(err instanceof ApiError ? err : new ApiError('Não foi possível abrir a sessão.'));
       setPhase('error');
     }
   }, []);
@@ -202,7 +202,7 @@ export default function StudySessionPage() {
         setAttemptError(
           err instanceof Error
             ? err.message
-            : 'Nao foi possivel salvar esta resposta. Ela continua valendo na tela.',
+            : 'Não foi possível salvar esta resposta. Ela continua valendo na tela.',
         );
       }
     } finally {
@@ -252,19 +252,19 @@ export default function StudySessionPage() {
         <div>
           <StatusCard
             tone="error"
-            title="Nao foi possivel abrir a sessao"
+            title="Não foi possível abrir a sessão"
             message={error?.message || 'Tente novamente em instantes.'}
             primaryAction={
               <button
                 type="button"
                 onClick={() => void load(false)}
-                className="rounded-full bg-primary px-6 py-3 text-base font-black text-white transition hover:brightness-110"
+                className="rounded-full bg-primary-dark px-6 py-3 text-base font-black text-white transition hover:brightness-110"
               >
                 Tentar de novo
               </button>
             }
             secondaryHref="/"
-            secondaryLabel="Voltar ao inicio"
+            secondaryLabel="Voltar ao início"
           />
         </div>
       </main>
@@ -277,29 +277,29 @@ export default function StudySessionPage() {
         <div className="mx-auto max-w-xl">
           <div className="app-surface border-amber-200 p-8 text-center">
             <Sparkles size={40} className="mx-auto text-amber-500" />
-            <h1 className="mt-4 text-2xl font-black text-slate-800">A sessao ainda nao chegou ao servidor</h1>
+            <h1 className="mt-4 text-2xl font-black text-slate-800">A sessão ainda não chegou ao servidor</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Esta tela ja existe no aplicativo, mas o servidor ainda esta numa versao anterior.
-              Enquanto isso, a licao e a revisao funcionam normalmente.
+              Esta tela já existe no aplicativo, mas o servidor ainda está em uma versão anterior.
+              Enquanto isso, a lição e a revisão funcionam normalmente.
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
                 href="/lesson"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-sm font-black text-white hover:bg-sky-600"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-sm font-black text-white hover:bg-sky-800"
               >
-                <ArrowRight size={16} /> Abrir a licao
+                <ArrowRight size={16} /> Abrir a lição
               </Link>
               <Link
                 href="/review"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                Ir para a revisao
+                Ir para a revisão
               </Link>
               <Link
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                <Home size={16} /> Inicio
+                <Home size={16} /> Início
               </Link>
             </div>
           </div>
@@ -316,21 +316,21 @@ export default function StudySessionPage() {
             <PartyPopper size={40} className="mx-auto text-emerald-500" />
             <h1 className="mt-4 text-2xl font-black text-slate-800">Tudo em dia!</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Nao ha revisao vencida nem questoes pendentes agora. Faca uma licao nova ou gere
-              questoes para continuar praticando.
+              Não há revisão vencida nem questões pendentes agora. Faça uma lição nova ou gere
+              questões para continuar praticando.
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
                 href="/lesson"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-sm font-black text-white hover:bg-sky-600"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-sm font-black text-white hover:bg-sky-800"
               >
-                <Sparkles size={16} /> Abrir licao
+                <Sparkles size={16} /> Abrir lição
               </Link>
               <Link
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                <Home size={16} /> Inicio
+                <Home size={16} /> Início
               </Link>
             </div>
           </div>
@@ -347,18 +347,18 @@ export default function StudySessionPage() {
         <div className="mx-auto max-w-xl">
           <div className="app-surface border-emerald-200 p-8 text-center">
             <CheckCircle2 size={44} className="mx-auto text-emerald-500" />
-            <h1 className="mt-4 text-2xl font-black text-slate-800">Sessao concluida</h1>
+            <h1 className="mt-4 text-2xl font-black text-slate-800">Sessão concluída</h1>
             <p className="mt-2 text-sm font-bold text-slate-500">
               {answered} {answered === 1 ? 'item respondido' : 'itens respondidos'} · {accuracy}% de acerto
             </p>
             <p className="mt-1 text-xs font-semibold text-slate-400">
-              O dia ja foi marcado como estudado. Nao precisa escrever nada.
+              O dia já foi marcado como estudado. Não precisa escrever nada.
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button
                 type="button"
                 onClick={() => void load(true)}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 text-sm font-black text-white hover:bg-emerald-600"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 text-sm font-black text-white hover:bg-emerald-800"
               >
                 <RotateCcw size={16} /> Estudar mais
               </button>
@@ -366,7 +366,7 @@ export default function StudySessionPage() {
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50"
               >
-                <Home size={16} /> Voltar ao inicio
+                <Home size={16} /> Voltar ao início
               </Link>
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function StudySessionPage() {
           <Link
             href="/"
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-slate-200 text-slate-500 transition hover:bg-slate-50"
-            aria-label="Sair da sessao"
+            aria-label="Sair da sessão"
           >
             <Home size={18} />
           </Link>
@@ -395,7 +395,7 @@ export default function StudySessionPage() {
             aria-valuenow={index}
             aria-valuemin={0}
             aria-valuemax={total}
-            aria-label="Progresso da sessao"
+            aria-label="Progresso da sessão"
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-500"
@@ -513,7 +513,7 @@ function LessonItemCard({
             type="button"
             onClick={onNext}
             disabled={saving}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 text-base font-black text-white transition hover:bg-emerald-600 disabled:opacity-50 sm:w-auto"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 text-base font-black text-white transition hover:bg-emerald-800 disabled:opacity-50 sm:w-auto"
           >
             Entendi <ArrowRight size={18} />
           </button>
@@ -521,7 +521,7 @@ function LessonItemCard({
           <button
             type="button"
             onClick={onReveal}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-base font-black text-white transition hover:bg-sky-600 sm:w-auto"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 sm:w-auto"
           >
             Ver o significado
           </button>
@@ -632,13 +632,13 @@ function SelfRatedCard({
               disabled={saving}
               className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border-2 border-rose-200 bg-rose-50 text-base font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
             >
-              <XCircle size={18} /> Ainda nao sei
+              <XCircle size={18} /> Ainda não sei
             </button>
             <button
               type="button"
               onClick={() => onRate(true)}
               disabled={saving}
-              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-emerald-500 text-base font-black text-white transition hover:bg-emerald-600 disabled:opacity-50"
+              className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-emerald-700 text-base font-black text-white transition hover:bg-emerald-800 disabled:opacity-50"
             >
               <CheckCircle2 size={18} /> Eu sabia
             </button>
@@ -648,7 +648,7 @@ function SelfRatedCard({
         <button
           type="button"
           onClick={onReveal}
-          className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-base font-black text-white transition hover:bg-sky-600 sm:w-auto"
+          className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 sm:w-auto"
         >
           Ver a resposta
         </button>

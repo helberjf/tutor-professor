@@ -21,7 +21,7 @@ export function TabButton({ active, onClick, icon, label, mobileLabel }: { activ
       type="button"
       onClick={onClick}
       className={`flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[1.15rem] px-2 py-2.5 text-xs font-black transition sm:gap-2 sm:px-4 sm:text-sm ${
-        active ? 'bg-primary text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+        active ? 'bg-primary-dark text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
       <span className="shrink-0">{icon}</span>

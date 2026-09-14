@@ -215,7 +215,7 @@ export default function OnboardingPage() {
               type="button"
               onClick={() => setStep('language')}
               disabled={!name.trim() || Boolean(birthProblem)}
-              className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-base font-black text-white transition hover:bg-sky-600 disabled:opacity-40"
+              className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 disabled:opacity-40"
             >
               Continuar <ArrowRight size={18} />
             </button>
@@ -265,7 +265,7 @@ export default function OnboardingPage() {
                   setChosen(null);
                   setStep('placement');
                 }}
-                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-base font-black text-white transition hover:bg-sky-600 disabled:opacity-40"
+                className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 disabled:opacity-40"
               >
                 {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                 Fazer o teste de nível

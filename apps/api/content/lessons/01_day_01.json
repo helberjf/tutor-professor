@@ -1,8 +1,8 @@
 {
   "id": 1,
-  "title": "Ingles de hoje - Dia 1",
+  "title": "Inglês de hoje - Dia 1",
   "theme": "Frases do dia",
-  "objective": "Aprenda 3 frases uteis em ingles hoje.",
+  "objective": "Aprenda 3 frases úteis em inglês hoje.",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
@@ -15,11 +15,11 @@
       },
       {
         "phrase_en": "How are you today?",
-        "phrase_pt": "Como voce esta hoje?",
+        "phrase_pt": "Como você está hoje?",
         "word_by_word": [
           { "en": "How", "pt": "como" },
-          { "en": "are", "pt": "esta" },
-          { "en": "you", "pt": "voce" },
+          { "en": "are", "pt": "está" },
+          { "en": "you", "pt": "você" },
           { "en": "today", "pt": "hoje" }
         ]
       },
@@ -39,19 +39,19 @@
       "word_en": "Hello!",
       "word_pt": "Oi!",
       "example_sentence_en": "You can say hello when you meet someone.",
-      "example_sentence_pt": "Voce pode dizer oi quando encontra alguem."
+      "example_sentence_pt": "Você pode dizer oi quando encontra alguém."
     },
     {
       "word_en": "How are you today?",
-      "word_pt": "Como voce esta hoje?",
+      "word_pt": "Como você está hoje?",
       "example_sentence_en": "This phrase asks how someone feels today.",
-      "example_sentence_pt": "Essa frase pergunta como alguem esta hoje."
+      "example_sentence_pt": "Essa frase pergunta como alguém está hoje."
     },
     {
       "word_en": "I am happy!",
       "word_pt": "Eu estou feliz!",
       "example_sentence_en": "Use this phrase to share a happy feeling.",
-      "example_sentence_pt": "Use essa frase para mostrar que voce esta feliz."
+      "example_sentence_pt": "Use essa frase para mostrar que você está feliz."
     }
   ]
 }

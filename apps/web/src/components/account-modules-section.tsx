@@ -25,7 +25,7 @@ export function AccountModulesSection() {
       })
       .catch((cause) => {
         if (cancelled) return;
-        setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel carregar os modulos.');
+        setError(cause instanceof ApiError ? cause.message : 'Não foi possível carregar os modulos.');
       });
     return () => {
       cancelled = true;
@@ -42,11 +42,11 @@ export function AccountModulesSection() {
       setModules(result.modules);
       setSaved(
         !module.enabled
-          ? `${module.label} ativado. O menu ja mostra a nova secao.`
+          ? `${module.label} ativado. O menu já mostra a nova seção.`
           : `${module.label} desativado. Seus dados continuam salvos.`,
       );
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel salvar a mudanca.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível salvar a mudanca.');
     } finally {
       setSavingId(null);
     }
@@ -62,8 +62,8 @@ export function AccountModulesSection() {
         </div>
       </div>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Ative apenas o que sua familia usa. Desligar um modulo esconde a secao do
-        menu — nada e apagado, e voce pode ligar de novo quando quiser.
+        Ative apenas o que sua família usa. Desligar um módulo esconde a seção do
+        menu — nada é apagado, e você pode ligar de novo quando quiser.
       </p>
 
       {error ? (

@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Perguntas simples",
+  "title": "Inglês A1 - Perguntas simples",
   "theme": "Perguntas",
-  "objective": "Fazer perguntas basicas com what, where e who.",
+  "objective": "Fazer perguntas básicas com what, where e who.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "What is this?",
-        "phrase_pt": "O que e isto?",
+        "phrase_pt": "O que é isto?",
         "word_by_word": [
           {
             "en": "What",
@@ -27,7 +27,7 @@
       },
       {
         "phrase_en": "Where is it?",
-        "phrase_pt": "Onde esta?",
+        "phrase_pt": "Onde está?",
         "word_by_word": [
           {
             "en": "Where",
@@ -39,13 +39,13 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
       {
         "phrase_en": "Who is that?",
-        "phrase_pt": "Quem e aquele?",
+        "phrase_pt": "Quem é aquele?",
         "word_by_word": [
           {
             "en": "Who",
@@ -63,7 +63,7 @@
       },
       {
         "phrase_en": "Why not?",
-        "phrase_pt": "Por que nao?",
+        "phrase_pt": "Por que não?",
         "word_by_word": [
           {
             "en": "Why",
@@ -71,13 +71,13 @@
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           }
         ]
       },
       {
         "phrase_en": "When is the class?",
-        "phrase_pt": "Quando e a aula?",
+        "phrase_pt": "Quando é a aula?",
         "word_by_word": [
           {
             "en": "When",
@@ -93,7 +93,7 @@
           },
           {
             "en": "class",
-            "pt": "aula"
+            "pt": "aulá"
           }
         ]
       },
@@ -107,11 +107,11 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "say",
@@ -119,21 +119,21 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
       {
         "phrase_en": "Can you repeat?",
-        "phrase_pt": "Voce pode repetir?",
+        "phrase_pt": "Você pode repetir?",
         "word_by_word": [
           {
             "en": "Can",
-            "pt": "posso"
+            "pt": "possó"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "repeat",
@@ -143,7 +143,7 @@
       },
       {
         "phrase_en": "I do not know",
-        "phrase_pt": "Eu nao sei",
+        "phrase_pt": "Eu não sei",
         "word_by_word": [
           {
             "en": "I",
@@ -151,11 +151,11 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "know",
@@ -168,51 +168,51 @@
   "items": [
     {
       "word_en": "What is this?",
-      "word_pt": "O que e isto?",
+      "word_pt": "O que é isto?",
       "example_sentence_en": "What is this in English?",
-      "example_sentence_pt": "O que e isto em ingles?"
+      "example_sentence_pt": "O que é isto em inglês?"
     },
     {
       "word_en": "Where is it?",
-      "word_pt": "Onde esta?",
+      "word_pt": "Onde está?",
       "example_sentence_en": "Where is my pencil?",
-      "example_sentence_pt": "Onde esta o meu lapis?"
+      "example_sentence_pt": "Onde está o meu lápis?"
     },
     {
       "word_en": "Who is that?",
-      "word_pt": "Quem e aquele?",
+      "word_pt": "Quem é aquele?",
       "example_sentence_en": "Who is that boy over there?",
-      "example_sentence_pt": "Quem e aquele menino ali?"
+      "example_sentence_pt": "Quem é aquele menino ali?"
     },
     {
       "word_en": "Why not?",
-      "word_pt": "Por que nao?",
+      "word_pt": "Por que não?",
       "example_sentence_en": "Why not try again?",
-      "example_sentence_pt": "Por que nao tentar de novo?"
+      "example_sentence_pt": "Por que não tentar de novo?"
     },
     {
       "word_en": "When is the class?",
-      "word_pt": "Quando e a aula?",
+      "word_pt": "Quando é a aula?",
       "example_sentence_en": "When is the English class?",
-      "example_sentence_pt": "Quando e a aula de ingles?"
+      "example_sentence_pt": "Quando é a aula de inglês?"
     },
     {
       "word_en": "How do you say it?",
       "word_pt": "Como se diz?",
       "example_sentence_en": "How do you say it in Portuguese?",
-      "example_sentence_pt": "Como se diz isso em portugues?"
+      "example_sentence_pt": "Como se diz isso em português?"
     },
     {
       "word_en": "Can you repeat?",
-      "word_pt": "Voce pode repetir?",
+      "word_pt": "Você pode repetir?",
       "example_sentence_en": "Can you repeat that, please?",
-      "example_sentence_pt": "Voce pode repetir isso, por favor?"
+      "example_sentence_pt": "Você pode repetir isso, por favor?"
     },
     {
       "word_en": "I do not know",
-      "word_pt": "Eu nao sei",
+      "word_pt": "Eu não sei",
       "example_sentence_en": "I do not know the answer.",
-      "example_sentence_pt": "Eu nao sei a resposta."
+      "example_sentence_pt": "Eu não sei a resposta."
     }
   ]
 }

@@ -135,7 +135,7 @@ async function saveRuntimeBackendConfigViaKV(record: RuntimeBackendConfig) {
 async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
   const token = getGitHubToken();
   if (!token) {
-    throw new Error('GITHUB_TOKEN nao configurado na Vercel.');
+    throw new Error('GITHUB_TOKEN não configurado na Vercel.');
   }
 
   const { owner, repo } = getGitHubRepoInfo();
@@ -173,7 +173,7 @@ async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
         });
 
         if (!mainRes.ok) {
-          throw new Error('Nao foi possivel obter o SHA do branch main para criar o runtime-state.');
+          throw new Error('Não foi possível obter o SHA do branch main para criar o runtime-state.');
         }
 
         const mainData = (await mainRes.json()) as { object: { sha: string } };
@@ -188,7 +188,7 @@ async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
 
         if (!createBranchRes.ok) {
           const errText = await createBranchRes.text();
-          throw new Error(`Nao foi possivel criar o branch ${branch}: ${createBranchRes.status} ${errText}`);
+          throw new Error(`Não foi possível criar o branch ${branch}: ${createBranchRes.status} ${errText}`);
         }
       }
 
@@ -229,7 +229,7 @@ async function saveRuntimeBackendConfigViaGitHub(record: RuntimeBackendConfig) {
 async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
   const baseUrl = normalizeRuntimeBackendBaseUrl(payload.baseUrl, { requireHttps: true });
   if (!baseUrl) {
-    throw new Error('Use uma URL HTTPS valida para o backend.');
+    throw new Error('Use uma URL HTTPS válida para o backend.');
   }
 
   const record = buildRuntimeBackendConfig(baseUrl, {
@@ -243,7 +243,7 @@ async function saveRuntimeBackendConfig(payload: RuntimeBackendSyncPayload) {
   } else if (getGitHubToken()) {
     await saveRuntimeBackendConfigViaGitHub(record);
   } else {
-    throw new Error('Nenhum metodo de armazenamento configurado (KV ou GITHUB_TOKEN).');
+    throw new Error('Nenhum método de armazenamento configurado (KV ou GITHUB_TOKEN).');
   }
 
   return record;
@@ -303,7 +303,7 @@ export async function POST(request: Request) {
   const syncToken = getSyncToken();
   if (!syncToken) {
     return NextResponse.json(
-      { detail: 'VERCEL_BACKEND_SYNC_TOKEN nao esta configurado na Vercel.' },
+      { detail: 'VERCEL_BACKEND_SYNC_TOKEN não está configurado na Vercel.' },
       { status: 503 },
     );
   }
@@ -311,27 +311,27 @@ export async function POST(request: Request) {
   const hasStorage = getKVConfig() || getGitHubToken();
   if (!hasStorage) {
     return NextResponse.json(
-      { detail: 'Nenhum metodo de armazenamento configurado na Vercel (KV_REST_API_URL/TOKEN ou GITHUB_TOKEN).' },
+      { detail: 'Nenhum método de armazenamento configurado na Vercel (KV_REST_API_URL/TOKEN ou GITHUB_TOKEN).' },
       { status: 503 },
     );
   }
 
   const authorization = request.headers.get('authorization') || '';
   if (authorization !== `Bearer ${syncToken}`) {
-    return NextResponse.json({ detail: 'Nao autorizado.' }, { status: 401 });
+    return NextResponse.json({ detail: 'Não autorizado.' }, { status: 401 });
   }
 
   let payload: RuntimeBackendSyncPayload;
   try {
     payload = (await request.json()) as RuntimeBackendSyncPayload;
   } catch {
-    return NextResponse.json({ detail: 'JSON invalido.' }, { status: 400 });
+    return NextResponse.json({ detail: 'JSON inválido.' }, { status: 400 });
   }
 
   const baseUrl = normalizeRuntimeBackendBaseUrl(payload.baseUrl || '', { requireHttps: true });
   if (!baseUrl) {
     return NextResponse.json(
-      { detail: 'Use uma URL HTTPS valida para o backend.' },
+      { detail: 'Use uma URL HTTPS válida para o backend.' },
       { status: 400 },
     );
   }
@@ -350,7 +350,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Runtime backend POST failed:', error);
     return NextResponse.json(
-      { detail: 'Nao foi possivel gravar a URL global do backend.' },
+      { detail: 'Não foi possível gravar a URL global do backend.' },
       { status: 500 },
     );
   }

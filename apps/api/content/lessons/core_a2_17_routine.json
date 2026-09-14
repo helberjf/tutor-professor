@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Rotina",
+  "title": "Inglês A2 - Rotina",
   "theme": "Rotina",
-  "objective": "Contar o que voce faz todos os dias.",
+  "objective": "Contar o que você faz todos os dias.",
   "level": 3,
   "target_language": "English",
   "content": {
@@ -69,13 +69,13 @@
           },
           {
             "en": "school",
-            "pt": "escola"
+            "pt": "escolá"
           }
         ]
       },
       {
         "phrase_en": "I do my homework",
-        "phrase_pt": "Eu faco a minha licao",
+        "phrase_pt": "Eu faço a minha lição",
         "word_by_word": [
           {
             "en": "I",
@@ -83,7 +83,7 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "my",
@@ -91,7 +91,7 @@
           },
           {
             "en": "homework",
-            "pt": "licao de casa"
+            "pt": "lição de casa"
           }
         ]
       },
@@ -119,7 +119,7 @@
       },
       {
         "phrase_en": "I go to bed at nine",
-        "phrase_pt": "Eu vou dormir as nove",
+        "phrase_pt": "Eu vou dormir às nove",
         "word_by_word": [
           {
             "en": "I",
@@ -149,7 +149,7 @@
       },
       {
         "phrase_en": "every morning",
-        "phrase_pt": "toda manha",
+        "phrase_pt": "toda manhã",
         "word_by_word": [
           {
             "en": "every",
@@ -157,13 +157,13 @@
           },
           {
             "en": "morning",
-            "pt": "manha"
+            "pt": "manhã"
           }
         ]
       },
       {
         "phrase_en": "after lunch",
-        "phrase_pt": "depois do almoco",
+        "phrase_pt": "depois do almoço",
         "word_by_word": [
           {
             "en": "after",
@@ -171,7 +171,7 @@
           },
           {
             "en": "lunch",
-            "pt": "almoco"
+            "pt": "almoço"
           }
         ]
       }
@@ -188,7 +188,7 @@
       "word_en": "I brush my teeth",
       "word_pt": "Eu escovo os dentes",
       "example_sentence_en": "I brush my teeth after breakfast.",
-      "example_sentence_pt": "Eu escovo os dentes depois do cafe."
+      "example_sentence_pt": "Eu escovo os dentes depois do café."
     },
     {
       "word_en": "I go to school",
@@ -198,33 +198,33 @@
     },
     {
       "word_en": "I do my homework",
-      "word_pt": "Eu faco a minha licao",
+      "word_pt": "Eu faço a minha lição",
       "example_sentence_en": "I do my homework in the afternoon.",
-      "example_sentence_pt": "Eu faco a minha licao a tarde."
+      "example_sentence_pt": "Eu faço a minha lição à tarde."
     },
     {
       "word_en": "I help at home",
       "word_pt": "Eu ajudo em casa",
       "example_sentence_en": "I help at home on Saturdays.",
-      "example_sentence_pt": "Eu ajudo em casa aos sabados."
+      "example_sentence_pt": "Eu ajudo em casa aos sábados."
     },
     {
       "word_en": "I go to bed at nine",
-      "word_pt": "Eu vou dormir as nove",
+      "word_pt": "Eu vou dormir às nove",
       "example_sentence_en": "I go to bed at nine o'clock.",
-      "example_sentence_pt": "Eu vou dormir as nove horas."
+      "example_sentence_pt": "Eu vou dormir às nove horas."
     },
     {
       "word_en": "every morning",
-      "word_pt": "toda manha",
+      "word_pt": "toda manhã",
       "example_sentence_en": "Every morning I drink milk.",
-      "example_sentence_pt": "Toda manha eu bebo leite."
+      "example_sentence_pt": "Toda manhã eu bebo leite."
     },
     {
       "word_en": "after lunch",
-      "word_pt": "depois do almoco",
+      "word_pt": "depois do almoço",
       "example_sentence_en": "After lunch I read a book.",
-      "example_sentence_pt": "Depois do almoco eu leio um livro."
+      "example_sentence_pt": "Depois do almoço eu leio um livro."
     }
   ]
 }

@@ -1,17 +1,17 @@
 {
   "level": 10,
   "target_language": "Spanish",
-  "title": "Espanhol de hoje - Nivel C2",
+  "title": "Espanhol de hoje - Nível C2",
   "theme": "Frases do dia",
-  "objective": "Pratique registro formal e expressoes idiomaticas em espanhol (nivel C2).",
+  "objective": "Pratique registro formal e expressões idiomáticas em espanhol (nível C2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
-        "phrase_en": "La decision del comite, aunque controvertida, finalmente se mantuvo.",
-        "phrase_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+        "phrase_en": "La decision del comitê, aunque controvertida, finalmente se mantuvo.",
+        "phrase_pt": "A decisão do comitê, embora controversa, foi finalmente mantida.",
         "word_by_word": [
-          { "en": "La decision del comite", "pt": "a decisao do comite" },
+          { "en": "La decision del comitê", "pt": "a decisão do comitê" },
           { "en": "aunque controvertida", "pt": "embora controversa" },
           { "en": "finalmente se mantuvo", "pt": "foi finalmente mantida" }
         ]
@@ -20,7 +20,7 @@
         "phrase_en": "Tiene una habilidad asombrosa para leer entre lineas.",
         "phrase_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
         "word_by_word": [
-          { "en": "Tiene", "pt": "ela tem" },
+          { "en": "Tiene", "pt": "elá tem" },
           { "en": "una habilidad asombrosa", "pt": "uma habilidade impressionante" },
           { "en": "para leer entre lineas", "pt": "de ler nas entrelinhas" }
         ]
@@ -38,22 +38,22 @@
   },
   "items": [
     {
-      "word_en": "La decision del comite, aunque controvertida, finalmente se mantuvo.",
-      "word_pt": "A decisao do comite, embora controversa, foi finalmente mantida.",
+      "word_en": "La decision del comitê, aunque controvertida, finalmente se mantuvo.",
+      "word_pt": "A decisão do comitê, embora controversa, foi finalmente mantida.",
       "example_sentence_en": "\"Aunque\" opens a mid-sentence concession, similar to \"though\".",
-      "example_sentence_pt": "\"Aunque\" abre uma concessao no meio da frase, parecido com \"though\"."
+      "example_sentence_pt": "\"Aunque\" abre uma concessão no meio da frase, parecido com \"though\"."
     },
     {
       "word_en": "Tiene una habilidad asombrosa para leer entre lineas.",
       "word_pt": "Ela tem uma habilidade impressionante de ler nas entrelinhas.",
       "example_sentence_en": "\"Leer entre lineas\" is an idiom for understanding a hidden meaning.",
-      "example_sentence_pt": "\"Leer entre lineas\" e uma expressao idiomatica para entender um sentido oculto."
+      "example_sentence_pt": "\"Leer entre lineas\" é uma expressão idiomática para entender um sentido oculto."
     },
     {
       "word_en": "Dadas las circunstancias, seria prudente reconsiderar nuestro enfoque.",
       "word_pt": "Dadas as circunstancias, seria prudente reconsiderar nossa abordagem.",
       "example_sentence_en": "\"Dadas las circunstancias\" is a formal way to say \"considering the situation\".",
-      "example_sentence_pt": "\"Dadas las circunstancias\" e uma forma formal de dizer \"considerando a situacao\"."
+      "example_sentence_pt": "\"Dadas las circunstancias\" é uma forma formal de dizer \"considerando a situação\"."
     }
   ]
 }

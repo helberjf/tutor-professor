@@ -1411,7 +1411,7 @@ async function performApiFetch(url: string, options: RequestInit) {
 export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const apiBaseUrl = await resolveApiBaseUrl();
   if (!apiBaseUrl) {
-    throw new ApiError('Este aparelho ainda nao esta conectado a um backend. Rode o launcher com o tunnel ativo ou abra a pagina de conexao e salve a URL atual do tunnel.', {
+    throw new ApiError('Este aparelho ainda não está conectado a um backend. Rode o launcher com o tunnel ativo ou abra a página de conexão e salve a URL atual do tunnel.', {
       code: 'unconfigured',
     });
   }
@@ -1435,17 +1435,17 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
           clearSavedApiBaseUrl();
         } catch (fallbackError) {
           console.error('API fallback call failed:', fallbackError);
-          throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+          throw new ApiError('O tutor não conseguiu acessar o backend.', {
             code: 'offline',
           });
         }
       } else {
-        throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+        throw new ApiError('O tutor não conseguiu acessar o backend.', {
           code: 'offline',
         });
       }
     } else {
-      throw new ApiError('O tutor nao conseguiu acessar o backend.', {
+      throw new ApiError('O tutor não conseguiu acessar o backend.', {
         code: 'offline',
       });
     }
@@ -1465,7 +1465,7 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     return (await response.json()) as T;
   } catch (error) {
     console.error('API parse failed:', error);
-    throw new ApiError('O tutor respondeu, mas nao foi possivel ler a resposta.', {
+    throw new ApiError('O tutor respondeu, mas não foi possível ler a resposta.', {
       code: 'parse',
     });
   }
@@ -1751,7 +1751,7 @@ export const api = {
     promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
     return promise;
   },
-  // Skips the short /api/auth/me cache: used by the "aguardando aprovacao"
+  // Skips the short /api/auth/me cache: used by the "aguardando aprovação"
   // screen, where the whole point is to see a status that just changed.
   refreshUserMe: () => {
     invalidateUserMeCache();
@@ -1823,7 +1823,7 @@ export const api = {
   getGoogleLoginUrl: async (next = '/account') => {
     const apiBaseUrl = await resolveApiBaseUrl();
     if (!apiBaseUrl) {
-      throw new ApiError('Este aparelho ainda nao esta conectado a um backend.', {
+      throw new ApiError('Este aparelho ainda não está conectado a um backend.', {
         code: 'unconfigured',
       });
     }

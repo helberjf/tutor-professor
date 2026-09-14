@@ -78,7 +78,7 @@ def build_domain_breakdown(questions: Sequence[Any], correct_ids: set[int]) -> d
     """Per-domain totals for the result screen.
 
     A domain that was drawn but never answered correctly still reports zero, so
-    the weak area shows up instead of disappearing from the chart.
+    the weak área shows up instead of disappearing from the chart.
     """
     breakdown: dict[str, dict[str, int]] = {}
     for question in questions:
@@ -118,27 +118,27 @@ def normalize_domains(domains: object) -> list[dict[str, Any]]:
     if domains is None:
         return []
     if not isinstance(domains, (list, tuple)):
-        raise ValueError("Os dominios do simulado devem ser uma lista.")
+        raise ValueError("Os domínios do simulado devem ser uma lista.")
     if not domains:
         return []
 
     normalized: list[dict[str, Any]] = []
     for entry in domains:
         if not isinstance(entry, Mapping):
-            raise ValueError("Cada dominio deve ser um objeto com nome e peso.")
+            raise ValueError("Cada domínio deve ser um objeto com nome e peso.")
         name = " ".join(str(entry.get("name") or "").split())
         if not name:
-            raise ValueError("Todo dominio precisa de um nome.")
+            raise ValueError("Todo domínio precisa de um nome.")
         try:
             weight = float(entry.get("weight"))
         except (TypeError, ValueError) as exc:
-            raise ValueError(f"Peso invalido para o dominio {name}.") from exc
+            raise ValueError(f"Peso inválido para o domínio {name}.") from exc
         if weight <= 0:
-            raise ValueError(f"O peso do dominio {name} deve ser maior que zero.")
+            raise ValueError(f"O peso do domínio {name} deve ser maior que zero.")
         normalized.append({"name": name, "weight": weight})
 
     if len({domain["name"] for domain in normalized}) != len(normalized):
-        raise ValueError("Os dominios do simulado nao podem se repetir.")
+        raise ValueError("Os domínios do simulado não podem se repetir.")
 
     total = sum(domain["weight"] for domain in normalized)
     return [{"name": domain["name"], "weight": domain["weight"] / total} for domain in normalized]
@@ -209,7 +209,7 @@ def _record(raw: object) -> Mapping[str, object]:
     model_dump = getattr(raw, "model_dump", None)
     if callable(model_dump):
         return model_dump()
-    raise ValueError("Cada questao do simulado deve ser um objeto JSON.")
+    raise ValueError("Cada questão do simulado deve ser um objeto JSON.")
 
 
 def validate_exam_question_batch(
@@ -220,7 +220,7 @@ def validate_exam_question_batch(
 ) -> list[ValidatedExamQuestion]:
     """The exam contract: 4-6 complete options, a matching answer key, a domain."""
     if not isinstance(raw_questions, (list, tuple)) or not raw_questions:
-        raise ValueError("Envie pelo menos uma questao de simulado.")
+        raise ValueError("Envie pelo menos uma questão de simulado.")
 
     # With no blueprint the domain is a free label, kept only for the breakdown.
     blueprint = normalize_domains(domains)
@@ -234,12 +234,12 @@ def validate_exam_question_batch(
 
         domain = _clean(record.get("domain"), 120) or DEFAULT_DOMAIN
         if blueprint and domain.casefold() not in domain_names:
-            raise ValueError(f"Dominio fora do blueprint do simulado: {domain}")
+            raise ValueError(f"Domínio fora do blueprint do simulado: {domain}")
 
         question = _clean(record.get("question"), 1000)
         explanation = _clean(record.get("explanation"), 2000)
         if not question or not explanation:
-            raise ValueError("Questao e explicacao do simulado nao podem ficar vazias.")
+            raise ValueError("Questão e explicação do simulado não podem ficar vazias.")
 
         raw_options = record.get("options")
         if not isinstance(raw_options, (list, tuple)):
@@ -247,14 +247,14 @@ def validate_exam_question_batch(
         options = [_clean(option, 500) for option in raw_options]
         if not (MIN_OPTIONS <= len(options) <= MAX_OPTIONS):
             raise ValueError(
-                f"Cada questao precisa de {MIN_OPTIONS} a {MAX_OPTIONS} alternativas, recebeu {len(options)}."
+                f"Cada questão precisa de {MIN_OPTIONS} a {MAX_OPTIONS} alternativas, recebeu {len(options)}."
             )
         if any(not option for option in options):
             raise ValueError("Nenhuma alternativa pode ficar vazia.")
         if any(_OPTION_LABEL_ONLY_RE.fullmatch(option) for option in options):
-            raise ValueError("As alternativas devem trazer o texto da resposta, nao apenas a letra.")
+            raise ValueError("As alternativas devem trazer o texto da resposta, não apenas a letra.")
         if len({option.casefold() for option in options}) != len(options):
-            raise ValueError("As alternativas de uma questao nao podem se repetir.")
+            raise ValueError("As alternativas de uma questão não podem se repetir.")
 
         raw_correct = record.get("correct_options")
         if not isinstance(raw_correct, (list, tuple)):
@@ -264,31 +264,31 @@ def validate_exam_question_batch(
         for entry in raw_correct:
             match = by_fold.get(_clean(entry, 500).casefold())
             if match is None:
-                raise ValueError("Toda resposta correta deve ser uma das alternativas da questao.")
+                raise ValueError("Toda resposta correta deve ser uma das alternativas da questão.")
             if match not in correct_options:
                 correct_options.append(match)
         if not correct_options:
-            raise ValueError("Toda questao do simulado precisa de pelo menos uma resposta correta.")
+            raise ValueError("Toda questão do simulado precisa de pelo menos uma resposta correta.")
         if len(correct_options) == len(options):
-            raise ValueError("Uma questao nao pode ter todas as alternativas corretas.")
+            raise ValueError("Uma questão não pode ter todas as alternativas corretas.")
 
         response_type = _clean(record.get("response_type"), 20).lower() or (
             "multiple" if len(correct_options) > 1 else "single"
         )
         if response_type not in RESPONSE_TYPES:
-            raise ValueError(f"Tipo de resposta invalido: {response_type}")
+            raise ValueError(f"Tipo de resposta inválido: {response_type}")
         if response_type == "single" and len(correct_options) != 1:
-            raise ValueError("Uma questao de resposta unica precisa de exatamente uma correta.")
+            raise ValueError("Uma questão de resposta única precisa de exatamente uma correta.")
         if response_type == "multiple" and len(correct_options) < 2:
-            raise ValueError("Uma questao de multipla resposta precisa de pelo menos duas corretas.")
+            raise ValueError("Uma questão de múltipla resposta precisa de pelo menos duas corretas.")
 
         difficulty = _clean(record.get("difficulty"), 20).lower() or "medium"
         if difficulty not in DIFFICULTIES:
-            raise ValueError(f"Dificuldade invalida: {difficulty}")
+            raise ValueError(f"Dificuldade inválida: {difficulty}")
 
         question_key = programming_question_key(question)
         if not question_key or question_key in existing_keys or question_key in batch_keys:
-            raise ValueError("As questoes do simulado nao podem se repetir.")
+            raise ValueError("As questões do simulado não podem se repetir.")
         batch_keys.add(question_key)
 
         reference_url = _clean(record.get("reference_url"), 500) or None

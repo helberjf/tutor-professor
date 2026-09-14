@@ -76,8 +76,8 @@ def content_rule(age_group: str | None) -> str:
 # The clause the terms of use state for a minor's profile. It lives here so the
 # screen that shows it and the document that promises it cannot drift apart.
 SUPERVISION_NOTICE = (
-    "Este perfil e de um menor de 18 anos: pelos termos de uso, o estudo deve ser "
-    "acompanhado por um adulto responsavel, que responde pela conta."
+    "Este perfil é de um menor de 18 anos: pelos termos de uso, o estudo deve ser "
+    "acompanhado por um adulto responsável, que responde pela conta."
 )
 
 MIN_SUPPORTED_AGE = 4

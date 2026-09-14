@@ -72,7 +72,7 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
                       </div>
                       <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
                         <div
-                          className={`h-2 rounded-full ${domainPercent >= exam.passing_percent ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                          className={`h-2 rounded-full ${domainPercent >= exam.passing_percent ? 'bg-emerald-700' : 'bg-amber-700'}`}
                           style={{ width: `${domainPercent}%` }}
                         />
                       </div>

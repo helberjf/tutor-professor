@@ -83,9 +83,9 @@ export default function AdminDashboardPage() {
       <StatusCard
         tone="loading"
         title="Verificando acesso"
-        message="Confirmando permissoes de administrador..."
+        message="Confirmando permissões de administrador..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -95,9 +95,9 @@ export default function AdminDashboardPage() {
       <StatusCard
         tone="error"
         title="Acesso restrito"
-        message="Esta area e exclusiva para o administrador configurado no backend."
+        message="Esta área e exclusiva para o administrador configurado no backend."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
   const pending = overview?.pending_users ?? 0;
   const metrics = [
     {
-      label: 'Aguardando aprovacao',
+      label: 'Aguardando aprovação',
       value: pending,
       icon: <UserCheck size={18} />,
       highlight: pending > 0,
@@ -114,32 +114,32 @@ export default function AdminDashboardPage() {
     { label: 'Cadastros em 7 dias', value: overview?.signups_last_7_days ?? 0, icon: <UserPlus size={18} /> },
     { label: 'Contas com IA liberada', value: overview?.ai_authorized_users ?? 0, icon: <KeyRound size={18} /> },
     {
-      label: 'Contas sem creditos',
+      label: 'Contas sem créditos',
       value: overview?.out_of_credit_users ?? 0,
       icon: <Coins size={18} />,
       highlight: (overview?.out_of_credit_users ?? 0) > 0,
     },
-    { label: 'Creditos de IA gastos', value: overview?.ai_credits_spent ?? 0, icon: <Coins size={18} /> },
+    { label: 'Créditos de IA gastos', value: overview?.ai_credits_spent ?? 0, icon: <Coins size={18} /> },
   ];
 
   const cards = [
     {
       href: '/admin/accounts',
-      title: 'Aprovacao de contas',
+      title: 'Aprovação de contas',
       description: 'Liberar, recusar ou apagar contas e seus dados relacionados.',
       icon: <UserCheck size={22} />,
       badge: pending > 0 ? `${pending} na fila` : null,
     },
     {
       href: '/admin/users',
-      title: 'Usuarios',
-      description: 'Listar contas cadastradas e autorizar o uso da IA para cada usuario.',
+      title: 'Usuários',
+      description: 'Listar contas cadastradas e autorizar o uso da IA para cada usuário.',
       icon: <Users size={22} />,
       badge: null,
     },
     {
       href: '/admin/learn',
-      title: 'Conteudo admin',
+      title: 'Conteúdo admin',
       description: 'Acessar modulos, flashcards e editor de estudos administrativos.',
       icon: <BookOpen size={22} />,
       badge: null,
@@ -199,7 +199,7 @@ export default function AdminDashboardPage() {
           {pending > 0 ? (
             <Link
               href="/admin/accounts"
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-white transition hover:bg-primary-dark"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-dark px-4 py-2 text-sm font-black text-white transition hover:bg-primary-dark"
             >
               <UserCheck size={16} />
               Revisar {pending} {pending === 1 ? 'conta' : 'contas'} agora
@@ -215,16 +215,16 @@ export default function AdminDashboardPage() {
               <Server size={19} />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Saude do sistema</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Saúde do sistema</p>
               <h2 className="text-xl font-black text-slate-800">
-                {systemHealth?.status === 'ok' ? 'API e banco operacionais' : 'Nao foi possivel confirmar o sistema'}
+                {systemHealth?.status === 'ok' ? 'API e banco operacionais' : 'Não foi possível confirmar o sistema'}
               </h2>
             </div>
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-500">
             {systemHealth
               ? `Banco: ${systemHealth.database}. Verificado em ${formatNotificationDate(systemHealth.timestamp)}.`
-              : 'Atualize a pagina ou confira os logs do servidor.'}
+              : 'Atualize a página ou confira os logs do servidor.'}
           </p>
           <Link href="/connect" className="mt-4 inline-flex text-sm font-black text-primary-dark hover:text-primary">
             Configuracao tecnica do backend

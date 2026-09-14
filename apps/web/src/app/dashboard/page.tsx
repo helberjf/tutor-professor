@@ -77,11 +77,11 @@ export default function DashboardPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -92,7 +92,7 @@ export default function DashboardPage() {
         tone="empty"
         title="Área restrita"
         message="Entre com sua conta para ver o dashboard."
-        primaryAction={<Link href="/login?next=%2Fdashboard" className="app-button bg-primary hover:bg-primary-dark">Entrar</Link>}
+        primaryAction={<Link href="/login?next=%2Fdashboard" className="app-button bg-primary-dark hover:bg-primary-dark">Entrar</Link>}
         secondaryHref="/study"
         secondaryLabel="Ir para estudos"
       />

@@ -79,7 +79,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
           <span className="font-bold text-amber-500">parcial</span> volta mais cedo e{' '}
           <span className="font-bold text-emerald-600">sabia</span> espaça a próxima revisão.
         </p>
-        <button type="button" onClick={onClose} className="rounded-2xl bg-primary px-8 py-3 font-black text-white hover:bg-primary-dark">
+        <button type="button" onClick={onClose} className="rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark">
           Fechar
         </button>
       </div>
@@ -103,7 +103,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`px-4 py-2 text-xs font-black transition ${mode === m ? 'bg-primary text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 text-xs font-black transition ${mode === m ? 'bg-primary-dark text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
               >
                 {m === 'flip' ? 'Flip' : 'Múltipla'}
               </button>
@@ -117,7 +117,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
 
       {/* Progress bar */}
       <div className="h-1.5 w-full rounded-full bg-slate-100">
-        <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${(index / total) * 100}%` }} />
+        <div className="h-1.5 rounded-full bg-primary-dark transition-all" style={{ width: `${(index / total) * 100}%` }} />
       </div>
 
       {/* Card */}

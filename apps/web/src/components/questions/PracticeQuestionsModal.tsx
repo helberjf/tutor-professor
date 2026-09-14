@@ -155,7 +155,7 @@ export function PracticeQuestionsModal({
           </div>
           {!finished && (
             <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
-              <div className="h-2 rounded-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-2 rounded-full bg-amber-700 transition-all" style={{ width: `${progress}%` }} />
             </div>
           )}
         </header>
@@ -193,7 +193,7 @@ export function PracticeQuestionsModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-2xl bg-amber-500 px-5 py-3 text-sm font-black text-white hover:bg-amber-600"
+                  className="rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white hover:bg-amber-800"
                 >
                   Fechar
                 </button>
@@ -247,7 +247,7 @@ export function PracticeQuestionsModal({
               type="button"
               onClick={goNext}
               disabled={!answered}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white hover:bg-amber-600 disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-3 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-40"
             >
               {safeIndex + 1 >= total ? 'Ver resultado' : 'Próxima questão'}
               {safeIndex + 1 < total && <ChevronRight size={17} />}

@@ -129,7 +129,7 @@ class TTSService:
         """Copy a freshly synthesised file into the shared cache, best effort.
 
         A store that is down must not turn a successful synthesis into a failed
-        request — the audio already exists locally and the caller can use it.
+        request — the áudio already exists locally and the caller can use it.
         """
 
         if self.audio_store is None or not file_path.is_file():
@@ -138,7 +138,7 @@ class TTSService:
             data = await asyncio.to_thread(file_path.read_bytes)
             await asyncio.to_thread(self.audio_store.put, file_path.name, data)
         except Exception as exc:  # noqa: BLE001 - see docstring
-            print(f"Audio store upload failed for {file_path.name}: {exc}")
+            print(f"Áudio store upload failed for {file_path.name}: {exc}")
 
     async def _generate_with_edge_tts(self, text: str, voice: str, file_path: Path) -> Optional[str]:
         edge_tts = _load_edge_tts()

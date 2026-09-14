@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Saude",
-  "theme": "Saude",
-  "objective": "Dizer o que esta doendo e pedir ajuda.",
+  "title": "Inglês A2 - Saúde",
+  "theme": "Saúde",
+  "objective": "Dizer o que está doendo e pedir ajuda.",
   "level": 4,
   "target_language": "English",
   "content": {
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "I do not feel well",
-        "phrase_pt": "Eu nao estou me sentindo bem",
+        "phrase_pt": "Eu não estou me sentindo bem",
         "word_by_word": [
           {
             "en": "I",
@@ -17,11 +17,11 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "feel",
@@ -35,7 +35,7 @@
       },
       {
         "phrase_en": "My throat hurts",
-        "phrase_pt": "Minha garganta doi",
+        "phrase_pt": "Minha garganta dói",
         "word_by_word": [
           {
             "en": "My",
@@ -47,7 +47,7 @@
           },
           {
             "en": "hurts",
-            "pt": "doi"
+            "pt": "dói"
           }
         ]
       },
@@ -75,11 +75,11 @@
       },
       {
         "phrase_en": "Call the doctor",
-        "phrase_pt": "Chame o medico",
+        "phrase_pt": "Chame o médico",
         "word_by_word": [
           {
             "en": "Call",
-            "pt": "chame"
+            "pt": "cháme"
           },
           {
             "en": "the",
@@ -87,13 +87,13 @@
           },
           {
             "en": "doctor",
-            "pt": "medico"
+            "pt": "médico"
           }
         ]
       },
       {
         "phrase_en": "Take this medicine",
-        "phrase_pt": "Tome este remedio",
+        "phrase_pt": "Tome este remédio",
         "word_by_word": [
           {
             "en": "Take",
@@ -105,7 +105,7 @@
           },
           {
             "en": "medicine",
-            "pt": "remedio"
+            "pt": "remédio"
           }
         ]
       },
@@ -143,11 +143,11 @@
       },
       {
         "phrase_en": "It is an emergency",
-        "phrase_pt": "E uma emergencia",
+        "phrase_pt": "É uma emergência",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "is",
@@ -159,7 +159,7 @@
           },
           {
             "en": "emergency",
-            "pt": "emergencia"
+            "pt": "emergência"
           }
         ]
       }
@@ -168,15 +168,15 @@
   "items": [
     {
       "word_en": "I do not feel well",
-      "word_pt": "Eu nao estou me sentindo bem",
+      "word_pt": "Eu não estou me sentindo bem",
       "example_sentence_en": "I do not feel well today.",
-      "example_sentence_pt": "Eu nao estou me sentindo bem hoje."
+      "example_sentence_pt": "Eu não estou me sentindo bem hoje."
     },
     {
       "word_en": "My throat hurts",
-      "word_pt": "Minha garganta doi",
+      "word_pt": "Minha garganta dói",
       "example_sentence_en": "My throat hurts since yesterday.",
-      "example_sentence_pt": "Minha garganta doi desde ontem."
+      "example_sentence_pt": "Minha garganta dói desde ontem."
     },
     {
       "word_en": "I have a fever",
@@ -186,15 +186,15 @@
     },
     {
       "word_en": "Call the doctor",
-      "word_pt": "Chame o medico",
+      "word_pt": "Chame o médico",
       "example_sentence_en": "Call the doctor, please.",
-      "example_sentence_pt": "Chame o medico, por favor."
+      "example_sentence_pt": "Chame o médico, por favor."
     },
     {
       "word_en": "Take this medicine",
-      "word_pt": "Tome este remedio",
+      "word_pt": "Tome este remédio",
       "example_sentence_en": "Take this medicine after lunch.",
-      "example_sentence_pt": "Tome este remedio depois do almoco."
+      "example_sentence_pt": "Tome este remédio depois do almoço."
     },
     {
       "word_en": "Get well soon",
@@ -210,9 +210,9 @@
     },
     {
       "word_en": "It is an emergency",
-      "word_pt": "E uma emergencia",
+      "word_pt": "É uma emergência",
       "example_sentence_en": "Help, it is an emergency!",
-      "example_sentence_pt": "Socorro, e uma emergencia!"
+      "example_sentence_pt": "Socorro, é uma emergência!"
     }
   ]
 }

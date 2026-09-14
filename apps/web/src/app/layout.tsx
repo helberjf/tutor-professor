@@ -11,11 +11,11 @@ import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
   title: 'Tutor and Professor',
-  description: 'Tutor and Professor: aulas, revisao espacada e estudo guiado para quem quiser aprender.',
+  description: 'Tutor and Professor: aulas, revisão espaçada e estudo guiado para quem quiser aprender.',
   applicationName: 'Tutor and Professor',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
-    // What makes "Adicionar a Tela de Inicio" open without Safari's chrome.
+    // What makes "Adicionar a Tela de Início" open without Safari's chrome.
     capable: true,
     title: 'Tutor',
     // Deliberately not 'black-translucent': that pushes content under the iOS
@@ -25,8 +25,8 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   other: {
     // Next 15 so emite o nome padronizado (mobile-web-app-capable). O Safari
-    // so passou a entende-lo no iOS 17, entao o nome antigo fica junto para o
-    // iPhone e o iPad mais velhos tambem abrirem em tela cheia.
+    // so passou a entende-lo no iOS 17, então o nome antigo fica junto para o
+    // iPhone e o iPad mais velhos também abrirem em tela cheia.
     'apple-mobile-web-app-capable': 'yes',
   },
 };

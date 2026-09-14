@@ -148,6 +148,20 @@ textarea {
   @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-base font-bold text-white shadow-[0_18px_40px_rgba(14,165,233,0.22)] transition duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:px-6 md:py-4 md:text-lg;
 }
 
+/* Disabled actions must remain legible. Opacity alone turns white labels into
+ * white-on-white when a light button background is faded by the browser. */
+button[class~='text-white']:disabled {
+  opacity: 1 !important;
+  background-color: #cbd5e1 !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='dark'] button[class~='text-white']:disabled {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
 .app-surface {
   border-color: var(--surface-border);
   background: var(--surface);
@@ -384,7 +398,7 @@ html[data-theme='dark'] :is(.text-slate-500, .text-slate-400, .text-slate-300) {
  * scripts/test_dark_mode_coverage.py instead of silently shipping unreadable.
  */
 html[data-theme='dark'] :is(
-  .text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900,
+  .text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-amber-950,
   .text-secondary-dark
 ) {
   color: #fde68a !important;

@@ -183,7 +183,7 @@ export function EnglishTab({
             <label className="block">
               <span className="text-sm font-black text-slate-700">Planejamento para esta data</span>
               <textarea value={planText} onChange={(e) => setPlanText(e.target.value)} rows={4} maxLength={2000}
-                placeholder="Ex.: Depois do jantar, revisar 3 frases e ler uma pagina."
+                placeholder="Ex.: Depois do jantar, revisar 3 frases e ler uma página."
                 className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
             </label>
 
@@ -195,12 +195,12 @@ export function EnglishTab({
             </label>
 
             <div>
-              <span className="text-sm font-black text-slate-700">Distracoes percebidas</span>
+              <span className="text-sm font-black text-slate-700">Distrações percebidas</span>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <input
-              aria-label="Celular, video, notificacao" value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
+              aria-label="Celular, video, notificação" value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistraction(); } }}
-                  maxLength={80} placeholder="Celular, video, notificacao..."
+                  maxLength={80} placeholder="Celular, video, notificação..."
                   className="min-h-12 min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary" />
                 <button type="button" onClick={addDistraction}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700">
@@ -220,7 +220,7 @@ export function EnglishTab({
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">Nenhuma distracao registrada.</p>
+                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">Nenhuma distração registrada.</p>
               )}
             </div>
 
@@ -245,7 +245,7 @@ export function EnglishTab({
             )}
 
             <button type="button" onClick={onSave} disabled={saving || loadingDay || dayLoadFailed}
-              className="app-button w-full bg-primary hover:bg-primary-dark">
+              className="app-button w-full bg-primary-dark hover:bg-primary-dark">
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               Salvar registro
             </button>
@@ -272,7 +272,7 @@ export function EnglishTab({
             <div className="mt-5 space-y-3 text-sm leading-6 text-slate-600">
               <p>Escreva o plano antes de dormir ou no comeco do dia.</p>
               <p>Depois do estudo, registre o que realmente fez. Esse campo alimenta os dias seguidos.</p>
-              <p>Use as distracoes como observacao, sem culpa.</p>
+              <p>Use as distrações como observação, sem culpa.</p>
             </div>
           </div>
 
@@ -306,7 +306,7 @@ export function EnglishTab({
 
           {historyDays.length > 0 && (
             <div className="app-surface border-slate-100 p-5 md:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Historico recente</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Histórico recente</p>
               <div className="mt-4 space-y-3">
                 {historyDays.map((item) => (
                   <div key={item.study_date}

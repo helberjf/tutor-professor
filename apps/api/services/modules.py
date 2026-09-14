@@ -28,33 +28,33 @@ MODULE_DEFINITIONS: tuple[ModuleDefinition, ...] = (
     ModuleDefinition(
         id="language",
         label="Idiomas",
-        description="Licoes diarias, quiz, revisao espacada e audio.",
+        description="Lições diárias, quiz, revisão espaçada e áudio.",
         default_enabled=True,
         locked=True,
     ),
     ModuleDefinition(
         id="diverse",
         label="Estudos gerais",
-        description="Materias livres com questoes geradas por IA.",
+        description="Matérias livres com questões geradas por IA.",
         default_enabled=True,
     ),
     ModuleDefinition(
         id="books",
         label="Livros",
-        description="Historias geradas por IA com leitura assistida.",
+        description="Histórias geradas por IA com leitura assistida.",
         default_enabled=True,
     ),
     ModuleDefinition(
         id="exams",
         label="Simulados",
-        description="Provas cronometradas com banco de questoes.",
+        description="Provas cronometradas com banco de questões.",
         default_enabled=True,
     ),
     ModuleDefinition(
         id="coding",
-        label="Programacao",
+        label="Programação",
         description=(
-            "Curriculo de programacao, flashcards de codigo, revisao por deck e "
+            "Curriculo de programação, flashcards de código, revisão por deck e "
             "treinador de metodos LeetCode."
         ),
         default_enabled=False,
@@ -100,8 +100,8 @@ def apply_module_changes(stored: dict | None, changes: dict) -> dict[str, bool]:
     for module_id, enabled in changes.items():
         module = MODULES_BY_ID.get(module_id)
         if module is None:
-            raise ValueError(f"Modulo desconhecido: {module_id}")
+            raise ValueError(f"Módulo desconhecido: {module_id}")
         if module.locked and not enabled:
-            raise ValueError(f"O modulo {module.label} nao pode ser desligado.")
+            raise ValueError(f"O módulo {module.label} não pode ser desligado.")
         updated[module_id] = bool(enabled)
     return {module_id: bool(value) for module_id, value in updated.items() if module_id in MODULES_BY_ID}

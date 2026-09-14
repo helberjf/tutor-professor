@@ -171,7 +171,7 @@ export function DiverseTab({
         <h1 className="mt-1 text-lg font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-          <MetricCard compact icon={<Layers size={16} />} label="Materias" value={`${subjects.length}`} helper="Criadas hoje" tone="sky" />
+          <MetricCard compact icon={<Layers size={16} />} label="Matérias" value={`${subjects.length}`} helper="Criadas hoje" tone="sky" />
           <MetricCard compact icon={<CheckCircle2 size={16} />} label="Feitos" value={`${totalDone}/${totalTopics}`} helper="No total" tone="green" />
           <MetricCard compact icon={<Flame size={16} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Progresso'}
             helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
@@ -270,7 +270,7 @@ export function DiverseTab({
               <article className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Materia</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Matéria</p>
                     <h2 className="mt-1 text-xl font-black text-slate-800">Programação</h2>
                   </div>
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-primary">
@@ -298,7 +298,7 @@ export function DiverseTab({
                   <article key={item.slug} className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Materia</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Matéria</p>
                         <h2 className="mt-1 text-xl font-black text-slate-800">{item.subject.name}</h2>
                       </div>
                       <button
@@ -348,7 +348,7 @@ export function DiverseTab({
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || generatingDiverseQuestions}
-            className="app-button w-full bg-primary hover:bg-primary-dark">
+            className="app-button w-full bg-primary-dark hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matérias
           </button>
@@ -633,15 +633,15 @@ export function DiverseSubjectDashboard({
         <button
           type="button"
           onClick={() => setStudyModalOpen(true)}
-          className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white shadow-[0_12px_24px_rgba(14,165,233,0.28)] transition hover:bg-primary-dark"
+          className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white shadow-[0_12px_24px_rgba(14,165,233,0.28)] transition hover:bg-primary-dark"
         >
           <BookOpen size={16} /> Iniciar estudo
         </button>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-4">
           <MetricCard compact icon={<Layers size={18} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
-          <MetricCard compact icon={<BookOpen size={18} />} label="Blocos" value={`${lessons.length}`} helper="Licoes criadas" tone="orange" />
+          <MetricCard compact icon={<BookOpen size={18} />} label="Blocos" value={`${lessons.length}`} helper="Lições criadas" tone="orange" />
           <MetricCard compact icon={<CheckCircle2 size={18} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
-          <MetricCard compact icon={<Flame size={18} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise ate zerar" tone={completed ? 'green' : 'orange'} />
+          <MetricCard compact icon={<Flame size={18} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise até zerar" tone={completed ? 'green' : 'orange'} />
         </div>
       </section>
 
@@ -667,7 +667,7 @@ export function DiverseSubjectDashboard({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'topic' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'topic' ? 'Escolhendo topico...' : 'Sugerir topico com IA'}
+            {aiAction === 'topic' ? 'Escolhendo tópico...' : 'Sugerir tópico com IA'}
           </button>
           <button
             type="button"
@@ -774,7 +774,7 @@ export function DiverseSubjectDashboard({
           {lessons.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3 px-1">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Licoes em blocos</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Lições em blocos</p>
                 <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
                   {lessons.length}
                 </span>
@@ -829,7 +829,7 @@ export function DiverseSubjectDashboard({
           {diverseError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{diverseError}</p>}
           {diverseSaved && <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{diverseSaved}</p>}
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || questionGenerationBusy}
-            className="app-button w-full bg-primary hover:bg-primary-dark">
+            className="app-button w-full bg-primary-dark hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
             Salvar matéria
           </button>
@@ -954,7 +954,7 @@ export function SubjectTopicsStudyModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white transition hover:bg-primary-dark"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark"
           >
             Fechar estudo
           </button>
@@ -1276,7 +1276,7 @@ export function SubjectStudyCard({
       {/* Tab switcher */}
       {!collapsed && <div className="mt-3 flex gap-1.5 px-5">
         <button type="button" onClick={() => setActiveTab('topics')}
-          className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'topics' ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'topics' ? 'bg-primary-dark text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
           Lista
         </button>
         <button type="button" onClick={() => { resetStudy(); setActiveTab('study'); }} disabled={totalTopics === 0}
@@ -1355,11 +1355,11 @@ export function SubjectStudyCard({
                   {topicOpen && (
                     <div className="space-y-2 px-3 pb-3">
                       <input
-              aria-label="Pergunta / topico"
+              aria-label="Pergunta / tópico"
                         value={t.topic}
                         onChange={(e) => onUpdateTopicText(ti, e.target.value)}
                         maxLength={120}
-                        placeholder="Pergunta / topico"
+                        placeholder="Pergunta / tópico"
                         className={`w-full rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:border-primary ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
                       />
                       <textarea
@@ -1367,7 +1367,7 @@ export function SubjectStudyCard({
                         onChange={(e) => onUpdateTopicAnswer(ti, e.target.value)}
                         rows={2}
                         maxLength={300}
-                        placeholder="Explicacao / resposta (usada no modo Estudar)"
+                        placeholder="Explicação / resposta (usada no modo Estudar)"
                         className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
                       />
                       {onRegenerateTopicAI && (
@@ -1589,17 +1589,17 @@ export function SubjectStudyCard({
                   {/* Rating */}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <button type="button" onClick={() => rateAndAdvance('knew')} aria-keyshortcuts="2"
-                      className="order-2 sm:order-2 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-500 px-4 py-4 text-white shadow-sm transition hover:bg-emerald-400 active:scale-[.98]">
+                      className="order-2 sm:order-2 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-700 px-4 py-4 text-white shadow-sm transition hover:bg-emerald-400 active:scale-[.98]">
                       <span className="text-lg font-black">✓</span>
                       <span className="text-xs font-black">Sabia</span>
                     </button>
                     <button type="button" onClick={() => rateAndAdvance('partial')} aria-keyshortcuts="1"
-                      className="order-1 sm:order-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-amber-500 px-4 py-4 text-white transition hover:bg-amber-400 active:scale-[.98]">
+                      className="order-1 sm:order-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-amber-700 px-4 py-4 text-white transition hover:bg-amber-400 active:scale-[.98]">
                       <span className="text-lg font-black">~</span>
                       <span className="text-xs font-black">Parcial</span>
                     </button>
                     <button type="button" onClick={() => rateAndAdvance('unknown')} aria-keyshortcuts="3"
-                      className="order-3 sm:order-3 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-500 px-4 py-4 text-white transition hover:bg-rose-400 active:scale-[.98]">
+                      className="order-3 sm:order-3 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-700 px-4 py-4 text-white transition hover:bg-rose-400 active:scale-[.98]">
                       <span className="text-lg font-black">✗</span>
                       <span className="text-xs font-black">Não sabia</span>
                     </button>
@@ -1613,7 +1613,7 @@ export function SubjectStudyCard({
         <div className="p-5">
           {totalTopics === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm font-semibold text-slate-400">Nenhum topico cadastrado.</p>
+              <p className="text-sm font-semibold text-slate-400">Nenhum tópico cadastrado.</p>
               <button type="button" onClick={() => setActiveTab('topics')}
                 className="mt-2 text-sm font-black text-primary hover:underline">
                 Ir para Lista
@@ -1639,7 +1639,7 @@ export function SubjectStudyCard({
                       <div className="min-w-0 flex-1">
                         <p className="break-words text-base font-black text-slate-800">{topic.topic || `Tópico ${index + 1}`}</p>
                         <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
-                          {topic.answer?.trim() || 'Sem explicacao cadastrada.'}
+                          {topic.answer?.trim() || 'Sem explicação cadastrada.'}
                         </p>
                         {topic.code_example && (
                           <SyntaxCodeBlock code={topic.code_example} language={codeLanguage} className="mt-3 p-3" />

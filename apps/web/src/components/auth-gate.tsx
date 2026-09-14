@@ -73,7 +73,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <div>
           <h1 className="text-2xl font-black text-slate-800">Servidor offline</h1>
           <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-slate-500">
-            Inicie a API e o Cloudflare Tunnel para entrar nesta area.
+          Inicie a API e o Cloudflare Tunnel para entrar nesta área.
           </p>
         </div>
       </main>

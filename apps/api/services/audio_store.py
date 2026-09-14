@@ -77,7 +77,7 @@ class SupabaseAudioStore:
                 verify=get_requests_verify(),
             )
         except requests.RequestException:
-            logger.warning("Audio store HEAD failed for %s", filename, exc_info=True)
+            logger.warning("Áudio store HEAD failed for %s", filename, exc_info=True)
             return False
         return response.status_code == 200
 
@@ -101,7 +101,7 @@ class SupabaseAudioStore:
             raise AudioStoreError(f"Could not upload {filename}") from exc
         if response.status_code >= 400:
             raise AudioStoreError(
-                f"Audio store refused {filename}: {response.status_code} {response.text[:200]}"
+                f"Áudio store refused {filename}: {response.status_code} {response.text[:200]}"
             )
 
     def signed_url(self, filename: str, ttl_seconds: int) -> str:
@@ -119,11 +119,11 @@ class SupabaseAudioStore:
             raise AudioStoreError(f"Could not sign {filename}") from exc
         if response.status_code >= 400:
             raise AudioStoreError(
-                f"Audio store refused to sign {filename}: {response.status_code}"
+                f"Áudio store refused to sign {filename}: {response.status_code}"
             )
         signed_path = (response.json() or {}).get("signedURL", "")
         if not signed_path:
-            raise AudioStoreError(f"Audio store returned no signed URL for {filename}")
+            raise AudioStoreError(f"Áudio store returned no signed URL for {filename}")
         return f"{self.base_url}/storage/v1{signed_path}"
 
 
@@ -131,7 +131,7 @@ def build_audio_store() -> SupabaseAudioStore | None:
     """The store when all three settings are present, otherwise None.
 
     All three, deliberately: a half-configured store that silently swallowed
-    audio would be worse than no store at all.
+    áudio would be worse than no store at all.
     """
 
     url = os.getenv("SUPABASE_URL", "").strip()

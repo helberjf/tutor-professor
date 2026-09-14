@@ -26,7 +26,7 @@ function ResetPasswordForm() {
       setError(
         cause instanceof ApiError
           ? (cause.detail ?? cause.message)
-          : 'Nao foi possivel redefinir a senha.',
+          : 'Não foi possível redefinir a senha.',
       );
       setLoading(false);
     }
@@ -37,11 +37,11 @@ function ResetPasswordForm() {
       <div className="app-surface border-rose-200 p-6 md:p-8">
         <h1 className="text-2xl font-black text-slate-800">Link incompleto</h1>
         <p className="mt-3 text-base leading-7 text-slate-600">
-          Abra o link exatamente como ele chegou no seu e-mail, ou peca um novo.
+          Abra o link exatamente como ele chegou no seu e-mail, ou peça um novo.
         </p>
         <Link
           href="/forgot-password"
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary px-5 text-base font-black text-white transition hover:bg-primary-dark"
+          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark"
         >
           Pedir um link novo
         </Link>
@@ -75,13 +75,13 @@ function ResetPasswordForm() {
         ) : null}
 
         <p className="text-sm font-semibold text-slate-500">
-          Ao redefinir, todas as sessoes abertas com a senha antiga sao encerradas.
+          Ao redefinir, todas as sessões abertas com a senha antiga são encerradas.
         </p>
 
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
         >
           {loading ? <Loader2 className="animate-spin" size={18} /> : <KeyRound size={18} />}
           Redefinir senha

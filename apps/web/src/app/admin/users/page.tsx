@@ -24,7 +24,7 @@ export default function AdminUsersPage() {
       <StatusCard
         tone="loading"
         title="Verificando acesso"
-        message="Confirmando permissoes de administrador..."
+        message="Confirmando permissões de administrador..."
         secondaryHref="/admin"
         secondaryLabel="Voltar ao admin"
       />
@@ -36,9 +36,9 @@ export default function AdminUsersPage() {
       <StatusCard
         tone="error"
         title="Acesso restrito"
-        message="Somente o administrador pode gerenciar usuarios."
+        message="Somente o administrador pode gerenciar usuários."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -57,9 +57,9 @@ export default function AdminUsersPage() {
 
         <section className="rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Admin</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Usuarios e autorizacao de IA</h1>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Usuários e autorização de IA</h1>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-            Lista dedicada para ativar a IA por usuario usando a chave global do servidor ou uma chave propria.
+            Lista dedicada para ativar a IA por usuário usando a chave global do servidor ou uma chave própria.
           </p>
         </section>
 

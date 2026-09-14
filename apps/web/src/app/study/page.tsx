@@ -421,12 +421,12 @@ export default function StudyPage() {
   async function requestNotifications() {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       setNotificationPermission('unsupported');
-      setPomodoroMessage('Este navegador nao suporta notificacoes.');
+      setPomodoroMessage('Este navegador não suporta notificacoes.');
       return;
     }
     const p = await Notification.requestPermission();
     setNotificationPermission(p);
-    setPomodoroMessage(p === 'granted' ? 'Notificacoes ativadas.' : 'Notificacoes nao foram ativadas.');
+    setPomodoroMessage(p === 'granted' ? 'Notificacoes ativadas.' : 'Notificacoes não foram ativadas.');
   }
 
   function addDistraction() {
@@ -474,7 +474,7 @@ export default function StudyPage() {
     try {
       const saved = await api.saveCodingDay(selectedDate, { subjects: codingDay.subjects });
       setCodingDay(saved);
-      setCodingSaved('Progresso de programacao salvo.');
+      setCodingSaved('Progresso de programação salvo.');
     } catch {
       setCodingError('Não foi possível salvar o progresso.');
     } finally { setSavingCoding(false); }
@@ -837,7 +837,7 @@ export default function StudyPage() {
       });
       const newTopic = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
       if (!newTopic) {
-        setAiError('A IA sugeriu um topico repetido. Tente novamente para avancar para outro assunto.');
+        setAiError('A IA sugeriu um tópico repetido. Tente novamente para avancar para outro assunto.');
         return;
       }
       const currentDay = diverseDayRef.current;
@@ -1143,23 +1143,23 @@ export default function StudyPage() {
 
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
-    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando seu cadastro..." secondaryHref="/" secondaryLabel="Voltar ao inicio" />;
+    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando seu cadastro..." secondaryHref="/" secondaryLabel="Voltar ao início" />;
   }
   if (authState.status === 'server_missing') {
     return (
-      <StatusCard tone="offline" title="Servidor nao disponivel" message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
-        secondaryHref="/" secondaryLabel="Voltar ao inicio" />
+      <StatusCard tone="offline" title="Servidor não disponível" message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
+        secondaryHref="/" secondaryLabel="Voltar ao início" />
     );
   }
   if (loading) {
-    return <StatusCard tone="loading" title="Abrindo caderno de estudos" message="Buscando planejamento e historico..." secondaryHref="/" secondaryLabel="Voltar ao inicio" />;
+    return <StatusCard tone="loading" title="Abrindo caderno de estudos" message="Buscando planejamento e histórico..." secondaryHref="/" secondaryLabel="Voltar ao início" />;
   }
   if (error?.isUnconfigured || error?.isOffline) {
     return (
-      <StatusCard tone="offline" title="Nao consegui conectar" message={error.message}
-        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
-        secondaryHref="/" secondaryLabel="Voltar ao inicio" />
+      <StatusCard tone="offline" title="Não consegui conectar" message={error.message}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
+        secondaryHref="/" secondaryLabel="Voltar ao início" />
     );
   }
 
@@ -1217,7 +1217,7 @@ export default function StudyPage() {
             href="/lesson"
             className="mb-6 flex w-full items-center gap-4 rounded-[1.5rem] border-2 border-primary/20 bg-white/90 p-5 text-left shadow-[0_10px_28px_rgba(14,165,233,0.12)] transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-[0_14px_34px_rgba(14,165,233,0.18)]"
           >
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-dark text-white">
               <BookOpen size={26} />
             </span>
             <span className="min-w-0 flex-1">

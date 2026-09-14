@@ -14,8 +14,8 @@ const COLORS_BY_TYPE: Record<string, string> = {
   lesson: 'bg-blue-500',
   review: 'bg-green-500',
   coding: 'bg-orange-500',
-  leetcode: 'bg-amber-500',
-  question: 'bg-amber-500',
+  leetcode: 'bg-amber-700',
+  question: 'bg-amber-700',
   exam: 'bg-indigo-500',
 };
 

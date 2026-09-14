@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Agora mesmo",
-  "theme": "Presente continuo",
-  "objective": "Dizer o que esta acontecendo agora.",
+  "title": "Inglês A2 - Agora mesmo",
+  "theme": "Presente contínuo",
+  "objective": "Dizer o que está acontecendo agora.",
   "level": 3,
   "target_language": "English",
   "content": {
@@ -27,11 +27,11 @@
       },
       {
         "phrase_en": "She is cooking",
-        "phrase_pt": "Ela esta cozinhando",
+        "phrase_pt": "Ela está cozinhando",
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "is",
@@ -45,7 +45,7 @@
       },
       {
         "phrase_en": "They are playing",
-        "phrase_pt": "Eles estao jogando",
+        "phrase_pt": "Eles estão jogando",
         "word_by_word": [
           {
             "en": "They",
@@ -53,7 +53,7 @@
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "playing",
@@ -63,7 +63,7 @@
       },
       {
         "phrase_en": "We are studying",
-        "phrase_pt": "Nos estamos estudando",
+        "phrase_pt": "Nós estamos estudando",
         "word_by_word": [
           {
             "en": "We",
@@ -71,7 +71,7 @@
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "studying",
@@ -81,7 +81,7 @@
       },
       {
         "phrase_en": "What are you doing?",
-        "phrase_pt": "O que voce esta fazendo?",
+        "phrase_pt": "O que você está fazendo?",
         "word_by_word": [
           {
             "en": "What",
@@ -89,11 +89,11 @@
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "doing",
@@ -103,7 +103,7 @@
       },
       {
         "phrase_en": "I am not sleeping",
-        "phrase_pt": "Eu nao estou dormindo",
+        "phrase_pt": "Eu não estou dormindo",
         "word_by_word": [
           {
             "en": "I",
@@ -115,7 +115,7 @@
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "sleeping",
@@ -162,37 +162,37 @@
       "word_en": "I am reading",
       "word_pt": "Eu estou lendo",
       "example_sentence_en": "I am reading a funny book.",
-      "example_sentence_pt": "Eu estou lendo um livro engracado."
+      "example_sentence_pt": "Eu estou lendo um livro engraçado."
     },
     {
       "word_en": "She is cooking",
-      "word_pt": "Ela esta cozinhando",
+      "word_pt": "Ela está cozinhando",
       "example_sentence_en": "She is cooking dinner now.",
-      "example_sentence_pt": "Ela esta cozinhando o jantar agora."
+      "example_sentence_pt": "Ela está cozinhando o jantar agora."
     },
     {
       "word_en": "They are playing",
-      "word_pt": "Eles estao jogando",
+      "word_pt": "Eles estão jogando",
       "example_sentence_en": "They are playing outside.",
-      "example_sentence_pt": "Eles estao jogando la fora."
+      "example_sentence_pt": "Eles estão jogando lá fora."
     },
     {
       "word_en": "We are studying",
-      "word_pt": "Nos estamos estudando",
+      "word_pt": "Nós estamos estudando",
       "example_sentence_en": "We are studying for the test.",
-      "example_sentence_pt": "Nos estamos estudando para a prova."
+      "example_sentence_pt": "Nós estamos estudando para a prova."
     },
     {
       "word_en": "What are you doing?",
-      "word_pt": "O que voce esta fazendo?",
+      "word_pt": "O que você está fazendo?",
       "example_sentence_en": "What are you doing right now?",
-      "example_sentence_pt": "O que voce esta fazendo agora?"
+      "example_sentence_pt": "O que você está fazendo agora?"
     },
     {
       "word_en": "I am not sleeping",
-      "word_pt": "Eu nao estou dormindo",
+      "word_pt": "Eu não estou dormindo",
       "example_sentence_en": "I am not sleeping, I am thinking.",
-      "example_sentence_pt": "Eu nao estou dormindo, eu estou pensando."
+      "example_sentence_pt": "Eu não estou dormindo, eu estou pensando."
     },
     {
       "word_en": "right now",
@@ -204,7 +204,7 @@
       "word_en": "at the moment",
       "word_pt": "no momento",
       "example_sentence_en": "He is away at the moment.",
-      "example_sentence_pt": "Ele esta fora no momento."
+      "example_sentence_pt": "Ele está fora no momento."
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "title": "Ingles A1 - Numeros",
-  "theme": "Numeros",
+  "title": "Inglês A1 - Números",
+  "theme": "Números",
   "objective": "Contar de um a dez e falar quantidades.",
   "level": 1,
   "target_language": "English",
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "one, two, three",
-        "phrase_pt": "um, dois, tres",
+        "phrase_pt": "um, dóis, três",
         "word_by_word": [
           {
             "en": "one",
@@ -17,11 +17,11 @@
           },
           {
             "en": "two",
-            "pt": "dois"
+            "pt": "dóis"
           },
           {
             "en": "three",
-            "pt": "tres"
+            "pt": "três"
           }
         ]
       },
@@ -87,7 +87,7 @@
       },
       {
         "phrase_en": "I have two dogs",
-        "phrase_pt": "Eu tenho dois cachorros",
+        "phrase_pt": "Eu tenho dóis cachorros",
         "word_by_word": [
           {
             "en": "I",
@@ -99,7 +99,7 @@
           },
           {
             "en": "two",
-            "pt": "dois"
+            "pt": "dóis"
           },
           {
             "en": "dogs",
@@ -144,51 +144,51 @@
   "items": [
     {
       "word_en": "one, two, three",
-      "word_pt": "um, dois, tres",
+      "word_pt": "um, dóis, três",
       "example_sentence_en": "Count with me: one, two, three.",
-      "example_sentence_pt": "Conte comigo: um, dois, tres."
+      "example_sentence_pt": "Conte comigo: um, dóis, três."
     },
     {
       "word_en": "four, five, six",
       "word_pt": "quatro, cinco, seis",
       "example_sentence_en": "I have four, five, six pencils.",
-      "example_sentence_pt": "Eu tenho quatro, cinco, seis lapis."
+      "example_sentence_pt": "Eu tenho quatro, cinco, seis lápis."
     },
     {
       "word_en": "seven, eight, nine",
       "word_pt": "sete, oito, nove",
       "example_sentence_en": "Seven, eight, nine birds are here.",
-      "example_sentence_pt": "Sete, oito, nove passaros estao aqui."
+      "example_sentence_pt": "Sete, oito, nove pássaros estão aqui."
     },
     {
       "word_en": "ten",
       "word_pt": "dez",
       "example_sentence_en": "There are ten students here.",
-      "example_sentence_pt": "Ha dez estudantes aqui."
+      "example_sentence_pt": "Há dez estudantes aqui."
     },
     {
       "word_en": "How many?",
       "word_pt": "Quantos?",
       "example_sentence_en": "How many apples do you have?",
-      "example_sentence_pt": "Quantas macas voce tem?"
+      "example_sentence_pt": "Quantas macas você tem?"
     },
     {
       "word_en": "I have two dogs",
-      "word_pt": "Eu tenho dois cachorros",
+      "word_pt": "Eu tenho dóis cachorros",
       "example_sentence_en": "I have two dogs at home.",
-      "example_sentence_pt": "Eu tenho dois cachorros em casa."
+      "example_sentence_pt": "Eu tenho dóis cachorros em casa."
     },
     {
       "word_en": "the first one",
       "word_pt": "o primeiro",
       "example_sentence_en": "The first one is mine.",
-      "example_sentence_pt": "O primeiro e meu."
+      "example_sentence_pt": "O primeiro é meu."
     },
     {
       "word_en": "many books",
       "word_pt": "muitos livros",
       "example_sentence_en": "She reads many books.",
-      "example_sentence_pt": "Ela le muitos livros."
+      "example_sentence_pt": "Ela lê muitos livros."
     }
   ]
 }

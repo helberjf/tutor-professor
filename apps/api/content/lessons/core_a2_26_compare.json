@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Comparar",
+  "title": "Inglês A2 - Comparar",
   "theme": "Comparacoes",
   "objective": "Comparar coisas e pessoas.",
   "level": 4,
@@ -79,25 +79,25 @@
       },
       {
         "phrase_en": "as fast as",
-        "phrase_pt": "tao rapido quanto",
+        "phrase_pt": "tão rápido quanto",
         "word_by_word": [
           {
             "en": "as",
-            "pt": "tao"
+            "pt": "tão"
           },
           {
             "en": "fast",
-            "pt": "rapido"
+            "pt": "rápido"
           },
           {
             "en": "as",
-            "pt": "tao"
+            "pt": "tão"
           }
         ]
       },
       {
         "phrase_en": "more difficult",
-        "phrase_pt": "mais dificil",
+        "phrase_pt": "mais difícil",
         "word_by_word": [
           {
             "en": "more",
@@ -105,7 +105,7 @@
           },
           {
             "en": "difficult",
-            "pt": "dificil"
+            "pt": "difícil"
           }
         ]
       },
@@ -130,25 +130,25 @@
       "word_en": "bigger than",
       "word_pt": "maior que",
       "example_sentence_en": "My dog is bigger than yours.",
-      "example_sentence_pt": "Meu cachorro e maior que o seu."
+      "example_sentence_pt": "Meu cachorro é maior que o seu."
     },
     {
       "word_en": "smaller than",
       "word_pt": "menor que",
       "example_sentence_en": "This box is smaller than that one.",
-      "example_sentence_pt": "Esta caixa e menor que aquela."
+      "example_sentence_pt": "Esta caixa é menor que aquela."
     },
     {
       "word_en": "better than",
       "word_pt": "melhor que",
       "example_sentence_en": "This book is better than the film.",
-      "example_sentence_pt": "Este livro e melhor que o filme."
+      "example_sentence_pt": "Este livro é melhor que o filme."
     },
     {
       "word_en": "the best",
       "word_pt": "o melhor",
       "example_sentence_en": "She is the best in the class.",
-      "example_sentence_pt": "Ela e a melhor da turma."
+      "example_sentence_pt": "Ela é a melhor da turma."
     },
     {
       "word_en": "the same",
@@ -158,21 +158,21 @@
     },
     {
       "word_en": "as fast as",
-      "word_pt": "tao rapido quanto",
+      "word_pt": "tão rápido quanto",
       "example_sentence_en": "He runs as fast as me.",
-      "example_sentence_pt": "Ele corre tao rapido quanto eu."
+      "example_sentence_pt": "Ele corre tão rápido quanto eu."
     },
     {
       "word_en": "more difficult",
-      "word_pt": "mais dificil",
+      "word_pt": "mais difícil",
       "example_sentence_en": "This exercise is more difficult.",
-      "example_sentence_pt": "Este exercicio e mais dificil."
+      "example_sentence_pt": "Este exercício é mais difícil."
     },
     {
       "word_en": "less noisy",
       "word_pt": "menos barulhento",
       "example_sentence_en": "The new room is less noisy.",
-      "example_sentence_pt": "A sala nova e menos barulhenta."
+      "example_sentence_pt": "A sala nova é menos barulhenta."
     }
   ]
 }

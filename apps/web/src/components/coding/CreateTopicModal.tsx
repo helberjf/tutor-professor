@@ -79,7 +79,7 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
               <textarea
                 value={topicContext}
                 onChange={(event) => setTopicContext(event.target.value)}
-                placeholder="Ex.: foco em entrevista tecnica, prova AWS, exemplos com Step Functions..."
+                placeholder="Ex.: foco em entrevista técnica, prova AWS, exemplos com Step Functions..."
                 maxLength={1000}
                 rows={3}
                 className="mt-2 w-full resize-none rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-400"
@@ -97,7 +97,7 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
             <button
               type="submit"
               disabled={loading || !title.trim()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : 'Criar'}
             </button>

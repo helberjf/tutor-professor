@@ -42,7 +42,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel carregar as contas.',
+        text: error instanceof Error ? error.message : 'Não foi possível carregar as contas.',
       });
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel salvar a decisao.',
+        text: error instanceof Error ? error.message : 'Não foi possível salvar a decisão.',
       });
     } finally {
       setBusyUserId(null);
@@ -123,7 +123,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel mudar o acesso a IA.',
+        text: error instanceof Error ? error.message : 'Não foi possível mudar o acesso a IA.',
       });
     } finally {
       setBusyUserId(null);
@@ -143,12 +143,12 @@ export function AdminAccountQueue() {
         tone: 'success',
         text: saved.ai_credits.unlimited
           ? `${user.email} passou a usar a IA sem limite.`
-          : `${user.email} ficou com ${saved.ai_credits.credits} creditos de IA.`,
+          : `${user.email} ficou com ${saved.ai_credits.credits} créditos de IA.`,
       });
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel mudar os creditos.',
+        text: error instanceof Error ? error.message : 'Não foi possível mudar os créditos.',
       });
     } finally {
       setBusyUserId(null);
@@ -175,7 +175,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel apagar a conta.',
+        text: error instanceof Error ? error.message : 'Não foi possível apagar a conta.',
       });
     } finally {
       setBusyUserId(null);
@@ -203,7 +203,7 @@ export function AdminAccountQueue() {
               onClick={() => setFilter(item.id)}
               className={`rounded-full border-2 px-4 py-2 text-sm font-black transition ${
                 filter === item.id
-                  ? 'border-primary bg-primary text-white'
+                  ? 'border-primary bg-primary-dark text-white'
                   : 'border-slate-200 text-slate-600 hover:border-primary hover:text-primary-dark'
               }`}
             >
@@ -238,7 +238,7 @@ export function AdminAccountQueue() {
         const aiLabel = user.ai_settings.use_global_key
           ? 'IA pela chave global'
           : user.ai_settings.has_api_key
-            ? 'IA com chave propria'
+            ? 'IA com chave própria'
             : 'Sem IA';
 
         return (
@@ -294,7 +294,7 @@ export function AdminAccountQueue() {
                         onChange={(event) =>
                           setNotes((current) => ({ ...current, [user.id]: event.target.value }))
                         }
-                        placeholder="Ex.: familia conhecida, turma da escola..."
+                        placeholder="Ex.: família conhecida, turma da escola..."
                         maxLength={300}
                         className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                       />
@@ -335,8 +335,8 @@ export function AdminAccountQueue() {
                       {hasAI
                         ? user.ai_settings.use_global_key
                           ? 'Usa a sua chave global do servidor.'
-                          : `Usa a chave propria ${user.ai_settings.api_key_preview ?? 'salva'}.`
-                        : 'Aprovada ou nao, esta conta nao gera nada por IA ate voce liberar.'}
+                          : `Usa a chave própria ${user.ai_settings.api_key_preview ?? 'salva'}.`
+                        : 'Aprovada ou não, esta conta não gera nada por IA até você liberar.'}
                     </p>
                     <div className="flex shrink-0 gap-2">
                       {!user.ai_settings.use_global_key ? (
@@ -369,8 +369,8 @@ export function AdminAccountQueue() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-black text-slate-700">
                           {user.ai_credits.unlimited
-                            ? 'Creditos: ilimitado'
-                            : `Creditos: ${user.ai_credits.credits} restantes`}
+                            ? 'Créditos: ilimitado'
+                            : `Créditos: ${user.ai_credits.credits} restantes`}
                           <span className="ml-2 text-xs font-bold text-slate-400">
                             {user.ai_credits.used} ja usados
                           </span>
@@ -381,7 +381,7 @@ export function AdminAccountQueue() {
                           disabled={busy}
                           className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 transition hover:border-slate-300 disabled:opacity-60"
                         >
-                          {user.ai_credits.unlimited ? 'Voltar a cobrar creditos' : 'Deixar ilimitado'}
+                          {user.ai_credits.unlimited ? 'Voltar a cobrar créditos' : 'Deixar ilimitado'}
                         </button>
                       </div>
                       {!user.ai_credits.unlimited ? (

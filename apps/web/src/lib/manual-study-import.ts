@@ -50,11 +50,11 @@ Divida o assunto em aulas progressivas e produza exatamente ${requestedCount} qu
 
 Responda somente o JSON válido, sem texto antes ou depois e sem blocos Markdown, seguindo exatamente esta estrutura:
 {
-  "materia": "Nome da matéria",
+  "matéria": "Nome da matéria",
   "aulas": [
     {
-      "titulo": "Título da aula",
-      "questoes": [
+      "título": "Título da aula",
+      "questões": [
         {
           "pergunta": "Pergunta terminada com interrogação?",
           "resposta": "Resposta explicativa e autossuficiente"
@@ -81,7 +81,7 @@ export function parseManualStudyImport(raw: string, factories: IdFactories = def
   const root = asRecord(parsed);
   if (!root) throw new Error('O estudo precisa ser um objeto JSON.');
 
-  const name = readText(root, ['materia', 'matéria', 'subject', 'name']);
+  const name = readText(root, ['matéria', 'materia', 'subject', 'name']);
   if (!name) throw new Error('Informe o nome da matéria no JSON.');
   if (name.length > 60) throw new Error('O nome da matéria deve ter no máximo 60 caracteres.');
 

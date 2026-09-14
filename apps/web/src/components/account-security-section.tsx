@@ -28,7 +28,7 @@ export function AccountSecuritySection() {
       await api.userLogout().catch(() => undefined);
       router.replace('/login?senha=alterada');
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel trocar a senha.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível trocar a senha.');
       setBusy(null);
     }
   }
@@ -39,9 +39,9 @@ export function AccountSecuritySection() {
     try {
       await api.revokeOwnSessions();
       await api.userLogout().catch(() => undefined);
-      router.replace('/login?sessoes=encerradas');
+      router.replace('/login?sessões=encerradas');
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel encerrar as sessoes.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível encerrar as sessões.');
       setBusy(null);
     }
   }
@@ -51,7 +51,7 @@ export function AccountSecuritySection() {
       <div className="flex items-center gap-3">
         <KeyRound className="text-slate-700" size={28} />
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Seguranca</p>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Segurança</p>
           <h2 className="text-2xl font-black text-slate-800 md:text-3xl">Senha e acessos</h2>
         </div>
       </div>
@@ -83,12 +83,12 @@ export function AccountSecuritySection() {
         </label>
         <PasswordStrengthMeter password={newPassword} />
         <p className="text-sm font-semibold text-slate-500">
-          Trocar a senha encerra todas as sessoes, inclusive esta.
+          Trocar a senha encerra todas as sessões, inclusive esta.
         </p>
         <button
           type="submit"
           disabled={busy !== null}
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
         >
           {busy === 'password' ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
           Trocar senha

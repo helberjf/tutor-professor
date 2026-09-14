@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Convites",
+  "title": "Inglês A2 - Convites",
   "theme": "Convites",
-  "objective": "Convidar alguem e combinar um encontro.",
+  "objective": "Convidar alguém e combinar um encontro.",
   "level": 4,
   "target_language": "English",
   "content": {
@@ -9,15 +9,15 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Do you want to come?",
-        "phrase_pt": "Voce quer vir?",
+        "phrase_pt": "Você quer vir?",
         "word_by_word": [
           {
             "en": "Do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "want",
@@ -83,7 +83,7 @@
       },
       {
         "phrase_en": "I cannot today",
-        "phrase_pt": "Eu nao posso hoje",
+        "phrase_pt": "Eu não posso hoje",
         "word_by_word": [
           {
             "en": "I",
@@ -91,7 +91,7 @@
           },
           {
             "en": "cannot",
-            "pt": "nao posso"
+            "pt": "não possó"
           },
           {
             "en": "today",
@@ -141,7 +141,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "starts",
@@ -184,9 +184,9 @@
   "items": [
     {
       "word_en": "Do you want to come?",
-      "word_pt": "Voce quer vir?",
+      "word_pt": "Você quer vir?",
       "example_sentence_en": "Do you want to come with us?",
-      "example_sentence_pt": "Voce quer vir com a gente?"
+      "example_sentence_pt": "Você quer vir com a gente?"
     },
     {
       "word_en": "Let us meet at four",
@@ -202,9 +202,9 @@
     },
     {
       "word_en": "I cannot today",
-      "word_pt": "Eu nao posso hoje",
+      "word_pt": "Eu não posso hoje",
       "example_sentence_en": "I cannot today, I have class.",
-      "example_sentence_pt": "Eu nao posso hoje, eu tenho aula."
+      "example_sentence_pt": "Eu não posso hoje, eu tenho aula."
     },
     {
       "word_en": "Another day, maybe",
@@ -228,7 +228,7 @@
       "word_en": "Thanks for inviting me",
       "word_pt": "Obrigado por me convidar",
       "example_sentence_en": "Thanks for inviting me to lunch.",
-      "example_sentence_pt": "Obrigado por me convidar para o almoco."
+      "example_sentence_pt": "Obrigado por me convidar para o almoço."
     }
   ]
 }
