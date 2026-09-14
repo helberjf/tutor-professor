@@ -63,7 +63,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -89,6 +89,13 @@ from schemas.schemas import (
     GenerateLessonRequestSchema,
     GenerateLessonResponseSchema,
     LevelAnalysisSchema,
+    CreateObjectiveItemSchema,
+    CreateObjectiveSchema,
+    ObjectiveItemSchema,
+    ObjectiveSchema,
+    ObjectivesSummarySchema,
+    UpdateObjectiveItemSchema,
+    UpdateObjectiveSchema,
     SetChildLevelSchema,
     LessonItemSchema,
     LessonQuestionSchema,
@@ -9821,6 +9828,9 @@ FEYNMAN_ACTIVITY_TYPES = {
     "question": "question",
     "review": "review",
     "exam": "exam",
+    # Reaching an objective is a milestone, not a study block: it carries no
+    # duration, but the day it happened belongs in the feed.
+    "objective": "objective",
 }
 CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard"}
 
@@ -10160,6 +10170,393 @@ def get_activity_period_summary(
         total_duration_seconds=total_duration_seconds,
         **metrics,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OBJETIVOS
+#
+# An objective is a goal plus the study it takes to get there. The learner adds
+# the items ("ler o capítulo 3", "fazer um simulado"), checks them off, and the
+# percentage is simply how much of that weighted list is done — nothing is
+# inferred from activity elsewhere, so the number always matches the list on
+# screen.
+# ══════════════════════════════════════════════════════════════════════════════
+
+OBJECTIVE_ACTIVE = "active"
+OBJECTIVE_ARCHIVED = "archived"
+OBJECTIVE_NOT_FOUND = "Objetivo nao encontrado."
+OBJECTIVE_ITEM_NOT_FOUND = "Item do objetivo nao encontrado."
+# One account cannot be allowed to grow the table without bound; these are far
+# above any real plan and only exist to stop a script.
+MAX_OBJECTIVES_PER_CHILD = 60
+MAX_ITEMS_PER_OBJECTIVE = 200
+
+
+def objective_items_for(session: Session, objective_id: int) -> list[ObjectiveItem]:
+    items = session.exec(
+        select(ObjectiveItem).where(ObjectiveItem.objective_id == objective_id)
+    ).all()
+    return sorted(items, key=lambda item: (item.order_index, item.id or 0))
+
+
+def objective_progress(items: list[ObjectiveItem]) -> tuple[int, int, int]:
+    """(done_weight, total_weight, percent) for one objective's items.
+
+    An objective with no items yet is 0% rather than 100%: nothing was studied,
+    and reporting a finished goal for an empty list is the one answer that would
+    make the number useless.
+    """
+
+    total_weight = sum(max(1, item.weight) for item in items)
+    done_weight = sum(max(1, item.weight) for item in items if item.done)
+    if total_weight <= 0:
+        return 0, 0, 0
+    return done_weight, total_weight, round(done_weight * 100 / total_weight)
+
+
+def build_objective_schema(objective: Objective, items: list[ObjectiveItem]) -> ObjectiveSchema:
+    done_weight, total_weight, percent = objective_progress(items)
+    days_remaining = (objective.target_date - activity_today()).days if objective.target_date else None
+    return ObjectiveSchema(
+        id=objective.id or 0,
+        child_id=objective.child_id,
+        title=objective.title,
+        description=objective.description,
+        icon_emoji=objective.icon_emoji,
+        target_date=objective.target_date,
+        status=objective.status,
+        achieved_at=objective.achieved_at,
+        order_index=objective.order_index,
+        created_at=objective.created_at,
+        updated_at=objective.updated_at,
+        items=[ObjectiveItemSchema.model_validate(item) for item in items],
+        item_count=len(items),
+        done_count=sum(1 for item in items if item.done),
+        total_weight=total_weight,
+        done_weight=done_weight,
+        progress_percent=percent,
+        days_remaining=days_remaining,
+    )
+
+
+def sync_objective_achievement(
+    session: Session,
+    objective: Objective,
+    items: list[ObjectiveItem],
+) -> None:
+    """Keep ``achieved_at`` honest, and log the day the objective was reached.
+
+    Unchecking an item after the celebration clears the flag again: the badge
+    describes the current list, not the best moment it ever had.
+    """
+
+    _, _, percent = objective_progress(items)
+    reached = bool(items) and percent >= 100
+    if reached and objective.achieved_at is None:
+        objective.achieved_at = datetime.utcnow()
+        add_daily_activity(
+            session,
+            child_id=objective.child_id,
+            activity_type="objective",
+            activity_title=f"Objetivo concluido: {objective.title}",
+            activity_id=objective.id,
+            result_score=100.0,
+            result_details={"items": len(items)},
+        )
+    elif not reached and objective.achieved_at is not None:
+        objective.achieved_at = None
+
+
+def require_owned_objective(session: Session, *, objective_id: int, child_id: int) -> Objective:
+    objective = session.get(Objective, objective_id)
+    if objective is None or objective.child_id != child_id:
+        raise HTTPException(status_code=404, detail=OBJECTIVE_NOT_FOUND)
+    return objective
+
+
+def require_owned_objective_item(session: Session, *, item_id: int, child_id: int) -> ObjectiveItem:
+    item = session.get(ObjectiveItem, item_id)
+    if item is None or item.child_id != child_id:
+        raise HTTPException(status_code=404, detail=OBJECTIVE_ITEM_NOT_FOUND)
+    return item
+
+
+def next_objective_item_order(session: Session, objective_id: int) -> int:
+    highest = session.exec(
+        select(func.max(ObjectiveItem.order_index)).where(
+            ObjectiveItem.objective_id == objective_id
+        )
+    ).one()
+    return int(highest or 0) + 1
+
+
+def sorted_objectives(objectives: Iterable[Objective]) -> list[Objective]:
+    """Nearest deadline first, then the order the learner arranged them in.
+
+    A dated objective outranks an undated one because that is the one with a
+    clock on it; everything else falls back to creation order.
+    """
+
+    return sorted(
+        objectives,
+        key=lambda objective: (
+            objective.target_date is None,
+            objective.target_date or date.max,
+            objective.order_index,
+            objective.id or 0,
+        ),
+    )
+
+
+def create_objective_items(
+    session: Session,
+    *,
+    objective: Objective,
+    child_id: int,
+    payloads: list[CreateObjectiveItemSchema],
+    start_order: int,
+) -> None:
+    now = datetime.utcnow()
+    for offset, payload in enumerate(payloads):
+        title = payload.title.strip()
+        if not title:
+            continue
+        session.add(
+            ObjectiveItem(
+                objective_id=objective.id or 0,
+                child_id=child_id,
+                title=title,
+                notes=(payload.notes or "").strip() or None,
+                area=payload.area,
+                weight=payload.weight,
+                order_index=start_order + offset,
+                created_at=now,
+            )
+        )
+
+
+@app.get("/api/objectives", response_model=list[ObjectiveSchema])
+def list_objectives(
+    request: Request,
+    include_archived: bool = False,
+    session: Session = Depends(get_session),
+) -> list[ObjectiveSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    query = select(Objective).where(Objective.child_id == child_id)
+    if not include_archived:
+        query = query.where(Objective.status == OBJECTIVE_ACTIVE)
+    objectives = sorted_objectives(session.exec(query).all())
+    return [
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        for objective in objectives
+    ]
+
+
+@app.get("/api/objectives/summary", response_model=ObjectivesSummarySchema)
+def get_objectives_summary(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectivesSummarySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    objectives = sorted_objectives(
+        session.exec(select(Objective).where(Objective.child_id == child_id)).all()
+    )
+    active = [objective for objective in objectives if objective.status == OBJECTIVE_ACTIVE]
+    schemas = [
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        for objective in active
+    ]
+    average = round(sum(schema.progress_percent for schema in schemas) / len(schemas)) if schemas else 0
+    return ObjectivesSummarySchema(
+        active_count=len(active),
+        achieved_count=sum(1 for schema in schemas if schema.progress_percent >= 100),
+        archived_count=sum(1 for objective in objectives if objective.status == OBJECTIVE_ARCHIVED),
+        total_items=sum(schema.item_count for schema in schemas),
+        done_items=sum(schema.done_count for schema in schemas),
+        average_progress_percent=average,
+        objectives=schemas,
+    )
+
+
+@app.post("/api/objectives", response_model=ObjectiveSchema, status_code=201)
+def create_objective(
+    payload: CreateObjectiveSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectiveSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    existing = session.exec(
+        select(func.count()).select_from(Objective).where(Objective.child_id == child_id)
+    ).one()
+    if int(existing or 0) >= MAX_OBJECTIVES_PER_CHILD:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Limite de {MAX_OBJECTIVES_PER_CHILD} objetivos atingido. Arquive ou exclua algum antes de criar outro.",
+        )
+    now = datetime.utcnow()
+    objective = Objective(
+        child_id=child_id,
+        title=payload.title.strip(),
+        description=(payload.description or "").strip() or None,
+        icon_emoji=(payload.icon_emoji or "").strip() or None,
+        target_date=payload.target_date,
+        order_index=int(existing or 0) + 1,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(objective)
+    session.flush()
+    create_objective_items(
+        session,
+        objective=objective,
+        child_id=child_id,
+        payloads=payload.items[:MAX_ITEMS_PER_OBJECTIVE],
+        start_order=1,
+    )
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+
+
+@app.put("/api/objectives/{objective_id}", response_model=ObjectiveSchema)
+def update_objective(
+    objective_id: int,
+    payload: UpdateObjectiveSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectiveSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    objective = require_owned_objective(session, objective_id=objective_id, child_id=child.id or 0)
+    if payload.title is not None:
+        objective.title = payload.title.strip() or objective.title
+    if payload.description is not None:
+        objective.description = payload.description.strip() or None
+    if payload.icon_emoji is not None:
+        objective.icon_emoji = payload.icon_emoji.strip() or None
+    if payload.clear_target_date:
+        objective.target_date = None
+    elif payload.target_date is not None:
+        objective.target_date = payload.target_date
+    if payload.status is not None:
+        objective.status = payload.status
+    objective.updated_at = datetime.utcnow()
+    session.add(objective)
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+
+
+@app.delete("/api/objectives/{objective_id}", status_code=204)
+def delete_objective(
+    objective_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    objective = require_owned_objective(session, objective_id=objective_id, child_id=child.id or 0)
+    # The items first: the schema has no cascade, so deleting the objective on
+    # its own would leave rows nobody can reach.
+    for item in objective_items_for(session, objective.id or 0):
+        session.delete(item)
+    session.delete(objective)
+    session.commit()
+
+
+@app.post("/api/objectives/{objective_id}/items", response_model=ObjectiveSchema, status_code=201)
+def add_objective_item(
+    objective_id: int,
+    payload: CreateObjectiveItemSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectiveSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    objective = require_owned_objective(session, objective_id=objective_id, child_id=child_id)
+    items = objective_items_for(session, objective.id or 0)
+    if len(items) >= MAX_ITEMS_PER_OBJECTIVE:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Limite de {MAX_ITEMS_PER_OBJECTIVE} itens por objetivo atingido.",
+        )
+    create_objective_items(
+        session,
+        objective=objective,
+        child_id=child_id,
+        payloads=[payload],
+        start_order=next_objective_item_order(session, objective.id or 0),
+    )
+    objective.updated_at = datetime.utcnow()
+    session.add(objective)
+    session.flush()
+    # A new unchecked item can pull a finished objective back below 100%.
+    sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+
+
+@app.put("/api/objectives/items/{item_id}", response_model=ObjectiveSchema)
+def update_objective_item(
+    item_id: int,
+    payload: UpdateObjectiveItemSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectiveSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    item = require_owned_objective_item(session, item_id=item_id, child_id=child_id)
+    objective = require_owned_objective(session, objective_id=item.objective_id, child_id=child_id)
+    if payload.title is not None:
+        item.title = payload.title.strip() or item.title
+    if payload.notes is not None:
+        item.notes = payload.notes.strip() or None
+    if payload.area is not None:
+        item.area = payload.area
+    if payload.weight is not None:
+        item.weight = payload.weight
+    if payload.done is not None and payload.done != item.done:
+        item.done = payload.done
+        item.completed_at = datetime.utcnow() if payload.done else None
+    session.add(item)
+    objective.updated_at = datetime.utcnow()
+    session.add(objective)
+    session.flush()
+    sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+
+
+@app.delete("/api/objectives/items/{item_id}", response_model=ObjectiveSchema)
+def delete_objective_item(
+    item_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ObjectiveSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    item = require_owned_objective_item(session, item_id=item_id, child_id=child_id)
+    objective = require_owned_objective(session, objective_id=item.objective_id, child_id=child_id)
+    session.delete(item)
+    objective.updated_at = datetime.utcnow()
+    session.add(objective)
+    session.flush()
+    # Removing the last unchecked item can complete the objective.
+    sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

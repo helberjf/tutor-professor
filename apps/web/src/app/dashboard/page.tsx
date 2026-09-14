@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { api, type StudyDashboard, ApiError } from '@/lib/api';
 import { ActivityLogSection } from '@/components/activity-log-section';
 import { DashboardOverview } from '@/components/dashboard-overview';
+import { ObjectivesProgressCard } from '@/components/objectives-progress-card';
 import { StudyStartSection } from '@/components/study-start-section';
 import { StatusCard } from '@/components/status-card';
 
@@ -134,6 +135,8 @@ export default function DashboardPage() {
         </section>
 
         <StudyStartSection />
+
+        <ObjectivesProgressCard />
 
         <ActivityLogSection />
 

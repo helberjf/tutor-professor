@@ -37,6 +37,13 @@ The project was built as a practical engineering exercise: a real product surfac
   then places the student with a five-question test instead of starting everyone
   at level 1. The test needs no content and no AI, so it works in the account's
   first minute.
+- **Objectives you can measure.** `/objectives` holds what the learner is working
+  towards, and under each one the list of what has to be studied to get there.
+  Checking an item moves a percentage of reach that is computed from that list
+  and nothing else — items carry a weight, so "ler um capítulo" and "terminar o
+  curso" do not count the same. Reaching 100% is logged as a milestone in the
+  daily feed, and unchecking an item takes the badge back, because the number
+  always describes the current list.
 - **The day closes by studying.** Finishing a session (or any logged activity)
   marks the day as studied; writing a note about it stays optional.
 - **The audience is whoever is studying.** The profile carries an age band
@@ -111,6 +118,7 @@ Installation needs HTTPS, which the Vercel deployment already provides.
 
 ### Study Modes
 
+- Objectives with a weighted study checklist and a percentage of reach, summarised on the dashboard.
 - General study dashboard with planning, notes, distractions, and pomodoro count.
 - Diverse subject study mode for custom topics and AI-generated questions.
 - Programming curriculum with subjects, topics, generated explanations, quizzes, and flashcards.
@@ -329,6 +337,7 @@ python scripts/test_admin_account_approval.py
 python scripts/test_ai_credits.py
 python scripts/test_password_security.py
 python scripts/test_tenant_isolation.py
+python scripts/test_objectives_progress.py
 python scripts/test_account_modules.py
 python scripts/test_account_self_service.py
 python scripts/test_billing_and_usage.py
@@ -347,6 +356,7 @@ node apps/web/scripts/test-pwa-manifest-and-sw.mjs
 node apps/web/scripts/test-runtime-backend-state.mjs
 node apps/web/scripts/test-lesson-question-state.mjs
 node apps/web/scripts/test-diverse-question-state.mjs
+node apps/web/scripts/test-objectives-ui.mjs
 ```
 
 The test suite is a mix of service-level tests, API behavior checks, and lightweight frontend state tests. It focuses on high-risk areas: AI output validation, concurrent/stale generation flows, runtime backend selection, and review state consistency.

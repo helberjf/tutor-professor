@@ -1504,3 +1504,98 @@ class GeneratedFlashcardSchema(BaseModel):
 class GenerateFlashcardsResponseSchema(BaseModel):
     subject: str
     flashcards: list[GeneratedFlashcardSchema]
+
+
+# ── Objetivos ────────────────────────────────────────────────────────────────
+# An objective carries the list of study items the learner added to it and the
+# percentage that list is at, so one GET fills the whole screen.
+
+OBJECTIVE_AREAS = ("free", "language", "coding", "diverse", "exam")
+
+
+class ObjectiveItemSchema(FromAttributesModel):
+    id: int
+    objective_id: int
+    title: str
+    notes: Optional[str] = None
+    area: str = "free"
+    weight: int = 1
+    done: bool = False
+    completed_at: Optional[datetime] = None
+    order_index: int = 0
+    created_at: datetime
+
+
+class ObjectiveSchema(FromAttributesModel):
+    id: int
+    child_id: int
+    title: str
+    description: Optional[str] = None
+    icon_emoji: Optional[str] = None
+    target_date: Optional[date] = None
+    status: str = "active"
+    achieved_at: Optional[datetime] = None
+    order_index: int = 0
+    created_at: datetime
+    updated_at: datetime
+    items: list[ObjectiveItemSchema] = Field(default_factory=list)
+    # Derived, never stored: recomputed from the items on every read so a
+    # renamed or deleted item can never leave a stale percentage behind.
+    item_count: int = 0
+    done_count: int = 0
+    total_weight: int = 0
+    done_weight: int = 0
+    progress_percent: int = 0
+    # Days until target_date; negative when the date has passed. None without one.
+    days_remaining: Optional[int] = None
+
+
+class CreateObjectiveSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    target_date: Optional[date] = None
+    # Lets the create form add the first study items in the same request.
+    items: List["CreateObjectiveItemSchema"] = Field(default_factory=list, max_length=50)
+
+
+class UpdateObjectiveSchema(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    target_date: Optional[date] = None
+    # "" and null both mean "clear the date", which a plain Optional cannot say.
+    clear_target_date: bool = False
+    status: Optional[Literal["active", "archived"]] = None
+
+
+class CreateObjectiveItemSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    area: Literal["free", "language", "coding", "diverse", "exam"] = "free"
+    weight: int = Field(default=1, ge=1, le=10)
+
+
+class UpdateObjectiveItemSchema(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    area: Optional[Literal["free", "language", "coding", "diverse", "exam"]] = None
+    weight: Optional[int] = Field(default=None, ge=1, le=10)
+    done: Optional[bool] = None
+
+
+class ObjectivesSummarySchema(BaseModel):
+    """The dashboard card: enough to show progress without loading every item."""
+
+    active_count: int = 0
+    achieved_count: int = 0
+    archived_count: int = 0
+    total_items: int = 0
+    done_items: int = 0
+    # Average reach across the active objectives, 0 when there are none.
+    average_progress_percent: int = 0
+    # The active objectives, already ordered the way the card lists them.
+    objectives: list[ObjectiveSchema] = Field(default_factory=list)
+
+
+CreateObjectiveSchema.model_rebuild()
