@@ -31,7 +31,7 @@ def validate_password_strength(password: str) -> PasswordStrength:
     score = 0
 
     if len(password) < MIN_LENGTH:
-        feedback.append(f"Minimo {MIN_LENGTH} caracteres")
+        feedback.append(f"Mínimo {MIN_LENGTH} caracteres")
     else:
         score += 20
         # Length beyond the minimum only moves the meter; it never substitutes
@@ -52,7 +52,7 @@ def validate_password_strength(password: str) -> PasswordStrength:
         score += 20
 
     if not re.search(r"[0-9]", password):
-        feedback.append("Adicione pelo menos um numero")
+        feedback.append("Adicione pelo menos um número")
     else:
         score += 20
 

@@ -4,10 +4,10 @@ export default function OfflinePage() {
   return (
     <StatusCard
       tone="offline"
-      title="Sistema temporariamente indisponivel"
-      message="Nao foi possivel carregar o tutor agora. Aguarde um momento e atualize a pagina."
+      title="Sistema temporariamente indisponível"
+      message="Não foi possível carregar o tutor agora. Aguarde um momento e atualize a página."
       secondaryHref="/"
-      secondaryLabel="Voltar ao inicio"
+      secondaryLabel="Voltar ao início"
     />
   );
 }

@@ -32,7 +32,7 @@ export function AccountDataSection() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel exportar os dados.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível exportar os dados.');
     } finally {
       setBusy(null);
     }
@@ -49,7 +49,7 @@ export function AccountDataSection() {
       setError(
         cause instanceof ApiError
           ? (cause.detail ?? cause.message)
-          : 'Nao foi possivel apagar a conta.',
+          : 'Não foi possível apagar a conta.',
       );
       setBusy(null);
     }
@@ -89,7 +89,7 @@ export function AccountDataSection() {
           <div className="min-w-0">
             <p className="text-lg font-black text-rose-800">Apagar a conta</p>
             <p className="mt-1 text-sm font-semibold text-rose-700">
-              Remove a conta, os perfis de estudante e todo o historico de estudo.
+              Remove a conta, os perfis de estudante e todo o histórico de estudo.
               Nao da para desfazer. Exporte seus dados antes, se quiser guarda-los.
             </p>
           </div>

@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Ontem",
+  "title": "Inglês A2 - Ontem",
   "theme": "Passado",
   "objective": "Contar o que aconteceu no passado.",
   "level": 4,
@@ -27,7 +27,7 @@
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "went",
@@ -41,7 +41,7 @@
       },
       {
         "phrase_en": "We watched a film",
-        "phrase_pt": "Nos assistimos a um filme",
+        "phrase_pt": "Nós assistimos a um filme",
         "word_by_word": [
           {
             "en": "We",
@@ -63,7 +63,7 @@
       },
       {
         "phrase_en": "He did not come",
-        "phrase_pt": "Ele nao veio",
+        "phrase_pt": "Ele não veio",
         "word_by_word": [
           {
             "en": "He",
@@ -75,7 +75,7 @@
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "come",
@@ -85,7 +85,7 @@
       },
       {
         "phrase_en": "Did you see it?",
-        "phrase_pt": "Voce viu?",
+        "phrase_pt": "Você viu?",
         "word_by_word": [
           {
             "en": "Did",
@@ -93,7 +93,7 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "see",
@@ -101,7 +101,7 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
@@ -121,11 +121,11 @@
       },
       {
         "phrase_en": "two days ago",
-        "phrase_pt": "dois dias atras",
+        "phrase_pt": "dóis dias atrás",
         "word_by_word": [
           {
             "en": "two",
-            "pt": "dois"
+            "pt": "dóis"
           },
           {
             "en": "days",
@@ -133,17 +133,17 @@
           },
           {
             "en": "ago",
-            "pt": "atras"
+            "pt": "atrás"
           }
         ]
       },
       {
         "phrase_en": "It was great",
-        "phrase_pt": "Foi otimo",
+        "phrase_pt": "Foi ótimo",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "was",
@@ -151,7 +151,7 @@
           },
           {
             "en": "great",
-            "pt": "otimo"
+            "pt": "ótimo"
           }
         ]
       }
@@ -172,21 +172,21 @@
     },
     {
       "word_en": "We watched a film",
-      "word_pt": "Nos assistimos a um filme",
+      "word_pt": "Nós assistimos a um filme",
       "example_sentence_en": "We watched a film last night.",
-      "example_sentence_pt": "Nos assistimos a um filme ontem a noite."
+      "example_sentence_pt": "Nós assistimos a um filme ontem à noite."
     },
     {
       "word_en": "He did not come",
-      "word_pt": "Ele nao veio",
+      "word_pt": "Ele não veio",
       "example_sentence_en": "He did not come to the party.",
-      "example_sentence_pt": "Ele nao veio a festa."
+      "example_sentence_pt": "Ele não veio à festa."
     },
     {
       "word_en": "Did you see it?",
-      "word_pt": "Voce viu?",
+      "word_pt": "Você viu?",
       "example_sentence_en": "Did you see the game?",
-      "example_sentence_pt": "Voce viu o jogo?"
+      "example_sentence_pt": "Você viu o jogo?"
     },
     {
       "word_en": "last week",
@@ -196,15 +196,15 @@
     },
     {
       "word_en": "two days ago",
-      "word_pt": "dois dias atras",
+      "word_pt": "dóis dias atrás",
       "example_sentence_en": "She called me two days ago.",
-      "example_sentence_pt": "Ela me ligou dois dias atras."
+      "example_sentence_pt": "Ela me ligou dóis dias atrás."
     },
     {
       "word_en": "It was great",
-      "word_pt": "Foi otimo",
+      "word_pt": "Foi ótimo",
       "example_sentence_en": "The trip was great.",
-      "example_sentence_pt": "A viagem foi otima."
+      "example_sentence_pt": "A viagem foi ótima."
     }
   ]
 }

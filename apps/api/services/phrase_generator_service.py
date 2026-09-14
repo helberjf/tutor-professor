@@ -92,21 +92,21 @@ def format_provider_request_error(provider_label: str, exc: requests.RequestExce
         if isinstance(exc, requests.Timeout):
             return f"{provider_label} demorou demais para responder. Tente de novo em instantes."
         return (
-            f"Nao foi possivel falar com {provider_label} agora (provedor fora do ar ou sem "
-            "conexao). Tente de novo em instantes."
+            f"Não foi possível falar com {provider_label} agora (provedor fora do ar ou sem "
+            "conexão). Tente de novo em instantes."
         )
 
     status = response.status_code
     detail = _provider_error_detail(response)
     if status in (401, 403) or (status == 400 and "api key" in detail.casefold()):
-        summary = f"{provider_label} recusou a chave de API. Confira a chave em Configuracoes."
+        summary = f"{provider_label} recusou a chave de API. Confira a chave em Configurações."
     elif status == 429:
         summary = (
             f"{provider_label} atingiu o limite de uso desta chave. Aguarde alguns minutos "
             "ou confira a cota no provedor."
         )
     elif status >= 500:
-        summary = f"{provider_label} esta instavel no momento. Tente de novo em instantes."
+        summary = f"{provider_label} está instável no momento. Tente de novo em instantes."
     else:
         summary = f"{provider_label} recusou o pedido (HTTP {status})."
     return f"{summary} Detalhe: {detail}" if detail else summary
@@ -183,7 +183,7 @@ class PhraseGenerationService:
     ) -> str:
         config = self._resolve_config(ai_config)
         if not config.api_key:
-            raise RuntimeError(f"{self._provider_label(config.provider)} API key nao esta configurada.")
+            raise RuntimeError(f"{self._provider_label(config.provider)} API key não está configurada.")
 
         timeout = timeout_seconds or self.timeout_seconds
         provider = config.provider
@@ -194,7 +194,7 @@ class PhraseGenerationService:
         elif provider in OPENAI_COMPATIBLE_BASE_URLS:
             generate = self._generate_openai_compatible_json_text
         else:
-            raise RuntimeError(f"Provedor de IA nao suportado: {config.provider}")
+            raise RuntimeError(f"Provedor de IA não suportado: {config.provider}")
 
         text = generate(
             system_text=system_text,

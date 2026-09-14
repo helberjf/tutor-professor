@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Plus, Target } from 'lucide-react';
 
 import { api, ApiError, type Objective } from '@/lib/api';
@@ -21,15 +22,21 @@ export function ObjectivesBoard() {
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [serverOutdated, setServerOutdated] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async (includeArchived: boolean) => {
     setLoading(true);
     setError('');
+    setServerOutdated(false);
     try {
       const data = await api.getObjectives({ includeArchived });
       setObjectives(sortObjectives(data));
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 404) {
+        setServerOutdated(true);
+        return;
+      }
       setError(err instanceof ApiError ? err.message : 'Não foi possível carregar seus objetivos.');
     } finally {
       setLoading(false);
@@ -86,7 +93,8 @@ export function ObjectivesBoard() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+            disabled={serverOutdated}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
           >
             <Plus size={18} /> Novo objetivo
           </button>
@@ -103,6 +111,7 @@ export function ObjectivesBoard() {
             type="checkbox"
             checked={showArchived}
             onChange={(event) => setShowArchived(event.target.checked)}
+            disabled={serverOutdated}
             className="h-4 w-4 rounded border-2 border-slate-300 accent-sky-600"
           />
           Mostrar arquivados
@@ -115,9 +124,23 @@ export function ObjectivesBoard() {
         </p>
       ) : null}
 
+      {serverOutdated ? (
+        <section role="alert" className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+          <h2 className="font-black">Os objetivos ainda não chegaram ao servidor</h2>
+          <p className="mt-1 font-semibold leading-6">
+            Esta tela já está no aplicativo, mas o servidor ainda está em uma versão anterior. Tente novamente
+            mais tarde ou continue pela lição e pela revisão.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 font-black">
+            <Link href="/lesson" className="rounded-xl bg-amber-700 px-3 py-2 text-white hover:bg-amber-800">Abrir a lição</Link>
+            <Link href="/review" className="rounded-xl border-2 border-amber-300 px-3 py-2 text-amber-950 hover:bg-amber-100">Ir para a revisão</Link>
+          </div>
+        </section>
+      ) : null}
+
       {loading ? (
         <p className="text-sm font-semibold text-slate-500">Carregando objetivos...</p>
-      ) : visible.length === 0 ? (
+      ) : serverOutdated ? null : visible.length === 0 ? (
         <section className="rounded-[1.6rem] border-2 border-dashed border-slate-200 bg-white p-8 text-center">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
             <Target size={28} />
@@ -130,7 +153,7 @@ export function ObjectivesBoard() {
           <button
             type="button"
             onClick={() => setCreating(true)}
-            className="mx-auto mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+            className="mx-auto mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
           >
             <Plus size={18} /> Criar objetivo
           </button>

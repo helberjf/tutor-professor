@@ -205,7 +205,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
       setNewTopicId(topic.id);
       await loadSubjects();
     } catch (err: unknown) {
-      setTopicAIError(err instanceof Error ? err.message : 'Erro ao gerar topico com IA.');
+      setTopicAIError(err instanceof Error ? err.message : 'Erro ao gerar tópico com IA.');
     } finally {
       setGeneratingTopicAI(false);
     }
@@ -308,7 +308,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
                         type="button"
                         disabled={loadingTopics}
                         onClick={() => openSubject(subject)}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                       >
                         {loadingTopics ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -457,7 +457,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generatingTopicAI ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            {generatingTopicAI ? 'Gerando topico...' : 'Gerar topico por IA'}
+            {generatingTopicAI ? 'Gerando tópico...' : 'Gerar tópico por IA'}
           </button>
         </div>
         {topicAIError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{topicAIError}</p>}

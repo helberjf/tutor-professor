@@ -24,7 +24,7 @@ function readStoredReadingMode(): boolean {
 const LANG_META: Record<string, { chip: string; dot: string; bar: string }> = {
   TypeScript: { chip: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500', bar: 'border-l-blue-400' },
   JavaScript: { chip: 'bg-amber-100 text-amber-800', dot: 'bg-amber-400', bar: 'border-l-amber-400' },
-  Python: { chip: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', bar: 'border-l-emerald-400' },
+  Python: { chip: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-700', bar: 'border-l-emerald-400' },
   Java: { chip: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500', bar: 'border-l-orange-400' },
   Go: { chip: 'bg-cyan-100 text-cyan-700', dot: 'bg-cyan-500', bar: 'border-l-cyan-400' },
 };
@@ -230,7 +230,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
             title={readingMode ? 'Voltar para os cards' : 'Abrir no modo leitura'}
             className={`flex shrink-0 items-center gap-2 rounded-2xl border-2 px-3 py-2 text-sm font-black transition ${
               readingMode
-                ? 'border-sky-300 bg-sky-500 text-white hover:bg-sky-600'
+                ? 'border-sky-300 bg-sky-700 text-white hover:bg-sky-800'
                 : 'border-slate-200 bg-white text-slate-500 hover:border-primary hover:text-primary'
             }`}
           >

@@ -94,8 +94,8 @@ def register_coding_review_attempt(
         spacing_multiplier = max(0.5, 1.15 - item.difficulty_score)
         item.next_review = now + timedelta(hours=base_hours * spacing_multiplier)
     elif effective == "partial":
-        # Parcial/duvida: nao zera o streak nem conta acerto; fica um pouco
-        # mais dificil e volta cedo (~1/3 do intervalo de quem sabia).
+        # Parcial/dúvida: não zera o streak nem conta acerto; fica um pouco
+        # mais difícil e volta cedo (~1/3 do intervalo de quem sabia).
         item.difficulty_score = min(1.0, item.difficulty_score + 0.08)
         base_hours = _REVIEW_SCHEDULE_HOURS[min(max(item.streak, 1) - 1, len(_REVIEW_SCHEDULE_HOURS) - 1)]
         item.next_review = now + timedelta(hours=max(2.0, base_hours * 0.35))
@@ -496,57 +496,57 @@ Rules:
 """
 
 _READING_DEEPEN_PROMPT_TEMPLATE = """\
-Voce vai aprofundar uma etapa de leitura de uma aula de programacao.
+Você vai aprofundar uma etapa de leitura de uma aula de programação.
 
-Materia: {subject_name}
-Topico: {topic_title}
+Matéria: {subject_name}
+Tópico: {topic_title}
 
 Etapa atual:
 {step_payload}
 
-Duvida ou contexto do usuario:
+Dúvida ou contexto do usuário:
 {user_question}
 
 Responda em Markdown pronto para copiar no Notion.
 
 Regras:
-- Escreva em portugues do Brasil
-- Comece com um titulo curto em Markdown
+- Escreva em português do Brasil
+- Comece com um título curto em Markdown
 - Ensine os conceitos importantes da etapa de forma resumida e objetiva
 - Apresente exemplos de cada conceito
-- Use blocos de codigo quando houver codigo ou quando um exemplo tecnico ajudar
-- Foque em prova, entrevista tecnica, raciocinio, trade-offs e armadilhas comuns
-- Responda diretamente a duvida do usuario quando ela existir
-- Nao salve nada, nao mencione banco de dados, e nao adicione comentarios fora do Markdown
+- Use blocos de código quando houver código ou quando um exemplo técnico ajudar
+- Foque em prova, entrevista técnica, raciocínio, trade-offs e armadilhas comuns
+- Responda diretamente a dúvida do usuário quando ela existir
+- Não salve nada, não mencione banco de dados, e não adicione comentários fora do Markdown
 
-Retorne somente JSON valido neste formato:
+Retorne somente JSON válido neste formato:
 {{"content": "markdown"}}
 """
 
 
-_TOPIC_SUMMARY_PROMPT_TEMPLATE = """Voce vai escrever a folha de revisao de UM topico de estudo, para a vespera da prova.
+_TOPIC_SUMMARY_PROMPT_TEMPLATE = """Você vai escrever a folha de revisão de UM tópico de estudo, para a véspera da prova.
 
-Materia: {subject_name}
-Topico: {topic_title}
-Contexto da materia: {subject_context}
+Matéria: {subject_name}
+Tópico: {topic_title}
+Contexto da matéria: {subject_context}
 
-Conteudo da aula (secoes e questoes ja praticadas):
+Conteúdo da aula (seções e questões já praticadas):
 {topic_digest}
 
-Objetivo: o MENOR texto possivel que ainda cubra o que esse topico cobra na prova.
+Objetivo: o MENOR texto possível que ainda cubra o que esse tópico cobra na prova.
 
 Regras:
-- Escreva em portugues do Brasil, em Markdown pronto para copiar no Notion
-- NAO escreva titulo e nao repita o nome do topico: comece direto no primeiro bullet
-- No maximo {max_bullets} bullets, cada um com no maximo {max_words} palavras
-- Guarde so o que cai em prova: definicoes, limites, numeros, quando usar cada
-  conceito ou servico e diferencas entre alternativas parecidas
-- Corte introducao, motivacao, historia, analogias, exemplos longos e frases de ligacao
-- Nada de blocos de codigo, exceto uma linha unica quando a sintaxe exata for cobrada
-- Se houver pegadinhas classicas, feche com "### Pegadinhas" e no maximo {max_traps} bullets
-- Sem saudacao, sem conclusao e sem comentarios fora do Markdown
+- Escreva em português do Brasil, em Markdown pronto para copiar no Notion
+- NÃO escreva título e não repita o nome do tópico: comece direto no primeiro bullet
+- No máximo {max_bullets} bullets, cada um com no máximo {max_words} palavras
+- Guarde só o que cai em prova: definições, limites, números, quando usar cada
+  conceito ou serviço e diferenças entre alternativas parecidas
+- Corte introdução, motivação, história, analogias, exemplos longos e frases de ligação
+- Nada de blocos de código, exceto uma linha única quando a sintaxe exata for cobrada
+- Se houver pegadinhas clássicas, feche com "### Pegadinhas" e no máximo {max_traps} bullets
+- Sem saudação, sem conclusão e sem comentários fora do Markdown
 
-Retorne somente JSON valido neste formato:
+Retorne somente JSON válido neste formato:
 {{"content": "markdown"}}
 """
 
@@ -971,10 +971,10 @@ def generate_additional_topic_questions(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("IA retornou JSON invalido para as questoes adicionais.") from exc
+        raise RuntimeError("IA retornou JSON inválido para as questões adicionais.") from exc
     questions = data.get("questions") if isinstance(data, dict) else None
     if not isinstance(questions, list):
-        raise RuntimeError("IA nao retornou uma lista de questoes adicionais.")
+        raise RuntimeError("IA não retornou uma lista de questões adicionais.")
     return questions
 
 
@@ -998,7 +998,7 @@ def deepen_coding_reading_step(
         ),
     )
     if len(prompt) > MAX_READING_DEEPEN_PROMPT_CHARS:
-        raise RuntimeError("O conteudo da etapa e grande demais para aprofundar com seguranca.")
+        raise RuntimeError("O conteúdo da etapa é grande demais para aprofundar com segurança.")
 
     raw = _phrase_service.generate_json_text(
         system_text=(
@@ -1012,10 +1012,10 @@ def deepen_coding_reading_step(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("IA retornou JSON invalido para o aprofundamento.") from exc
+        raise RuntimeError("IA retornou JSON inválido para o aprofundamento.") from exc
     content = str(data.get("content") if isinstance(data, dict) else "").strip()
     if not content:
-        raise RuntimeError("IA nao retornou conteudo para o aprofundamento.")
+        raise RuntimeError("IA não retornou conteúdo para o aprofundamento.")
     return content[:12_000]
 
 
@@ -1045,7 +1045,7 @@ def build_summary_digest(topics: list) -> str:
     blocks: list[str] = []
     for topic in subject_topics_with_lessons(topics):
         content = topic.ai_content if isinstance(topic.ai_content, dict) else {}
-        lines = [f"## Topico: {' '.join(str(topic.title).split())[:200]}"]
+        lines = [f"## Tópico: {' '.join(str(topic.title).split())[:200]}"]
         sections = [s for s in content.get("sections", []) if isinstance(s, dict)]
         for section in sections[:_SUMMARY_MAX_SECTIONS_PER_TOPIC]:
             title = " ".join(str(section.get("title", "")).split())[:200]
@@ -1059,7 +1059,7 @@ def build_summary_digest(topics: list) -> str:
         ]
         asked = [question for question in asked if question]
         if asked:
-            lines.append("- Ja cobrado em questoes: " + " | ".join(asked))
+            lines.append("- Já cobrado em questões: " + " | ".join(asked))
         if len(lines) > 1:
             blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
@@ -1089,7 +1089,7 @@ def summarize_topic_essentials(
     """The shortest sheet that still covers what this topic asks in the exam."""
     digest = topic_digest.strip()[:MAX_TOPIC_SUMMARY_DIGEST_CHARS]
     if not digest:
-        raise RuntimeError("Este topico ainda nao tem aula gerada para resumir.")
+        raise RuntimeError("Este tópico ainda não tem aula gerada para resumir.")
     prompt = _TOPIC_SUMMARY_PROMPT_TEMPLATE.format(
         subject_name=" ".join(str(subject_name).split())[:200],
         topic_title=" ".join(str(topic_title).split())[:300],
@@ -1100,7 +1100,7 @@ def summarize_topic_essentials(
         max_traps=SUMMARY_MAX_TRAPS,
     )
     if len(prompt) > MAX_TOPIC_SUMMARY_PROMPT_CHARS:
-        raise RuntimeError("O conteudo deste topico e grande demais para resumir.")
+        raise RuntimeError("O conteúdo deste tópico é grande demais para resumir.")
 
     raw = _phrase_service.generate_json_text(
         system_text=(
@@ -1116,10 +1116,10 @@ def summarize_topic_essentials(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("IA retornou JSON invalido para o resumo do topico.") from exc
+        raise RuntimeError("IA retornou JSON inválido para o resumo do tópico.") from exc
     content = _strip_leading_title(str(data.get("content") if isinstance(data, dict) else "").strip())
     if not content:
-        raise RuntimeError("IA nao retornou conteudo para o resumo do topico.")
+        raise RuntimeError("IA não retornou conteúdo para o resumo do tópico.")
     return content[:MAX_TOPIC_SUMMARY_CHARS]
 
 
@@ -1137,7 +1137,7 @@ def join_topic_summaries(subject_name: str, entries: list[tuple[str, str]]) -> s
 
 
 def build_topic_history_context(topics: list, exclude_topic_id: int | None = None) -> str:
-    """Resumo dos topicos anteriores de uma materia, para a IA continuar a progressao."""
+    """Resumo dos tópicos anteriores de uma matéria, para a IA continuar a progressão."""
     history = [t for t in topics if t.id != exclude_topic_id]
     if not history:
         return ""
@@ -1174,9 +1174,9 @@ Return a JSON object with exactly this schema:
 {{
   "name": "string (technique name, e.g. 'Two Pointers', 'Sliding Window', 'Binary Search')",
   "category": "string (e.g. 'Array / String', 'Tree', 'Graph', 'Dynamic Programming')",
-  "explanation": "string — o que e a tecnica, quando usar, como reconhecer que um problema pede ela (3-6 paragrafos curtos, em portugues do Brasil)",
-  "code_example": "string — exemplo completo e comentado resolvendo um problema classico com essa tecnica",
-  "example_output": "string — a saida exata do exemplo + um passo a passo curto de como o algoritmo chegou nela",
+  "explanation": "string — o que é a técnica, quando usar, como reconhecer que um problema pede ela (3-6 parágrafos curtos, em português do Brasil)",
+  "code_example": "string — exemplo completo e comentado resolvendo um problema clássico com essa técnica",
+  "example_output": "string — a saída exata do exemplo + um passo a passo curto de como o algoritmo chegou nela",
   "complexity_time": "string (e.g. 'O(n)')",
   "complexity_space": "string (e.g. 'O(1)')"
 }}

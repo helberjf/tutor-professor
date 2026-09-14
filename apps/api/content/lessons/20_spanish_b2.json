@@ -1,26 +1,26 @@
 {
   "level": 7,
   "target_language": "Spanish",
-  "title": "Espanhol de hoje - Nivel B2",
+  "title": "Espanhol de hoje - Nível B2",
   "theme": "Frases do dia",
-  "objective": "Pratique voz passiva e concessao em espanhol (nivel B2).",
+  "objective": "Pratique voz passiva e concessão em espanhol (nível B2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
-        "phrase_en": "La reunion ha sido pospuesta hasta la proxima semana.",
-        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "phrase_en": "La reunion há sido pospuesta hasta la próxima semana.",
+        "phrase_pt": "A reunião foi adiada para a próxima semana.",
         "word_by_word": [
-          { "en": "La reunion", "pt": "a reuniao" },
-          { "en": "ha sido pospuesta", "pt": "foi adiada" },
-          { "en": "hasta la proxima semana", "pt": "para a proxima semana" }
+          { "en": "La reunion", "pt": "a reunião" },
+          { "en": "há sido pospuesta", "pt": "foi adiada" },
+          { "en": "hasta la próxima semana", "pt": "para a próxima semana" }
         ]
       },
       {
         "phrase_en": "Me encontre por casualidad con un viejo amigo en el centro comercial.",
         "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
         "word_by_word": [
-          { "en": "Me encontre por casualidad", "pt": "eu encontrei por acaso" },
+          { "en": "Me encontre por casualidad", "pt": "eu encontrei por acasó" },
           { "en": "con un viejo amigo", "pt": "um velho amigo" },
           { "en": "en el centro comercial", "pt": "no shopping" }
         ]
@@ -38,10 +38,10 @@
   },
   "items": [
     {
-      "word_en": "La reunion ha sido pospuesta hasta la proxima semana.",
-      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "word_en": "La reunion há sido pospuesta hasta la próxima semana.",
+      "word_pt": "A reunião foi adiada para a próxima semana.",
       "example_sentence_en": "Passive voice with \"ser\" + past participle is common in formal Spanish.",
-      "example_sentence_pt": "A voz passiva com \"ser\" + participio e comum no espanhol formal."
+      "example_sentence_pt": "A voz passiva com \"ser\" + particípio é comum no espanhol formal."
     },
     {
       "word_en": "Me encontre por casualidad con un viejo amigo en el centro comercial.",

@@ -58,8 +58,8 @@ export function buildEmptyDay(studyDate: string): StudyDay {
 
 export function getPomodoroCompletionMessage(mode: PomodoroMode) {
   return mode === 'focus'
-    ? 'Bloco de foco concluido. Hora de uma pausa.'
-    : 'Pausa concluida. Hora de voltar ao foco.';
+    ? 'Bloco de foco concluído. Hora de uma pausa.'
+    : 'Pausa concluída. Hora de voltar ao foco.';
 }
 
 export function slugifySubjectName(name: string) {
@@ -70,7 +70,7 @@ export function slugifySubjectName(name: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return normalized || 'materia';
+  return normalized || 'matéria';
 }
 
 export function getDiverseSubjectSlug(subject: DiverseSubject, index: number, subjects: DiverseSubject[]) {

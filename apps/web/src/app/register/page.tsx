@@ -211,7 +211,7 @@ export default function RegisterPage() {
       const msg =
         err instanceof ApiError
           ? (err.detail ?? err.message)
-          : 'Nao foi possivel iniciar o Google.';
+          : 'Não foi possível iniciar o Google.';
       setErrors({ submit: msg });
       setGoogleLoading(false);
     }

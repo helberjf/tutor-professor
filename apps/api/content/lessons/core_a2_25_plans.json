@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A2 - Planos",
+  "title": "Inglês A2 - Planos",
   "theme": "Planos",
   "objective": "Falar de planos e do futuro.",
   "level": 4,
@@ -53,11 +53,11 @@
       },
       {
         "phrase_en": "Next weekend",
-        "phrase_pt": "No proximo fim de semana",
+        "phrase_pt": "No próximo fim de semana",
         "word_by_word": [
           {
             "en": "Next",
-            "pt": "proximo"
+            "pt": "próximo"
           },
           {
             "en": "weekend",
@@ -67,7 +67,7 @@
       },
       {
         "phrase_en": "What are your plans?",
-        "phrase_pt": "Quais sao os seus planos?",
+        "phrase_pt": "Quais são os seus planos?",
         "word_by_word": [
           {
             "en": "What",
@@ -75,7 +75,7 @@
           },
           {
             "en": "are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "your",
@@ -83,7 +83,7 @@
           },
           {
             "en": "plans",
-            "pt": "planos"
+            "pt": "plános"
           }
         ]
       },
@@ -135,7 +135,7 @@
       },
       {
         "phrase_en": "See you soon",
-        "phrase_pt": "Ate logo",
+        "phrase_pt": "Até logo",
         "word_by_word": [
           {
             "en": "See",
@@ -143,7 +143,7 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "soon",
@@ -158,7 +158,7 @@
       "word_en": "I am going to study",
       "word_pt": "Eu vou estudar",
       "example_sentence_en": "I am going to study tonight.",
-      "example_sentence_pt": "Eu vou estudar hoje a noite."
+      "example_sentence_pt": "Eu vou estudar hoje à noite."
     },
     {
       "word_en": "We will travel",
@@ -168,15 +168,15 @@
     },
     {
       "word_en": "Next weekend",
-      "word_pt": "No proximo fim de semana",
+      "word_pt": "No próximo fim de semana",
       "example_sentence_en": "Next weekend we visit grandma.",
-      "example_sentence_pt": "No proximo fim de semana nos visitamos a vovo."
+      "example_sentence_pt": "No próximo fim de semana nós visitamos a vovó."
     },
     {
       "word_en": "What are your plans?",
-      "word_pt": "Quais sao os seus planos?",
+      "word_pt": "Quais são os seus planos?",
       "example_sentence_en": "What are your plans for today?",
-      "example_sentence_pt": "Quais sao os seus planos para hoje?"
+      "example_sentence_pt": "Quais são os seus planos para hoje?"
     },
     {
       "word_en": "Maybe later",
@@ -198,9 +198,9 @@
     },
     {
       "word_en": "See you soon",
-      "word_pt": "Ate logo",
+      "word_pt": "Até logo",
       "example_sentence_en": "See you soon, take care.",
-      "example_sentence_pt": "Ate logo, se cuida."
+      "example_sentence_pt": "Até logo, se cuida."
     }
   ]
 }

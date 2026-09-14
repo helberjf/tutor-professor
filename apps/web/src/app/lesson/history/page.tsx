@@ -20,7 +20,7 @@ export default function LessonHistoryPage() {
         setLessons(data);
         setError(null);
       } catch (err) {
-        setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar as licoes.'));
+        setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar as lições.'));
       } finally {
         setLoading(false);
       }
@@ -32,10 +32,10 @@ export default function LessonHistoryPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Carregando licoes"
-        message="Buscando todas as suas aventuras de ingles..."
+        title="Carregando lições"
+        message="Buscando todas as suas aventuras de inglês..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -44,10 +44,10 @@ export default function LessonHistoryPage() {
     return (
       <StatusCard
         tone="error"
-        title="Erro ao carregar licoes"
+        title="Erro ao carregar lições"
         message={error.message}
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -65,17 +65,17 @@ export default function LessonHistoryPage() {
         </div>
 
         <div className="mb-8">
-          <span className="app-tag mb-3">Todas as licoes</span>
-          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">Suas aventuras em ingles</h1>
+          <span className="app-tag mb-3">Todas as lições</span>
+          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">Suas aventuras em inglês</h1>
           <p className="mt-3 text-lg text-slate-600">
-            Escolha uma licao para rever o conteudo, treinar as frases ou refazer o quiz.
+            Escolha uma lição para rever o conteúdo, treinar as frases ou refazer o quiz.
           </p>
         </div>
 
         {lessons.length === 0 && (
           <div className="app-surface border-slate-200 p-10 text-center">
-            <p className="text-xl font-bold text-slate-500">Nenhuma licao encontrada ainda.</p>
-            <Link href="/lesson" className="app-button mt-6 inline-flex bg-primary hover:bg-primary-dark">
+            <p className="text-xl font-bold text-slate-500">Nenhuma lição encontrada ainda.</p>
+            <Link href="/lesson" className="app-button mt-6 inline-flex bg-primary-dark hover:bg-primary-dark">
               Comecar agora
             </Link>
           </div>

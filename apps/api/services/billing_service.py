@@ -54,7 +54,7 @@ PLANS: tuple[Plan, ...] = (
         code=PLAN_FREE,
         name="Gratuito",
         description=(
-            "Um estudante, licoes e revisao. A IA com Gemini usa o limite diario "
+            "Um estudante, lições e revisão. A IA com Gemini usa o limite diário "
             "definido para a conta."
         ),
         price_cents=0,
@@ -63,8 +63,8 @@ PLANS: tuple[Plan, ...] = (
     ),
     Plan(
         code=PLAN_FAMILY,
-        name="Familia",
-        description="Ate 3 estudantes, com o mesmo controle diario de IA da conta.",
+        name="Família",
+        description="Até 3 estudantes, com o mesmo controle diário de IA da conta.",
         price_cents=3490,
         max_children=3,
         monthly_ai_generations=300,
@@ -73,7 +73,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_STUDY,
         name="Estudo",
-        description="Estudantes ilimitados e controle diario de IA pelo administrador.",
+        description="Estudantes ilimitados e controle diário de IA pelo administrador.",
         price_cents=6900,
         max_children=UNLIMITED,
         monthly_ai_generations=1500,
@@ -82,7 +82,7 @@ PLANS: tuple[Plan, ...] = (
     Plan(
         code=PLAN_SCHOOL,
         name="Escola",
-        description="Turmas, painel do professor e cobranca anual por assento.",
+        description="Turmas, painel do professor e cobrança anual por assento.",
         price_cents=0,  # quoted per seat; not self-serve
         max_children=UNLIMITED,
         monthly_ai_generations=UNLIMITED,
@@ -178,13 +178,13 @@ def upgrade_message(plan: Plan, reason: str) -> str:
         limit = "ilimitadas" if plan.max_children == UNLIMITED else plan.max_children
         return (
             f"Seu plano {plan.name} permite {limit} estudantes. "
-            "Mude de plano em Configuracoes para adicionar mais."
+            "Mude de plano em Configurações para adicionar mais."
         )
     if reason == "generations":
         return (
-            f"Voce usou todas as geracoes por IA do plano {plan.name} neste mes. "
-            "Voce pode usar sua propria chave de IA ou mudar de plano."
+            f"Você usou todas as geracoes por IA do plano {plan.name} neste mes. "
+            "Você pode usar sua própria chave de IA ou mudar de plano."
         )
     if reason == "inactive":
-        return "Sua assinatura nao esta ativa. Atualize o pagamento para continuar."
-    return "Seu plano nao permite esta acao."
+        return "Sua assinatura não está ativa. Atualize o pagamento para continuar."
+    return "Seu plano não permite esta ação."

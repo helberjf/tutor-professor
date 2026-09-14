@@ -383,11 +383,11 @@ USER_STATUS_APPROVED = "approved"
 USER_STATUS_REJECTED = "rejected"
 USER_STATUSES = (USER_STATUS_PENDING, USER_STATUS_APPROVED, USER_STATUS_REJECTED)
 PENDING_ACCOUNT_DETAIL = (
-    "Sua conta ainda esta aguardando a aprovacao do administrador."
+    "Sua conta ainda está aguardando a aprovação do administrador."
 )
 REJECTED_ACCOUNT_DETAIL = "Seu acesso foi recusado pelo administrador."
 NO_AI_CREDITS_DETAIL = (
-    "Seus creditos de IA de hoje acabaram. Eles voltam amanha, ou o administrador pode ajustar o seu limite."
+    "Seus créditos de IA de hoje acabaram. Eles voltam amanhã, ou o administrador pode ajustar o seu limite."
 )
 
 # Password guessing brake. The window is short and clears itself: a long or
@@ -498,7 +498,7 @@ def _lesson_question_lock(child_id: int, lesson_id: int) -> Iterator[None]:
 ADVISORY_LOCK_TIMEOUT = os.getenv("ADVISORY_LOCK_TIMEOUT", "20s")
 
 GENERATION_LOCK_BUSY_DETAIL = (
-    "Outra geracao para este item esta em andamento. Tente novamente em instantes."
+    "Outra geração para este item está em andamento. Tente novamente em instantes."
 )
 
 
@@ -633,7 +633,7 @@ MODULE_ROUTE_PREFIXES: tuple[tuple[str, str], ...] = (
     ("/api/books", "books"),
     ("/api/exams", "exams"),
 )
-MODULE_DISABLED_DETAIL = "Este modulo esta desligado. Ative em Configuracoes."
+MODULE_DISABLED_DETAIL = "Este módulo está desligado. Ative em Configurações."
 
 
 def module_for_path(path: str) -> str | None:
@@ -744,7 +744,7 @@ async def _rate_limit_gate(request: Request, call_next):
         if not verdict.allowed:
             return JSONResponse(
                 status_code=429,
-                content={"detail": "Muitas requisicoes. Tente novamente em instantes."},
+                content={"detail": "Muitas requisições. Tente novamente em instantes."},
                 headers={"Retry-After": str(verdict.retry_after_seconds)},
             )
     return await call_next(request)
@@ -1354,7 +1354,7 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
         if requested_header is not None:
             raw_child_id = requested_header.strip()
             if not raw_child_id.isdigit():
-                raise HTTPException(status_code=400, detail="X-Child-ID invalido.")
+                raise HTTPException(status_code=400, detail="X-Child-ID inválido.")
             requested_child_id = int(raw_child_id)
             selected_child = session.get(ChildProfile, requested_child_id)
             is_accessible = selected_child is not None and child_belongs_to_parent_session(
@@ -1362,7 +1362,7 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
                 parent_session,
             )
             if not is_accessible or selected_child is None or selected_child.id != requested_child_id:
-                raise HTTPException(status_code=404, detail="Estudante nao encontrado.")
+                raise HTTPException(status_code=404, detail="Estudante não encontrado.")
             return normalize_child_voice_preference(selected_child, session=session)
 
     return get_default_child(session=session, user_id=logged_user_id)
@@ -1393,7 +1393,7 @@ def validate_birth_date(value: date | None) -> date | None:
         return None
     today = activity_today()
     if value > today:
-        raise HTTPException(status_code=422, detail="A data de nascimento nao pode estar no futuro.")
+        raise HTTPException(status_code=422, detail="A data de nascimento não pode estar no futuro.")
     age = age_on(value, today) or 0
     if age > MAX_SUPPORTED_AGE:
         raise HTTPException(status_code=422, detail="Confira a data de nascimento informada.")
@@ -1545,8 +1545,8 @@ def count_child_answered_questions(session: Session, child_id: int) -> tuple[int
     """Total questions answered by a child and how many were correct.
 
     Counts every surface the child can answer a question on, because from the
-    child's point of view they are all "questoes":
-      - licao mini-activity and revisao  -> ReviewItem attempt counters
+    child's point of view they are all "questões":
+      - lição mini-activity and revisão  -> ReviewItem attempt counters
       - quiz                             -> QuizAttempt
       - simulado                         -> finished ExamAttempt
     """
@@ -1645,7 +1645,7 @@ def _persist_generated_language_lesson(
         id=next_day,
         title=f"{child.target_language} de hoje - Dia {next_day}",
         theme="Frases do dia",
-        objective=f"Aprenda 3 frases uteis em {child.target_language.lower()} hoje.",
+        objective=f"Aprenda 3 frases úteis em {child.target_language.lower()} hoje.",
         content={
             "daily_goal": "3 frases para hoje",
             "phrase_breakdowns": [
@@ -1829,14 +1829,14 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
     if child.user_id is not None and ai_config is None:
         raise HTTPException(
             status_code=403,
-            detail="Configure uma chave de API de IA na sua conta antes de gerar novas licoes.",
+            detail="Configure uma chave de API de IA na sua conta antes de gerar novas lições.",
         )
     if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
             detail=(
-                "Nenhuma licao foi encontrada e uma chave de API de IA nao esta configurada. "
-                "Configure a chave para gerar licoes automaticamente."
+                "Nenhuma lição foi encontrada e uma chave de API de IA não está configurada. "
+                "Configure a chave para gerar lições automaticamente."
             ),
         )
 
@@ -1853,7 +1853,7 @@ def auto_generate_lesson_for_child(session: Session, child: ChildProfile) -> Les
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Nao foi possivel gerar a licao com o Gemini. {exc}",
+            detail=f"Não foi possível gerar a lição com o Gemini. {exc}",
         ) from exc
 
     return _persist_generated_language_lesson(
@@ -2147,10 +2147,10 @@ def build_quiz_encouragement(score: int, total_questions: int) -> str:
 
     accuracy = score / total_questions
     if accuracy == 1:
-        return "Incrivel! Voce acertou tudo!"
+        return "Incrível! Você acertou tudo!"
     if accuracy >= 0.6:
-        return "Muito bem! Voce esta ficando melhor a cada dia."
-    return "Bom esforco! Vamos praticar um pouco mais e tentar de novo."
+        return "Muito bem! Você está ficando melhor a cada dia."
+    return "Bom esforço! Vamos praticar um pouco mais e tentar de novo."
 
 
 def build_parent_session_token() -> str:
@@ -2241,13 +2241,13 @@ def user_can_use_app(user: User | None) -> bool:
 def require_parent_session(request: Request, session: Session) -> UserSession:
     session_record = get_request_user_session(request=request, session=session)
     if session_record is None:
-        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+        raise HTTPException(status_code=401, detail="Login da área de pais obrigatório")
     # A session may belong to the legacy shared parent password, which has no
     # user row and so nothing to approve.
     if session_record.user_id is not None:
         user = session.get(User, session_record.user_id)
         if user is None:
-            raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+            raise HTTPException(status_code=401, detail="Login da área de pais obrigatório")
         if not user_can_use_app(user):
             raise HTTPException(status_code=403, detail=account_status_detail(user.status))
     return session_record
@@ -2306,7 +2306,7 @@ def get_next_lesson(request: Request, session: Session = Depends(get_session)) -
     child = get_requested_child(request=request, session=session)
     lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
     if lesson is None:
-        raise HTTPException(status_code=404, detail="Nenhuma licao pendente")
+        raise HTTPException(status_code=404, detail="Nenhuma lição pendente")
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
@@ -2327,7 +2327,7 @@ def get_lesson_by_id(lesson_id: int, request: Request, session: Session = Depend
     lesson = session.get(Lesson, lesson_id)
     accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
-        raise HTTPException(status_code=404, detail="Licao nao encontrada")
+        raise HTTPException(status_code=404, detail="Lição não encontrada")
     return build_lesson_response(session=session, lesson=lesson, child_id=child.id or 0)
 
 
@@ -2335,7 +2335,7 @@ def _ensure_lesson_question_capacity(current_count: int) -> None:
     if current_count > MAX_LESSON_QUESTIONS - 5:
         raise HTTPException(
             status_code=409,
-            detail="Esta licao atingiu o limite de perguntas geradas.",
+            detail="Esta lição atingiu o limite de perguntas geradas.",
         )
 
 
@@ -2363,13 +2363,13 @@ def generate_lesson_questions(
         )
     }
     if lesson is None or lesson_id not in accessible_lesson_ids:
-        raise HTTPException(status_code=404, detail="Licao nao encontrada")
+        raise HTTPException(status_code=404, detail="Lição não encontrada")
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(
             status_code=422,
-            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
         )
 
     lesson_items = get_lesson_items(session=session, lesson_id=lesson_id)
@@ -2405,7 +2405,7 @@ def generate_lesson_questions(
     try:
         raw_text = phrase_generation_service.generate_json_text(
             system_text=(
-                "Voce cria perguntas para aprender idiomas. Retorne somente JSON valido, "
+                "Você cria perguntas para aprender idiomas. Retorne somente JSON válido, "
                 "sem markdown nem texto adicional."
             ),
             prompt=prompt,
@@ -2445,16 +2445,16 @@ def generate_lesson_questions(
                 or current_lesson is None
                 or lesson_id not in current_accessible_ids
             ):
-                raise HTTPException(status_code=404, detail="Licao nao encontrada")
+                raise HTTPException(status_code=404, detail="Lição não encontrada")
             if current_lesson.target_language != target_language:
                 raise HTTPException(
                     status_code=409,
-                    detail="O idioma da licao mudou durante a geracao. Tente novamente.",
+                    detail="O idioma da lição mudou durante a geração. Tente novamente.",
                 )
             if current_child.base_language != base_language:
                 raise HTTPException(
                     status_code=409,
-                    detail="O idioma-base do estudante mudou durante a geracao. Tente novamente.",
+                    detail="O idioma-base do estudante mudou durante a geração. Tente novamente.",
                 )
 
             current_questions = session.exec(
@@ -2493,7 +2493,7 @@ def generate_lesson_questions(
             session.rollback()
             raise HTTPException(
                 status_code=409,
-                detail="Uma ou mais perguntas ja existem nesta licao.",
+                detail="Uma ou mais perguntas já existem nesta lição.",
             ) from exc
         except ValueError as exc:
             session.rollback()
@@ -2517,7 +2517,7 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
     lesson = session.get(Lesson, lesson_id)
     accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
     if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
-        raise HTTPException(status_code=404, detail="Licao nao encontrada")
+        raise HTTPException(status_code=404, detail="Lição não encontrada")
 
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
     seed_review_items_for_lesson(session=session, child_id=child.id or 0, lesson_items=lesson_items)
@@ -2567,13 +2567,13 @@ def get_today_quiz(
     if resolved_lesson_id is None:
         lesson = get_current_lesson(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
         if lesson is None:
-            raise HTTPException(status_code=404, detail="Nenhuma licao encontrada para o quiz")
+            raise HTTPException(status_code=404, detail="Nenhuma lição encontrada para o quiz")
         resolved_lesson_id = lesson.id
     elif resolved_lesson_id is not None:
         lesson = session.get(Lesson, resolved_lesson_id)
         accessible_lesson_ids = {item.id or 0 for item in list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)}
         if lesson is None or (lesson.id or 0) not in accessible_lesson_ids:
-            raise HTTPException(status_code=404, detail="Licao nao encontrada")
+            raise HTTPException(status_code=404, detail="Lição não encontrada")
 
     if lesson is not None:
         generated_quiz = build_quiz_from_lesson_content(lesson)
@@ -2681,7 +2681,7 @@ def submit_review_attempt(
                 correct=payload.correct,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=404, detail="Pergunta da licao nao encontrada.") from exc
+            raise HTTPException(status_code=404, detail="Pergunta da lição não encontrada.") from exc
         card_id = reviewed_item.id or 0
         activity_title = f"Review: {reviewed_item.front}"
         lesson = session.get(Lesson, reviewed_item.lesson_id)
@@ -2705,7 +2705,7 @@ def submit_review_attempt(
                 review_item_id=payload.review_item_id,
             )
         except ValueError as exc:
-            raise HTTPException(status_code=404, detail="Item de revisao nao encontrado.") from exc
+            raise HTTPException(status_code=404, detail="Item de revisão não encontrado.") from exc
         card_id = reviewed_item.id or 0
         activity_title = f"Review: {reviewed_item.word_en}"
         activity_details = {
@@ -3262,7 +3262,7 @@ def ensure_offline_choice_questions(
     topic_key: str,
     topic_title: str,
 ) -> int:
-    """Seed "modo questoes" for one lesson from its own phrases. No AI, no credit."""
+    """Seed "modo questões" for one lesson from its own phrases. No AI, no credit."""
 
     child_id = child.id or 0
     if not items:
@@ -3482,7 +3482,7 @@ def start_study_session(
 def get_owned_study_session(session: Session, *, session_id: int, child_id: int) -> StudySession:
     record = session.get(StudySession, session_id)
     if record is None or record.child_id != child_id:
-        raise HTTPException(status_code=404, detail="Sessao de estudo nao encontrada.")
+        raise HTTPException(status_code=404, detail="Sessão de estudo não encontrada.")
     return record
 
 
@@ -3826,8 +3826,8 @@ def _topic_content_from_admin_module(subject_name: str, topic_title: str) -> Opt
 
 
 def _fallback_topic_seed_content(subject_name: str, topic_title: str) -> dict:
-    title = topic_title.strip() or "Topico"
-    subject = subject_name.strip() or "Programacao"
+    title = topic_title.strip() or "Tópico"
+    subject = subject_name.strip() or "Programação"
     code_example = (
         "const studyChecklist = [\n"
         f"  'Defina {title}',\n"
@@ -3841,8 +3841,8 @@ def _fallback_topic_seed_content(subject_name: str, topic_title: str) -> dict:
             {
                 "title": "Visao geral",
                 "body": (
-                    f"{title} e um tema importante em {subject}. Comece entendendo qual problema "
-                    "ele resolve, em quais situacoes aparece e quais sinais mostram que esta tecnica "
+                    f"{title} é um tema importante em {subject}. Comece entendendo qual problema "
+                    "ele resolve, em quais situações aparece e quais sinais mostram que esta técnica "
                     "deve ser usada."
                 ),
                 "code_example": code_example,
@@ -3850,15 +3850,15 @@ def _fallback_topic_seed_content(subject_name: str, topic_title: str) -> dict:
             {
                 "title": "Como praticar",
                 "body": (
-                    "Estude em tres passos: escreva uma definicao curta, crie um exemplo minimo e "
-                    "explique em voz alta o que muda no codigo. Depois compare com um caso real do seu projeto."
+                    "Estude em três passos: escreva uma definição curta, crie um exemplo mínimo e "
+                    "explique em voz alta o que muda no código. Depois compare com um caso real do seu projeto."
                 ),
             },
             {
                 "title": "Armadilhas comuns",
                 "body": (
-                    "Nao decore apenas a sintaxe. Foque no motivo da tecnica existir, nos erros comuns "
-                    "e em como testar se a solucao realmente funciona."
+                    "Não decore apenas a sintaxe. Foque no motivo da técnica existir, nos erros comuns "
+                    "e em como testar se a solução realmente funciona."
                 ),
             },
         ],
@@ -3868,36 +3868,36 @@ def _fallback_topic_seed_content(subject_name: str, topic_title: str) -> dict:
                 "question": f"Qual deve ser o primeiro passo ao estudar {title}?",
                 "options": [
                     "Entender qual problema o conceito resolve",
-                    "Copiar uma solucao sem testar",
+                    "Copiar uma solução sem testar",
                     "Ignorar exemplos pequenos",
-                    "Usar apenas decoracao de sintaxe",
+                    "Usar apenas decoração de sintaxe",
                 ],
                 "correct_option": "Entender qual problema o conceito resolve",
-                "explanation": "Entender o problema torna mais facil reconhecer quando aplicar o conceito.",
+                "explanation": "Entender o problema torna mais fácil reconhecer quando aplicar o conceito.",
             },
             {
                 "id": 2,
-                "question": "Por que criar um exemplo minimo ajuda?",
+                "question": "Por que criar um exemplo mínimo ajuda?",
                 "options": [
-                    "Porque revela a ideia central sem distracoes",
+                    "Porque revela a ideia central sem distrações",
                     "Porque substitui todos os testes",
                     "Porque evita estudar conceitos relacionados",
                     "Porque sempre tem a mesma resposta",
                 ],
-                "correct_option": "Porque revela a ideia central sem distracoes",
-                "explanation": "Um exemplo pequeno deixa o comportamento principal visivel antes de ir para casos maiores.",
+                "correct_option": "Porque revela a ideia central sem distrações",
+                "explanation": "Um exemplo pequeno deixa o comportamento principal visível antes de ir para casos maiores.",
             },
             {
                 "id": 3,
                 "question": "O que fazer depois de entender a teoria?",
                 "options": [
                     "Praticar, testar e explicar com suas palavras",
-                    "Marcar como dominado sem exercicio",
+                    "Marcar como dominado sem exercício",
                     "Apagar as anotacoes",
                     "Estudar outro tema sem revisar",
                 ],
                 "correct_option": "Praticar, testar e explicar com suas palavras",
-                "explanation": "A combinacao de pratica, teste e explicacao consolida o aprendizado.",
+                "explanation": "A combinação de prática, teste e explicação consolida o aprendizado.",
             },
         ],
     }
@@ -3962,7 +3962,7 @@ def _legacy_coding_subject_name(subject_key: str) -> str:
     }
     key = str(subject_key or "").strip()
     if not key:
-        return "Programacao"
+        return "Programação"
     normalized_key = key.lower().replace(" ", "").replace("-", "")
     return mapped_names.get(normalized_key, key[:100])
 
@@ -4101,9 +4101,9 @@ def upsert_coding_day(
             activity_date=study_date,
             activity_type="coding",
             activity_title=(
-                f"Programacao: {', '.join(subject_names)}"
+                f"Programação: {', '.join(subject_names)}"
                 if subject_names
-                else "Programacao"
+                else "Programação"
             ),
             result_details=new_summary,
         )
@@ -4143,7 +4143,7 @@ def _build_diverse_topic_schema(raw_topic: dict) -> CodingTopicSchema:
     last_reviewed = raw_topic.get("last_reviewed")
     return CodingTopicSchema(
         id=str(raw_topic.get("id") or "")[:80],
-        topic=str(raw_topic.get("topic", "")).strip()[:120] or "Topico",
+        topic=str(raw_topic.get("topic", "")).strip()[:120] or "Tópico",
         done=bool(raw_topic.get("done", False)),
         answer=str(raw_topic.get("answer") or "")[:2000],
         code_example=(str(raw_topic.get("code_example"))[:3000] if raw_topic.get("code_example") else None),
@@ -4156,7 +4156,7 @@ def _build_diverse_topic_schema(raw_topic: dict) -> CodingTopicSchema:
 def _build_diverse_lesson_schema(raw_lesson: dict) -> DiverseLessonBlockSchema:
     return DiverseLessonBlockSchema(
         id=str(raw_lesson.get("id") or secrets.token_urlsafe(8))[:80],
-        title=str(raw_lesson.get("title") or "Licao")[:80],
+        title=str(raw_lesson.get("title") or "Lição")[:80],
         topic_ids=[str(topic_id)[:80] for topic_id in raw_lesson.get("topic_ids", []) if str(topic_id).strip()],
         created_at=(str(raw_lesson.get("created_at"))[:40] if raw_lesson.get("created_at") else None),
     )
@@ -4165,7 +4165,7 @@ def _build_diverse_lesson_schema(raw_lesson: dict) -> DiverseLessonBlockSchema:
 def _build_diverse_subject_schema(raw_subject: dict) -> DiverseSubjectSchema:
     return DiverseSubjectSchema(
         id=str(raw_subject.get("id") or "")[:80],
-        name=str(raw_subject.get("name", "")).strip()[:60] or "Materia",
+        name=str(raw_subject.get("name", "")).strip()[:60] or "Matéria",
         topics=[_build_diverse_topic_schema(t) for t in raw_subject.get("topics", []) if isinstance(t, dict)],
         lessons=[
             _build_diverse_lesson_schema(lesson)
@@ -4263,7 +4263,7 @@ def _validate_manual_diverse_subject(subject: dict) -> None:
 def _raise_diverse_identity_conflict() -> None:
     raise HTTPException(
         status_code=409,
-        detail="As identidades das materias mudaram. Recarregue antes de salvar.",
+        detail="As identidades das matérias mudaram. Recarregue antes de salvar.",
     )
 
 
@@ -4378,9 +4378,9 @@ def _extract_json_object(raw_text: str) -> dict:
     try:
         data = json.loads(cleaned.strip())
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.") from exc
+        raise HTTPException(status_code=502, detail="IA retornou um formato inválido.") from exc
     if not isinstance(data, dict):
-        raise HTTPException(status_code=502, detail="IA retornou um formato invalido.")
+        raise HTTPException(status_code=502, detail="IA retornou um formato inválido.")
     return data
 
 
@@ -4465,9 +4465,9 @@ def upsert_diverse_day(
             activity_date=study_date,
             activity_type="diverse",
             activity_title=(
-                f"Outras materias: {', '.join(subject_names)}"
+                f"Outras matérias: {', '.join(subject_names)}"
                 if subject_names
-                else "Outras materias"
+                else "Outras matérias"
             ),
             result_details=new_summary,
         )
@@ -4499,7 +4499,7 @@ def upsert_diverse_day(
         session.expire_all()
         refreshed_record = session.get(DiverseDay, record.id)
         if refreshed_record is None:
-            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso não encontrado.")
         record = refreshed_record
     return DiverseDaySchema(
         id=record.id,
@@ -4581,9 +4581,9 @@ def import_diverse_subject(
         activity_date=study_date,
         activity_type="diverse",
         activity_title=(
-            f"Outras materias: {', '.join(subject_names)}"
+            f"Outras matérias: {', '.join(subject_names)}"
             if subject_names
-            else "Outras materias"
+            else "Outras matérias"
         ),
         result_details=new_summary,
     )
@@ -4623,7 +4623,7 @@ def import_diverse_subject(
         session.expire_all()
         refreshed_record = session.get(DiverseDay, record.id)
         if refreshed_record is None:
-            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso não encontrado.")
         record = refreshed_record
 
     return DiverseDaySchema(
@@ -4662,7 +4662,7 @@ def _ensure_diverse_question_capacity(subject: dict, lesson: dict) -> None:
     if len(subject.get("topics") or []) > 1545 or len(lesson.get("topic_ids") or []) > 45:
         raise HTTPException(
             status_code=409,
-            detail="A materia ou licao atingiu o limite para adicionar mais cinco questoes.",
+            detail="A matéria ou lição atingiu o limite para adicionar mais cinco questões.",
         )
 
 
@@ -4682,7 +4682,7 @@ def generate_diverse_questions(
         )
     ).first()
     if record is None:
-        raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+        raise HTTPException(status_code=404, detail="Dia de estudo diverso não encontrado.")
 
     if not has_canonical_subject_identities(record.custom_subjects):
         materialized_subjects = normalize_subjects(record.custom_subjects or [])
@@ -4697,18 +4697,18 @@ def generate_diverse_questions(
             session.rollback()
             raise HTTPException(
                 status_code=409,
-                detail="O dia diverso mudou durante a migracao. Recarregue e tente novamente.",
+                detail="O dia diverso mudou durante a migração. Recarregue e tente novamente.",
             )
         session.commit()
         session.expire_all()
         materialized_record = session.get(DiverseDay, record.id)
         if materialized_record is None:
-            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso não encontrado.")
         record = materialized_record
 
     normalized_subjects = normalize_subjects(record.custom_subjects or [])
     if payload.subject_index >= len(normalized_subjects):
-        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
     selected_subject = normalized_subjects[payload.subject_index]
     selected_lesson = next(
         (
@@ -4719,18 +4719,18 @@ def generate_diverse_questions(
         None,
     )
     if selected_lesson is None:
-        raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+        raise HTTPException(status_code=404, detail="Lição não encontrada.")
     _ensure_diverse_question_capacity(selected_subject, selected_lesson)
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(
             status_code=422,
-            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
         )
 
-    subject_name = str(selected_subject.get("name") or "Materia")
-    lesson_title = str(selected_lesson.get("title") or "Licao")
+    subject_name = str(selected_subject.get("name") or "Matéria")
+    lesson_title = str(selected_lesson.get("title") or "Lição")
     selected_subject_id = str(selected_subject.get("id") or "")
     selected_lesson_id = str(selected_lesson.get("id") or "")
     expected_subject_identity = (selected_subject_id, subject_name)
@@ -4769,20 +4769,20 @@ def generate_diverse_questions(
     )
     context_text = context or "Nenhum contexto adicional."
     system_text = (
-        "Voce cria questoes de estudo em JSON. Retorne somente JSON valido, sem markdown. "
+        "Você cria questões de estudo em JSON. Retorne somente JSON válido, sem markdown. "
         "Cada item deve ter question, answer e pode ter code_example."
     )
     prompt = (
-        "Crie exatamente 5 questoes unicas e nao repetidas.\n"
-        f"Materia: {subject_name}\n"
-        f"Licao: {lesson_title}\n"
-        f"Orientacao: {focus_instruction}\n"
-        "Questoes ja ligadas a esta licao:\n"
+        "Crie exatamente 5 questões únicas e não repetidas.\n"
+        f"Matéria: {subject_name}\n"
+        f"Lição: {lesson_title}\n"
+        f"Orientação: {focus_instruction}\n"
+        "Questões já ligadas a esta lição:\n"
         f"{linked_text}\n"
-        "Todas as perguntas ja existentes na materia (nao repetir):\n"
+        "Todas as perguntas já existentes na matéria (não repetir):\n"
         f"{all_fronts_text}\n"
-        f"Contexto do usuario: {context_text}\n"
-        "Formato obrigatorio: {\"questions\":[{\"question\":\"...\",\"answer\":\"...\","
+        f"Contexto do usuário: {context_text}\n"
+        "Formato obrigatório: {\"questions\":[{\"question\":\"...\",\"answer\":\"...\","
         "\"code_example\":null}]}"
     )
     prompt = prompt[:40_000]
@@ -4821,7 +4821,7 @@ def generate_diverse_questions(
             )
         ).first()
         if current_record is None:
-            raise HTTPException(status_code=404, detail="Dia de estudo diverso nao encontrado.")
+            raise HTTPException(status_code=404, detail="Dia de estudo diverso não encontrado.")
         current_subjects = normalize_subjects(current_record.custom_subjects or [])
         current_subject = next(
             (
@@ -4832,13 +4832,13 @@ def generate_diverse_questions(
             None,
         )
         if current_subject is None:
-            raise HTTPException(status_code=409, detail="A materia mudou durante a geracao.")
+            raise HTTPException(status_code=409, detail="A matéria mudou durante a geração.")
         current_subject_identity = (
             str(current_subject.get("id") or ""),
-            str(current_subject.get("name") or "Materia"),
+            str(current_subject.get("name") or "Matéria"),
         )
         if current_subject_identity != expected_subject_identity:
-            raise HTTPException(status_code=409, detail="A materia mudou durante a geracao.")
+            raise HTTPException(status_code=409, detail="A matéria mudou durante a geração.")
         current_lesson = next(
             (
                 lesson
@@ -4848,12 +4848,12 @@ def generate_diverse_questions(
             None,
         )
         if current_lesson is None:
-            raise HTTPException(status_code=404, detail="Licao nao encontrada.")
+            raise HTTPException(status_code=404, detail="Lição não encontrada.")
         if (
             str(current_lesson.get("id") or ""),
-            str(current_lesson.get("title") or "Licao"),
+            str(current_lesson.get("title") or "Lição"),
         ) != expected_lesson_identity:
-            raise HTTPException(status_code=409, detail="A licao mudou durante a geracao.")
+            raise HTTPException(status_code=409, detail="A lição mudou durante a geração.")
         _ensure_diverse_question_capacity(current_subject, current_lesson)
 
         current_fronts = [
@@ -4872,7 +4872,7 @@ def generate_diverse_questions(
         for question in validated_questions:
             topic = {
                 "id": stable_question_id(
-                    str(current_subject.get("name") or "Materia"),
+                    str(current_subject.get("name") or "Matéria"),
                     question["question"] or "",
                 ),
                 "topic": question["question"],
@@ -4898,7 +4898,7 @@ def generate_diverse_questions(
             session.rollback()
             raise HTTPException(
                 status_code=409,
-                detail="O dia diverso mudou durante a geracao. Recarregue e tente novamente.",
+                detail="O dia diverso mudou durante a geração. Recarregue e tente novamente.",
             )
         try:
             session.commit()
@@ -4911,14 +4911,14 @@ def generate_diverse_questions(
 
 _LEVEL_LABELS = {
     1: "Iniciante",
-    2: "Basico",
-    3: "Basico+",
+    2: "Básico",
+    3: "Básico+",
     4: "Elementar",
     5: "Elementar+",
-    6: "Intermediario",
-    7: "Intermediario+",
-    8: "Avancado",
-    9: "Avancado+",
+    6: "Intermediário",
+    7: "Intermediário+",
+    8: "Avançado",
+    9: "Avançado+",
     10: "Fluente",
 }
 # Questions answered required to reach the NEXT level, keyed by current level.
@@ -4993,7 +4993,7 @@ def set_child_level(
         if not MIN_CHILD_LEVEL <= payload.level <= MAX_CHILD_LEVEL:
             raise HTTPException(
                 status_code=400,
-                detail=f"O nivel deve estar entre {MIN_CHILD_LEVEL} e {MAX_CHILD_LEVEL}.",
+                detail=f"O nível deve estar entre {MIN_CHILD_LEVEL} e {MAX_CHILD_LEVEL}.",
             )
         child.level_override = payload.level
 
@@ -5035,12 +5035,12 @@ def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> Resp
     # Reject anything with a path separator before touching the filesystem: the
     # name comes straight from the URL.
     if filename != Path(filename).name or filename.startswith("."):
-        raise HTTPException(status_code=404, detail="Audio nao encontrado.")
+        raise HTTPException(status_code=404, detail="Áudio não encontrado.")
     if expires < int(datetime.utcnow().timestamp()):
-        raise HTTPException(status_code=403, detail="Link de audio expirado.")
+        raise HTTPException(status_code=403, detail="Link de áudio expirado.")
     expected = sign_audio_filename(filename, expires)
     if not hmac.compare_digest(expected, signature or ""):
-        raise HTTPException(status_code=403, detail="Link de audio invalido.")
+        raise HTTPException(status_code=403, detail="Link de áudio inválido.")
 
     audio_path = (audio_cache_dir / filename).resolve()
     if audio_cache_dir.resolve() in audio_path.parents and audio_path.is_file():
@@ -5052,8 +5052,8 @@ def get_audio_file(filename: str, expires: int = 0, signature: str = "") -> Resp
         try:
             return RedirectResponse(audio_store.signed_url(filename, AUDIO_URL_TTL_SECONDS))
         except AudioStoreError:
-            logger.warning("Audio %s is in neither the local cache nor the store", filename)
-    raise HTTPException(status_code=404, detail="Audio nao encontrado.")
+            logger.warning("Áudio %s is in neither the local cache nor the store", filename)
+    raise HTTPException(status_code=404, detail="Áudio não encontrado.")
 
 
 @app.post("/api/runtime/tts-backend", status_code=204)
@@ -5070,10 +5070,10 @@ def publish_tts_backend(
     """
 
     if not RUNTIME_SYNC_TOKEN:
-        raise HTTPException(status_code=503, detail="Sincronizacao de TTS nao configurada.")
+        raise HTTPException(status_code=503, detail="Sincronizacao de TTS não configurada.")
     provided = request.headers.get("authorization", "")
     if not hmac.compare_digest(provided, f"Bearer {RUNTIME_SYNC_TOKEN}"):
-        raise HTTPException(status_code=401, detail="Nao autorizado.")
+        raise HTTPException(status_code=401, detail="Não autorizado.")
 
     base_url = payload.base_url.strip()
     if not base_url.startswith("https://"):
@@ -5270,7 +5270,7 @@ def mask_api_key(api_key: str) -> str:
 def validate_ai_provider(provider: str | None) -> str:
     normalized = (provider or "gemini").strip().lower()
     if normalized not in AI_PROVIDER_IDS:
-        raise HTTPException(status_code=422, detail="Provedor de IA nao suportado.")
+        raise HTTPException(status_code=422, detail="Provedor de IA não suportado.")
     return normalized
 
 
@@ -5355,7 +5355,7 @@ def save_ai_settings_for_user(
     record = get_user_ai_settings_record(user_id, session)
     if record is None:
         if not api_key and not use_global_key:
-            raise HTTPException(status_code=422, detail="Chave de API obrigatoria para salvar as configuracoes.")
+            raise HTTPException(status_code=422, detail="Chave de API obrigatória para salvar as configurações.")
         record = UserAISettings(
             user_id=user_id,
             provider=provider,
@@ -5373,7 +5373,7 @@ def save_ai_settings_for_user(
         elif api_key:
             record.api_key_encrypted = encrypt_api_key(api_key)
         elif not record.api_key_encrypted:
-            raise HTTPException(status_code=422, detail="Chave de API obrigatoria para salvar as configuracoes.")
+            raise HTTPException(status_code=422, detail="Chave de API obrigatória para salvar as configurações.")
         record.use_global_key = use_global_key
         record.model = model
         record.base_url = base_url
@@ -5703,19 +5703,19 @@ def _validate_topic_lesson_content(ai_content: object) -> dict:
     ):
         raise HTTPException(
             status_code=422,
-            detail="O topico precisa ter secoes validas de conteudo antes de gerar flashcards.",
+            detail="O tópico precisa ter seções válidas de conteúdo antes de gerar flashcards.",
         )
     try:
         validated = TopicAIContentSchema.model_validate(ai_content)
     except ValidationError as exc:
         raise HTTPException(
             status_code=422,
-            detail="O conteudo da aula esta malformado e precisa ser regenerado.",
+            detail="O conteúdo da aula está malformado e precisa ser regenerado.",
         ) from exc
     if any(not section.title.strip() or not section.body.strip() for section in validated.sections):
         raise HTTPException(
             status_code=422,
-            detail="As secoes da aula precisam ter titulo e conteudo validos.",
+            detail="As seções da aula precisam ter título e conteúdo válidos.",
         )
     return validated.model_dump(exclude_none=True)
 
@@ -5982,13 +5982,13 @@ def generate_coding_subject_topic(
     child = get_requested_child(request=request, session=session)
     subject = session.get(ProgrammingSubject, subject_id)
     if subject is None or subject.child_id != child.id:
-        raise HTTPException(status_code=404, detail="Materia nao encontrada.")
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
 
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(
             status_code=422,
-            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
         )
 
     existing_topics = sorted(
@@ -6587,9 +6587,9 @@ def _subject_exam_slot(
 ) -> tuple[Exam | None, str]:
     """The simulado a subject maps to, and the name it has or would get.
 
-    The source area is kept in ``code``, so a programming subject and a free
+    The source área is kept in ``code``, so a programming subject and a free
     subject that share a name never pour into the same pool: the second one gets
-    the area appended to its name instead.
+    the área appended to its name instead.
     """
 
     candidates = (
@@ -7109,7 +7109,7 @@ def submit_topic_question_attempt(
         session,
         child_id=child.id or 0,
         activity_type="question",
-        activity_title=f"Questao: {topic.title if topic else subject.name}",
+        activity_title=f"Questão: {topic.title if topic else subject.name}",
         activity_id=question.id,
         result_score=100.0 if correct else 0.0,
         result_details={
@@ -7305,7 +7305,7 @@ def _diverse_lesson_source_content(
                     blocks.append(str(topic.get("topic") or ""))
                     blocks.append(str(topic.get("answer") or ""))
                 return build_source_content(blocks)
-    raise HTTPException(status_code=404, detail="Licao nao encontrada para esta materia.")
+    raise HTTPException(status_code=404, detail="Lição não encontrada para esta matéria.")
 
 
 def resolve_english_lesson_topic_key(topic_key: str) -> int:
@@ -7315,14 +7315,14 @@ def resolve_english_lesson_topic_key(topic_key: str) -> int:
     try:
         return int(normalized_key)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail="Licao de ingles invalida.") from exc
+        raise HTTPException(status_code=422, detail="Lição de inglês inválida.") from exc
 
 
 def _english_lesson_source_content(session: Session, *, child_id: int, topic_key: str) -> str:
     lesson_id = resolve_english_lesson_topic_key(topic_key)
     lesson = session.get(Lesson, lesson_id)
     if lesson is None or (lesson.child_id is not None and lesson.child_id != child_id):
-        raise HTTPException(status_code=404, detail="Licao de ingles nao encontrada.")
+        raise HTTPException(status_code=404, detail="Lição de inglês não encontrada.")
     blocks = [lesson.title, lesson.theme, lesson.objective]
     content = lesson.content if isinstance(lesson.content, dict) else {}
     blocks.append(json.dumps(content, ensure_ascii=False))
@@ -7367,7 +7367,7 @@ def list_study_questions(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     if area not in {"diverse", "english"}:
-        raise HTTPException(status_code=422, detail="Area de estudo invalida.")
+        raise HTTPException(status_code=422, detail="Área de estudo inválida.")
     questions = _list_study_questions(
         session,
         child_id=child.id or 0,
@@ -7393,18 +7393,18 @@ def submit_study_question_attempt(
     child = get_requested_child(request=request, session=session)
     question = session.get(StudyQuestion, question_id)
     if question is None or question.child_id != child.id:
-        raise HTTPException(status_code=404, detail="Questao nao encontrada.")
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
     if not _study_question_has_usable_options(question):
         raise HTTPException(
             status_code=422,
-            detail="Questao sem alternativas completas. Gere novas questoes para esta licao.",
+            detail="Questão sem alternativas completas. Gere novas questões para esta lição.",
         )
 
     selected_option = " ".join(payload.selected_option.split())
     if not selected_option:
         raise HTTPException(status_code=422, detail="Selecione uma alternativa.")
     if selected_option not in list(question.options or []):
-        raise HTTPException(status_code=422, detail="Alternativa invalida para esta questao.")
+        raise HTTPException(status_code=422, detail="Alternativa inválida para esta questão.")
 
     answered_at = datetime.utcnow()
     correct = selected_option == question.correct_option
@@ -7419,7 +7419,7 @@ def submit_study_question_attempt(
         session,
         child_id=child.id or 0,
         activity_type="question",
-        activity_title=f"Questao: {question.topic_title}",
+        activity_title=f"Questão: {question.topic_title}",
         activity_id=question.id,
         result_score=100.0 if correct else 0.0,
         result_details={
@@ -7463,7 +7463,7 @@ def generate_study_question_batch(
     if ai_config is None:
         raise HTTPException(
             status_code=422,
-            detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.",
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
         )
 
     source_content = _study_question_source_content(
@@ -7527,7 +7527,7 @@ def generate_study_question_batch(
         session.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Estas questoes ja foram salvas. Recarregue e tente novamente.",
+            detail="Estas questões já foram salvas. Recarregue e tente novamente.",
         ) from exc
     except Exception:
         session.rollback()
@@ -7547,7 +7547,7 @@ def _offline_bank_applies(area: str, topic_key: str) -> bool:
 
     * "modo gramática" (`grammar:<lesson id>`), because translation questions
       dressed up as grammar practice would be a lie about what the child drilled;
-    * every free-form subject in the `diverse` area, whose material is prose.
+    * every free-form subject in the `diverse` área, whose material is prose.
     """
 
     return area == "english" and not topic_key.strip().casefold().startswith("grammar:")
@@ -7576,7 +7576,7 @@ def ensure_study_questions(
 ) -> list[StudyQuestionSchema]:
     """Fill a topic's question bank from the lesson itself — no provider, no credit.
 
-    This is what keeps "modo questoes" from being an empty screen for an account
+    This is what keeps "modo questões" from being an empty screen for an account
     with no AI key, no credit left, or a provider having a bad day. What it does
     and does not cover is decided by `_offline_bank_applies`.
     """
@@ -8131,7 +8131,7 @@ def submit_coding_review_attempt(
         session,
         child_id=child.id or 0,
         activity_type="coding_review",
-        activity_title=f"Revisao de programacao: {flashcard.front if flashcard else 'card'}",
+        activity_title=f"Revisão de programação: {flashcard.front if flashcard else 'card'}",
         activity_id=item.id,
         result_score=review_rating_score(resolved_rating, payload.correct),
         result_details={
@@ -8450,7 +8450,7 @@ def generate_leetcode_method_endpoint(
     child = get_requested_child(request=request, session=session)
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
-        raise HTTPException(status_code=422, detail="Configuracao de IA nao encontrada. Configure sua chave de API em Configuracoes.")
+        raise HTTPException(status_code=422, detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.")
     existing = sorted(
         session.exec(select(LeetCodeMethod).where(LeetCodeMethod.child_id == child.id)).all(),
         key=lambda m: m.order_index,
@@ -8506,7 +8506,7 @@ def delete_leetcode_method(
     child = get_requested_child(request=request, session=session)
     method = session.get(LeetCodeMethod, method_id)
     if method is None or method.child_id != child.id:
-        raise HTTPException(status_code=404, detail="Metodo nao encontrado.")
+        raise HTTPException(status_code=404, detail="Método não encontrado.")
     session.delete(method)
     session.commit()
 
@@ -8522,9 +8522,9 @@ AUTH_TOKEN_PASSWORD_RESET = "password_reset"
 EMAIL_VERIFICATION_TTL_HOURS = int(os.getenv("EMAIL_VERIFICATION_TTL_HOURS", "48"))
 PASSWORD_RESET_TTL_MINUTES = int(os.getenv("PASSWORD_RESET_TTL_MINUTES", "60"))
 GENERIC_EMAIL_SENT_DETAIL = (
-    "Se existir uma conta com esse e-mail, enviamos as instrucoes para ela."
+    "Se existir uma conta com esse e-mail, enviamos as instruções para ela."
 )
-INVALID_TOKEN_DETAIL = "Link invalido ou expirado. Peca um novo."
+INVALID_TOKEN_DETAIL = "Link inválido ou expirado. Peça um novo."
 
 
 def hash_auth_token(token: str) -> str:
@@ -8535,7 +8535,7 @@ def issue_auth_token(*, user: User, purpose: str, ttl: timedelta, session: Sessi
     """Mint a one-time token, spending any earlier one for the same purpose."""
 
     if user.id is None:
-        raise HTTPException(status_code=500, detail="Usuario sem id.")
+        raise HTTPException(status_code=500, detail="Usuário sem id.")
     now = datetime.utcnow()
     session.exec(
         update(AuthToken)
@@ -8592,11 +8592,11 @@ def send_verification_email(user: User, session: Session) -> None:
             to=user.email,
             subject="Confirme seu e-mail — Tutor and Professor",
             body=(
-                f"Ola, {user.first_name}!\n\n"
+                f"Olá, {user.first_name}!\n\n"
                 "Confirme seu e-mail para ativar sua conta:\n\n"
                 f"{link}\n\n"
                 f"O link vale por {EMAIL_VERIFICATION_TTL_HOURS} horas. "
-                "Se voce nao criou esta conta, ignore esta mensagem."
+                "Se você não criou esta conta, ignore esta mensagem."
             ),
         )
     )
@@ -8615,11 +8615,11 @@ def send_password_reset_email(user: User, session: Session) -> None:
             to=user.email,
             subject="Redefinir sua senha — Tutor and Professor",
             body=(
-                f"Ola, {user.first_name}!\n\n"
+                f"Olá, {user.first_name}!\n\n"
                 "Recebemos um pedido para redefinir sua senha:\n\n"
                 f"{link}\n\n"
                 f"O link vale por {PASSWORD_RESET_TTL_MINUTES} minutos. "
-                "Se nao foi voce, ignore esta mensagem: sua senha continua a mesma."
+                "Se não foi você, ignore esta mensagem: sua senha continua a mesma."
             ),
         )
     )
@@ -8659,7 +8659,7 @@ def verify_email(
     if SIGNUP_MODE == SIGNUP_MODE_OPEN and user.status == USER_STATUS_PENDING:
         user.status = USER_STATUS_APPROVED
         user.reviewed_at = datetime.utcnow()
-        user.review_note = "Aprovada automaticamente apos verificar o e-mail."
+        user.review_note = "Aprovada automaticamente após verificar o e-mail."
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -8715,7 +8715,7 @@ def change_own_password(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(status_code=401, detail="Senha atual incorreta.")
     strength = validate_password_strength(payload.new_password)
@@ -8739,7 +8739,7 @@ def export_own_account(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     return account_data.export_account(session, user)
 
 
@@ -8758,11 +8758,11 @@ def delete_own_account(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     if user_is_admin(user):
         raise HTTPException(
             status_code=409,
-            detail="A conta do administrador nao pode ser apagada por aqui.",
+            detail="A conta do administrador não pode ser apagada por aqui.",
         )
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Senha incorreta.")
@@ -8783,7 +8783,7 @@ def revoke_own_sessions(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None or user.id is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     revoke_all_sessions_for_user(user.id, session)
     return Response(status_code=204)
 
@@ -8926,7 +8926,7 @@ def user_me(
     # bouncing the person back to the login screen.
     session_record = get_request_user_session(request=request, session=session)
     if session_record is None:
-        raise HTTPException(status_code=401, detail="Login da area de pais obrigatorio")
+        raise HTTPException(status_code=401, detail="Login da área de pais obrigatório")
     user_id = session_record.user_id
     if user_id is None:
         raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
@@ -9024,7 +9024,7 @@ def get_or_create_google_user(profile: dict, session: Session) -> User:
 @app.get("/api/auth/google/start")
 def google_auth_start(next: str = "/parents") -> RedirectResponse:
     if not google_oauth_configured():
-        raise HTTPException(status_code=503, detail="OAuth do Google nao esta configurado no backend.")
+        raise HTTPException(status_code=503, detail="OAuth do Google não está configurado no backend.")
 
     state = secrets.token_urlsafe(32)
     redirect = RedirectResponse(
@@ -9069,12 +9069,12 @@ def google_auth_callback(
     session: Session = Depends(get_session),
 ) -> RedirectResponse:
     if not google_oauth_configured():
-        raise HTTPException(status_code=503, detail="OAuth do Google nao esta configurado no backend.")
+        raise HTTPException(status_code=503, detail="OAuth do Google não está configurado no backend.")
     expected_state = request.cookies.get(GOOGLE_OAUTH_STATE_COOKIE_NAME)
     if not state or not expected_state or state != expected_state:
-        raise HTTPException(status_code=400, detail="State do Google invalido.")
+        raise HTTPException(status_code=400, detail="State do Google inválido.")
     if not code:
-        raise HTTPException(status_code=400, detail="Codigo do Google ausente.")
+        raise HTTPException(status_code=400, detail="Código do Google ausente.")
 
     try:
         token_response = requests.post(
@@ -9092,7 +9092,7 @@ def google_auth_callback(
         tokens = token_response.json()
         access_token = tokens.get("access_token")
         if not access_token:
-            raise HTTPException(status_code=400, detail="Google nao retornou access_token.")
+            raise HTTPException(status_code=400, detail="Google não retornou access_token.")
 
         profile_response = requests.get(
             "https://openidconnect.googleapis.com/v1/userinfo",
@@ -9107,7 +9107,7 @@ def google_auth_callback(
         raise HTTPException(status_code=502, detail=f"Falha no login com Google: {exc}") from exc
 
     if profile.get("email_verified") is False:
-        raise HTTPException(status_code=403, detail="E-mail do Google nao verificado.")
+        raise HTTPException(status_code=403, detail="E-mail do Google não verificado.")
 
     user = get_or_create_google_user(profile, session)
     next_path = request.cookies.get(GOOGLE_OAUTH_NEXT_COOKIE_NAME)
@@ -9162,7 +9162,7 @@ def update_account_modules(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
     try:
         user.enabled_modules = apply_module_changes(user.enabled_modules, payload.modules)
     except ValueError as exc:
@@ -9182,7 +9182,7 @@ def update_account_modules(
 BILLING_PROVIDER = os.getenv("BILLING_PROVIDER", "none").strip().lower()
 BILLING_WEBHOOK_SECRET = os.getenv("BILLING_WEBHOOK_SECRET", "").strip()
 BILLING_NOT_CONFIGURED_DETAIL = (
-    "O pagamento ainda nao esta disponivel. Fale com o suporte para mudar de plano."
+    "O pagamento ainda não está disponível. Fale com o suporte para mudar de plano."
 )
 
 
@@ -9247,11 +9247,11 @@ def start_checkout(
     require_parent_session(request, session)
     user = get_request_user(request=request, session=session)
     if user is None or user.id is None:
-        raise HTTPException(status_code=404, detail="Sessao sem usuario vinculado.")
+        raise HTTPException(status_code=404, detail="Sessão sem usuário vinculado.")
 
     plan = get_plan(payload.plan_code)
     if plan.code == billing_service.PLAN_FREE or not plan.is_public:
-        raise HTTPException(status_code=422, detail="Este plano nao pode ser assinado aqui.")
+        raise HTTPException(status_code=422, detail="Este plano não pode ser assinado aqui.")
 
     # The trial asks for no card, so it needs no gateway. An account gets one:
     # the check is for any previous subscription, not for a previous trial of
@@ -9273,7 +9273,7 @@ def start_checkout(
         return CheckoutResponseSchema(
             detail=(
                 f"Teste do plano {plan.name} liberado por {plan.trial_days} dias. "
-                "O pagamento sera pedido quando o teste terminar."
+                "O pagamento será pedido quando o teste terminar."
             )
         )
 
@@ -9307,12 +9307,12 @@ async def billing_webhook(
     raw_body = await request.body()
     signature = request.headers.get("x-webhook-signature", "")
     if not _webhook_signature_is_valid(raw_body, signature):
-        raise HTTPException(status_code=401, detail="Assinatura invalida.")
+        raise HTTPException(status_code=401, detail="Assinatura inválida.")
 
     try:
         event = json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=400, detail="Corpo invalido.") from exc
+        raise HTTPException(status_code=400, detail="Corpo inválido.") from exc
 
     event_id = str(event.get("id") or "").strip()
     event_type = str(event.get("type") or "").strip()
@@ -9522,7 +9522,7 @@ def generate_parent_lesson(
     if not phrase_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
-            detail="Chave de API de IA nao esta configurada.",
+            detail="Chave de API de IA não está configurada.",
         )
 
     child = get_requested_child(request=request, session=session)
@@ -9560,7 +9560,7 @@ def generate_parent_lesson(
             if i == 0:
                 raise HTTPException(
                     status_code=502,
-                    detail=f"Nao foi possivel gerar novas frases com o Gemini. {exc}",
+                    detail=f"Não foi possível gerar novas frases com o Gemini. {exc}",
                 ) from exc
             break  # partial success — return what was already generated
 
@@ -9578,7 +9578,7 @@ def generate_parent_lesson(
 
     count = len(generated_lessons)
     msg = (
-        f"{count} {'licao foi gerada' if count == 1 else 'licoes foram geradas'} e salva{'s' if count > 1 else ''} no banco de dados."
+        f"{count} {'lição foi gerada' if count == 1 else 'lições foram geradas'} e salva{'s' if count > 1 else ''} no banco de dados."
     )
     return GenerateLessonResponseSchema(
         status="success",
@@ -9619,7 +9619,7 @@ def get_user_ai_settings(
 ) -> UserAISettingsSchema:
     session_record = require_parent_session(request, session)
     if session_record.user_id is None:
-        raise HTTPException(status_code=403, detail="Configuracoes de IA requerem login de usuario.")
+        raise HTTPException(status_code=403, detail="Configurações de IA requerem login de usuário.")
     return build_ai_settings_schema(get_user_ai_settings_record(session_record.user_id, session))
 
 
@@ -9632,7 +9632,7 @@ def save_user_ai_settings(
 ) -> UserAISettingsSchema:
     session_record = require_parent_session(request, session)
     if session_record.user_id is None:
-        raise HTTPException(status_code=403, detail="Configuracoes de IA requerem login de usuario.")
+        raise HTTPException(status_code=403, detail="Configurações de IA requerem login de usuário.")
     record = save_ai_settings_for_user(user_id=session_record.user_id, payload=payload, session=session)
     return build_ai_settings_schema(record)
 
@@ -9667,7 +9667,7 @@ def generate_diverse_flashcards(
                 status_code=403,
                 detail=(
                     "Configure uma chave de API de IA na sua conta antes de criar aulas "
-                    "para materias diversas."
+                    "para matérias diversas."
                 ),
             )
 
@@ -9676,18 +9676,18 @@ def generate_diverse_flashcards(
             status_code=503,
             detail=(
                 "Nenhuma chave de API de IA configurada. "
-                "Informe sua chave Gemini no campo abaixo ou salve-a nas Configuracoes de IA."
+                "Informe sua chave Gemini no campo abaixo ou salve-a nas Configurações de IA."
             ),
         )
 
     subject = payload.subject.strip()
     suggest_subject = payload.suggest_subject
     if not subject and not suggest_subject:
-        raise HTTPException(status_code=400, detail="Informe uma materia ou peca para a IA sugerir uma.")
+        raise HTTPException(status_code=400, detail="Informe uma matéria ou peça para a IA sugerir uma.")
 
     count = payload.count
     if payload.generation_mode == "lesson" and count != 5:
-        raise HTTPException(status_code=422, detail="A criacao de licao requer exatamente 5 questoes.")
+        raise HTTPException(status_code=422, detail="A criação de lição requer exatamente 5 questões.")
     avoid_topics = [
         str(item).strip()[:120]
         for item in payload.avoid_topics[:100]
@@ -9695,16 +9695,16 @@ def generate_diverse_flashcards(
     ]
     avoid_topics_text = "\n".join(f"- {item}" for item in avoid_topics)
     avoid_instruction = (
-        "Topicos ja criados nesta materia. Nao repita nem gere variacoes muito parecidas:\n"
+        "Tópicos já criados nesta matéria. Não repita nem gere variações muito parecidas:\n"
         f"{avoid_topics_text}\n"
         if avoid_topics_text
         else ""
     )
     context_text = re.sub(r"\s+", " ", (payload.context or "").strip())[:1000]
     context_instruction = (
-        "Contexto informado pelo usuario para orientar esta geracao:\n"
+        "Contexto informado pelo usuário para orientar esta geração:\n"
         f"{context_text}\n"
-        "Use esse contexto para escolher subtopicos, exemplos e nivel de profundidade, sem fugir da materia.\n"
+        "Use esse contexto para escolher subtópicos, exemplos e nível de profundidade, sem fugir da matéria.\n"
         if context_text
         else ""
     )
@@ -9716,28 +9716,28 @@ def generate_diverse_flashcards(
         "that test understanding and application."
     )
     system_text = (
-        "Voce cria flashcards educativos em formato JSON. "
+        "Você cria flashcards educativos em formato JSON. "
         "Gere perguntas claras e respostas concisas. "
-        "Retorne apenas JSON valido, sem markdown ou comentarios extras."
+        "Retorne apenas JSON válido, sem markdown ou comentários extras."
     )
     if suggest_subject:
         subject_hint = f"Use esta ideia como pista se fizer sentido: '{subject}'." if subject else (
-            "Escolha uma materia util para estudo hoje."
+            "Escolha uma matéria útil para estudo hoje."
         )
         prompt = (
-            f"Sugira uma materia de estudo e crie {count} flashcards iniciais para ela.\n"
+            f"Sugira uma matéria de estudo e crie {count} flashcards iniciais para ela.\n"
             f"{subject_hint}\n"
             f"{avoid_instruction}"
             f"{context_instruction}"
-            f"Politica obrigatoria: {focus_instruction}\n"
+            f"Política obrigatória: {focus_instruction}\n"
             "Regras:\n"
-            "- A materia deve ser curta, clara e adequada para uma aba de estudo.\n"
+            "- A matéria deve ser curta, clara e adequada para uma aba de estudo.\n"
             "- Cada flashcard deve ter uma 'question' escrita como pergunta e uma 'answer' objetiva.\n"
-            "- Cada flashcard deve ser novo em relacao aos topicos ja criados.\n"
+            "- Cada flashcard deve ser novo em relacao aos tópicos já criados.\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
             "- Use code_example apenas quando ajudar; caso contrario, retorne null.\n"
-            "- As respostas devem ser concisas (ate 2 frases).\n"
-            "- Escreva em portugues brasileiro.\n"
+            "- As respostas devem ser concisas (até 2 frases).\n"
+            "- Escreva em português brasileiro.\n"
             "Retorne exatamente neste formato JSON:\n"
             "{\n"
             '  "subject": "string",\n'
@@ -9755,14 +9755,14 @@ def generate_diverse_flashcards(
             f"Crie {count} flashcards de estudo sobre o assunto: '{subject}'.\n"
             f"{avoid_instruction}"
             f"{context_instruction}"
-            f"Politica obrigatoria: {focus_instruction}\n"
+            f"Política obrigatória: {focus_instruction}\n"
             "Regras:\n"
             "- Cada flashcard deve ter uma 'question' escrita como pergunta e uma 'answer' objetiva.\n"
             "- As perguntas devem ser claras, diretas e educativas.\n"
-            "- As respostas devem ser concisas (ate 2 frases).\n"
+            "- As respostas devem ser concisas (até 2 frases).\n"
             "- Cubra os conceitos mais importantes do assunto.\n"
-            "- Nao repita topicos ja criados; avance para subtopicos novos, aplicacoes, exemplos ou erros comuns.\n"
-            "- Escreva em portugues brasileiro.\n"
+            "- Não repita tópicos já criados; avance para subtópicos novos, aplicações, exemplos ou erros comuns.\n"
+            "- Escreva em português brasileiro.\n"
             "- Use code_example apenas quando ajudar; caso contrario, retorne null.\n"
             "Retorne exatamente neste formato JSON:\n"
             "{\n"
@@ -9810,7 +9810,7 @@ def generate_diverse_flashcards(
 
     generated_subject = str(data.get("subject") or subject).strip()[:60]
     if not generated_subject:
-        generated_subject = "Materia sugerida"
+        generated_subject = "Matéria sugerida"
 
     return GenerateFlashcardsResponseSchema(subject=generated_subject, flashcards=flashcards)
 
@@ -10129,7 +10129,7 @@ def get_activity_period_summary(
 
     normalized_period = period.strip().lower()
     if normalized_period not in {"day", "month", "year", "all"}:
-        raise HTTPException(status_code=422, detail="Periodo invalido. Use day, month, year ou all.")
+        raise HTTPException(status_code=422, detail="Período inválido. Use day, month, year ou all.")
 
     today = activity_today()
     if normalized_period == "day":
@@ -10184,8 +10184,8 @@ def get_activity_period_summary(
 
 OBJECTIVE_ACTIVE = "active"
 OBJECTIVE_ARCHIVED = "archived"
-OBJECTIVE_NOT_FOUND = "Objetivo nao encontrado."
-OBJECTIVE_ITEM_NOT_FOUND = "Item do objetivo nao encontrado."
+OBJECTIVE_NOT_FOUND = "Objetivo não encontrado."
+OBJECTIVE_ITEM_NOT_FOUND = "Item do objetivo não encontrado."
 # One account cannot be allowed to grow the table without bound; these are far
 # above any real plan and only exist to stop a script.
 MAX_OBJECTIVES_PER_CHILD = 60
@@ -10258,7 +10258,7 @@ def sync_objective_achievement(
             session,
             child_id=objective.child_id,
             activity_type="objective",
-            activity_title=f"Objetivo concluido: {objective.title}",
+            activity_title=f"Objetivo concluído: {objective.title}",
             activity_id=objective.id,
             result_score=100.0,
             result_details={"items": len(items)},
@@ -10626,7 +10626,7 @@ def get_book(
     book = session.get(Book, book_id)
     # Shared books (child_id=None) are readable by any authenticated user
     if book is None:
-        raise HTTPException(status_code=404, detail="Livro nao encontrado.")
+        raise HTTPException(status_code=404, detail="Livro não encontrado.")
     pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
     return _build_book_schema(book, list(pages))
 
@@ -10647,7 +10647,7 @@ def generate_book(
     if not book_generation_service.is_configured(ai_config):
         raise HTTPException(
             status_code=503,
-            detail="Chave de API de IA nao esta configurada.",
+            detail="Chave de API de IA não está configurada.",
         )
 
     child = get_requested_child(request=request, session=session)
@@ -10740,7 +10740,7 @@ def generate_book_outline(
     if session_record.user_id is not None and ai_config is None:
         raise HTTPException(status_code=403, detail="Configure uma chave de API de IA na sua conta antes de gerar livros.")
     if not book_generation_service.is_configured(ai_config):
-        raise HTTPException(status_code=503, detail="Chave de API de IA nao esta configurada.")
+        raise HTTPException(status_code=503, detail="Chave de API de IA não está configurada.")
 
     child = get_requested_child(request=request, session=session)
     level = payload.level if payload.level > 0 else compute_and_update_child_level(session=session, child=child)
@@ -10792,17 +10792,17 @@ def generate_and_add_book_page(
     if session_record.user_id is not None and ai_config is None:
         raise HTTPException(status_code=403, detail="Configure uma chave de API de IA na sua conta.")
     if not book_generation_service.is_configured(ai_config):
-        raise HTTPException(status_code=503, detail="Chave de API de IA nao esta configurada.")
+        raise HTTPException(status_code=503, detail="Chave de API de IA não está configurada.")
 
     book = session.get(Book, book_id)
     if book is None:
-        raise HTTPException(status_code=404, detail="Livro nao encontrado.")
+        raise HTTPException(status_code=404, detail="Livro não encontrado.")
     if payload.page_number > book.num_pages:
-        raise HTTPException(status_code=400, detail="Este livro ja atingiu o limite de paginas.")
+        raise HTTPException(status_code=400, detail="Este livro já atingiu o limite de páginas.")
 
     existing_pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
     if len(existing_pages) >= book.num_pages:
-        raise HTTPException(status_code=400, detail="Este livro ja esta completo.")
+        raise HTTPException(status_code=400, detail="Este livro já está completo.")
 
     child = get_requested_child(request=request, session=session)
 
@@ -10914,11 +10914,11 @@ def _review_user_account(
     admin = _require_admin(request, session)
     user = session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     if user_is_admin(user):
         raise HTTPException(
             status_code=400,
-            detail="A conta do administrador nao passa pela fila de aprovacao.",
+            detail="A conta do administrador não passa pela fila de aprovação.",
         )
 
     user.status = status
@@ -10952,7 +10952,7 @@ def admin_list_users(
 ) -> list[dict]:
     _require_admin(request, session)
     if status is not None and status not in USER_STATUSES:
-        raise HTTPException(status_code=422, detail="Status invalido.")
+        raise HTTPException(status_code=422, detail="Status inválido.")
 
     users = session.exec(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
     for user in users:
@@ -11088,11 +11088,11 @@ def admin_delete_user(
     _require_admin(request, session)
     user = session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     if user_is_admin(user):
         raise HTTPException(
             status_code=409,
-            detail="A conta do administrador nao pode ser apagada.",
+            detail="A conta do administrador não pode ser apagada.",
         )
 
     email = user.email
@@ -11111,7 +11111,7 @@ def admin_save_user_ai_settings(
     _require_admin(request, session)
     user = session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     record = save_ai_settings_for_user(
         user_id=user_id,
         payload=payload,
@@ -11132,7 +11132,7 @@ def admin_set_user_ai_credits(
     _require_admin(request, session)
     user = session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     if (
         payload.credits is None
         and payload.add is None
@@ -11176,7 +11176,7 @@ def admin_revoke_user_ai_settings(
     _require_admin(request, session)
     user = session.get(User, user_id)
     if user is None:
-        raise HTTPException(status_code=404, detail="Usuario nao encontrado.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
     record = get_user_ai_settings_record(user_id, session)
     if record is not None:
@@ -11224,7 +11224,7 @@ def admin_get_module(
 ) -> dict:
     _require_admin(request, session)
     if not ADMIN_LEARN_DIR.exists():
-        raise HTTPException(status_code=404, detail="Modulo nao encontrado.")
+        raise HTTPException(status_code=404, detail="Módulo não encontrado.")
     for category_dir in ADMIN_LEARN_DIR.iterdir():
         if not category_dir.is_dir():
             continue
@@ -11235,7 +11235,7 @@ def admin_get_module(
                     return data
             except Exception:
                 continue
-    raise HTTPException(status_code=404, detail="Modulo nao encontrado.")
+    raise HTTPException(status_code=404, detail="Módulo não encontrado.")
 
 
 @app.get("/api/admin/learn/flashcards")
@@ -11300,7 +11300,7 @@ def admin_delete_flashcard(
     _require_admin(request, session)
     card = session.get(AdminFlashcard, card_id)
     if card is None:
-        raise HTTPException(status_code=404, detail="Flashcard nao encontrado.")
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
     session.delete(card)
     session.commit()
 

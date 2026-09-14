@@ -188,7 +188,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
                 disabled={busy}
                 onClick={() => void toggleItem(item.id, !item.done)}
                 className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition disabled:opacity-50 ${
-                  item.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white text-transparent hover:border-primary'
+                  item.done ? 'border-emerald-500 bg-emerald-700 text-white' : 'border-slate-300 bg-white text-transparent hover:border-primary'
                 }`}
               >
                 {busy ? <Loader2 size={14} className="animate-spin text-slate-500" /> : <Check size={15} strokeWidth={3} />}
@@ -256,7 +256,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
         <button
           type="submit"
           disabled={adding || !itemTitle.trim()}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-50"
         >
           {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar
         </button>

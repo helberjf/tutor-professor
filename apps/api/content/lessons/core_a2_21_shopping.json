@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Compras",
+  "title": "Inglês A2 - Compras",
   "theme": "Compras",
-  "objective": "Comprar coisas e perguntar o preco.",
+  "objective": "Comprar coisas e perguntar o preço.",
   "level": 3,
   "target_language": "English",
   "content": {
@@ -25,17 +25,17 @@
           },
           {
             "en": "it",
-            "pt": "isso"
+            "pt": "issó"
           }
         ]
       },
       {
         "phrase_en": "It is expensive",
-        "phrase_pt": "Esta caro",
+        "phrase_pt": "Está caro",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "is",
@@ -49,11 +49,11 @@
       },
       {
         "phrase_en": "It is cheap",
-        "phrase_pt": "Esta barato",
+        "phrase_pt": "Está barato",
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "is",
@@ -93,15 +93,15 @@
       },
       {
         "phrase_en": "Do you have a bigger size?",
-        "phrase_pt": "Voce tem um tamanho maior?",
+        "phrase_pt": "Você tem um tamanho maior?",
         "word_by_word": [
           {
             "en": "Do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "have",
@@ -123,7 +123,7 @@
       },
       {
         "phrase_en": "I am just looking",
-        "phrase_pt": "Eu so estou olhando",
+        "phrase_pt": "Eu só estou olhando",
         "word_by_word": [
           {
             "en": "I",
@@ -135,7 +135,7 @@
           },
           {
             "en": "just",
-            "pt": "so"
+            "pt": "só"
           },
           {
             "en": "looking",
@@ -145,11 +145,11 @@
       },
       {
         "phrase_en": "Can I pay by card?",
-        "phrase_pt": "Posso pagar com cartao?",
+        "phrase_pt": "Posso pagar com cartão?",
         "word_by_word": [
           {
             "en": "Can",
-            "pt": "posso"
+            "pt": "possó"
           },
           {
             "en": "I",
@@ -165,13 +165,13 @@
           },
           {
             "en": "card",
-            "pt": "cartao"
+            "pt": "cartão"
           }
         ]
       },
       {
         "phrase_en": "Here is your change",
-        "phrase_pt": "Aqui esta o seu troco",
+        "phrase_pt": "Aqui está o seu troco",
         "word_by_word": [
           {
             "en": "Here",
@@ -202,15 +202,15 @@
     },
     {
       "word_en": "It is expensive",
-      "word_pt": "Esta caro",
+      "word_pt": "Está caro",
       "example_sentence_en": "This jacket is expensive.",
-      "example_sentence_pt": "Esta jaqueta esta cara."
+      "example_sentence_pt": "Esta jaqueta está cara."
     },
     {
       "word_en": "It is cheap",
-      "word_pt": "Esta barato",
+      "word_pt": "Está barato",
       "example_sentence_en": "The bread is cheap here.",
-      "example_sentence_pt": "O pao e barato aqui."
+      "example_sentence_pt": "O pão é barato aqui."
     },
     {
       "word_en": "I would like this one",
@@ -220,27 +220,27 @@
     },
     {
       "word_en": "Do you have a bigger size?",
-      "word_pt": "Voce tem um tamanho maior?",
+      "word_pt": "Você tem um tamanho maior?",
       "example_sentence_en": "Do you have a bigger size, please?",
-      "example_sentence_pt": "Voce tem um tamanho maior, por favor?"
+      "example_sentence_pt": "Você tem um tamanho maior, por favor?"
     },
     {
       "word_en": "I am just looking",
-      "word_pt": "Eu so estou olhando",
+      "word_pt": "Eu só estou olhando",
       "example_sentence_en": "Thank you, I am just looking.",
-      "example_sentence_pt": "Obrigado, eu so estou olhando."
+      "example_sentence_pt": "Obrigado, eu só estou olhando."
     },
     {
       "word_en": "Can I pay by card?",
-      "word_pt": "Posso pagar com cartao?",
+      "word_pt": "Posso pagar com cartão?",
       "example_sentence_en": "Can I pay by card here?",
-      "example_sentence_pt": "Posso pagar com cartao aqui?"
+      "example_sentence_pt": "Posso pagar com cartão aqui?"
     },
     {
       "word_en": "Here is your change",
-      "word_pt": "Aqui esta o seu troco",
+      "word_pt": "Aqui está o seu troco",
       "example_sentence_en": "Here is your change, thank you.",
-      "example_sentence_pt": "Aqui esta o seu troco, obrigado."
+      "example_sentence_pt": "Aqui está o seu troco, obrigado."
     }
   ]
 }

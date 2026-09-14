@@ -207,7 +207,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
             <button
               type="submit"
               disabled={saving || !title.trim()}
-              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
               {saving ? <Loader2 size={18} className="animate-spin" /> : 'Criar objetivo'}
             </button>

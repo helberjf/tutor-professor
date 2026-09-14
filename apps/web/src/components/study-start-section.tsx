@@ -9,28 +9,28 @@ import { api, type StudySessionState } from '@/lib/api';
 const studyActions = [
   {
     href: '/lesson',
-    title: 'Licao',
-    description: 'Comece pelas 3 frases por dia em ingles.',
+    title: 'Lição',
+    description: 'Comece pelas 3 frases por dia em inglês.',
     icon: BookOpen,
     tone: 'text-sky-700 bg-sky-50 border-sky-100',
   },
   {
     href: '/study?tab=english#english-questions',
-    title: 'Questoes',
-    description: 'Pratique somente perguntas da licao escolhida.',
+    title: 'Questões',
+    description: 'Pratique somente perguntas da lição escolhida.',
     icon: ClipboardList,
     tone: 'text-emerald-700 bg-emerald-50 border-emerald-100',
   },
   {
     href: '/study?tab=english#english-grammar',
-    title: 'Gramatica',
-    description: 'Treine estruturas das frases de ingles.',
+    title: 'Gramática',
+    description: 'Treine estruturas das frases de inglês.',
     icon: SpellCheck2,
     tone: 'text-violet-700 bg-violet-50 border-violet-100',
   },
   {
     href: '/review',
-    title: 'Revisao',
+    title: 'Revisão',
     description: 'Reforce o que precisa voltar hoje.',
     icon: Brain,
     tone: 'text-amber-700 bg-amber-50 border-amber-100',
@@ -80,9 +80,9 @@ export function StudyStartSection() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Iniciar estudo</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-800">Comece pela licao de ingles</h2>
+          <h2 className="mt-1 text-2xl font-black text-slate-800">Comece pela lição de inglês</h2>
           <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-slate-500">
-            A sugestao para ingles e estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.
+            A sugestão para inglês é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.
           </p>
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-sm font-black text-slate-600">

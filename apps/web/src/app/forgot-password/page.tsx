@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
       // registered here.
       setSent(true);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel enviar o e-mail.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível enviar o e-mail.');
     } finally {
       setLoading(false);
     }
@@ -48,13 +48,13 @@ export default function ForgotPasswordPage() {
               Se existir uma conta com esse e-mail, enviamos um link para redefinir a senha.
             </p>
             <p className="mt-2 text-sm font-semibold text-emerald-700">
-              O link vale por 1 hora. Confira tambem a caixa de spam.
+              O link vale por 1 hora. Confira também a caixa de spam.
             </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
             <p className="text-base leading-7 text-slate-600">
-              Informe o e-mail da conta. Enviaremos um link para voce criar uma senha nova.
+              Informe o e-mail da conta. Enviaremos um link para você criar uma senha nova.
             </p>
             <label className="grid gap-2">
               <span className="text-sm font-black text-slate-600">E-mail</span>
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
               Enviar link

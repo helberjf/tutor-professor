@@ -172,7 +172,7 @@ export function StudyQuestionsPanel({
           shell: 'border-sky-100 bg-sky-50',
           title: 'text-sky-900',
           helper: 'text-sky-700',
-          primary: 'bg-sky-500 hover:bg-sky-600',
+          primary: 'bg-sky-700 hover:bg-sky-800',
           secondary: 'border-sky-200 text-sky-800 hover:bg-sky-100',
           field: 'border-sky-100 bg-sky-50/40 focus:border-sky-400',
         }
@@ -180,7 +180,7 @@ export function StudyQuestionsPanel({
           shell: 'border-amber-100 bg-amber-50',
           title: 'text-amber-900',
           helper: 'text-amber-700',
-          primary: 'bg-amber-500 hover:bg-amber-600',
+          primary: 'bg-amber-700 hover:bg-amber-800',
           secondary: 'border-amber-200 text-amber-800 hover:bg-amber-100',
           field: 'border-amber-100 bg-amber-50/40 focus:border-amber-400',
         };
@@ -302,7 +302,7 @@ export function StudyQuestionsPanel({
           </div>
           {generationContextPrefix ? (
             <p className={`text-xs font-bold ${palette.helper}`}>
-              Este modo ja inclui uma orientacao automatica. Voce ainda pode acrescentar ate {contextMaxLength} caracteres.
+              Este modo já inclui uma orientação automática. Você ainda pode acrescentar até {contextMaxLength} caracteres.
             </p>
           ) : null}
         </div>

@@ -17,9 +17,9 @@ export default function QuizPage() {
         <StatusCard
           tone="loading"
           title="Preparando o quiz"
-          message="O tutor esta separando as perguntas de hoje e as estrelas da pontuacao."
+          message="O tutor está separando as perguntas de hoje e as estrelas da pontuação."
           secondaryHref="/"
-          secondaryLabel="Voltar ao inicio"
+          secondaryLabel="Voltar ao início"
         />
       }
     >
@@ -70,7 +70,7 @@ function QuizPageContent() {
       setSubmitMessage(null);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar o quiz.'));
+      setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar o quiz.'));
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ function QuizPageContent() {
       setFinished(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar o resultado do quiz.'));
+      setError(err instanceof ApiError ? err : new ApiError('Não foi possível salvar o resultado do quiz.'));
     } finally {
       setSavingResult(false);
     }
@@ -131,7 +131,7 @@ function QuizPageContent() {
         title="Verificando acesso"
         message="Confirmando seu cadastro..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -139,15 +139,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
             Conectar
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -157,9 +157,9 @@ function QuizPageContent() {
       <StatusCard
         tone="loading"
         title="Preparando o quiz"
-        message="O tutor esta separando as perguntas de hoje e as estrelas da pontuacao."
+        message="O tutor está separando as perguntas de hoje e as estrelas da pontuação."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -168,15 +168,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponivel"
-        message="Nao foi possivel carregar os quizzes agora. Tente novamente em instantes."
+        title="Tutor temporariamente indisponível"
+        message="Não foi possível carregar os quizzes agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">
-            Abrir configuracao de conexao
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
+            Abrir configuração de conexão
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -185,15 +185,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="O quiz nao conseguiu se conectar"
-        message="Nao foi possivel carregar o quiz agora. Tente novamente em instantes."
+        title="O quiz não conseguiu se conectar"
+        message="Não foi possível carregar o quiz agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadQuiz()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexao"
+        secondaryLabel="Trocar conexão"
       />
     );
   }
@@ -210,7 +210,7 @@ function QuizPageContent() {
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -219,10 +219,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="empty"
-        title="Ainda nao ha quiz"
-        message="Nao encontramos perguntas de quiz. Adicione o conteudo do quiz e volte depois."
+        title="Ainda não há quiz"
+        message="Não encontramos perguntas de quiz. Adicione o conteúdo do quiz e volte depois."
         secondaryHref="/lesson"
-        secondaryLabel="Ir para a licao"
+        secondaryLabel="Ir para a lição"
       />
     );
   }
@@ -257,14 +257,14 @@ function QuizPageContent() {
               {submitMessage?.encouragement || buildFallbackMessage(percentage)}
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link href="/review" className="app-button bg-primary hover:bg-primary-dark">
-                Praticar revisao de frases
+              <Link href="/review" className="app-button bg-primary-dark hover:bg-primary-dark">
+                Praticar revisão de frases
               </Link>
               <Link
                 href="/"
                 className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
               >
-                Voltar ao inicio
+                Voltar ao início
               </Link>
             </div>
           </div>
@@ -347,7 +347,7 @@ function QuizPageContent() {
                 disabled={savingResult}
                 className="app-button mt-6 bg-secondary-dark hover:bg-secondary"
               >
-                {currentIndex < quiz.questions.length - 1 ? 'Proxima pergunta' : savingResult ? 'Salvando...' : 'Ver minha pontuacao'}
+                {currentIndex < quiz.questions.length - 1 ? 'Próxima pergunta' : savingResult ? 'Salvando...' : 'Ver minha pontuação'}
                 <ChevronRight className="ml-2" size={20} />
               </button>
             </div>
@@ -364,10 +364,10 @@ function QuizPageContent() {
 
 function buildFallbackMessage(percentage: number) {
   if (percentage === 100) {
-    return 'Trabalho incrivel! Todas as respostas foram certeiras.';
+    return 'Trabalho incrível! Todas as respostas foram certeiras.';
   }
   if (percentage >= 60) {
-    return 'Muito bem! Voce lembrou bastante coisa. Um pouco de revisao vai te deixar ainda melhor.';
+    return 'Muito bem! Você lembrou bastante coisa. Um pouco de revisão vai te deixar ainda melhor.';
   }
-  return 'Bom esforco! Revise as frases mais uma vez e volte para tentar de novo.';
+  return 'Bom esforço! Revise as frases mais uma vez e volte para tentar de novo.';
 }

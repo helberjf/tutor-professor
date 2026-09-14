@@ -125,7 +125,7 @@ export default function ParentsPage() {
       setIsLoggedIn(true);
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar as configuracoes da conta.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível carregar as configurações da conta.');
       if (nextError.status === 401) {
         router.replace('/login?next=/account');
         return;
@@ -164,10 +164,10 @@ export default function ParentsPage() {
         auto_audio: settings.auto_audio,
         target_language: settings.target_language ?? 'English',
       });
-      setMessage('Configuracoes salvas.');
+      setMessage('Configurações salvas.');
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar as configuracoes.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível salvar as configurações.');
       setMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -210,9 +210,9 @@ export default function ParentsPage() {
         model: saved.model,
         base_url: saved.base_url ?? '',
       });
-      setAiMessage('Configuracao de IA salva.');
+      setAiMessage('Configuração de IA salva.');
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel salvar a IA.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível salvar a IA.');
       setAiMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -226,7 +226,7 @@ export default function ParentsPage() {
     try {
       await api.userLogout();
     } catch (err) {
-      logoutError = err instanceof ApiError ? err : new ApiError('Nao foi possivel sair.');
+      logoutError = err instanceof ApiError ? err : new ApiError('Não foi possível sair.');
     } finally {
       setIsLoggedIn(false);
       clearActiveChildId();
@@ -234,7 +234,7 @@ export default function ParentsPage() {
       setChildren([]);
       setProgressSummaries([]);
       setForm(DEFAULT_FORM);
-      setMessage(logoutError ? 'Sessao local encerrada. Entre novamente para continuar.' : 'Voce saiu da conta.');
+      setMessage(logoutError ? 'Sessão local encerrada. Entre novamente para continuar.' : 'Você saiu da conta.');
       setGeneratorMessage('');
       setGeneratedLesson(null);
       setGeneratorTone('idle');
@@ -277,7 +277,7 @@ export default function ParentsPage() {
       setMessage(`Novo aluno criado: ${child.name}.`);
       await loadSettings();
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel criar o novo aluno.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível criar o novo aluno.');
       setMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -299,7 +299,7 @@ export default function ParentsPage() {
       setGeneratorTopic('');
       setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Nao foi possivel gerar novas frases.');
+      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível gerar novas frases.');
       if (nextError.status === 401) {
         router.replace('/login?next=/account');
         return;
@@ -316,10 +316,10 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Abrindo as configuracoes da conta"
-        message="Verificando sua sessao e carregando o perfil de estudo."
+        title="Abrindo as configurações da conta"
+        message="Verificando sua sessão e carregando o perfil de estudo."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -328,13 +328,13 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Area da conta indisponivel"
-        message="Nao foi possivel carregar a configuracao do aplicativo agora. Tente novamente em instantes."
+        title="Área da conta indisponível"
+        message="Não foi possível carregar a configuração do aplicativo agora. Tente novamente em instantes."
         primaryAction={
-          <button onClick={() => void loadSettings()} className="app-button bg-primary hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadSettings()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -343,15 +343,15 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="A area da conta esta offline"
-        message="O sistema nao esta respondendo agora. Tente novamente em instantes."
+        title="A área da conta está offline"
+        message="O sistema não está respondendo agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadSettings()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -381,17 +381,17 @@ export default function ParentsPage() {
         <section className="app-surface mb-6 flex flex-col items-start justify-between gap-5 border-primary/40 p-6 sm:flex-row sm:items-center md:p-8">
           <div>
             <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-dark">Pronto para estudar?</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">Comece a licao de hoje</h2>
+            <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">Comece a lição de hoje</h2>
             <p className="mt-1 text-sm leading-6 text-slate-500">Aluno ativo: <span className="font-black text-slate-700">{children.find((c) => c.id === activeChildId)?.name ?? '—'}</span></p>
           </div>
           <div className="relative w-full shrink-0 sm:w-auto">
-            <span className="absolute inset-0 animate-ping rounded-full bg-primary opacity-20" />
+            <span className="absolute inset-0 animate-ping rounded-full bg-primary-dark opacity-20" />
             <Link
               href="/lesson"
-              className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary px-6 py-4 text-base font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto md:px-10 md:py-5 md:text-xl"
+              className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary-dark px-6 py-4 text-base font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto md:px-10 md:py-5 md:text-xl"
             >
               <BookOpen size={22} />
-              Comecar licao
+              Começar lição
             </Link>
           </div>
         </section>
@@ -410,7 +410,7 @@ export default function ParentsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black text-slate-800">{child.name}</h2>
-                    <p className="text-sm font-bold text-slate-400">Nivel {progress.current_level} - {child.age_group}</p>
+                    <p className="text-sm font-bold text-slate-400">Nível {progress.current_level} - {child.age_group}</p>
                   </div>
                   {child.id === activeChildId ? (
                     <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black text-primary-dark">Ativo</span>
@@ -422,15 +422,15 @@ export default function ParentsPage() {
                   <ProgressMetric label="Frases" value={progress.vocabulary_learned} />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-slate-500">
-                  Ultima atividade: {formatLastActivity(progress.last_activity)}
+                  Última atividade: {formatLastActivity(progress.last_activity)}
                 </p>
                 <Link
                   href="/lesson"
                   onClick={() => { if (child.id !== activeChildId) { saveActiveChildId(child.id); setActiveChildId(child.id); } }}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 text-sm font-black text-white transition hover:bg-primary-dark"
                 >
                   <BookOpen size={16} />
-                  Comecar licao
+                  Começar lição
                 </Link>
                 {progress.difficult_words.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -456,9 +456,9 @@ export default function ParentsPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="app-surface border-primary/40 p-5 md:p-10">
-            <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Configuracoes da conta</h1>
+            <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Configurações da conta</h1>
             <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-              Escolha o nome do estudante, a faixa de idade e o comportamento do audio. A faixa de idade ajusta o vocabulario e o tom do conteudo gerado.
+              Escolha o nome do estudante, a faixa de idade e o comportamento do áudio. A faixa de idade ajusta o vocabulário e o tom do conteúdo gerado.
             </p>
 
             <div className="mt-8 grid gap-8">
@@ -536,7 +536,7 @@ export default function ParentsPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <Volume2 className="text-brand-pink" size={28} />
-                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Voz e audio</h2>
+                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Voz e áudio</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
@@ -546,7 +546,7 @@ export default function ParentsPage() {
                       onChange={(event) => setForm((current) => ({ ...current, voice_preference: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     >
-                      <option value="af_bella">Bella amigavel</option>
+                      <option value="af_bella">Bella amigável</option>
                       <option value="af_sky">Sky suave</option>
                       <option value="am_adam">Adam</option>
                     </select>
@@ -558,16 +558,16 @@ export default function ParentsPage() {
                       onChange={(event) => setForm((current) => ({ ...current, auto_audio: event.target.checked }))}
                       className="h-6 w-6 accent-sky-500"
                     />
-                    Tocar audio do tutor automaticamente
+                    Tocar áudio do tutor automaticamente
                   </label>
                 </div>
               </section>
             </div>
 
             {message ? <p className="mt-6 text-sm font-bold text-primary-dark">{message}</p> : null}
-            <button type="submit" disabled={saving} className="app-button mt-8 bg-primary hover:bg-primary-dark">
+            <button type="submit" disabled={saving} className="app-button mt-8 bg-primary-dark hover:bg-primary-dark">
               <Save className="mr-2" size={18} />
-              {saving ? 'Salvando...' : 'Salvar configuracoes'}
+              {saving ? 'Salvando...' : 'Salvar configurações'}
             </button>
           </form>
 
@@ -695,12 +695,12 @@ export default function ParentsPage() {
                 >
                   <p className="text-sm font-black text-slate-700">
                     {aiCredits.credits > 0
-                      ? `${aiCredits.credits} creditos de IA restantes`
-                      : 'Seus creditos de IA acabaram'}
+                      ? `${aiCredits.credits} créditos de IA restantes`
+                      : 'Seus créditos de IA acabaram'}
                   </p>
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                    Seu limite e de {aiCredits.daily_limit} por dia. Cada geracao concluida usa 1
-                    credito, inclusive livros. Hoje voce ja usou {aiCredits.used}.
+                    Seu limite é de {aiCredits.daily_limit} por dia. Cada geração concluída usa 1
+                    crédito, inclusive livros. Hoje você já usou {aiCredits.used}.
                   </p>
                 </div>
               ) : null}
@@ -752,7 +752,7 @@ export default function ParentsPage() {
                     <p className="mt-2 text-xs font-bold text-slate-500">Chave salva: {aiSettings.api_key_preview ?? '****'}</p>
                   ) : (
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      O Gemini padrao ja esta ativo. Preencha somente se quiser usar sua propria chave.
+                      O Gemini padrão já está ativo. Preencha somente se quiser usar sua própria chave.
                     </p>
                   )}
                 </div>
@@ -785,10 +785,10 @@ export default function ParentsPage() {
             <div className="app-surface border-primary/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-primary-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Criar nova licao com IA</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Criar nova lição com IA</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Gere o proximo dia com 3 frases novas usando a IA configurada na sua conta.
+                Gere o próximo dia com 3 frases novas usando a IA configurada na sua conta.
               </p>
               <div className="mt-5">
                 <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
@@ -803,7 +803,7 @@ export default function ParentsPage() {
               </div>
               {showTokenWarning && !generatingLesson ? (
                 <div className="mt-5 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-black text-amber-800">Esta acao consome tokens da API de IA. Confirmar?</p>
+                  <p className="text-sm font-black text-amber-800">Esta ação consome tokens da API de IA. Confirmar?</p>
                   <div className="mt-3 flex gap-3">
                     <button
                       type="button"
@@ -826,9 +826,9 @@ export default function ParentsPage() {
                   type="button"
                   onClick={() => setShowTokenWarning(true)}
                   disabled={generatingLesson}
-                  className="app-button mt-6 bg-primary hover:bg-primary-dark"
+                  className="app-button mt-6 bg-primary-dark hover:bg-primary-dark"
                 >
-                  {generatingLesson ? 'Criando licao...' : 'Criar nova licao com IA'}
+                  {generatingLesson ? 'Criando lição...' : 'Criar nova lição com IA'}
                 </button>
               )}
               {generatorMessage ? (
@@ -838,7 +838,7 @@ export default function ParentsPage() {
               ) : null}
               {generatedLesson ? (
                 <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Ultimo dia gerado</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Último dia gerado</p>
                   <h3 className="mt-2 text-xl font-black text-slate-800 md:text-2xl">{generatedLesson.title}</h3>
                   <div className="mt-4 space-y-3">
                     {generatedLesson.items.map((item, index) => (
@@ -854,13 +854,13 @@ export default function ParentsPage() {
                       href={`/lesson?lessonId=${generatedLesson.id}`}
                       className="rounded-full border-2 border-primary/20 bg-white px-5 py-3 text-center text-base font-bold text-primary-dark transition hover:border-primary hover:bg-primary-light"
                     >
-                      Abrir licao criada
+                      Abrir lição criada
                     </Link>
                     <Link
                       href={`/quiz?lessonId=${generatedLesson.id}`}
                       className="rounded-full border-2 border-slate-200 bg-white px-5 py-3 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                     >
-                      Abrir quiz da licao
+                      Abrir quiz da lição
                     </Link>
                   </div>
                 </div>
@@ -870,18 +870,18 @@ export default function ParentsPage() {
             <div className="app-surface border-accent/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="text-accent-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Nota de seguranca</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Nota de segurança</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                O tutor fica no tema do estudo, com respostas curtas e redirecionamento gentil. Para um perfil de 4 a 12 anos, as regras extras de conteudo apropriado continuam valendo.
+                O tutor fica no tema do estudo, com respostas curtas e redirecionamento gentil. Para um perfil de 4 a 12 anos, as regras extras de conteúdo apropriado continuam valendo.
               </p>
             </div>
 
             <div className="app-surface border-secondary/50 p-5 md:p-8">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuracao util</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuração útil</p>
               <h2 className="mt-3 text-2xl font-black text-slate-800 md:text-3xl">Ambiente</h2>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Login Google usa <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> e <code>GOOGLE_REDIRECT_URI</code>. Cada conta usa sua propria chave de IA salva acima.
+                Login Google usa <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> e <code>GOOGLE_REDIRECT_URI</code>. Cada conta usa sua própria chave de IA salva acima.
               </p>
             </div>
           </aside>

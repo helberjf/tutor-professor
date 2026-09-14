@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Gostos",
+  "title": "Inglês A2 - Gostos",
   "theme": "Gostos",
-  "objective": "Dizer do que voce gosta e do que nao gosta.",
+  "objective": "Dizer do que você gosta e do que não gosta.",
   "level": 3,
   "target_language": "English",
   "content": {
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "I like music",
-        "phrase_pt": "Eu gosto de musica",
+        "phrase_pt": "Eu gosto de música",
         "word_by_word": [
           {
             "en": "I",
@@ -21,7 +21,7 @@
           },
           {
             "en": "music",
-            "pt": "musica"
+            "pt": "música"
           }
         ]
       },
@@ -45,7 +45,7 @@
       },
       {
         "phrase_en": "I do not like waiting",
-        "phrase_pt": "Eu nao gosto de esperar",
+        "phrase_pt": "Eu não gosto de esperar",
         "word_by_word": [
           {
             "en": "I",
@@ -53,11 +53,11 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "like",
@@ -89,7 +89,7 @@
       },
       {
         "phrase_en": "I prefer tea",
-        "phrase_pt": "Eu prefiro cha",
+        "phrase_pt": "Eu prefiro chá",
         "word_by_word": [
           {
             "en": "I",
@@ -101,13 +101,13 @@
           },
           {
             "en": "tea",
-            "pt": "cha"
+            "pt": "chá"
           }
         ]
       },
       {
         "phrase_en": "What do you think?",
-        "phrase_pt": "O que voce acha?",
+        "phrase_pt": "O que você achá?",
         "word_by_word": [
           {
             "en": "What",
@@ -115,21 +115,21 @@
           },
           {
             "en": "do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "think",
-            "pt": "acha"
+            "pt": "achá"
           }
         ]
       },
       {
         "phrase_en": "I agree with you",
-        "phrase_pt": "Eu concordo com voce",
+        "phrase_pt": "Eu concordo com você",
         "word_by_word": [
           {
             "en": "I",
@@ -145,7 +145,7 @@
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           }
         ]
       },
@@ -155,7 +155,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "isso"
+            "pt": "issó"
           },
           {
             "en": "depends",
@@ -168,9 +168,9 @@
   "items": [
     {
       "word_en": "I like music",
-      "word_pt": "Eu gosto de musica",
+      "word_pt": "Eu gosto de música",
       "example_sentence_en": "I like music from Brazil.",
-      "example_sentence_pt": "Eu gosto de musica do Brasil."
+      "example_sentence_pt": "Eu gosto de música do Brasil."
     },
     {
       "word_en": "I love reading",
@@ -180,33 +180,33 @@
     },
     {
       "word_en": "I do not like waiting",
-      "word_pt": "Eu nao gosto de esperar",
+      "word_pt": "Eu não gosto de esperar",
       "example_sentence_en": "I do not like waiting in line.",
-      "example_sentence_pt": "Eu nao gosto de esperar na fila."
+      "example_sentence_pt": "Eu não gosto de esperar na fila."
     },
     {
       "word_en": "My favourite food",
       "word_pt": "Minha comida favorita",
       "example_sentence_en": "My favourite food is pizza.",
-      "example_sentence_pt": "Minha comida favorita e pizza."
+      "example_sentence_pt": "Minha comida favorita é pizza."
     },
     {
       "word_en": "I prefer tea",
-      "word_pt": "Eu prefiro cha",
+      "word_pt": "Eu prefiro chá",
       "example_sentence_en": "I prefer tea to coffee.",
-      "example_sentence_pt": "Eu prefiro cha a cafe."
+      "example_sentence_pt": "Eu prefiro chá a café."
     },
     {
       "word_en": "What do you think?",
-      "word_pt": "O que voce acha?",
+      "word_pt": "O que você achá?",
       "example_sentence_en": "What do you think about this song?",
-      "example_sentence_pt": "O que voce acha desta musica?"
+      "example_sentence_pt": "O que você achá desta música?"
     },
     {
       "word_en": "I agree with you",
-      "word_pt": "Eu concordo com voce",
+      "word_pt": "Eu concordo com você",
       "example_sentence_en": "I agree with you about the film.",
-      "example_sentence_pt": "Eu concordo com voce sobre o filme."
+      "example_sentence_pt": "Eu concordo com você sobre o filme."
     },
     {
       "word_en": "It depends",

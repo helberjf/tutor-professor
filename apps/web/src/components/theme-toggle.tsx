@@ -40,7 +40,7 @@ export function ThemeToggle({ compact = false, className = '' }: ThemeToggleProp
             onClick={() => setPreference(option.value)}
             className={`theme-toggle-option inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-black transition focus:outline-none focus:ring-2 focus:ring-primary/35 ${
               active
-                ? 'bg-primary text-white shadow-[0_10px_20px_rgba(14,165,233,0.25)]'
+                ? 'bg-primary-dark text-white shadow-[0_10px_20px_rgba(14,165,233,0.25)]'
                 : 'text-slate-500 hover:bg-slate-100 hover:text-primary-dark'
             } ${compact ? 'w-9 px-0' : 'sm:min-w-[5.25rem]'}`}
           >

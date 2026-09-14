@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A1 - Animais",
+  "title": "Inglês A1 - Animais",
   "theme": "Animais",
   "objective": "Nomear animais e dizer o que eles fazem.",
   "level": 1,
@@ -152,7 +152,7 @@
       "word_en": "a fish",
       "word_pt": "um peixe",
       "example_sentence_en": "A fish swims in the water.",
-      "example_sentence_pt": "Um peixe nada na agua."
+      "example_sentence_pt": "Um peixe nada na água."
     },
     {
       "word_en": "a horse",
@@ -164,7 +164,7 @@
       "word_en": "a rabbit",
       "word_pt": "um coelho",
       "example_sentence_en": "A rabbit jumps very fast.",
-      "example_sentence_pt": "Um coelho pula muito rapido."
+      "example_sentence_pt": "Um coelho pula muito rápido."
     },
     {
       "word_en": "I like animals",
@@ -176,7 +176,7 @@
       "word_en": "the animals eat",
       "word_pt": "os animais comem",
       "example_sentence_en": "The animals eat in the morning.",
-      "example_sentence_pt": "Os animais comem de manha."
+      "example_sentence_pt": "Os animais comem de manhã."
     }
   ]
 }

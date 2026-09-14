@@ -49,7 +49,7 @@ export function CodingTab({
             onClick={() => setCodingMode('reading')}
             className={`flex min-h-16 items-center gap-3 rounded-[1.35rem] border-2 p-3 text-left transition sm:min-h-24 sm:gap-4 sm:p-4 ${
               codingMode === 'reading'
-                ? 'border-primary bg-primary text-white shadow-sm'
+                ? 'border-primary bg-primary-dark text-white shadow-sm'
                 : 'border-slate-100 bg-white/85 text-slate-600 hover:border-primary/40 hover:bg-white'
             }`}
           >
@@ -83,7 +83,7 @@ export function CodingTab({
             onClick={() => setCodingMode('questions')}
             className={`flex min-h-16 items-center gap-3 rounded-[1.35rem] border-2 p-3 text-left transition sm:min-h-24 sm:gap-4 sm:p-4 ${
               codingMode === 'questions'
-                ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                ? 'border-amber-500 bg-amber-700 text-white shadow-sm'
                 : 'border-slate-100 bg-white/85 text-slate-600 hover:border-amber-300 hover:bg-white'
             }`}
           >

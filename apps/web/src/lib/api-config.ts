@@ -287,7 +287,7 @@ export async function verifySavedApiBaseUrl(rawValue: string) {
   } catch {
     return {
       ok: false as const,
-      message: 'Nao conseguimos acessar /health nessa URL. Inicie o backend, rode o tunnel de novo e cole a nova URL HTTPS.',
+      message: 'Não conseguimos acessar /health nessa URL. Inicie o backend, rode o tunnel de novo e cole a nova URL HTTPS.',
     };
   }
 }

@@ -64,8 +64,8 @@ def run(argv: list[str] | None = None) -> int:
 
     if main.ADMIN_EMAIL and email != main.ADMIN_EMAIL:
         print(
-            f"Aviso: {email} nao e o ADMIN_EMAIL carregado ({main.ADMIN_EMAIL}). "
-            "A conta sera criada, mas o painel /admin so reconhece o ADMIN_EMAIL.",
+            f"Aviso: {email} não e o ADMIN_EMAIL carregado ({main.ADMIN_EMAIL}). "
+            "A conta será criada, mas o painel /admin só reconhece o ADMIN_EMAIL.",
             file=sys.stderr,
         )
 

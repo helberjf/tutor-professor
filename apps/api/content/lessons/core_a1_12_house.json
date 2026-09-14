@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Em casa",
+  "title": "Inglês A1 - Em casa",
   "theme": "Casa",
-  "objective": "Falar dos comodos e das coisas de casa.",
+  "objective": "Falar dos cômodos e das coisas de casa.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -152,7 +152,7 @@
       "word_en": "the bathroom",
       "word_pt": "o banheiro",
       "example_sentence_en": "The bathroom is on the left.",
-      "example_sentence_pt": "O banheiro fica a esquerda."
+      "example_sentence_pt": "O banheiro fica à esquerda."
     },
     {
       "word_en": "a table",
@@ -164,19 +164,19 @@
       "word_en": "a bed",
       "word_pt": "uma cama",
       "example_sentence_en": "My bed is very soft.",
-      "example_sentence_pt": "Minha cama e bem macia."
+      "example_sentence_pt": "Minha cama é bem macia."
     },
     {
       "word_en": "Come in, please",
       "word_pt": "Entre, por favor",
       "example_sentence_en": "Come in, please, it is open.",
-      "example_sentence_pt": "Entre, por favor, esta aberto."
+      "example_sentence_pt": "Entre, por favor, está aberto."
     },
     {
       "word_en": "Close the door",
       "word_pt": "Feche a porta",
       "example_sentence_en": "Close the door, it is cold.",
-      "example_sentence_pt": "Feche a porta, esta frio."
+      "example_sentence_pt": "Feche a porta, está frio."
     }
   ]
 }

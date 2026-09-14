@@ -217,7 +217,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading || lockedOut || !email.trim() || !password}
-              className="app-button w-full bg-primary hover:bg-primary-dark"
+              className="app-button w-full bg-primary-dark hover:bg-primary-dark"
             >
               {loading ? 'Entrando…' : 'Entrar'}
             </button>

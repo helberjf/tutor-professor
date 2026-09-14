@@ -174,7 +174,7 @@ export function SummarySheetModal({
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={saving || !draft.trim() || overLimit}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
                   {saving ? 'Salvando...' : 'Salvar'}

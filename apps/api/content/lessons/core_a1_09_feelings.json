@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A1 - Sentimentos",
+  "title": "Inglês A1 - Sentimentos",
   "theme": "Sentimentos",
-  "objective": "Dizer como voce se sente hoje.",
+  "objective": "Dizer como você se sente hoje.",
   "level": 2,
   "target_language": "English",
   "content": {
@@ -99,15 +99,15 @@
       },
       {
         "phrase_en": "Are you okay?",
-        "phrase_pt": "Voce esta bem?",
+        "phrase_pt": "Você está bem?",
         "word_by_word": [
           {
             "en": "Are",
-            "pt": "esta"
+            "pt": "está"
           },
           {
             "en": "you",
-            "pt": "voce"
+            "pt": "você"
           },
           {
             "en": "okay",
@@ -117,15 +117,15 @@
       },
       {
         "phrase_en": "Do not worry",
-        "phrase_pt": "Nao se preocupe",
+        "phrase_pt": "Não se preocupe",
         "word_by_word": [
           {
             "en": "Do",
-            "pt": "faco"
+            "pt": "faço"
           },
           {
             "en": "not",
-            "pt": "nao"
+            "pt": "não"
           },
           {
             "en": "worry",
@@ -168,7 +168,7 @@
       "word_en": "I am sad",
       "word_pt": "Eu estou triste",
       "example_sentence_en": "I am sad because it is raining.",
-      "example_sentence_pt": "Eu estou triste porque esta chovendo."
+      "example_sentence_pt": "Eu estou triste porque está chovendo."
     },
     {
       "word_en": "I am tired",
@@ -190,15 +190,15 @@
     },
     {
       "word_en": "Are you okay?",
-      "word_pt": "Voce esta bem?",
+      "word_pt": "Você está bem?",
       "example_sentence_en": "Are you okay, my friend?",
-      "example_sentence_pt": "Voce esta bem, meu amigo?"
+      "example_sentence_pt": "Você está bem, meu amigo?"
     },
     {
       "word_en": "Do not worry",
-      "word_pt": "Nao se preocupe",
+      "word_pt": "Não se preocupe",
       "example_sentence_en": "Do not worry, I am here.",
-      "example_sentence_pt": "Nao se preocupe, eu estou aqui."
+      "example_sentence_pt": "Não se preocupe, eu estou aqui."
     },
     {
       "word_en": "I feel better now",

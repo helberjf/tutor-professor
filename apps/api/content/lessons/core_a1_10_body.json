@@ -1,5 +1,5 @@
 {
-  "title": "Ingles A1 - O corpo",
+  "title": "Inglês A1 - O corpo",
   "theme": "Corpo",
   "objective": "Nomear partes do corpo.",
   "level": 2,
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "my head",
-        "phrase_pt": "minha cabeca",
+        "phrase_pt": "minha cabeça",
         "word_by_word": [
           {
             "en": "my",
@@ -17,13 +17,13 @@
           },
           {
             "en": "head",
-            "pt": "cabeca"
+            "pt": "cabeça"
           }
         ]
       },
       {
         "phrase_en": "my hand",
-        "phrase_pt": "minha mao",
+        "phrase_pt": "minha mão",
         "word_by_word": [
           {
             "en": "my",
@@ -31,13 +31,13 @@
           },
           {
             "en": "hand",
-            "pt": "mao"
+            "pt": "mão"
           }
         ]
       },
       {
         "phrase_en": "my foot",
-        "phrase_pt": "meu pe",
+        "phrase_pt": "meu pé",
         "word_by_word": [
           {
             "en": "my",
@@ -45,7 +45,7 @@
           },
           {
             "en": "foot",
-            "pt": "pe"
+            "pt": "pé"
           }
         ]
       },
@@ -93,11 +93,11 @@
       },
       {
         "phrase_en": "Wash your hands",
-        "phrase_pt": "Lave as maos",
+        "phrase_pt": "Lave as mãos",
         "word_by_word": [
           {
             "en": "Wash",
-            "pt": "lave"
+            "pt": "láve"
           },
           {
             "en": "your",
@@ -105,7 +105,7 @@
           },
           {
             "en": "hands",
-            "pt": "maos"
+            "pt": "mãos"
           }
         ]
       },
@@ -132,33 +132,33 @@
   "items": [
     {
       "word_en": "my head",
-      "word_pt": "minha cabeca",
+      "word_pt": "minha cabeça",
       "example_sentence_en": "My head hurts a little.",
-      "example_sentence_pt": "Minha cabeca doi um pouco."
+      "example_sentence_pt": "Minha cabeça dói um pouco."
     },
     {
       "word_en": "my hand",
-      "word_pt": "minha mao",
+      "word_pt": "minha mão",
       "example_sentence_en": "I write with my hand.",
-      "example_sentence_pt": "Eu escrevo com a minha mao."
+      "example_sentence_pt": "Eu escrevo com a minha mão."
     },
     {
       "word_en": "my foot",
-      "word_pt": "meu pe",
+      "word_pt": "meu pé",
       "example_sentence_en": "My foot is in the water.",
-      "example_sentence_pt": "Meu pe esta na agua."
+      "example_sentence_pt": "Meu pé está na água."
     },
     {
       "word_en": "my eyes",
       "word_pt": "meus olhos",
       "example_sentence_en": "My eyes are brown.",
-      "example_sentence_pt": "Meus olhos sao castanhos."
+      "example_sentence_pt": "Meus olhos são castanhos."
     },
     {
       "word_en": "my hair",
       "word_pt": "meu cabelo",
       "example_sentence_en": "My hair is long and black.",
-      "example_sentence_pt": "Meu cabelo e longo e preto."
+      "example_sentence_pt": "Meu cabelo é longo e preto."
     },
     {
       "word_en": "my mouth",
@@ -168,9 +168,9 @@
     },
     {
       "word_en": "Wash your hands",
-      "word_pt": "Lave as maos",
+      "word_pt": "Lave as mãos",
       "example_sentence_en": "Wash your hands before lunch.",
-      "example_sentence_pt": "Lave as maos antes do almoco."
+      "example_sentence_pt": "Lave as mãos antes do almoço."
     },
     {
       "word_en": "Look at me",

@@ -67,7 +67,7 @@ export function AccountReviewNotice({
                 type="button"
                 onClick={onRecheck}
                 disabled={loggingOut}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-dark px-6 py-3 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
               >
                 <RefreshCw size={17} />
                 Verificar de novo

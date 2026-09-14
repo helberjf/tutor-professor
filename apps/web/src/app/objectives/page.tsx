@@ -26,9 +26,9 @@ export default function ObjectivesPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/dashboard"
         secondaryLabel="Voltar ao dashboard"
       />
@@ -48,12 +48,12 @@ export default function ObjectivesPage() {
               <Target size={24} />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aonde voce quer chegar</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aonde você quer chegar</p>
               <h1 className="mt-1 text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Objetivos</h1>
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-            Crie um objetivo, va adicionando o que precisa estudar para alcanca-lo e marque cada item
+            Crie um objetivo, vá adicionando o que precisa estudar para alcançá-lo e marque cada item
             conforme terminar. A porcentagem de alcance acompanha exatamente essa lista.
           </p>
         </section>

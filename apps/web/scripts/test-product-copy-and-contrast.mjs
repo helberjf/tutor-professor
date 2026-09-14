@@ -47,7 +47,7 @@ assert.match(
   'disabled white-text actions need an explicit readable state',
 );
 
-const lowContrastAction = /(?:bg-(?:sky|emerald|amber|rose)-500|bg-primary)(?:[^\n]*\btext-white\b)/;
+const lowContrastAction = /(?:\bbg-(?:sky|emerald|amber|rose)-500(?!-)|\bbg-primary(?!-))(?:[^\n]*\btext-white\b)/;
 for (const fullPath of collectFiles(sourceRoot)) {
   const content = readFileSync(fullPath, 'utf8');
   assert.doesNotMatch(

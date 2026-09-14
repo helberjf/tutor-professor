@@ -1,18 +1,18 @@
 {
   "level": 9,
   "target_language": "German",
-  "title": "Alemao de hoje - Nivel C1",
+  "title": "Alemão de hoje - Nível C1",
   "theme": "Frases do dia",
-  "objective": "Pratique konjunktiv II e registro formal em alemao (nivel C1).",
+  "objective": "Pratique konjunktiv II e registro formal em alemão (nível C1).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
-        "phrase_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
         "word_by_word": [
-          { "en": "Hatte ich gewusst", "pt": "se eu soubesse" },
-          { "en": "vom Verkehr", "pt": "do transito" },
+          { "en": "Hatte ich gewusst", "pt": "se eu sóubesse" },
+          { "en": "vom Verkehr", "pt": "do trânsito" },
           { "en": "ware ich losgefahren", "pt": "eu teria saido" },
           { "en": "fruher", "pt": "mais cedo" }
         ]
@@ -28,10 +28,10 @@
       },
       {
         "phrase_en": "Es ist nicht ungewohnlich, dass die Preise wahrend der Feiertage schwanken.",
-        "phrase_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+        "phrase_pt": "Não é incomum que os preços oscilem durante os feriados.",
         "word_by_word": [
-          { "en": "Es ist nicht ungewohnlich", "pt": "nao e incomum" },
-          { "en": "dass die Preise schwanken", "pt": "que os precos oscilem" },
+          { "en": "Es ist nicht ungewohnlich", "pt": "não é incomum" },
+          { "en": "dass die Preise schwanken", "pt": "que os preços oscilem" },
           { "en": "wahrend der Feiertage", "pt": "durante os feriados" }
         ]
       }
@@ -40,7 +40,7 @@
   "items": [
     {
       "word_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
-      "word_pt": "Se eu soubesse do transito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
       "example_sentence_en": "This inverted \"Konjunktiv II\" structure replaces \"Wenn ich gewusst hatte\" in formal style.",
       "example_sentence_pt": "Essa estrutura invertida no \"Konjunktiv II\" substitui \"Wenn ich gewusst hatte\" em estilo formal."
     },
@@ -52,9 +52,9 @@
     },
     {
       "word_en": "Es ist nicht ungewohnlich, dass die Preise wahrend der Feiertage schwanken.",
-      "word_pt": "Nao e incomum que os precos oscilem durante os feriados.",
+      "word_pt": "Não é incomum que os preços oscilem durante os feriados.",
       "example_sentence_en": "Double negatives like \"nicht ungewohnlich\" soften a statement in formal German.",
-      "example_sentence_pt": "Negativas duplas como \"nicht ungewohnlich\" suavizam uma afirmacao no alemao formal."
+      "example_sentence_pt": "Negativas duplas como \"nicht ungewohnlich\" suavizam uma afirmação no alemão formal."
     }
   ]
 }

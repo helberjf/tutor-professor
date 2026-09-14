@@ -35,7 +35,7 @@ export default function QuickReviewPage() {
       const data = await api.getReviewSession(15, { vocabularyOnly: true });
       setSession(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Nao foi possivel carregar a revisao.'));
+      setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar a revisão.'));
     } finally {
       setLoading(false);
     }
@@ -108,7 +108,7 @@ export default function QuickReviewPage() {
         title="Verificando acesso"
         message="Confirmando seu cadastro..."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -116,13 +116,13 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -134,9 +134,9 @@ export default function QuickReviewPage() {
       <StatusCard
         tone="loading"
         title="Preparando as palavras"
-        message="O tutor esta selecionando as palavras para revisar agora."
+        message="O tutor está selecionando as palavras para revisar agora."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -145,13 +145,13 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponivel"
-        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
+        title="Tutor temporariamente indisponível"
+        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -160,15 +160,15 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Sem conexao com o tutor"
-        message="Nao foi possivel carregar a revisao agora. Tente novamente em instantes."
+        title="Sem conexão com o tutor"
+        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
         primaryAction={
           <button onClick={() => void loadSession()} className="app-button bg-brand-orange hover:bg-secondary-dark">
             Tentar de novo
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexao"
+        secondaryLabel="Trocar conexão"
       />
     );
   }
@@ -177,7 +177,7 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="error"
-        title="Nao foi possivel carregar"
+        title="Não foi possível carregar"
         message={error.message}
         primaryAction={
           <button onClick={() => void loadSession()} className="app-button bg-brand-pink hover:bg-pink-500">
@@ -185,7 +185,7 @@ export default function QuickReviewPage() {
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -195,9 +195,9 @@ export default function QuickReviewPage() {
       <StatusCard
         tone="empty"
         title="Nenhuma palavra para revisar"
-        message="Termine uma licao primeiro. As palavras aparecerao aqui para revisao rapida."
+        message="Termine uma lição primeiro. As palavras aparecerão aqui para revisão rápida."
         secondaryHref="/lesson"
-        secondaryLabel="Comecar uma licao"
+        secondaryLabel="Começar uma lição"
       />
     );
   }
@@ -216,9 +216,9 @@ export default function QuickReviewPage() {
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
                 <CheckCircle2 className="text-accent-dark" size={44} />
               </div>
-              <p className="app-tag text-xs">Revisao Rapida</p>
+              <p className="app-tag text-xs">Revisão Rápida</p>
               <h1 className="mt-3 text-3xl font-black text-slate-800">
-                {pct >= 80 ? 'Incrivel!' : pct >= 50 ? 'Muito bem!' : 'Continue praticando!'}
+                {pct >= 80 ? 'Incrível!' : pct >= 50 ? 'Muito bem!' : 'Continue praticando!'}
               </h1>
               <p className="mt-2 text-lg text-slate-600">
                 <span className="font-black text-slate-800">{correctCount}</span> de{' '}
@@ -234,7 +234,7 @@ export default function QuickReviewPage() {
               <div className="mt-7 flex flex-col gap-3">
                 <button
                   onClick={() => void loadSession()}
-                  className="app-button w-full justify-center bg-primary hover:bg-primary-dark"
+                  className="app-button w-full justify-center bg-primary-dark hover:bg-primary-dark"
                 >
                   Revisar de novo
                 </button>
@@ -242,7 +242,7 @@ export default function QuickReviewPage() {
                   href="/"
                   className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                 >
-                  Voltar ao inicio
+                  Voltar ao início
                 </Link>
               </div>
             </div>
@@ -279,7 +279,7 @@ export default function QuickReviewPage() {
         {/* Progress */}
         <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-500"
+            className="h-full rounded-full bg-primary-dark transition-all duration-500"
             style={{ width: `${progressWidth}%` }}
           />
         </div>
@@ -307,7 +307,7 @@ export default function QuickReviewPage() {
             <button
               onClick={() => void playAudio(card.word_en)}
               disabled={audioLoading}
-              className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-[0_8px_20px_rgba(14,165,233,0.30)] transition active:scale-95 hover:bg-primary-dark disabled:opacity-60"
+              className="mt-1 inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-dark text-white shadow-[0_8px_20px_rgba(14,165,233,0.30)] transition active:scale-95 hover:bg-primary-dark disabled:opacity-60"
               aria-label={`Ouvir: ${card.word_en}`}
             >
               {audioLoading ? <Loader2 size={20} className="animate-spin" /> : <Volume2 size={20} />}
@@ -362,10 +362,10 @@ export default function QuickReviewPage() {
                 onClick={handleNext}
                 disabled={submitting}
                 className={`mt-4 flex w-full items-center justify-center rounded-2xl py-4 text-lg font-black text-white shadow-md transition active:scale-[.98] disabled:opacity-60 ${
-                  selectedOption === card.word_pt ? 'bg-accent hover:bg-accent-dark' : 'bg-primary hover:bg-primary-dark'
+                  selectedOption === card.word_pt ? 'bg-accent hover:bg-accent-dark' : 'bg-primary-dark hover:bg-primary-dark'
                 }`}
               >
-                {currentIndex < total - 1 ? 'Proxima →' : 'Ver resultado'}
+                {currentIndex < total - 1 ? 'Próxima →' : 'Ver resultado'}
               </button>
             </div>
           )}

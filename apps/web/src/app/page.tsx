@@ -84,7 +84,7 @@ export default function HomePage() {
         {serverMissing && (
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
             <WifiOff size={16} className="shrink-0" />
-            <span>O tutor esta temporariamente indisponivel. Tente novamente em instantes.</span>
+            <span>O tutor está temporariamente indisponível. Tente novamente em instantes.</span>
           </div>
         )}
 
@@ -180,7 +180,7 @@ export default function HomePage() {
                   )}
                   <div className="relative inline-flex w-full sm:w-auto">
                     {!hasOpenSession && (
-                      <span className="absolute inset-0 animate-ping rounded-2xl bg-primary opacity-20" aria-hidden />
+                      <span className="absolute inset-0 animate-ping rounded-2xl bg-primary-dark opacity-20" aria-hidden />
                     )}
                     <Link
                       href={hasOpenSession ? '/session?restart=1' : '/session'}
@@ -410,7 +410,7 @@ export default function HomePage() {
   );
 }
 
-/** "Faltam 4 itens - Revisao": what the continue button is promising. */
+/** "Faltam 4 itens - Revisão": what the continue button is promising. */
 function describeRemaining(state: StudySessionState | null): string {
   if (!state || state.remaining <= 0) return '';
   const items = state.remaining === 1 ? '1 item' : `${state.remaining} itens`;
@@ -426,19 +426,19 @@ function describeRemaining(state: StudySessionState | null): string {
 function describeQueue(state: StudySessionState | null, hasOpenSession: boolean): string {
   if (!state) return '';
   const parts: string[] = [];
-  if (state.lesson_pending) parts.push('licao de hoje');
+  if (state.lesson_pending) parts.push('lição de hoje');
   if (state.due_review > 0) {
-    parts.push(state.due_review === 1 ? '1 revisao vencida' : `${state.due_review} revisoes vencidas`);
+    parts.push(state.due_review === 1 ? '1 revisão vencida' : `${state.due_review} revisões vencidas`);
   }
   if (state.pending_questions > 0) {
     parts.push(
       state.pending_questions === 1
-        ? '1 questao pendente'
-        : `${state.pending_questions} questoes pendentes`,
+        ? '1 questão pendente'
+        : `${state.pending_questions} questões pendentes`,
     );
   }
   if (parts.length === 0) {
-    return hasOpenSession ? 'Termine a sessao aberta para fechar o dia.' : 'Tudo em dia por aqui.';
+    return hasOpenSession ? 'Termine a sessão aberta para fechar o dia.' : 'Tudo em dia por aqui.';
   }
   return `Na fila: ${parts.join(' · ')}.`;
 }

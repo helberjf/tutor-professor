@@ -1,7 +1,7 @@
 {
-  "title": "Ingles A2 - Descrever pessoas",
-  "theme": "Descricoes",
-  "objective": "Descrever como alguem e.",
+  "title": "Inglês A2 - Descrever pessoas",
+  "theme": "Descrições",
+  "objective": "Descrever como alguém é.",
   "level": 4,
   "target_language": "English",
   "content": {
@@ -9,7 +9,7 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "He is tall",
-        "phrase_pt": "Ele e alto",
+        "phrase_pt": "Ele é alto",
         "word_by_word": [
           {
             "en": "He",
@@ -27,11 +27,11 @@
       },
       {
         "phrase_en": "She is kind",
-        "phrase_pt": "Ela e gentil",
+        "phrase_pt": "Ela é gentil",
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "is",
@@ -45,7 +45,7 @@
       },
       {
         "phrase_en": "He is funny",
-        "phrase_pt": "Ele e engracado",
+        "phrase_pt": "Ele é engraçado",
         "word_by_word": [
           {
             "en": "He",
@@ -57,7 +57,7 @@
           },
           {
             "en": "funny",
-            "pt": "engracado"
+            "pt": "engraçado"
           }
         ]
       },
@@ -67,7 +67,7 @@
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "has",
@@ -85,7 +85,7 @@
       },
       {
         "phrase_en": "He wears glasses",
-        "phrase_pt": "Ele usa oculos",
+        "phrase_pt": "Ele usa óculos",
         "word_by_word": [
           {
             "en": "He",
@@ -97,17 +97,17 @@
           },
           {
             "en": "glasses",
-            "pt": "oculos"
+            "pt": "óculos"
           }
         ]
       },
       {
         "phrase_en": "She is my best friend",
-        "phrase_pt": "Ela e a minha melhor amiga",
+        "phrase_pt": "Ela é a minha melhor amiga",
         "word_by_word": [
           {
             "en": "She",
-            "pt": "ela"
+            "pt": "elá"
           },
           {
             "en": "is",
@@ -129,7 +129,7 @@
       },
       {
         "phrase_en": "What is he like?",
-        "phrase_pt": "Como ele e?",
+        "phrase_pt": "Como ele é?",
         "word_by_word": [
           {
             "en": "What",
@@ -151,7 +151,7 @@
       },
       {
         "phrase_en": "They look alike",
-        "phrase_pt": "Eles sao parecidos",
+        "phrase_pt": "Eles são parecidos",
         "word_by_word": [
           {
             "en": "They",
@@ -172,21 +172,21 @@
   "items": [
     {
       "word_en": "He is tall",
-      "word_pt": "Ele e alto",
+      "word_pt": "Ele é alto",
       "example_sentence_en": "My brother is tall and thin.",
-      "example_sentence_pt": "Meu irmao e alto e magro."
+      "example_sentence_pt": "Meu irmão é alto e magro."
     },
     {
       "word_en": "She is kind",
-      "word_pt": "Ela e gentil",
+      "word_pt": "Ela é gentil",
       "example_sentence_en": "She is kind to everyone.",
-      "example_sentence_pt": "Ela e gentil com todos."
+      "example_sentence_pt": "Ela é gentil com todos."
     },
     {
       "word_en": "He is funny",
-      "word_pt": "Ele e engracado",
+      "word_pt": "Ele é engraçado",
       "example_sentence_en": "My cousin is very funny.",
-      "example_sentence_pt": "Meu primo e muito engracado."
+      "example_sentence_pt": "Meu primo é muito engraçado."
     },
     {
       "word_en": "She has curly hair",
@@ -196,27 +196,27 @@
     },
     {
       "word_en": "He wears glasses",
-      "word_pt": "Ele usa oculos",
+      "word_pt": "Ele usa óculos",
       "example_sentence_en": "My teacher wears glasses.",
-      "example_sentence_pt": "Meu professor usa oculos."
+      "example_sentence_pt": "Meu professor usa óculos."
     },
     {
       "word_en": "She is my best friend",
-      "word_pt": "Ela e a minha melhor amiga",
+      "word_pt": "Ela é a minha melhor amiga",
       "example_sentence_en": "She is my best friend at school.",
-      "example_sentence_pt": "Ela e a minha melhor amiga na escola."
+      "example_sentence_pt": "Ela é a minha melhor amiga na escola."
     },
     {
       "word_en": "What is he like?",
-      "word_pt": "Como ele e?",
+      "word_pt": "Como ele é?",
       "example_sentence_en": "What is he like as a teacher?",
-      "example_sentence_pt": "Como ele e como professor?"
+      "example_sentence_pt": "Como ele é como professor?"
     },
     {
       "word_en": "They look alike",
-      "word_pt": "Eles sao parecidos",
+      "word_pt": "Eles são parecidos",
       "example_sentence_en": "The twins look alike.",
-      "example_sentence_pt": "Os gemeos sao parecidos."
+      "example_sentence_pt": "Os gêmeos são parecidos."
     }
   ]
 }

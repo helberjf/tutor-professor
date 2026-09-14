@@ -7,7 +7,7 @@ import { api, type AccountStatus, type AdminUser, type AIProvider } from '@/lib/
 
 // Mirrors the badge on /admin/accounts so the two lists read the same way.
 const ACCOUNT_STATUS_BADGE: Record<AccountStatus, { label: string; className: string }> = {
-  pending: { label: 'Aguardando aprovacao', className: 'bg-amber-50 text-amber-700' },
+  pending: { label: 'Aguardando aprovação', className: 'bg-amber-50 text-amber-700' },
   approved: { label: 'Conta aprovada', className: 'bg-emerald-50 text-emerald-700' },
   rejected: { label: 'Conta recusada', className: 'bg-rose-50 text-rose-700' },
 };
@@ -52,7 +52,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel carregar usuarios.',
+        text: error instanceof Error ? error.message : 'Não foi possível carregar usuários.',
       });
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export function AdminUsersPanel() {
     const form = forms[user.id];
     if (!form) return;
     if (!user.ai_settings.has_api_key && !form.api_key.trim()) {
-      setMessage({ tone: 'error', text: 'Cole a chave de API antes de salvar para este usuario.' });
+      setMessage({ tone: 'error', text: 'Cole a chave de API antes de salvar para este usuário.' });
       return;
     }
 
@@ -112,7 +112,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel salvar a chave de IA.',
+        text: error instanceof Error ? error.message : 'Não foi possível salvar a chave de IA.',
       });
     } finally {
       setSavingUserId(null);
@@ -143,7 +143,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel revogar o acesso a IA.',
+        text: error instanceof Error ? error.message : 'Não foi possível revogar o acesso a IA.',
       });
     } finally {
       setSavingUserId(null);
@@ -183,7 +183,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Nao foi possivel autorizar o uso da IA.',
+        text: error instanceof Error ? error.message : 'Não foi possível autorizar o uso da IA.',
       });
     } finally {
       setSavingUserId(null);
@@ -198,10 +198,10 @@ export function AdminUsersPanel() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">Usuarios</p>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">Usuários</p>
           <h2 className="text-2xl font-black text-slate-800">Autorizar IA por conta</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Autorize uma conta criada a usar a chave global do servidor ou salve uma chave propria para ela.
+            Autorize uma conta criada a usar a chave global do servidor ou salve uma chave própria para ela.
           </p>
         </div>
         <button
@@ -255,7 +255,7 @@ export function AdminUsersPanel() {
                   ? 'Autorizado pela chave global'
                   : user.ai_settings.has_api_key
                     ? `Chave ${user.ai_settings.api_key_preview ?? 'salva'}`
-                    : 'Sem autorizacao'}
+                    : 'Sem autorização'}
               </span>
             </div>
 
@@ -290,7 +290,7 @@ export function AdminUsersPanel() {
                 <input
                   value={form.base_url}
                   onChange={(event) => updateForm(user.id, 'base_url', event.target.value)}
-                  placeholder={provider?.requires_base_url ? 'URL obrigatoria para este provedor' : 'Opcional'}
+                  placeholder={provider?.requires_base_url ? 'URL obrigatória para este provedor' : 'Opcional'}
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                 />
               </label>
@@ -332,7 +332,7 @@ export function AdminUsersPanel() {
                 type="button"
                 onClick={() => void saveUserSettings(user)}
                 disabled={saving}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-dark px-4 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
                 {saving ? 'Salvando...' : 'Salvar chave'}
@@ -344,7 +344,7 @@ export function AdminUsersPanel() {
 
       {users.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">
-          Nenhum usuario cadastrado ainda.
+          Nenhum usuário cadastrado ainda.
         </p>
       ) : null}
     </div>

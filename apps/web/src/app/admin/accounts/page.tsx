@@ -24,7 +24,7 @@ export default function AdminAccountsPage() {
       <StatusCard
         tone="loading"
         title="Verificando acesso"
-        message="Confirmando permissoes de administrador..."
+        message="Confirmando permissões de administrador..."
         secondaryHref="/admin"
         secondaryLabel="Voltar ao admin"
       />
@@ -38,7 +38,7 @@ export default function AdminAccountsPage() {
         title="Acesso restrito"
         message="Somente o administrador pode aprovar contas."
         secondaryHref="/"
-        secondaryLabel="Voltar ao inicio"
+        secondaryLabel="Voltar ao início"
       />
     );
   }
@@ -57,10 +57,10 @@ export default function AdminAccountsPage() {
 
         <section className="rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Admin</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprovacao de contas</h1>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Aprovação de contas</h1>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-            Quem se cadastra fica aguardando aqui e so entra no app depois que voce aprovar.
-            Recusar uma conta derruba as sessoes abertas dela na hora; a area de risco permite apagar uma conta e seus dados permanentemente.
+            Quem se cadastra fica aguardando aqui e só entra no app depois que você aprovar.
+            Recusar uma conta derruba as sessões abertas dela na hora; a área de risco permite apagar uma conta e seus dados permanentemente.
           </p>
         </section>
 

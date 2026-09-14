@@ -43,7 +43,7 @@ export function BillingSection() {
       setSubscription(current);
       setPlans(catalogue);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Nao foi possivel carregar o plano.');
+      setError(cause instanceof ApiError ? cause.message : 'Não foi possível carregar o plano.');
     }
   }
 
@@ -69,7 +69,7 @@ export function BillingSection() {
       setError(
         cause instanceof ApiError
           ? (cause.detail ?? cause.message)
-          : 'Nao foi possivel mudar de plano.',
+          : 'Não foi possível mudar de plano.',
       );
     } finally {
       setBusyPlan(null);
@@ -110,7 +110,7 @@ export function BillingSection() {
               </div>
               {subscription.trial_ends_at ? (
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                  Teste ate {new Date(subscription.trial_ends_at).toLocaleDateString('pt-BR')}
+                  Teste até {new Date(subscription.trial_ends_at).toLocaleDateString('pt-BR')}
                 </span>
               ) : null}
             </div>
@@ -154,7 +154,7 @@ export function BillingSection() {
                       type="button"
                       onClick={() => void choose(plan)}
                       disabled={busyPlan !== null}
-                      className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
+                      className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
                     >
                       {busyPlan === plan.code ? (
                         <Loader2 className="animate-spin" size={16} />

@@ -1,7 +1,7 @@
 """The one queue behind "Estudar agora" and "Continuar de onde parou".
 
 Before this, four separate review queues existed (language review, coding review,
-the FSRS deck and "modo questoes") and nothing added them up, so the student had to
+the FSRS deck and "modo questões") and nothing added them up, so the student had to
 decide what to study before studying anything — a decision taken three times, on
 three screens, before the first question.
 
@@ -127,7 +127,7 @@ def _lesson_cards(
                 "kind": "lesson_item",
                 "ref_id": item.id or 0,
                 "lesson_id": lesson_id,
-                "source_label": "Licao de hoje",
+                "source_label": "Lição de hoje",
                 "topic_title": lesson_title,
                 "prompt": item.word_en,
                 "answer": item.word_pt,
@@ -147,8 +147,8 @@ def _review_cards(session: Session, child_id: int, limit: int, now: datetime | N
                 {
                     "kind": "vocabulary",
                     "ref_id": int(card.get("review_item_id") or 0),
-                    "source_label": "Revisao",
-                    "topic_title": "Vocabulario",
+                    "source_label": "Revisão",
+                    "topic_title": "Vocabulário",
                     "prompt": str(card.get("prompt") or ""),
                     "answer": str(card.get("answer") or ""),
                     "options": list(card.get("options") or []),
@@ -163,8 +163,8 @@ def _review_cards(session: Session, child_id: int, limit: int, now: datetime | N
                     "kind": "lesson_question",
                     "ref_id": int(card.get("lesson_question_id") or 0),
                     "lesson_id": int(card.get("lesson_id") or 0),
-                    "source_label": "Revisao",
-                    "topic_title": "Pergunta da licao",
+                    "source_label": "Revisão",
+                    "topic_title": "Pergunta da lição",
                     "prompt": str(card.get("prompt") or ""),
                     "answer": str(card.get("answer") or ""),
                     "supporting_example": card.get("supporting_example") or "",

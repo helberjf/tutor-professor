@@ -28,9 +28,9 @@ export default function ExamsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor nao disponivel"
-        message="O sistema esta temporariamente indisponivel. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary hover:bg-primary-dark">Ver status</Link>}
+        title="Servidor não disponível"
+        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
         secondaryHref="/dashboard"
         secondaryLabel="Voltar ao dashboard"
       />
@@ -42,7 +42,7 @@ export default function ExamsPage() {
       <StatusCard
         tone="empty"
         title="Simulados desativados"
-        message="Ative o modulo de simulados nas configuracoes da conta para usar este modo."
+        message="Ative o módulo de simulados nas configurações da conta para usar este modo."
         secondaryHref="/dashboard"
         secondaryLabel="Voltar ao dashboard"
       />
@@ -67,7 +67,7 @@ export default function ExamsPage() {
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-            Abra uma prova quando quiser medir progresso. Este modo nao depende de concluir licao, questoes ou revisao antes.
+            Abra uma prova quando quiser medir progresso. Este modo não depende de concluir lição, questões ou revisão antes.
           </p>
         </section>
 

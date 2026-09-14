@@ -4,10 +4,10 @@
   "questions": [
     {
       "id": 1,
-      "question": "Como se diz 'Voce gosta desse jogo?' em ingles?",
+      "question": "Como se diz 'Você gosta desse jogo?' em inglês?",
       "options": ["Do you like this game?", "Can you help me?", "Where is my book?", "What is your name?"],
       "correct_option": "Do you like this game?",
-      "explanation": "Do you like this game? significa Voce gosta desse jogo?"
+      "explanation": "Do you like this game? significa Você gosta desse jogo?"
     },
     {
       "id": 2,
@@ -18,10 +18,10 @@
     },
     {
       "id": 3,
-      "question": "Qual e a resposta negativa educada sobre um jogo?",
+      "question": "Qual é a resposta negativa educada sobre um jogo?",
       "options": ["No, I do not like it.", "Yes, I can help.", "Hello!", "Nice to meet you."],
       "correct_option": "No, I do not like it.",
-      "explanation": "No, I do not like it. e uma resposta negativa educada."
+      "explanation": "No, I do not like it. é uma resposta negativa educada."
     }
   ]
 }

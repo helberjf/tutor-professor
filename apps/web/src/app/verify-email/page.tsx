@@ -20,7 +20,7 @@ function VerifyEmail() {
 
   useEffect(() => {
     if (!token) {
-      setState({ kind: 'failed', message: 'O link esta incompleto. Abra-o direto do e-mail.' });
+      setState({ kind: 'failed', message: 'O link está incompleto. Abra-o direto do e-mail.' });
       return;
     }
     let cancelled = false;
@@ -35,7 +35,7 @@ function VerifyEmail() {
           message:
             cause instanceof ApiError
               ? (cause.detail ?? cause.message)
-              : 'Nao foi possivel confirmar o e-mail.',
+              : 'Não foi possível confirmar o e-mail.',
         });
       });
     return () => {
@@ -61,12 +61,12 @@ function VerifyEmail() {
         </div>
         <p className="mt-4 text-base leading-7 text-slate-600">
           {state.status === 'approved'
-            ? 'Sua conta esta liberada. Bons estudos!'
+            ? 'Sua conta está liberada. Bons estudos!'
             : 'Agora sua conta aguarda a liberacao do administrador. Avisaremos assim que for aprovada.'}
         </p>
         <Link
           href="/study"
-          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary px-5 text-base font-black text-white transition hover:bg-primary-dark"
+          className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark"
         >
           Ir para o app
         </Link>
@@ -78,7 +78,7 @@ function VerifyEmail() {
     <div className="app-surface border-amber-200 p-6 md:p-8">
       <div className="flex items-center gap-3">
         <MailWarning className="text-amber-600" size={28} />
-        <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Link invalido ou expirado</h1>
+        <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Link inválido ou expirado</h1>
       </div>
       <p className="mt-4 text-base leading-7 text-slate-600">{state.message}</p>
 
@@ -108,7 +108,7 @@ function VerifyEmail() {
           </label>
           <button
             type="submit"
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary px-5 text-base font-black text-white transition hover:bg-primary-dark"
+            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark"
           >
             Enviar link novo
           </button>

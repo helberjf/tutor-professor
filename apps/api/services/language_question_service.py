@@ -98,30 +98,30 @@ def build_language_questions_prompt(
         for front in list(existing_fronts)[-MAX_EXISTING_FRONTS_IN_PROMPT:]
     ]
     prompt = (
-        "Crie exatamente 5 perguntas de estudo unicas para a licao abaixo. "
+        "Crie exatamente 5 perguntas de estudo únicas para a lição abaixo. "
         "Use o idioma-alvo nas perguntas/respostas quando pedagogicamente adequado e "
-        "o idioma-base para instrucoes, explicacoes e traducoes.\n"
-        f"Titulo: {sanitize_context(lesson_title)[:200]}\n"
+        "o idioma-base para instruções, explicações e traduções.\n"
+        f"Título: {sanitize_context(lesson_title)[:200]}\n"
         f"Tema: {sanitize_context(theme)[:200]}\n"
         f"Objetivo: {sanitize_context(objective)[:1000]}\n"
         f"Idioma-alvo: {sanitize_context(target_language)[:40]}\n"
         f"Idioma-base: {sanitize_context(base_language)[:40]}\n"
-        f"Itens da licao: {_json_for_prompt(list(lesson_items), _MAX_ITEM_SECTION_CHARS)}\n"
+        f"Itens da lição: {_json_for_prompt(list(lesson_items), _MAX_ITEM_SECTION_CHARS)}\n"
         "Detalhamento das frases: "
         f"{_json_for_prompt(list(phrase_breakdowns), _MAX_BREAKDOWN_SECTION_CHARS)}\n"
-        "Perguntas existentes (nao repetir): "
+        "Perguntas existentes (não repetir): "
         f"{_json_for_prompt(retained_fronts, 20_000, list_limit=MAX_EXISTING_FRONTS_IN_PROMPT)}\n"
         f"Contexto adicional: {sanitized_context or 'Nenhum contexto adicional.'}\n"
         f"Tipos permitidos: {allowed_types}. Use pelo menos 3 tipos distintos.\n"
-        f"Inclua front_translation com a traducao natural do enunciado (front) no idioma-base "
-        f"({sanitize_context(base_language)[:40]}). Se o front ja estiver totalmente no idioma-base, repita-o. "
-        "Inclua supporting_example_translation com a traducao do supporting_example no idioma-base, "
-        "ou null quando nao houver supporting_example.\n"
-        "Retorne somente JSON valido neste formato: "
+        f"Inclua front_translation com a tradução natural do enunciado (front) no idioma-base "
+        f"({sanitize_context(base_language)[:40]}). Se o front já estiver totalmente no idioma-base, repita-o. "
+        "Inclua supporting_example_translation com a tradução do supporting_example no idioma-base, "
+        "ou null quando não houver supporting_example.\n"
+        "Retorne somente JSON válido neste formato: "
         '{"questions":[{"front":"...","back":"...","question_type":"grammar",'
         '"supporting_example":"... ou null","front_translation":"...",'
         '"supporting_example_translation":"... ou null"}]}. '
-        "Cada front deve ter no maximo 500 caracteres, cada back 2000 e cada exemplo 1000."
+        "Cada front deve ter no máximo 500 caracteres, cada back 2000 e cada exemplo 1000."
     )
     return prompt[:MAX_LANGUAGE_QUESTION_PROMPT_CHARS]
 

@@ -1,25 +1,25 @@
 {
   "level": 7,
   "target_language": "Russian",
-  "title": "Russo de hoje - Nivel B2",
+  "title": "Russo de hoje - Nível B2",
   "theme": "Frases do dia",
-  "objective": "Pratique voz passiva e concessao em russo (nivel B2).",
+  "objective": "Pratique voz passiva e concessão em russo (nível B2).",
   "content": {
     "daily_goal": "3 frases para hoje",
     "phrase_breakdowns": [
       {
         "phrase_en": "Встречу перенесли на следующую неделю.",
-        "phrase_pt": "A reuniao foi adiada para a proxima semana.",
+        "phrase_pt": "A reunião foi adiada para a próxima semana.",
         "word_by_word": [
-          { "en": "Встречу перенесли", "pt": "a reuniao foi adiada" },
-          { "en": "на следующую неделю", "pt": "para a proxima semana" }
+          { "en": "Встречу перенесли", "pt": "a reunião foi adiada" },
+          { "en": "на следующую неделю", "pt": "para a próxima semana" }
         ]
       },
       {
         "phrase_en": "Я случайно встретил старого друга в торговом центре.",
         "phrase_pt": "Eu encontrei por acaso um velho amigo no shopping.",
         "word_by_word": [
-          { "en": "Я случайно встретил", "pt": "eu encontrei por acaso" },
+          { "en": "Я случайно встретил", "pt": "eu encontrei por acasó" },
           { "en": "старого друга", "pt": "um velho amigo" },
           { "en": "в торговом центре", "pt": "no shopping" }
         ]
@@ -38,9 +38,9 @@
   "items": [
     {
       "word_en": "Встречу перенесли на следующую неделю.",
-      "word_pt": "A reuniao foi adiada para a proxima semana.",
+      "word_pt": "A reunião foi adiada para a próxima semana.",
       "example_sentence_en": "Russian often uses an impersonal active construction (\"they postponed\") instead of a true passive.",
-      "example_sentence_pt": "O russo costuma usar uma construcao ativa impessoal (\"adiaram\") em vez de uma passiva verdadeira."
+      "example_sentence_pt": "O russo costuma usar uma construção ativa impessoal (\"adiaram\") em vez de uma passiva verdadeira."
     },
     {
       "word_en": "Я случайно встретил старого друга в торговом центре.",

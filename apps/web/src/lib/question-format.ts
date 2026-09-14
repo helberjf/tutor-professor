@@ -10,15 +10,15 @@ const QUESTION_PATTERNS: Array<{ regex: RegExp; prompt: string }> = [
   },
   {
     regex: /^Qual e o significado de\s+["'“”]?(.+?)["'“”]?\?$/i,
-    prompt: 'Qual e o significado ?',
+    prompt: 'Qual é o significado ?',
   },
   {
     regex: /^Qual frase significa\s+["'“”]?(.+?)["'“”]?\?$/i,
     prompt: 'Qual frase significa ?',
   },
   {
-    regex: /^Como se diz\s+["'“”]?(.+?)["'“”]?\s+em ingles\?$/i,
-    prompt: 'Como se diz em ingles ?',
+    regex: /^Como se diz\s+["'“”]?(.+?)["'“”]?\s+em inglês\?$/i,
+    prompt: 'Como se diz em inglês ?',
   },
 ];
 

@@ -102,7 +102,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
                 </span>
               </span>
               <span
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${contextEnabled ? 'bg-primary' : 'bg-slate-300'}`}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${contextEnabled ? 'bg-primary-dark' : 'bg-slate-300'}`}
               >
                 <span
                   className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${contextEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
@@ -128,7 +128,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : 'Criar Matéria'}
             </button>
