@@ -8,11 +8,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Had I known about the traffic, I would have left earlier.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Had I known", "pt": "se eu sóubesse" },
+          { "en": "Had I known", "pt": "se eu soubesse" },
           { "en": "about the traffic", "pt": "do trânsito" },
-          { "en": "I would have left", "pt": "eu teria saido" },
+          { "en": "I would have left", "pt": "eu teria saído" },
           { "en": "earlier", "pt": "mais cedo" }
         ]
       },
@@ -41,7 +41,7 @@
   "items": [
     {
       "word_en": "Had I known about the traffic, I would have left earlier.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "This inverted structure replaces \"If I had known\" in more formal speech and writing.",
       "example_sentence_pt": "Essa estrutura invertida substitui \"If I had known\" em fala e escrita mais formais."
     },

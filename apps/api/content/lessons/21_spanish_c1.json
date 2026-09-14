@@ -9,11 +9,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Si hubiera sabido lo del trafico, habria salido antes.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Si hubiera sabido", "pt": "se eu sóubesse" },
+          { "en": "Si hubiera sabido", "pt": "se eu soubesse" },
           { "en": "lo del trafico", "pt": "do trânsito" },
-          { "en": "habria salido antes", "pt": "eu teria saido mais cedo" }
+          { "en": "habria salido antes", "pt": "eu teria saído mais cedo" }
         ]
       },
       {
@@ -39,7 +39,7 @@
   "items": [
     {
       "word_en": "Si hubiera sabido lo del trafico, habria salido antes.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "The third conditional (pluscuamperfecto de subjuntivo + condicional compuesto) expresses an unreal past.",
       "example_sentence_pt": "O terceiro condicional (pluscuamperfecto de subjuntivo + condicional composto) expressa um passado irreal."
     },

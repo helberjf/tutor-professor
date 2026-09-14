@@ -107,7 +107,7 @@
       },
       {
         "phrase_en": "What do you think?",
-        "phrase_pt": "O que você achá?",
+        "phrase_pt": "O que você acha?",
         "word_by_word": [
           {
             "en": "What",
@@ -123,7 +123,7 @@
           },
           {
             "en": "think",
-            "pt": "achá"
+            "pt": "acha"
           }
         ]
       },
@@ -155,7 +155,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "issó"
+            "pt": "isso"
           },
           {
             "en": "depends",
@@ -198,9 +198,9 @@
     },
     {
       "word_en": "What do you think?",
-      "word_pt": "O que você achá?",
+      "word_pt": "O que você acha?",
       "example_sentence_en": "What do you think about this song?",
-      "example_sentence_pt": "O que você achá desta música?"
+      "example_sentence_pt": "O que você acha desta música?"
     },
     {
       "word_en": "I agree with you",

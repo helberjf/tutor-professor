@@ -28,11 +28,11 @@
       },
       {
         "phrase_en": "Я учу этот язык уже два года.",
-        "phrase_pt": "Eu aprendo esse idioma há dóis anos.",
+        "phrase_pt": "Eu aprendo esse idioma há dois anos.",
         "word_by_word": [
           { "en": "Я учу", "pt": "eu aprendo" },
           { "en": "этот язык", "pt": "esse idioma" },
-          { "en": "уже два года", "pt": "há dóis anos" }
+          { "en": "уже два года", "pt": "há dois anos" }
         ]
       }
     ]
@@ -52,7 +52,7 @@
     },
     {
       "word_en": "Я учу этот язык уже два года.",
-      "word_pt": "Eu aprendo esse idioma há dóis anos.",
+      "word_pt": "Eu aprendo esse idioma há dois anos.",
       "example_sentence_en": "Russian uses the present tense with \"уже\" (already) for an ongoing action.",
       "example_sentence_pt": "O russo usa o presente com \"уже\" (já) para uma ação continua."
     }

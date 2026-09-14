@@ -27,7 +27,7 @@
         "word_by_word": [
           {
             "en": "She",
-            "pt": "elá"
+            "pt": "ela"
           },
           {
             "en": "went",
@@ -101,7 +101,7 @@
           },
           {
             "en": "it",
-            "pt": "issó"
+            "pt": "isso"
           }
         ]
       },
@@ -121,11 +121,11 @@
       },
       {
         "phrase_en": "two days ago",
-        "phrase_pt": "dóis dias atrás",
+        "phrase_pt": "dois dias atrás",
         "word_by_word": [
           {
             "en": "two",
-            "pt": "dóis"
+            "pt": "dois"
           },
           {
             "en": "days",
@@ -143,7 +143,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "issó"
+            "pt": "isso"
           },
           {
             "en": "was",
@@ -196,9 +196,9 @@
     },
     {
       "word_en": "two days ago",
-      "word_pt": "dóis dias atrás",
+      "word_pt": "dois dias atrás",
       "example_sentence_en": "She called me two days ago.",
-      "example_sentence_pt": "Ela me ligou dóis dias atrás."
+      "example_sentence_pt": "Ela me ligou dois dias atrás."
     },
     {
       "word_en": "It was great",

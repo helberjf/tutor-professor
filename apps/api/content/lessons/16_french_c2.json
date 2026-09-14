@@ -20,7 +20,7 @@
         "phrase_en": "Elle a une capacite remarquable a lire entre les lignes.",
         "phrase_pt": "Ela tem uma habilidade notável de ler nas entrelinhas.",
         "word_by_word": [
-          { "en": "Elle a", "pt": "elá tem" },
+          { "en": "Elle a", "pt": "ela tem" },
           { "en": "une capacite remarquable", "pt": "uma habilidade notável" },
           { "en": "a lire entre les lignes", "pt": "de ler nas entrelinhas" }
         ]

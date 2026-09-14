@@ -9,11 +9,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Hatte ich gewusst", "pt": "se eu sóubesse" },
+          { "en": "Hatte ich gewusst", "pt": "se eu soubesse" },
           { "en": "vom Verkehr", "pt": "do trânsito" },
-          { "en": "ware ich losgefahren", "pt": "eu teria saido" },
+          { "en": "ware ich losgefahren", "pt": "eu teria saído" },
           { "en": "fruher", "pt": "mais cedo" }
         ]
       },
@@ -40,7 +40,7 @@
   "items": [
     {
       "word_en": "Hatte ich vom Verkehr gewusst, ware ich fruher losgefahren.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "This inverted \"Konjunktiv II\" structure replaces \"Wenn ich gewusst hatte\" in formal style.",
       "example_sentence_pt": "Essa estrutura invertida no \"Konjunktiv II\" substitui \"Wenn ich gewusst hatte\" em estilo formal."
     },

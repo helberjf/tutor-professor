@@ -9,11 +9,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Если бы я знал о пробках, я бы выехал раньше.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Если бы я знал", "pt": "se eu sóubesse" },
+          { "en": "Если бы я знал", "pt": "se eu soubesse" },
           { "en": "о пробках", "pt": "do trânsito" },
-          { "en": "я бы выехал раньше", "pt": "eu teria saido mais cedo" }
+          { "en": "я бы выехал раньше", "pt": "eu teria saído mais cedo" }
         ]
       },
       {
@@ -40,7 +40,7 @@
   "items": [
     {
       "word_en": "Если бы я знал о пробках, я бы выехал раньше.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "Russian marks the unreal conditional with \"бы\" in both clauses, regardless of tense.",
       "example_sentence_pt": "O russo marca o condicional irreal com \"бы\" nas duas orações, independente do tempo verbal."
     },

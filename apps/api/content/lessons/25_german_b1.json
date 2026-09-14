@@ -29,11 +29,11 @@
       },
       {
         "phrase_en": "Ich lerne diese Sprache seit zwei Jahren.",
-        "phrase_pt": "Eu aprendo esse idioma há dóis anos.",
+        "phrase_pt": "Eu aprendo esse idioma há dois anos.",
         "word_by_word": [
           { "en": "Ich lerne", "pt": "eu aprendo" },
           { "en": "diese Sprache", "pt": "esse idioma" },
-          { "en": "seit zwei Jahren", "pt": "há dóis anos" }
+          { "en": "seit zwei Jahren", "pt": "há dois anos" }
         ]
       }
     ]
@@ -53,7 +53,7 @@
     },
     {
       "word_en": "Ich lerne diese Sprache seit zwei Jahren.",
-      "word_pt": "Eu aprendo esse idioma há dóis anos.",
+      "word_pt": "Eu aprendo esse idioma há dois anos.",
       "example_sentence_en": "German uses the present tense with \"seit\" for an action still happening.",
       "example_sentence_pt": "O alemão usa o presente com \"seit\" para uma ação que ainda está acontecendo."
     }

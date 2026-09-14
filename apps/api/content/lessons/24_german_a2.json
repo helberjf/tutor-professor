@@ -20,7 +20,7 @@
         "phrase_en": "Sie wird dich spater anrufen.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Sie wird anrufen", "pt": "elá vai ligar" },
+          { "en": "Sie wird anrufen", "pt": "ela vai ligar" },
           { "en": "dich", "pt": "te" },
           { "en": "spater", "pt": "mais tarde" }
         ]
@@ -31,7 +31,7 @@
         "word_by_word": [
           { "en": "Kannst du helfen", "pt": "você pode ajudar" },
           { "en": "mir", "pt": "me" },
-          { "en": "damit", "pt": "com issó" },
+          { "en": "damit", "pt": "com isso" },
           { "en": "bitte", "pt": "por favor" }
         ]
       }

@@ -57,7 +57,7 @@
       },
       {
         "phrase_en": "a hat",
-        "phrase_pt": "um chápeu",
+        "phrase_pt": "um chapéu",
         "word_by_word": [
           {
             "en": "a",
@@ -65,7 +65,7 @@
           },
           {
             "en": "hat",
-            "pt": "chápeu"
+            "pt": "chapéu"
           }
         ]
       },
@@ -123,7 +123,7 @@
         "word_by_word": [
           {
             "en": "It",
-            "pt": "issó"
+            "pt": "isso"
           },
           {
             "en": "is",
@@ -168,9 +168,9 @@
     },
     {
       "word_en": "a hat",
-      "word_pt": "um chápeu",
+      "word_pt": "um chapéu",
       "example_sentence_en": "She wears a hat in the sun.",
-      "example_sentence_pt": "Ela usa um chápeu no sol."
+      "example_sentence_pt": "Ela usa um chapéu no sol."
     },
     {
       "word_en": "I am wearing a dress",
@@ -182,7 +182,7 @@
       "word_en": "Put on your shoes",
       "word_pt": "Calce os sapatos",
       "example_sentence_en": "Put on your shoes, we are late.",
-      "example_sentence_pt": "Calce os sapatos, estamos atrásados."
+      "example_sentence_pt": "Calce os sapatos, estamos atrasados."
     },
     {
       "word_en": "It is too big",

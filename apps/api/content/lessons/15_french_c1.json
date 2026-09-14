@@ -9,11 +9,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Si j'avais su qu'il y avait des embouteillages, je serais parti plus tot.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Si j'avais su", "pt": "se eu sóubesse" },
+          { "en": "Si j'avais su", "pt": "se eu soubesse" },
           { "en": "qu'il y avait des embouteillages", "pt": "do trânsito" },
-          { "en": "je serais parti", "pt": "eu teria saido" },
+          { "en": "je serais parti", "pt": "eu teria saído" },
           { "en": "plus tot", "pt": "mais cedo" }
         ]
       },
@@ -41,7 +41,7 @@
   "items": [
     {
       "word_en": "Si j'avais su qu'il y avait des embouteillages, je serais parti plus tot.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "The third conditional (plus-que-parfait + conditionnel passe) expresses an unreal past.",
       "example_sentence_pt": "O terceiro condicional (plus-que-parfait + conditionnel passe) expressa um passado irreal."
     },

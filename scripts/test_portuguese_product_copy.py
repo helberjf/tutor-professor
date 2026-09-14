@@ -54,7 +54,7 @@ FORBIDDEN = re.compile(
     r"licenca|otima|vovo|lapis|atras|oculos|gemeos|sabados|almocamos|continuo|"
     r"meu nome e|não e incomum|descrever como alguém e|como ele e|uteis|esforco|"
     r"migracao|decoracao|voltara|otimo|instalacao|sera|valida|sao|meu avó|"
-    r"não achár|não e incomum|nao|voce)\b",
+    r"não achár|não e incomum|saido|proprio|nao|voce)\b",
     re.IGNORECASE,
 )
 

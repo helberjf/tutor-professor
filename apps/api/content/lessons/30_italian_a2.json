@@ -20,7 +20,7 @@
         "phrase_en": "Ti chiamera piu tardi.",
         "phrase_pt": "Ela vai te ligar mais tarde.",
         "word_by_word": [
-          { "en": "Ti chiamera", "pt": "elá vai te ligar" },
+          { "en": "Ti chiamera", "pt": "ela vai te ligar" },
           { "en": "piu tardi", "pt": "mais tarde" }
         ]
       },
@@ -29,7 +29,7 @@
         "phrase_pt": "Você pode me ajudar com isso, por favor?",
         "word_by_word": [
           { "en": "Puoi aiutarmi", "pt": "você pode me ajudar" },
-          { "en": "con questo", "pt": "com issó" },
+          { "en": "con questo", "pt": "com isso" },
           { "en": "per favore", "pt": "por favor" }
         ]
       }

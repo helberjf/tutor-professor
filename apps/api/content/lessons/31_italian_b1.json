@@ -26,11 +26,11 @@
       },
       {
         "phrase_en": "Sto imparando questa lingua da due anni.",
-        "phrase_pt": "Eu aprendo esse idioma há dóis anos.",
+        "phrase_pt": "Eu aprendo esse idioma há dois anos.",
         "word_by_word": [
           { "en": "Sto imparando", "pt": "eu aprendo" },
           { "en": "questa lingua", "pt": "esse idioma" },
-          { "en": "da due anni", "pt": "há dóis anos" }
+          { "en": "da due anni", "pt": "há dois anos" }
         ]
       }
     ]
@@ -50,7 +50,7 @@
     },
     {
       "word_en": "Sto imparando questa lingua da due anni.",
-      "word_pt": "Eu aprendo esse idioma há dóis anos.",
+      "word_pt": "Eu aprendo esse idioma há dois anos.",
       "example_sentence_en": "\"Stare\" + gerund with \"da\" shows an action still in progress.",
       "example_sentence_pt": "\"Stare\" + gerundio com \"da\" mostra uma ação ainda em andamento."
     }

@@ -9,11 +9,11 @@
     "phrase_breakdowns": [
       {
         "phrase_en": "Se avessi saputo del traffico, sarei partito prima.",
-        "phrase_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+        "phrase_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
         "word_by_word": [
-          { "en": "Se avessi saputo", "pt": "se eu sóubesse" },
+          { "en": "Se avessi saputo", "pt": "se eu soubesse" },
           { "en": "del traffico", "pt": "do trânsito" },
-          { "en": "sarei partito prima", "pt": "eu teria saido mais cedo" }
+          { "en": "sarei partito prima", "pt": "eu teria saído mais cedo" }
         ]
       },
       {
@@ -40,7 +40,7 @@
   "items": [
     {
       "word_en": "Se avessi saputo del traffico, sarei partito prima.",
-      "word_pt": "Se eu soubesse do trânsito, eu teria saido mais cedo.",
+      "word_pt": "Se eu soubesse do trânsito, eu teria saído mais cedo.",
       "example_sentence_en": "The third \"período hipotético\" (congiuntivo trapassato + condizionale passato) expresses an unreal past.",
       "example_sentence_pt": "O terceiro \"período hipotético\" (congiuntivo trapassato + condizionale passato) expressa um passado irreal."
     },
