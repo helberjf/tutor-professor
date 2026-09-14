@@ -93,6 +93,18 @@ const page = read('../src/app/objectives/page.tsx');
 assert.match(page, /useRequireAuth/, 'the page must require an account');
 assert.match(page, /px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10/, 'the page follows the mobile-first padding');
 
+const board = read('../src/components/objectives/ObjectivesBoard.tsx');
+assert.match(
+  board,
+  /err instanceof ApiError\s*&&\s*err\.status === 404/,
+  'an unavailable objectives endpoint must be identified as an outdated server',
+);
+assert.match(
+  board,
+  /vers[aã]o anterior|API.*atualizad/i,
+  'the objectives screen should explain how to recover from an outdated server',
+);
+
 const card = read('../src/components/objectives/ObjectiveCard.tsx');
 assert.match(card, /aria-checked=\{item\.done\}/, 'an item checkbox must announce its state');
 assert.match(
