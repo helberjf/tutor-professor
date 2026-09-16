@@ -256,6 +256,34 @@ export interface StudySessionState {
   lesson_pending: boolean;
 }
 
+export type StudyResumeKind =
+  | 'guided_session'
+  | 'language_lesson'
+  | 'language_review'
+  | 'coding_subject'
+  | 'coding_topic'
+  | 'coding_flashcards'
+  | 'coding_questions'
+  | 'diverse_subject'
+  | 'diverse_lesson';
+
+export interface StudyResume {
+  has_resume: boolean;
+  kind: StudyResumeKind | null;
+  href: string;
+  label: string;
+  updated_at: string | null;
+}
+
+export interface StudyResumeUpdatePayload {
+  kind: StudyResumeKind;
+  subject_id?: number | string | null;
+  topic_id?: number | string | null;
+  lesson_id?: number | string | null;
+  study_date?: string | null;
+  mode?: 'reading' | 'flashcards' | 'questions' | null;
+}
+
 export interface StudySessionFinishResult {
   session_id: number;
   answered_count: number;
@@ -1592,6 +1620,12 @@ export const api = {
     }),
   getStudyDashboard: () => fetchAPI<StudyDashboard>('/api/study/dashboard'),
   // ── One study queue, resumable ─────────────────────────────────────────────
+  getStudyResume: () => fetchAPI<StudyResume>('/api/study/resume'),
+  saveStudyResume: (payload: StudyResumeUpdatePayload) =>
+    fetchAPI<StudyResume>('/api/study/resume', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   /** Reads the queue state. Creates nothing, so it is safe on page load. */
   getStudySessionState: () => fetchAPI<StudySessionState>('/api/study/session'),
   /** Resumes the open session, or builds a new queue when there is none. */

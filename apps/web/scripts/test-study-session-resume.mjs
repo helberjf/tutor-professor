@@ -43,15 +43,20 @@ assert.doesNotMatch(
 );
 assert.match(
   homePage,
-  /hasOpenSession\s*&&\s*\(\s*<Link\s+href="\/session"/,
-  'the continue button should only render when there is an open session',
+  /api\.getStudyResume\(\)/,
+  'the home screen should read the cross-device bookmark on load',
+);
+assert.match(
+  homePage,
+  /hasStudyResume\s*&&\s*studyResume\s*&&\s*\([\s\S]{0,300}<Link[\s\S]{0,120}href=\{studyResume\.href\}/,
+  'the continue button should render from the latest valid server bookmark',
 );
 assert.match(
   homePage,
   /Continuar de onde parou[\s\S]{0,1500}Iniciar estudos/,
   'continuing should come before starting over, not after it',
 );
-assert.match(homePage, /remainingLabel/, 'the continue button should say how much is left');
+assert.match(homePage, /resumeLabel/, 'the continue button should name what will reopen');
 assert.match(
   homePage,
   /function describeRemaining/,
