@@ -44,7 +44,7 @@ import httpx  # noqa: E402
 from sqlmodel import Session as DbSession, select as db_select  # noqa: E402
 
 import main  # noqa: E402
-from models.database import ChildProfile, StudySession, User  # noqa: E402
+from models.database import ChildProfile, StudyResume, StudySession, User  # noqa: E402
 
 
 EMAIL = "familia@example.com"
@@ -263,6 +263,15 @@ async def run_account_data_checks() -> None:
         )
         ensure_study_session(child_id)
         require(study_session_count() > 0, "a study session should be stored by now")
+        with DbSession(main.engine) as db:
+            db.add(
+                StudyResume(
+                    child_id=child_id,
+                    kind="guided_session",
+                    context={},
+                )
+            )
+            db.commit()
 
         export = await client.get("/api/account/export")
         assert_status(export, 200, "export own account")
@@ -274,6 +283,10 @@ async def run_account_data_checks() -> None:
         require(
             any(row["child_id"] == child_id for row in data["study_sessions"]),
             "the export must carry this child's study session",
+        )
+        require(
+            any(row["child_id"] == child_id for row in data["study_resumes"]),
+            "the export must carry this child's last study destination",
         )
         # The export is a file someone downloads: no secrets in it.
         require("password_hash" not in data["account"], "the export must not carry the hash")
@@ -296,6 +309,11 @@ async def run_account_data_checks() -> None:
         require(
             not leftovers,
             f"erasure left {len(leftovers)} studysession row(s) orphaned on a deleted child",
+        )
+        resume_leftovers = db.exec(db_select(StudyResume)).all()
+        require(
+            not resume_leftovers,
+            f"erasure left {len(resume_leftovers)} studyresume row(s) on a deleted child",
         )
         require(not db.exec(db_select(ChildProfile)).all(), "child profiles must be gone")
 
