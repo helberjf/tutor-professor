@@ -37,13 +37,18 @@ assert.match(
 assert.match(homePage, /api\.getStudyResume\(\)/, 'home should load the latest study destination');
 assert.match(
   homePage,
-  /href=\{studyResume\.href\}/,
+  /href=\{resumeDestination\.href\}/,
   'continue must use the canonical server destination instead of a fixed route',
 );
 assert.match(
   homePage,
-  /studyResume\??\.label/,
-  'continue should name the subject or lesson it will reopen',
+  /resume\.label \|\| describeRemaining\(state\)/,
+  'the resolved destination should keep the server-owned subject or lesson label',
+);
+assert.match(
+  homePage,
+  /\{resumeDestination\.label\}/,
+  'continue should display the subject or lesson it will reopen',
 );
 
 assert.match(studyPage, /get\('mode'\)/, 'the study page should restore the programming mode');
@@ -70,6 +75,11 @@ assert.match(reviewPage, /kind: 'language_review'/, 'a non-empty review should b
 assert.match(studyPage, /get\('date'\)/, 'a diverse deep link should restore its study date');
 assert.match(studyPage, /get\('lesson_id'\)/, 'a diverse deep link should restore its lesson');
 assert.match(diverseTab, /initialLessonId/, 'the diverse dashboard should receive the requested lesson');
+assert.match(
+  diverseTab,
+  /const selectedSubjectId = selectedSubject\?\.subject\.id \?\? null/,
+  'diverse resume writes should depend on a stable subject identity, not the edited object',
+);
 assert.match(diverseTab, /kind: 'diverse_subject'/, 'opening a diverse subject should be remembered');
 assert.match(diverseTab, /kind: 'diverse_lesson'/, 'expanding a diverse lesson should be remembered');
 

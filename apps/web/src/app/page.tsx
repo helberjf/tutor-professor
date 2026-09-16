@@ -77,9 +77,7 @@ export default function HomePage() {
     isUnauthenticated ? `/login?next=${encodeURIComponent(href)}` : href;
   const levelProgress = getLevelProgress(progress, level);
   const hasOpenSession = Boolean(sessionState?.has_session && sessionState.remaining > 0);
-  const hasStudyResume = Boolean(studyResume?.has_resume && studyResume.href);
-  const remainingLabel = describeRemaining(sessionState);
-  const resumeLabel = studyResume?.label || remainingLabel;
+  const resumeDestination = getResumeDestination(studyResume, sessionState);
   const queueHint = describeQueue(sessionState, hasOpenSession);
 
   return (
@@ -170,9 +168,9 @@ export default function HomePage() {
                   {/* Continuing comes first: to a student who was already in the
                       middle of a session, it is the only thing on this screen
                       they are looking for. */}
-                  {hasStudyResume && studyResume && (
+                  {resumeDestination && (
                     <Link
-                      href={studyResume.href}
+                      href={resumeDestination.href}
                       className="relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-6 py-2 text-white shadow-[0_14px_34px_rgba(16,185,129,0.26)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7"
                     >
                       <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
@@ -180,18 +178,18 @@ export default function HomePage() {
                         Continuar de onde parou
                       </span>
                       <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/85">
-                        {resumeLabel}
+                        {resumeDestination.label}
                       </span>
                     </Link>
                   )}
                   <div className="relative inline-flex w-full sm:w-auto">
-                    {!hasStudyResume && (
+                    {!resumeDestination && (
                       <span className="absolute inset-0 animate-ping rounded-2xl bg-primary-dark opacity-20" aria-hidden />
                     )}
                     <Link
                       href={hasOpenSession ? '/session?restart=1' : '/session'}
                       className={`relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl px-6 py-2 transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7 ${
-                        hasStudyResume
+                        resumeDestination
                           ? 'border-2 border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
                           : 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)]'
                       }`}
@@ -200,7 +198,7 @@ export default function HomePage() {
                         <ClipboardList size={26} />
                         Iniciar estudos
                       </span>
-                      {hasStudyResume && (
+                      {resumeDestination && (
                         <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                           Monta uma fila nova
                         </span>
@@ -421,6 +419,24 @@ function describeRemaining(state: StudySessionState | null): string {
   if (!state || state.remaining <= 0) return '';
   const items = state.remaining === 1 ? '1 item' : `${state.remaining} itens`;
   return state.next_label ? `Faltam ${items} · ${state.next_label}` : `Faltam ${items}`;
+}
+
+/**
+ * Prefer the cross-device bookmark. During a staggered deployment, an older
+ * API may not expose it yet; the guided-session state must still keep the
+ * Continue button working instead of silently disappearing.
+ */
+function getResumeDestination(
+  resume: StudyResume | null,
+  state: StudySessionState | null,
+): { href: string; label: string } | null {
+  if (resume?.has_resume && resume.href) {
+    return { href: resume.href, label: resume.label || describeRemaining(state) };
+  }
+  if (state?.has_session && state.remaining > 0) {
+    return { href: '/session', label: describeRemaining(state) };
+  }
+  return null;
 }
 
 /**

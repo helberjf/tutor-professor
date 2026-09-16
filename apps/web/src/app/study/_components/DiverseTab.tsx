@@ -162,30 +162,30 @@ export function DiverseTab({
   const totalTopics = subjects.flatMap(getDiverseSubjectTopics).length;
   const subjectTabs = subjects.map((subject, index) => ({ subject, index, slug: getDiverseSubjectSlug(subject, index, subjects) }));
   const selectedSubject = subjectTabs.find((item) => item.slug === selectedSubjectSlug) ?? null;
-  const selectedSubjectValue = selectedSubject?.subject ?? null;
+  const selectedSubjectId = selectedSubject?.subject.id ?? null;
+  const selectedLessonId = initialLessonId && selectedSubject?.subject.lessons?.some(
+    (lesson) => lesson.id === initialLessonId,
+  ) ? initialLessonId : null;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
 
   useEffect(() => {
-    if (loadingDiverse || !selectedSubjectValue) return;
-    const requestedLesson = (selectedSubjectValue.lessons ?? []).find(
-      (lesson) => lesson.id === initialLessonId,
-    );
-    if (requestedLesson) {
+    if (loadingDiverse || !selectedSubjectId) return;
+    if (selectedLessonId) {
       rememberStudyLocation({
         kind: 'diverse_lesson',
         study_date: selectedDate,
-        subject_id: selectedSubjectValue.id,
-        lesson_id: requestedLesson.id,
+        subject_id: selectedSubjectId,
+        lesson_id: selectedLessonId,
       });
       return;
     }
     rememberStudyLocation({
       kind: 'diverse_subject',
       study_date: selectedDate,
-      subject_id: selectedSubjectValue.id,
+      subject_id: selectedSubjectId,
     });
-  }, [initialLessonId, loadingDiverse, selectedDate, selectedSubjectValue]);
+  }, [loadingDiverse, selectedDate, selectedLessonId, selectedSubjectId]);
 
   return (
     <div className="space-y-6">
