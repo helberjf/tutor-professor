@@ -10,8 +10,31 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://tutorprofessor.vercel.app'),
   title: 'Tutor and Professor',
   description: 'Tutor and Professor: aulas, revisão espaçada e estudo guiado para quem quiser aprender.',
+  openGraph: {
+    title: 'Tutor and Professor',
+    description: 'Tutor and Professor: aulas, revisão espaçada e estudo guiado para quem quiser aprender.',
+    url: 'https://tutorprofessor.vercel.app',
+    siteName: 'Tutor and Professor',
+    locale: 'pt_BR',
+    type: 'website',
+    images: [
+      {
+        url: '/icons/icon-512.png',
+        width: 512,
+        height: 512,
+        alt: 'Tutor and Professor',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Tutor and Professor',
+    description: 'Tutor and Professor: aulas, revisão espaçada e estudo guiado para quem quiser aprender.',
+    images: ['/icons/icon-512.png'],
+  },
   applicationName: 'Tutor and Professor',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
