@@ -63,7 +63,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -218,6 +218,8 @@ from schemas.schemas import (
     StudySessionProgressSchema,
     StudySessionSchema,
     StudySessionStateSchema,
+    StudyResumeSchema,
+    StudyResumeUpdateSchema,
 )
 from services.book_service import BookGenerationService
 from services.content_service import ContentService
@@ -3371,6 +3373,463 @@ def seed_free_content_for_child(session: Session, *, child: ChildProfile) -> Non
         topic_key=str(lesson.id or 0),
         topic_title=lesson.title,
     )
+
+
+def get_study_resume(session: Session, child_id: int) -> StudyResume | None:
+    """The child's single cross-device study bookmark, if one was stored."""
+
+    return session.exec(
+        select(StudyResume).where(StudyResume.child_id == child_id)
+    ).first()
+
+
+def _resume_result(
+    *,
+    kind: str,
+    href: str,
+    label: str,
+    updated_at: datetime | None,
+) -> StudyResumeSchema:
+    return StudyResumeSchema(
+        has_resume=True,
+        kind=kind,
+        href=href,
+        label=" ".join(label.split())[:200],
+        updated_at=updated_at,
+    )
+
+
+def _active_session_resume(session: Session, child_id: int) -> StudyResumeSchema:
+    """Compatibility for accounts that opened a queue before bookmarks existed."""
+
+    record = get_active_study_session(session, child_id)
+    if record is None:
+        return StudyResumeSchema()
+    items = study_session_items(record)
+    position = max(0, min(record.position, len(items)))
+    if position >= len(items):
+        return StudyResumeSchema()
+    next_item = items[position]
+    label = str(
+        next_item.get("topic_title")
+        or next_item.get("source_label")
+        or "Sessão guiada"
+    )
+    return _resume_result(
+        kind="guided_session",
+        href="/session",
+        label=label,
+        updated_at=record.updated_at,
+    )
+
+
+def _context_int(context: dict, key: str) -> int | None:
+    value = context.get(key)
+    if isinstance(value, bool):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _coding_resume(
+    session: Session,
+    *,
+    child_id: int,
+    kind: str,
+    context: dict,
+    updated_at: datetime | None,
+) -> tuple[StudyResumeSchema, str, dict]:
+    subject_id = _context_int(context, "subject_id")
+    subject = session.get(ProgrammingSubject, subject_id) if subject_id else None
+    if subject is None or subject.child_id != child_id:
+        return (
+            _resume_result(
+                kind="coding_subject",
+                href="/study?tab=coding",
+                label="Programação",
+                updated_at=updated_at,
+            ),
+            "coding_subject",
+            {},
+        )
+
+    mode = str(context.get("mode") or "reading")
+    if mode not in {"reading", "flashcards", "questions"}:
+        mode = "reading"
+    base_pairs = [("tab", "coding"), ("mode", mode), ("subject_id", subject.id or 0)]
+    subject_context = {"subject_id": subject.id or 0, "mode": mode}
+
+    if kind == "coding_flashcards" or mode == "flashcards":
+        return (
+            _resume_result(
+                kind="coding_flashcards",
+                href=f"/study?{urlencode(base_pairs)}",
+                label=f"{subject.name} — Flashcards",
+                updated_at=updated_at,
+            ),
+            "coding_flashcards",
+            subject_context,
+        )
+
+    topic_id = _context_int(context, "topic_id")
+    topic = session.get(ProgrammingTopic, topic_id) if topic_id else None
+    if kind in {"coding_topic", "coding_questions"} and (
+        topic is None or topic.subject_id != subject.id
+    ):
+        return (
+            _resume_result(
+                kind="coding_subject",
+                href=f"/study?{urlencode(base_pairs)}",
+                label=subject.name,
+                updated_at=updated_at,
+            ),
+            "coding_subject",
+            subject_context,
+        )
+
+    if topic is not None and kind in {"coding_topic", "coding_questions"}:
+        resolved_kind = "coding_questions" if kind == "coding_questions" else "coding_topic"
+        resolved_mode = "questions" if resolved_kind == "coding_questions" else "reading"
+        pairs = [
+            ("tab", "coding"),
+            ("mode", resolved_mode),
+            ("subject_id", subject.id or 0),
+            ("topic_id", topic.id or 0),
+        ]
+        resolved_context = {
+            "subject_id": subject.id or 0,
+            "topic_id": topic.id or 0,
+            "mode": resolved_mode,
+        }
+        return (
+            _resume_result(
+                kind=resolved_kind,
+                href=f"/study?{urlencode(pairs)}",
+                label=f"{subject.name} — {topic.title}",
+                updated_at=updated_at,
+            ),
+            resolved_kind,
+            resolved_context,
+        )
+
+    return (
+        _resume_result(
+            kind="coding_subject",
+            href=f"/study?{urlencode(base_pairs)}",
+            label=subject.name,
+            updated_at=updated_at,
+        ),
+        "coding_subject",
+        subject_context,
+    )
+
+
+def _diverse_resume(
+    session: Session,
+    *,
+    child_id: int,
+    kind: str,
+    context: dict,
+    updated_at: datetime | None,
+) -> tuple[StudyResumeSchema, str, dict]:
+    raw_date = context.get("study_date")
+    try:
+        study_date = date.fromisoformat(str(raw_date))
+    except (TypeError, ValueError):
+        study_date = None
+    record = (
+        session.exec(
+            select(DiverseDay).where(
+                DiverseDay.child_id == child_id,
+                DiverseDay.study_date == study_date,
+            )
+        ).first()
+        if study_date is not None
+        else None
+    )
+    subject_id = str(context.get("subject_id") or "")
+    subjects = normalize_subjects(record.custom_subjects or []) if record else []
+    subject = next(
+        (item for item in subjects if str(item.get("id") or "") == subject_id),
+        None,
+    )
+    if record is None or subject is None:
+        return (
+            _resume_result(
+                kind="diverse_subject",
+                href="/study?tab=diverse",
+                label="Outras matérias",
+                updated_at=updated_at,
+            ),
+            "diverse_subject",
+            {},
+        )
+
+    pairs = [
+        ("tab", "diverse"),
+        ("date", study_date.isoformat()),
+        ("subject_id", subject_id),
+    ]
+    subject_context = {"study_date": study_date.isoformat(), "subject_id": subject_id}
+    subject_name = str(subject.get("name") or "Matéria")
+    lesson_id = str(context.get("lesson_id") or "")
+    lesson = next(
+        (
+            item
+            for item in (subject.get("lessons") or [])
+            if isinstance(item, dict) and str(item.get("id") or "") == lesson_id
+        ),
+        None,
+    )
+    if kind == "diverse_lesson" and lesson is not None:
+        pairs.append(("lesson_id", lesson_id))
+        lesson_context = {**subject_context, "lesson_id": lesson_id}
+        return (
+            _resume_result(
+                kind="diverse_lesson",
+                href=f"/study?{urlencode(pairs)}",
+                label=f"{subject_name} — {str(lesson.get('title') or 'Lição')}",
+                updated_at=updated_at,
+            ),
+            "diverse_lesson",
+            lesson_context,
+        )
+
+    return (
+        _resume_result(
+            kind="diverse_subject",
+            href=f"/study?{urlencode(pairs)}",
+            label=subject_name,
+            updated_at=updated_at,
+        ),
+        "diverse_subject",
+        subject_context,
+    )
+
+
+def resolve_study_resume(
+    session: Session,
+    child: ChildProfile,
+    record: StudyResume,
+) -> tuple[StudyResumeSchema, str, dict]:
+    """Resolve stored identifiers into an owned, canonical internal destination."""
+
+    child_id = child.id or 0
+    kind = record.kind
+    context = record.context if isinstance(record.context, dict) else {}
+    if kind == "guided_session":
+        result = _active_session_resume(session, child_id)
+        return result, kind, {}
+    if kind == "language_review":
+        return (
+            _resume_result(
+                kind=kind,
+                href="/review",
+                label="Revisão",
+                updated_at=record.updated_at,
+            ),
+            kind,
+            {},
+        )
+    if kind == "language_lesson":
+        lesson_id = _context_int(context, "lesson_id")
+        accessible = {
+            item.id or 0: item
+            for item in list_accessible_lessons(
+                session=session,
+                child_id=child_id,
+                child_level=child.current_level,
+                target_language=child.target_language,
+            )
+        }
+        lesson = accessible.get(lesson_id or 0)
+        if lesson is None:
+            return (
+                _resume_result(
+                    kind=kind,
+                    href="/lesson",
+                    label="Lição de idioma",
+                    updated_at=record.updated_at,
+                ),
+                kind,
+                {},
+            )
+        return (
+            _resume_result(
+                kind=kind,
+                href="/lesson",
+                label=lesson.title,
+                updated_at=record.updated_at,
+            ),
+            kind,
+            {"lesson_id": lesson.id or 0},
+        )
+    if kind.startswith("coding_"):
+        return _coding_resume(
+            session,
+            child_id=child_id,
+            kind=kind,
+            context=context,
+            updated_at=record.updated_at,
+        )
+    if kind.startswith("diverse_"):
+        return _diverse_resume(
+            session,
+            child_id=child_id,
+            kind=kind,
+            context=context,
+            updated_at=record.updated_at,
+        )
+    return _active_session_resume(session, child_id), kind, {}
+
+
+def _validated_resume_context(
+    session: Session,
+    *,
+    child: ChildProfile,
+    payload: StudyResumeUpdateSchema,
+) -> dict:
+    child_id = child.id or 0
+    if payload.kind == "guided_session":
+        active = _active_session_resume(session, child_id)
+        if not active.has_resume:
+            raise HTTPException(status_code=404, detail="Sessão de estudo não encontrada.")
+        return {}
+    if payload.kind == "language_review":
+        return {}
+    if payload.kind == "language_lesson":
+        lesson_id = _context_int({"lesson_id": payload.lesson_id}, "lesson_id")
+        accessible_ids = {
+            item.id or 0
+            for item in list_accessible_lessons(
+                session=session,
+                child_id=child_id,
+                child_level=child.current_level,
+                target_language=child.target_language,
+            )
+        }
+        if lesson_id is None or lesson_id not in accessible_ids:
+            raise HTTPException(status_code=404, detail="Lição não encontrada.")
+        return {"lesson_id": lesson_id}
+    if payload.kind.startswith("coding_"):
+        subject_id = _context_int({"subject_id": payload.subject_id}, "subject_id")
+        subject = session.get(ProgrammingSubject, subject_id) if subject_id else None
+        if subject is None or subject.child_id != child_id:
+            raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+        mode = payload.mode or (
+            "flashcards"
+            if payload.kind == "coding_flashcards"
+            else "questions"
+            if payload.kind == "coding_questions"
+            else "reading"
+        )
+        context = {"subject_id": subject.id or 0, "mode": mode}
+        if payload.kind in {"coding_topic", "coding_questions"}:
+            topic_id = _context_int({"topic_id": payload.topic_id}, "topic_id")
+            topic = session.get(ProgrammingTopic, topic_id) if topic_id else None
+            if topic is None or topic.subject_id != subject.id:
+                raise HTTPException(status_code=404, detail="Tópico não encontrado.")
+            context["topic_id"] = topic.id or 0
+        return context
+    if payload.kind.startswith("diverse_"):
+        if payload.study_date is None:
+            raise HTTPException(status_code=404, detail="Dia de estudo não encontrado.")
+        day = session.exec(
+            select(DiverseDay).where(
+                DiverseDay.child_id == child_id,
+                DiverseDay.study_date == payload.study_date,
+            )
+        ).first()
+        subject_id = str(payload.subject_id or "")
+        subjects = normalize_subjects(day.custom_subjects or []) if day else []
+        subject = next(
+            (item for item in subjects if str(item.get("id") or "") == subject_id),
+            None,
+        )
+        if subject is None:
+            raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+        context = {
+            "study_date": payload.study_date.isoformat(),
+            "subject_id": subject_id,
+        }
+        if payload.kind == "diverse_lesson":
+            lesson_id = str(payload.lesson_id or "")
+            lesson = next(
+                (
+                    item
+                    for item in (subject.get("lessons") or [])
+                    if isinstance(item, dict) and str(item.get("id") or "") == lesson_id
+                ),
+                None,
+            )
+            if lesson is None:
+                raise HTTPException(status_code=404, detail="Lição não encontrada.")
+            context["lesson_id"] = lesson_id
+        return context
+    raise HTTPException(status_code=422, detail="Destino de estudo inválido.")
+
+
+@app.get("/api/study/resume", response_model=StudyResumeSchema)
+def read_study_resume(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyResumeSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    record = get_study_resume(session, child.id or 0)
+    if record is None:
+        return _active_session_resume(session, child.id or 0)
+    result, normalized_kind, normalized_context = resolve_study_resume(session, child, record)
+    if record.kind != normalized_kind or record.context != normalized_context:
+        record.kind = normalized_kind
+        record.context = normalized_context
+        session.add(record)
+        session.commit()
+    return result
+
+
+@app.put("/api/study/resume", response_model=StudyResumeSchema)
+def write_study_resume(
+    payload: StudyResumeUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyResumeSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    context = _validated_resume_context(session, child=child, payload=payload)
+    record = get_study_resume(session, child_id)
+    now = datetime.utcnow()
+    if record is None:
+        record = StudyResume(
+            child_id=child_id,
+            kind=payload.kind,
+            context=context,
+            updated_at=now,
+        )
+    else:
+        record.kind = payload.kind
+        record.context = context
+        record.updated_at = now
+    session.add(record)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        record = get_study_resume(session, child_id)
+        if record is None:
+            raise
+        record.kind = payload.kind
+        record.context = context
+        record.updated_at = now
+        session.add(record)
+        session.commit()
+    session.refresh(record)
+    result, _, _ = resolve_study_resume(session, child, record)
+    return result
 
 
 @app.get("/api/study/session", response_model=StudySessionStateSchema)
