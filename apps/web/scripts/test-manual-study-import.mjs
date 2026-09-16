@@ -27,9 +27,12 @@ const { buildManualStudyPrompt, parseManualStudyImport } = module.exports;
 const prompt = buildManualStudyPrompt('Sistema Solar', 8);
 assert.match(prompt, /Sistema Solar/);
 assert.match(prompt, /8 questões/);
-assert.match(prompt, /"materia"/);
+assert.match(prompt, /"matéria"/);
 assert.match(prompt, /"aulas"/);
-assert.match(prompt, /"questoes"/);
+assert.match(prompt, /"título"/);
+assert.match(prompt, /"questões"/);
+assert.match(prompt, /"pergunta"/);
+assert.match(prompt, /"resposta"/);
 assert.match(prompt, /somente o JSON/i);
 
 let subjectIds = 0;
