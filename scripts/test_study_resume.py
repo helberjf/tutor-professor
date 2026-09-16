@@ -6,6 +6,7 @@ import asyncio
 import os
 import sys
 import tempfile
+from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,7 @@ import main  # noqa: E402
 from account_approval_support import approve_all_accounts, enable_all_modules  # noqa: E402
 from models.database import (  # noqa: E402
     ChildProfile,
+    DiverseDay,
     Lesson,
     LessonItem,
     ProgrammingSubject,
@@ -77,7 +79,7 @@ def child_id_for(email: str) -> int:
         return child.id or 0
 
 
-def seed_shared_lesson() -> None:
+def seed_shared_lesson() -> int:
     with Session(main.engine) as session:
         lesson = Lesson(
             title="Lição para fila aberta",
@@ -101,6 +103,7 @@ def seed_shared_lesson() -> None:
             )
         )
         session.commit()
+        return lesson.id or 0
 
 
 def seed_programming(child_id: int) -> tuple[int, int]:
@@ -114,6 +117,41 @@ def seed_programming(child_id: int) -> tuple[int, int]:
         session.commit()
         session.refresh(topic)
         return subject.id or 0, topic.id or 0
+
+
+def seed_diverse(child_id: int) -> tuple[date, str, str]:
+    study_date = date(2026, 9, 15)
+    subject_id = "subject-matematica"
+    lesson_id = "lesson-fracoes"
+    with Session(main.engine) as session:
+        session.add(
+            DiverseDay(
+                child_id=child_id,
+                study_date=study_date,
+                custom_subjects=[
+                    {
+                        "id": subject_id,
+                        "name": "Matemática",
+                        "topics": [
+                            {
+                                "id": "question-fracoes",
+                                "topic": "O que é uma fração?",
+                                "answer": "Uma parte de um todo.",
+                            }
+                        ],
+                        "lessons": [
+                            {
+                                "id": lesson_id,
+                                "title": "Frações",
+                                "topic_ids": ["question-fracoes"],
+                            }
+                        ],
+                    }
+                ],
+            )
+        )
+        session.commit()
+    return study_date, subject_id, lesson_id
 
 
 def delete_topic(topic_id: int) -> None:
@@ -134,7 +172,7 @@ def delete_subject(subject_id: int) -> None:
 
 async def run() -> None:
     main.on_startup()
-    seed_shared_lesson()
+    lesson_id = seed_shared_lesson()
     transport = httpx.ASGITransport(app=main.app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         first_headers = await register_and_login(
@@ -145,6 +183,7 @@ async def run() -> None:
         )
         first_child_id = child_id_for("primeiro@example.com")
         subject_id, topic_id = seed_programming(first_child_id)
+        diverse_date, diverse_subject_id, diverse_lesson_id = seed_diverse(first_child_id)
 
         empty = await client.get("/api/study/resume", headers=first_headers)
         require(empty.status_code == 200, empty.text)
@@ -152,6 +191,39 @@ async def run() -> None:
 
         guided = await client.post("/api/study/session/start", headers=first_headers)
         require(guided.status_code == 200 and guided.json()["total"] > 0, guided.text)
+
+        language = await client.put(
+            "/api/study/resume",
+            headers=first_headers,
+            json={"kind": "language_lesson", "lesson_id": lesson_id},
+        )
+        require(language.status_code == 200, language.text)
+        require(language.json()["label"] == "Lição para fila aberta", language.text)
+        require(
+            language.json()["href"] == f"/lesson?lessonId={lesson_id}",
+            language.text,
+        )
+
+        diverse = await client.put(
+            "/api/study/resume",
+            headers=first_headers,
+            json={
+                "kind": "diverse_lesson",
+                "study_date": diverse_date.isoformat(),
+                "subject_id": diverse_subject_id,
+                "lesson_id": diverse_lesson_id,
+            },
+        )
+        require(diverse.status_code == 200, diverse.text)
+        require(diverse.json()["label"] == "Matemática — Frações", diverse.text)
+        require(
+            diverse.json()["href"]
+            == (
+                "/study?tab=diverse&date=2026-09-15"
+                "&subject_id=subject-matematica&lesson_id=lesson-fracoes"
+            ),
+            diverse.text,
+        )
 
         saved = await client.put(
             "/api/study/resume",
