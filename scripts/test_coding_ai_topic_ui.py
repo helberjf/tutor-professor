@@ -23,7 +23,7 @@ def main() -> None:
     main_source = API_MAIN.read_text(encoding="utf-8")
     service_source = CODING_SERVICE.read_text(encoding="utf-8")
 
-    require("Gerar topico por IA" in source, "coding topics view exposes AI topic generation")
+    require("Gerar tópico por IA" in source, "coding topics view exposes AI topic generation")
     require("function handleGenerateTopicAI" in source, "coding UI has an AI topic generation handler")
     require("generateCodingTopic" in source, "coding UI calls the generated-topic API")
     require("generateCodingTopic" in api_source, "API client exposes generated coding topic endpoint")

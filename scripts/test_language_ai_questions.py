@@ -92,7 +92,7 @@ class LanguageQuestionLessonUIContractTests(unittest.TestCase):
         )[0]
         self.assertIn("setLesson((currentLesson)", generation)
         self.assertNotIn("loadLesson()", generation)
-        self.assertIn("Recarregue a licao antes de tentar novamente", generation)
+        self.assertIn("Recarregue a lição antes de tentar novamente", generation)
 
 
 class LanguageQuestionReviewUIContractTests(unittest.TestCase):
@@ -137,15 +137,15 @@ class LanguageQuestionReviewUIContractTests(unittest.TestCase):
         self.assertIn("card.prompt", source)
         self.assertIn("card.answer", source)
         self.assertIn("card.supporting_example", source)
-        self.assertIn("Nao sabia", source)
+        self.assertIn("Não sabia", source)
         self.assertIn("Sabia", source)
         for expected in (
             "const CONFIDENCE_LEVELS",
             "const [flipped, setFlipped]",
             "const [audioSpeed, setAudioSpeed]",
             "Virar carta",
-            "Traducao",
-            "Como voce se saiu?",
+            "Tradução",
+            "Como você se saiu?",
             "handleVocabularyConfidence",
             "beginMixedReviewSubmission",
             "revealMixedReviewLessonAnswer",
@@ -175,8 +175,8 @@ class LanguageQuestionReviewUIContractTests(unittest.TestCase):
         for expected in (
             "api.getParentSettings()",
             "targetLanguage",
-            "Criar proxima licao",
-            "A IA cria a proxima licao",
+            "Criar próxima lição",
+            "A IA cria a próxima lição",
             "maxLength={80}",
             "generateMorePhrases",
             "quantity: 1",
@@ -197,7 +197,7 @@ class LanguageQuestionReviewUIContractTests(unittest.TestCase):
             "runLessonQuestionGeneration",
             "validateConfirmedLessonQuestionBatch",
             "isUncertainLessonQuestionGenerationError",
-            "Esta licao atingiu o limite",
+            "Esta lição atingiu o limite",
         ):
             self.assertNotIn(removed, source)
 

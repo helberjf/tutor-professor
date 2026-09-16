@@ -20,7 +20,7 @@ def main() -> None:
     require("aria-modal=\"true\"" in source, "reading study dialog is modal")
     require("readingStudySteps" in source, "reading study combines reading sections and quiz questions into steps")
     require("setReadingStepIndex" in source, "reading study supports step navigation")
-    require("aria-label=\"Proxima etapa do estudo\"" in source, "reading study has an accessible next button")
+    require("aria-label=\"Próxima etapa do estudo\"" in source, "reading study has an accessible next button")
     require("aria-label=\"Etapa anterior do estudo\"" in source, "reading study has an accessible previous button")
     require("min-h-[100dvh]" in source, "reading study modal is mobile-first full height")
 

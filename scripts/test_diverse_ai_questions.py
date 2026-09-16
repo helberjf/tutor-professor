@@ -71,7 +71,7 @@ assert 'len(lesson.get("topic_ids") or []) > 45' in main
 requested_child = main.split("def get_requested_child", 1)[1].split("\n\ndef ", 1)[0]
 assert 'request.headers.get("x-child-id")' in requested_child
 assert "selected_child.id != requested_child_id" in requested_child
-assert 'status_code=400, detail="X-Child-ID invalido."' in requested_child
+assert 'status_code=400, detail="X-Child-ID inválido."' in requested_child
 
 # Web client and both non-flashcard entry points use the canonical endpoint.
 assert "generateDiverseQuestions" in api

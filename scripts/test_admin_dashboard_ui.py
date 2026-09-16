@@ -33,10 +33,10 @@ def main() -> None:
     require("adminDeleteUser(user.id)" in queue, "queue calls the admin delete endpoint")
     require("filter((item) => item.id !== user.id)" in queue, "queue removes the deleted account locally")
     require("adminSystemHealth" in api, "admin system health is exposed in the API client")
-    require("Saude do sistema" in dashboard, "admin dashboard renders system health")
+    require("Saúde do sistema" in dashboard, "admin dashboard renders system health")
     require("daily_limit" in queue, "admin can change a user's daily AI limit")
     require("Vamos estudar" in navbar and "first_name" in navbar, "hamburger greets the signed-in person")
-    require("Conexao com o backend" not in navbar, "normal navigation hides backend support")
+    require("Conexão com o backend" not in navbar, "normal navigation hides backend support")
     require("URL do Tunnel" not in parents, "parent settings hide backend connection controls")
     require("adminCheck" in connect, "backend connection page verifies administrator access")
 

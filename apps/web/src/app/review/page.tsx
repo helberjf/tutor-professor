@@ -661,7 +661,7 @@ export default function ReviewPage() {
                     disabled={submitting || reviewTransitionRef.current.advancementLocked}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-rose-300 bg-rose-50 px-4 py-4 font-black text-rose-700 disabled:opacity-60"
                   >
-                    <XCircle size={18} /> Nao sabia
+                    <XCircle size={18} /> Não sabia
                   </button>
                   <button
                     type="button"
