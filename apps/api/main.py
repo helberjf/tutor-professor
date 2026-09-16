@@ -3660,7 +3660,7 @@ def resolve_study_resume(
         return (
             _resume_result(
                 kind=kind,
-                href="/lesson",
+                href=f"/lesson?{urlencode([('lessonId', lesson.id or 0)])}",
                 label=lesson.title,
                 updated_at=record.updated_at,
             ),
