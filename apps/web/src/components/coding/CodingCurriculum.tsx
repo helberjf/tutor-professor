@@ -99,6 +99,8 @@ export function CodingCurriculum({
 
   useEffect(() => {
     loadSubjects();
+  // The initial deep link is consumed once; later refreshes must not reopen it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -168,6 +170,8 @@ export function CodingCurriculum({
 
       return current;
     });
+  // Mode changes deliberately operate on the current view; loadTopics is not a trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
   async function loadSubjects() {

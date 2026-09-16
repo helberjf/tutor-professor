@@ -16,6 +16,10 @@ const homePage = read('src/app/page.tsx');
 const studyPage = read('src/app/study/page.tsx');
 const codingTab = read('src/app/study/_components/CodingTab.tsx');
 const codingCurriculum = read('src/components/coding/CodingCurriculum.tsx');
+const sessionPage = read('src/app/session/page.tsx');
+const lessonPage = read('src/app/lesson/page.tsx');
+const reviewPage = read('src/app/review/page.tsx');
+const diverseTab = read('src/app/study/_components/DiverseTab.tsx');
 
 assert.match(apiClient, /export interface StudyResume\s*{/, 'the API client needs a resume result type');
 assert.match(apiClient, /getStudyResume:/, 'the API client needs to read the server bookmark');
@@ -59,5 +63,14 @@ for (const kind of ['coding_subject', 'coding_topic', 'coding_questions', 'codin
     `the programming curriculum should remember ${kind}`,
   );
 }
+
+assert.match(sessionPage, /kind: 'guided_session'/, 'a loaded guided session should become resumable');
+assert.match(lessonPage, /kind: 'language_lesson'/, 'a loaded language lesson should become resumable');
+assert.match(reviewPage, /kind: 'language_review'/, 'a non-empty review should become resumable');
+assert.match(studyPage, /get\('date'\)/, 'a diverse deep link should restore its study date');
+assert.match(studyPage, /get\('lesson_id'\)/, 'a diverse deep link should restore its lesson');
+assert.match(diverseTab, /initialLessonId/, 'the diverse dashboard should receive the requested lesson');
+assert.match(diverseTab, /kind: 'diverse_subject'/, 'opening a diverse subject should be remembered');
+assert.match(diverseTab, /kind: 'diverse_lesson'/, 'expanding a diverse lesson should be remembered');
 
 console.log('cross-device study resume tests passed');

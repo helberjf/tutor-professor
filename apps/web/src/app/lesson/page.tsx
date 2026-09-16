@@ -11,6 +11,7 @@ import { ApiError, api, type LevelAnalysis, type Lesson, type LessonItem, type P
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { isUncertainLessonQuestionGenerationError, mergeLessonQuestionsById, validateConfirmedLessonQuestionBatch } from '@/lib/lesson-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { rememberStudyLocation } from '@/lib/study-resume';
 
 export default function LessonPage() {
   return (
@@ -144,6 +145,7 @@ function LessonPageContent() {
       ]);
 
       setLesson(data);
+      rememberStudyLocation({ kind: 'language_lesson', lesson_id: data.id });
       setCurrentIndex(0);
       setCompleted(false);
       setSelectedAnswer(null);
@@ -183,6 +185,7 @@ function LessonPageContent() {
         api.getChildLevel().catch(() => null),
       ]);
       setLesson(data);
+      rememberStudyLocation({ kind: 'language_lesson', lesson_id: data.id });
       setCurrentIndex(0);
       setCompleted(false);
       setSelectedAnswer(null);

@@ -13,6 +13,7 @@ import { api, type CatalogSubject, type CodingTopic, type DiverseDay, type Diver
 import { findItemIndexById, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, resolveItemsByIds } from '@/lib/diverse-question-state';
 import { buildManualStudyPrompt, parseManualStudyImport } from '@/lib/manual-study-import';
 import type { PomodoroMode } from '@/lib/pomodoro';
+import { rememberStudyLocation } from '@/lib/study-resume';
 
 import {
   RATING_META,
@@ -96,7 +97,7 @@ export function DiverseTab({
   selectedDate, diverseDay, catalog, loadingDiverse, savingDiverse,
   diverseSaved, diverseError, newSubjectName, setNewSubjectName,
   onAddSubject, onImportStudy, onGenerateAI, generatingAI, aiAction, lastAIAction, aiError,
-  selectedSubjectSlug, onSelectSubjectTab, onSelectOverview, onSelectCoding,
+  selectedSubjectSlug, initialLessonId, onSelectSubjectTab, onSelectOverview, onSelectCoding,
   codingEnabled = true,
   onRemoveSubject, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer,
   onUpdateSubjectName, onGenerateTopicAI, onRegenerateTopicAI, onGenerateLessonAI, onBulkAddTopics,
@@ -122,6 +123,7 @@ export function DiverseTab({
   lastAIAction: DiverseAIAction | null;
   aiError: string;
   selectedSubjectSlug: string | null;
+  initialLessonId: string | null;
   onSelectSubjectTab: (slug: string) => void;
   onSelectOverview: () => void;
   onSelectCoding: () => void;
@@ -160,8 +162,30 @@ export function DiverseTab({
   const totalTopics = subjects.flatMap(getDiverseSubjectTopics).length;
   const subjectTabs = subjects.map((subject, index) => ({ subject, index, slug: getDiverseSubjectSlug(subject, index, subjects) }));
   const selectedSubject = subjectTabs.find((item) => item.slug === selectedSubjectSlug) ?? null;
+  const selectedSubjectValue = selectedSubject?.subject ?? null;
   const [aiKeyDraft, setAiKeyDraft] = useState('');
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
+
+  useEffect(() => {
+    if (loadingDiverse || !selectedSubjectValue) return;
+    const requestedLesson = (selectedSubjectValue.lessons ?? []).find(
+      (lesson) => lesson.id === initialLessonId,
+    );
+    if (requestedLesson) {
+      rememberStudyLocation({
+        kind: 'diverse_lesson',
+        study_date: selectedDate,
+        subject_id: selectedSubjectValue.id,
+        lesson_id: requestedLesson.id,
+      });
+      return;
+    }
+    rememberStudyLocation({
+      kind: 'diverse_subject',
+      study_date: selectedDate,
+      subject_id: selectedSubjectValue.id,
+    });
+  }, [initialLessonId, loadingDiverse, selectedDate, selectedSubjectValue]);
 
   return (
     <div className="space-y-6">
@@ -182,6 +206,7 @@ export function DiverseTab({
         <DiverseSubjectDashboard
           selectedDate={selectedDate}
           subject={selectedSubject.subject}
+          initialLessonId={initialLessonId}
           onBack={onSelectOverview}
           onRemove={() => void onRemoveSubject(selectedSubject.subject.id)}
           onToggleTopic={(ti) => onToggleTopic(selectedSubject.index, ti)}
@@ -550,7 +575,7 @@ export function ManualStudyImportPanel({
 // SUBJECT STUDY CARD (Diverse tab — inline study mode)
 // ═══════════════════════════════════════════════════════════════════════════════
 export function DiverseSubjectDashboard({
-  selectedDate, subject, onBack, onRemove, onToggleTopic, onUpdateTopicText,
+  selectedDate, subject, initialLessonId, onBack, onRemove, onToggleTopic, onUpdateTopicText,
   onUpdateTopicAnswer, onUpdateSubjectName, onSave, savingDiverse, loadingDiverse,
   diverseSaved, diverseError, pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage, onTogglePomodoro, onSwitchPomodoro,
@@ -564,6 +589,7 @@ export function DiverseSubjectDashboard({
 }: {
   selectedDate: string;
   subject: DiverseSubject;
+  initialLessonId: string | null;
   onBack: () => void;
   onRemove: () => void;
   onToggleTopic: (ti: number) => void;
@@ -616,6 +642,14 @@ export function DiverseSubjectDashboard({
   const [lessonContext, setLessonContext] = useState('');
   const [studyModalOpen, setStudyModalOpen] = useState(false);
   const needsKeyConfig = aiError.toLowerCase().includes('chave') || aiError.toLowerCase().includes('configur') || aiError.toLowerCase().includes('api');
+
+  useEffect(() => {
+    if (!initialLessonId) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`diverse-lesson-${initialLessonId}`)?.scrollIntoView({ block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [initialLessonId]);
 
   return (
     <div className="space-y-6">
@@ -782,9 +816,15 @@ export function DiverseSubjectDashboard({
               {lessons.map((lesson, lessonIndex) => {
                 const resolvedTopics = resolveDiverseLessonTopics(subject, lesson);
                 return (
-                  <div key={lesson.id} className="space-y-3">
+                  <div id={`diverse-lesson-${lesson.id}`} key={lesson.id} className="space-y-3">
                     <SubjectStudyCard
-                      defaultCollapsed={true}
+                      defaultCollapsed={lesson.id !== initialLessonId}
+                      onOpen={() => rememberStudyLocation({
+                        kind: 'diverse_lesson',
+                        study_date: selectedDate,
+                        subject_id: subject.id,
+                        lesson_id: lesson.id,
+                      })}
                       subject={{ id: subject.id, name: lesson.title, topics: resolvedTopics, lessons: [] }}
                       syntaxLanguage={subject.name}
                       onRemove={() => onRemoveLesson(lessonIndex)}
@@ -1093,7 +1133,7 @@ export function DiverseQuestionGenerationForm({
 export function SubjectStudyCard({
   subject, onRemove, onToggleTopic, onUpdateTopicText, onUpdateTopicAnswer, onUpdateSubjectName,
   onRegenerateTopicAI, aiBusy = false,
-  defaultCollapsed, syntaxLanguage, onBulkAddTopics, onRateTopic, onSessionComplete,
+  defaultCollapsed, onOpen, syntaxLanguage, onBulkAddTopics, onRateTopic, onSessionComplete,
   questionGenerationLessons, fixedQuestionGenerationLesson, questionGenerationButtonLabel,
   onGenerateMoreQuestions, questionGenerationBusy = false,
 }: {
@@ -1106,6 +1146,7 @@ export function SubjectStudyCard({
   onRegenerateTopicAI?: (ti: number, context?: string, apiKey?: string) => void | Promise<void>;
   aiBusy?: boolean;
   defaultCollapsed?: boolean;
+  onOpen?: () => void;
   syntaxLanguage?: string;
   onBulkAddTopics?: (topics: CodingTopic[]) => void;
   onRateTopic?: (ti: number, rating: StudyRating) => void;
@@ -1248,7 +1289,10 @@ export function SubjectStudyCard({
       <div className="flex items-center gap-2 px-5 pt-5">
         <button
           type="button"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => setCollapsed((current) => {
+            if (current) onOpen?.();
+            return !current;
+          })}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
           title={collapsed ? 'Expandir' : 'Minimizar'}
         >
