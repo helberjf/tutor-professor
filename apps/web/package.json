@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test:social-metadata": "node scripts/test-social-metadata.mjs",
     "test:topic-flashcards": "node scripts/test-topic-flashcard-state.mjs",
     "test:typed-answer": "node scripts/test-typed-answer.mjs",
     "test:simulado-timer": "node scripts/test-simulado-timer.mjs",
