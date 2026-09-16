@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
-import { ApiError, api, type LevelAnalysis, type Progress, type StudySessionState } from '@/lib/api';
+import { ApiError, api, type LevelAnalysis, type Progress, type StudyResume, type StudySessionState } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
 
 type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
@@ -15,6 +15,7 @@ export default function HomePage() {
   // What is still open in the study queue, so the first screen can offer to
   // continue it instead of asking the student to find their way back to it.
   const [sessionState, setSessionState] = useState<StudySessionState | null>(null);
+  const [studyResume, setStudyResume] = useState<StudyResume | null>(null);
   const [status, setStatus] = useState<HomeStatus>('loading');
   const [connection, setConnection] = useState(() => getApiConnectionDetails());
 
@@ -43,10 +44,13 @@ export default function HomePage() {
           api.getChildLevel().catch(() => null),
           // Reading the queue state creates nothing, so it is safe on load.
           api.getStudySessionState().catch(() => null),
-        ]).then(([progressData, levelData, queueState]) => {
+          // The server bookmark works across devices and may point outside the queue.
+          api.getStudyResume().catch(() => null),
+        ]).then(([progressData, levelData, queueState, resumeData]) => {
           setProgress(progressData);
           setLevel(levelData);
           setSessionState(queueState);
+          setStudyResume(resumeData);
           setStatus('authenticated');
         });
       })
@@ -73,7 +77,9 @@ export default function HomePage() {
     isUnauthenticated ? `/login?next=${encodeURIComponent(href)}` : href;
   const levelProgress = getLevelProgress(progress, level);
   const hasOpenSession = Boolean(sessionState?.has_session && sessionState.remaining > 0);
+  const hasStudyResume = Boolean(studyResume?.has_resume && studyResume.href);
   const remainingLabel = describeRemaining(sessionState);
+  const resumeLabel = studyResume?.label || remainingLabel;
   const queueHint = describeQueue(sessionState, hasOpenSession);
 
   return (
@@ -164,9 +170,9 @@ export default function HomePage() {
                   {/* Continuing comes first: to a student who was already in the
                       middle of a session, it is the only thing on this screen
                       they are looking for. */}
-                  {hasOpenSession && (
+                  {hasStudyResume && studyResume && (
                     <Link
-                      href="/session"
+                      href={studyResume.href}
                       className="relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-6 py-2 text-white shadow-[0_14px_34px_rgba(16,185,129,0.26)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7"
                     >
                       <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
@@ -174,18 +180,18 @@ export default function HomePage() {
                         Continuar de onde parou
                       </span>
                       <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/85">
-                        {remainingLabel}
+                        {resumeLabel}
                       </span>
                     </Link>
                   )}
                   <div className="relative inline-flex w-full sm:w-auto">
-                    {!hasOpenSession && (
+                    {!hasStudyResume && (
                       <span className="absolute inset-0 animate-ping rounded-2xl bg-primary-dark opacity-20" aria-hidden />
                     )}
                     <Link
                       href={hasOpenSession ? '/session?restart=1' : '/session'}
                       className={`relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl px-6 py-2 transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7 ${
-                        hasOpenSession
+                        hasStudyResume
                           ? 'border-2 border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
                           : 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)]'
                       }`}
@@ -194,7 +200,7 @@ export default function HomePage() {
                         <ClipboardList size={26} />
                         Iniciar estudos
                       </span>
-                      {hasOpenSession && (
+                      {hasStudyResume && (
                         <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                           Monta uma fila nova
                         </span>
