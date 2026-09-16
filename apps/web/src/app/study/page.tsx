@@ -75,6 +75,10 @@ export default function StudyPage() {
 
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
   const [codingMode, setCodingMode] = useState<CodingMode>('reading');
+  const [codingResumeTarget, setCodingResumeTarget] = useState<{
+    subjectId: number | null;
+    topicId: number | null;
+  }>({ subjectId: null, topicId: null });
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
   const selectedDateRef = useRef(selectedDate);
 
@@ -138,7 +142,18 @@ export default function StudyPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const tab = new URLSearchParams(window.location.search).get('tab');
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    const requestedMode = params.get('mode');
+    const requestedSubjectId = Number(params.get('subject_id'));
+    const requestedTopicId = Number(params.get('topic_id'));
+    if (requestedMode === 'reading' || requestedMode === 'flashcards' || requestedMode === 'questions') {
+      setCodingMode(requestedMode);
+    }
+    setCodingResumeTarget({
+      subjectId: Number.isInteger(requestedSubjectId) && requestedSubjectId > 0 ? requestedSubjectId : null,
+      topicId: Number.isInteger(requestedTopicId) && requestedTopicId > 0 ? requestedTopicId : null,
+    });
     if (tab === 'english' || tab === 'coding' || tab === 'diverse' || tab === 'dashboard') {
       setActiveTab(tab);
       setSelectedDiverseSubjectSlug(null);
@@ -1329,6 +1344,8 @@ export default function StudyPage() {
             setEditingSubject={setEditingSubject}
             codingMode={codingMode}
             setCodingMode={setCodingMode}
+            initialSubjectId={codingResumeTarget.subjectId}
+            initialTopicId={codingResumeTarget.topicId}
             onToggleTopic={toggleTopic}
             onUpdateTopicText={updateTopicText}
             onSave={() => void saveCodingDay()}
