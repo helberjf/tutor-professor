@@ -42,8 +42,13 @@ assert.match(
 );
 assert.match(
   homePage,
-  /href="\/session"[\s\S]*?Continuar de onde parou/,
-  'home page should offer to continue the open session',
+  /href=\{resumeDestination\.href\}[\s\S]*?Continuar de onde parou/,
+  'home page should continue from the exact saved study destination',
+);
+assert.match(
+  homePage,
+  /if \(state\?\.has_session && state\.remaining > 0\)[\s\S]*?href: '\/session'/,
+  'home page should fall back to the open guided session when no saved destination is available',
 );
 assert.match(navbar, /href: '\/study'/, 'the navbar should still reach the study planner');
 assert.match(homePage, /Vamos aprender tudo do seu jeito/, 'home hero should represent every supported subject');
