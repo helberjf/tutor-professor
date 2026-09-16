@@ -42,12 +42,12 @@ def validate_password_strength(password: str) -> PasswordStrength:
             score += 10
 
     if not re.search(r"[A-Z]", password):
-        feedback.append("Adicione pelo menos uma letra maiuscula")
+        feedback.append("Adicione pelo menos uma letra maiúscula")
     else:
         score += 20
 
     if not re.search(r"[a-z]", password):
-        feedback.append("Adicione pelo menos uma letra minuscula")
+        feedback.append("Adicione pelo menos uma letra minúscula")
     else:
         score += 20
 

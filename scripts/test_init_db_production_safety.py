@@ -155,7 +155,7 @@ class ProductionShapedSeedTests(unittest.TestCase):
 
     def test_a_file_claiming_a_taken_id_is_refused_and_writes_nothing(self) -> None:
         colliding_dir = Path(tempfile.mkdtemp(prefix="colliding-seed-", dir=TMP_DIR))
-        french = next(data for data in seed_files() if data["title"] == "Frances de hoje - Nivel A1")
+        french = next(data for data in seed_files() if data["title"] == "Francês de hoje - Nível A1")
         (colliding_dir / "01_new_lesson.json").write_text(
             json.dumps({"id": 99, **{k: v for k, v in french.items() if k != "title"}, "title": "Primeira nova"}),
             encoding="utf-8",
@@ -181,7 +181,7 @@ class ProductionShapedSeedTests(unittest.TestCase):
         with Session(main.engine) as session:
             child_id = build_production_world(session)
             private = Lesson(
-                id=200, title="Frances de hoje - Nivel A1", theme="mine", objective="mine",
+                id=200, title="Francês de hoje - Nível A1", theme="mine", objective="mine",
                 content={}, child_id=child_id, target_language="French",
             )
             session.add(private)
@@ -193,7 +193,7 @@ class ProductionShapedSeedTests(unittest.TestCase):
             session.refresh(private)
             self.assertEqual((private.theme, private.child_id), ("mine", child_id))
             shared = session.exec(
-                select(Lesson).where(Lesson.title == "Frances de hoje - Nivel A1", Lesson.child_id == None)  # noqa: E711
+                select(Lesson).where(Lesson.title == "Francês de hoje - Nível A1", Lesson.child_id == None)  # noqa: E711
             ).all()
             self.assertEqual(len(shared), 1, "the shared seed lesson must be added alongside it")
 

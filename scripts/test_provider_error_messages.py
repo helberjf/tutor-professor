@@ -53,7 +53,7 @@ class ProviderErrorMessageTests(unittest.TestCase):
             with self.subTest(status=status):
                 message = format_provider_request_error("Gemini", http_error(status, body))
                 self.assertIn("recusou a chave de API", message)
-                self.assertIn("Configuracoes", message)
+                self.assertIn("Configurações", message)
                 self.assertNotIn(SECRET_KEY, message)
 
     def test_quota_and_outage_are_told_apart(self) -> None:
@@ -62,7 +62,7 @@ class ProviderErrorMessageTests(unittest.TestCase):
 
         self.assertIn("limite de uso", quota)
         self.assertIn("Rate limit reached", quota)
-        self.assertIn("instavel", outage)
+        self.assertIn("instável", outage)
         self.assertNotEqual(quota, outage)
 
     def test_other_refusals_keep_the_status_and_a_bounded_detail(self) -> None:

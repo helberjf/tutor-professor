@@ -61,10 +61,10 @@ def new_client() -> httpx.AsyncClient:
 class PasswordPolicyTests(unittest.TestCase):
     def test_rejects_each_missing_character_class(self) -> None:
         cases = {
-            "Sh0rt@a": "Minimo",  # 7 characters
-            "secret@123": "maiuscula",
-            "SECRET@123": "minuscula",
-            "Secret@abc": "numero",
+            "Sh0rt@a": "Mínimo",  # 7 characters
+            "secret@123": "maiúscula",
+            "SECRET@123": "minúscula",
+            "Secret@abc": "número",
             "Secret1234": "especial",
         }
         for password, expected_fragment in cases.items():
@@ -171,7 +171,7 @@ async def run_http_checks() -> None:
         weak = await register(client, email="fraca@example.com", cpf=VALID_CPF, password="secret123")
         if weak.status_code != 422:
             raise AssertionError(f"weak password should be refused: {weak.status_code} {weak.text}")
-        if "maiuscula" not in weak.text:
+        if "maiúscula" not in weak.text:
             raise AssertionError(f"the refusal should name what is missing: {weak.text}")
 
         with Session(main.engine) as session:

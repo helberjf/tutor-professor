@@ -620,7 +620,7 @@ class DiverseQuestionNormalizationTests(unittest.TestCase):
         subject = normalize_subject(legacy)
 
         self.assertEqual(legacy, original)
-        self.assertEqual(subject["name"], "Materia")
+        self.assertEqual(subject["name"], "Matéria")
         self.assertEqual(subject["topics"], [])
         self.assertEqual(subject["lessons"][0]["topic_ids"], [])
 

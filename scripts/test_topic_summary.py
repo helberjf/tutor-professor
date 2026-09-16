@@ -94,9 +94,9 @@ class SummaryDigestTests(unittest.TestCase):
             FakeTopic("Sem aula ainda", None),
         ]
         digest = coding_service.build_summary_digest(topics)
-        self.assertIn("## Topico: CloudFront", digest)
+        self.assertIn("## Tópico: CloudFront", digest)
         self.assertIn("Edge caching: TTL controls how long the edge keeps an object.", digest)
-        self.assertIn("Ja cobrado em questoes: Quando invalidar o cache?", digest)
+        self.assertIn("Já cobrado em questões: Quando invalidar o cache?", digest)
         self.assertNotIn("new CloudFront", digest)
         self.assertNotIn("Sem aula ainda", digest)
 
@@ -128,16 +128,16 @@ class TopicSummaryPromptTests(unittest.TestCase):
         self.assertEqual(content, "- Ponto curto.")
         prompt = generator.call_args.kwargs["prompt"]
         for expected in (
-            "MENOR texto possivel",
+            "MENOR texto possível",
             "cai em prova",
-            "NAO escreva titulo",
+            "NÃO escreva título",
             "Pegadinhas",
             "Notion",
             "AWS DVA-C02",
             "Cache e performance",
             "foco na prova de certificacao",
             "TTL controla o cache",
-            f"No maximo {coding_service.SUMMARY_MAX_BULLETS} bullets",
+            f"No máximo {coding_service.SUMMARY_MAX_BULLETS} bullets",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, prompt)
