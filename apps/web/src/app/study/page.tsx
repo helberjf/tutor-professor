@@ -79,8 +79,14 @@ export default function StudyPage() {
     subjectId: number | null;
     topicId: number | null;
   }>({ subjectId: null, topicId: null });
+  const [diverseResumeTarget, setDiverseResumeTarget] = useState<{
+    subjectId: string | null;
+    lessonId: string | null;
+  }>({ subjectId: null, lessonId: null });
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
   const selectedDateRef = useRef(selectedDate);
+  const requestedStudyDateRef = useRef<string | null>(null);
+  const diverseResumeAppliedRef = useRef(false);
 
   // ── English tab state ───────────────────────────────────────────────────────
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
@@ -145,6 +151,9 @@ export default function StudyPage() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     const requestedMode = params.get('mode');
+    const requestedDate = params.get('date');
+    const requestedLessonId = params.get('lesson_id');
+    const requestedDiverseSubjectId = tab === 'diverse' ? params.get('subject_id') : null;
     const requestedSubjectId = Number(params.get('subject_id'));
     const requestedTopicId = Number(params.get('topic_id'));
     if (requestedMode === 'reading' || requestedMode === 'flashcards' || requestedMode === 'questions') {
@@ -153,6 +162,14 @@ export default function StudyPage() {
     setCodingResumeTarget({
       subjectId: Number.isInteger(requestedSubjectId) && requestedSubjectId > 0 ? requestedSubjectId : null,
       topicId: Number.isInteger(requestedTopicId) && requestedTopicId > 0 ? requestedTopicId : null,
+    });
+    if (requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      requestedStudyDateRef.current = requestedDate;
+      setSelectedDate(requestedDate);
+    }
+    setDiverseResumeTarget({
+      subjectId: requestedDiverseSubjectId || null,
+      lessonId: requestedLessonId || null,
     });
     if (tab === 'english' || tab === 'coding' || tab === 'diverse' || tab === 'dashboard') {
       setActiveTab(tab);
@@ -239,7 +256,7 @@ export default function StudyPage() {
       .then((data) => {
         if (cancelled) return;
         setDashboard(data);
-        setSelectedDate(data.today.study_date);
+        setSelectedDate(requestedStudyDateRef.current || data.today.study_date);
         // Merge backend pomodoro counts into local state (take max of local vs backend)
         const allDays = [...data.recent_days, data.today];
         const backendByDate: Record<string, number> = {};
@@ -320,6 +337,27 @@ export default function StudyPage() {
       setStudyUrlTab('diverse');
     }
   }, [activeTab, diverseDay, selectedDiverseSubjectSlug]);
+
+  useEffect(() => {
+    if (
+      activeTab !== 'diverse'
+      || !diverseDay
+      || !diverseResumeTarget.subjectId
+      || diverseResumeAppliedRef.current
+    ) return;
+    diverseResumeAppliedRef.current = true;
+    const index = diverseDay.custom_subjects.findIndex(
+      (subject) => subject.id === diverseResumeTarget.subjectId,
+    );
+    if (index < 0) return;
+    setSelectedDiverseSubjectSlug(
+      getDiverseSubjectSlug(
+        diverseDay.custom_subjects[index],
+        index,
+        diverseDay.custom_subjects,
+      ),
+    );
+  }, [activeTab, diverseDay, diverseResumeTarget.subjectId]);
 
   // ── Load Diverse catalog ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1291,6 +1329,7 @@ export default function StudyPage() {
             lastAIAction={lastAIAction}
             aiError={aiError}
             selectedSubjectSlug={selectedDiverseSubjectSlug}
+            initialLessonId={diverseResumeTarget.lessonId}
             onSelectSubjectTab={selectDiverseSubjectTab}
             onSelectOverview={selectDiverseOverview}
             onSelectCoding={() => selectStudyTab('coding')}

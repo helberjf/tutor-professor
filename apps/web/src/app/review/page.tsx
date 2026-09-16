@@ -26,6 +26,7 @@ import {
   type VocabularyReviewCard,
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { rememberStudyLocation } from '@/lib/study-resume';
 import {
   advanceMixedReview,
   beginMixedReviewAdvancement,
@@ -117,6 +118,9 @@ export default function ReviewPage() {
     reviewSessionEpochRef.current += 1;
     activeReviewCardRef.current = data.items[0] ?? null;
     setReviewSession(data);
+    if (data.items.length > 0) {
+      rememberStudyLocation({ kind: 'language_review' });
+    }
     resetReviewProgress(data.items.length);
   }
 

@@ -19,6 +19,7 @@ import { StatusCard } from '@/components/status-card';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { ApiError, api, type StudyQueueItem, type StudySession } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { rememberStudyLocation } from '@/lib/study-resume';
 
 /**
  * One study run, start to finish, with nothing to choose on the way in.
@@ -72,6 +73,7 @@ export default function StudySessionPage() {
         setPhase('empty');
         return;
       }
+      rememberStudyLocation({ kind: 'guided_session' });
       const resumeAt = Math.min(Math.max(data.position, 0), data.total);
       setIndex(resumeAt);
       setAnswered(data.answered_count);
@@ -108,6 +110,7 @@ export default function StudySessionPage() {
   /** Saves the bookmark without blocking the student: a failed save is not fatal. */
   function saveProgress(nextIndex: number, nextAnswered: number, nextCorrect: number) {
     if (!session || session.id <= 0) return;
+    rememberStudyLocation({ kind: 'guided_session' });
     void api
       .saveStudySessionProgress(session.id, {
         position: nextIndex,
