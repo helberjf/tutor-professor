@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
 import { api, type AICredits, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
+import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
@@ -25,9 +26,15 @@ type CodingFocusMode = 'reading' | 'flashcards' | 'questions';
 
 interface CodingCurriculumProps {
   focusMode?: CodingFocusMode;
+  initialSubjectId?: number | null;
+  initialTopicId?: number | null;
 }
 
-export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProps) {
+export function CodingCurriculum({
+  focusMode = 'reading',
+  initialSubjectId = null,
+  initialTopicId = null,
+}: CodingCurriculumProps) {
   const [view, setView] = useState<View>({ type: 'subjects' });
   const [subjects, setSubjects] = useState<ProgrammingSubject[]>([]);
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
@@ -48,6 +55,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   const [summaryProgress, setSummaryProgress] = useState('');
   const [summaryError, setSummaryError] = useState('');
   const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
+  const initialRestoreDoneRef = useRef(false);
 
   async function openSubjectSummary(subject: ProgrammingSubject, regenerate = false) {
     setLoadingSummary(true);
@@ -94,6 +102,37 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
   }, []);
 
   useEffect(() => {
+    if (loading || loadingTopics) return;
+    if (view.type === 'topics') {
+      rememberStudyLocation({
+        kind: 'coding_subject',
+        subject_id: view.subject.id,
+        mode: focusMode,
+      });
+    } else if (view.type === 'topic') {
+      rememberStudyLocation({
+        kind: 'coding_topic',
+        subject_id: view.subject.id,
+        topic_id: view.topic.id,
+        mode: 'reading',
+      });
+    } else if (view.type === 'questionsTopic') {
+      rememberStudyLocation({
+        kind: 'coding_questions',
+        subject_id: view.subject.id,
+        topic_id: view.topic.id,
+        mode: 'questions',
+      });
+    } else if (view.type === 'deck') {
+      rememberStudyLocation({
+        kind: 'coding_flashcards',
+        subject_id: view.subject.id,
+        mode: 'flashcards',
+      });
+    }
+  }, [focusMode, loading, loadingTopics, view]);
+
+  useEffect(() => {
     setError('');
     setView((current) => {
       if (focusMode === 'flashcards') {
@@ -135,7 +174,19 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     setLoading(true);
     setError('');
     try {
-      setSubjects(await api.getCodingSubjects());
+      const loadedSubjects = await api.getCodingSubjects();
+      setSubjects(loadedSubjects);
+      if (!initialRestoreDoneRef.current) {
+        initialRestoreDoneRef.current = true;
+        const requestedSubject = loadedSubjects.find((subject) => subject.id === initialSubjectId);
+        if (requestedSubject) {
+          if (focusMode === 'flashcards') {
+            setView({ type: 'deck', subject: requestedSubject });
+          } else {
+            void loadTopics(requestedSubject, initialTopicId);
+          }
+        }
+      }
     } catch {
       setError('Erro ao carregar matérias.');
     } finally {
@@ -143,7 +194,7 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
     }
   }
 
-  async function loadTopics(subject: ProgrammingSubject) {
+  async function loadTopics(subject: ProgrammingSubject, requestedTopicId: number | null = null) {
     setLoadingTopics(true);
     setError('');
     // Navega imediatamente para a matéria; os tópicos carregam na própria tela.
@@ -153,6 +204,14 @@ export function CodingCurriculum({ focusMode = 'reading' }: CodingCurriculumProp
       const [loadedTopics, credits] = await Promise.all([api.getCodingTopics(subject.id), api.getMyAICredits()]);
       setTopics(loadedTopics);
       setAiCredits(credits);
+      const requestedTopic = loadedTopics.find((topic) => topic.id === requestedTopicId);
+      if (requestedTopic) {
+        setView(
+          focusMode === 'questions'
+            ? { type: 'questionsTopic', subject, topic: requestedTopic, returnToQuestions: true }
+            : { type: 'topic', subject, topic: requestedTopic },
+        );
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar os tópicos desta matéria.');
     } finally {

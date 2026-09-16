@@ -17,6 +17,7 @@ export function CodingTab({
   selectedDate, codingDay, loadingCoding, savingCoding,
   codingSaved, codingError, codingDoneCount, codingTotalCount,
   editingSubject, setEditingSubject, codingMode, setCodingMode,
+  initialSubjectId, initialTopicId,
   onToggleTopic, onUpdateTopicText, onSave,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
@@ -31,6 +32,8 @@ export function CodingTab({
   setEditingSubject: (s: string | null) => void;
   codingMode: CodingMode;
   setCodingMode: (mode: CodingMode) => void;
+  initialSubjectId: number | null;
+  initialTopicId: number | null;
   onToggleTopic: (subject: string, index: number) => void;
   onUpdateTopicText: (subject: string, index: number, value: string) => void;
   onSave: () => void;
@@ -113,7 +116,15 @@ export function CodingTab({
             </span>
           </button>
         </section>
-        {codingMode === 'exam' ? <ExamList /> : <CodingCurriculum focusMode={codingMode} />}
+        {codingMode === 'exam' ? (
+          <ExamList />
+        ) : (
+          <CodingCurriculum
+            focusMode={codingMode}
+            initialSubjectId={initialSubjectId}
+            initialTopicId={initialTopicId}
+          />
+        )}
       </div>
       <aside className="order-1 min-w-0 space-y-6 lg:order-2 lg:sticky lg:top-24 lg:w-72 lg:self-start xl:w-80">
         <PomodoroWidget
