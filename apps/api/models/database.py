@@ -653,6 +653,18 @@ class StudySession(SQLModel, table=True):
     completed_at: Optional[datetime] = Field(default=None)
 
 
+class StudyResume(SQLModel, table=True):
+    """The last valid study destination opened by one child, across devices."""
+
+    __table_args__ = (UniqueConstraint("child_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    kind: str = Field(max_length=32, index=True)
+    context: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class DailyActivity(SQLModel, table=True):
     """Registra cada atividade estudada no dia, incluindo questões e simulados."""
     __table_args__ = (Index("ix_daily_activity_child_id_activity_date", "child_id", "activity_date"),)

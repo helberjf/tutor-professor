@@ -312,6 +312,36 @@ class StudySessionStateSchema(BaseModel):
     lesson_pending: bool = False
 
 
+StudyResumeKind = Literal[
+    "guided_session",
+    "language_lesson",
+    "language_review",
+    "coding_subject",
+    "coding_topic",
+    "coding_flashcards",
+    "coding_questions",
+    "diverse_subject",
+    "diverse_lesson",
+]
+
+
+class StudyResumeUpdateSchema(BaseModel):
+    kind: StudyResumeKind
+    subject_id: Optional[Union[int, str]] = None
+    topic_id: Optional[Union[int, str]] = None
+    lesson_id: Optional[Union[int, str]] = None
+    study_date: Optional[date] = None
+    mode: Optional[Literal["reading", "flashcards", "questions"]] = None
+
+
+class StudyResumeSchema(BaseModel):
+    has_resume: bool = False
+    kind: Optional[StudyResumeKind] = None
+    href: str = ""
+    label: str = ""
+    updated_at: Optional[datetime] = None
+
+
 class StudySessionProgressSchema(BaseModel):
     position: int = Field(ge=0, le=500)
     answered_count: Optional[int] = Field(default=None, ge=0, le=500)
