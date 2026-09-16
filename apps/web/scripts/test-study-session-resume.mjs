@@ -48,15 +48,24 @@ assert.match(
 );
 assert.match(
   homePage,
-  /hasStudyResume\s*&&\s*studyResume\s*&&\s*\([\s\S]{0,300}<Link[\s\S]{0,120}href=\{studyResume\.href\}/,
+  /resumeDestination\s*&&\s*\([\s\S]{0,300}<Link[\s\S]{0,120}href=\{resumeDestination\.href\}/,
   'the continue button should render from the latest valid server bookmark',
+);
+assert.match(
+  homePage,
+  /if \(state\?\.has_session && state\.remaining > 0\)[\s\S]{0,180}href: '\/session'/,
+  'an open guided session should remain resumable while the bookmark endpoint is unavailable',
 );
 assert.match(
   homePage,
   /Continuar de onde parou[\s\S]{0,1500}Iniciar estudos/,
   'continuing should come before starting over, not after it',
 );
-assert.match(homePage, /resumeLabel/, 'the continue button should name what will reopen');
+assert.match(
+  homePage,
+  /\{resumeDestination\.label\}/,
+  'the continue button should name what will reopen',
+);
 assert.match(
   homePage,
   /function describeRemaining/,
