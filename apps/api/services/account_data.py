@@ -45,6 +45,7 @@ from models.database import (
     ReviewItem,
     StudyDay,
     StudyQuestion,
+    StudyPlan,
     StudyResume,
     StudySession,
     Subscription,
@@ -189,6 +190,7 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
         "leetcode_methods": _dump(
             _rows(session, LeetCodeMethod, LeetCodeMethod.child_id, child_ids)
         ),
+        "study_plans": _dump(_rows(session, StudyPlan, StudyPlan.child_id, child_ids)),
         "objectives": _dump(_rows(session, Objective, Objective.child_id, child_ids)),
         "objective_items": _dump(
             _rows(session, ObjectiveItem, ObjectiveItem.child_id, child_ids)
@@ -275,6 +277,11 @@ def delete_account(session: Session, user: User) -> dict[str, int]:
     remove(LeetCodeMethod, LeetCodeMethod.child_id, child_ids)
     remove(ObjectiveItem, ObjectiveItem.child_id, child_ids)
     remove(Objective, Objective.child_id, child_ids)
+    # After the objectives, which point at the plan that created them. There is
+    # no ORM relationship between the two, so flush first rather than trust the
+    # unit of work to order the deletes for a database that checks the key.
+    session.flush()
+    remove(StudyPlan, StudyPlan.child_id, child_ids)
 
     remove(ChildProfile, ChildProfile.user_id, [user.id])
 

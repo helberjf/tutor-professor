@@ -44,6 +44,16 @@ The project was built as a practical engineering exercise: a real product surfac
   curso" do not count the same. Reaching 100% is logged as a milestone in the
   daily feed, and unchecking an item takes the badge back, because the number
   always describes the current list.
+- **A plan for the objective, not just a list.** "Criar plano" drafts a strategy
+  for one goal: the biggest bottleneck, the priorities in order, what not to do
+  yet and the shortest path. The learner writes "sobre você" and may include a
+  summary of their recorded study, shown word for word before anything reaches
+  the AI. Nothing is stored until the draft is reviewed, and each accepted
+  priority becomes an ordinary objective, so the plan's percentage and its
+  "próximo passo" come from the same checklists. "Revisar plano" sends the
+  current progress back to the AI; a revision can reorder, add and archive, but
+  never removes finished work. Without an AI key, ready-made models
+  (`apps/api/content/plan-templates/`) give the same flow for free.
 - **The day closes by studying.** Finishing a session (or any logged activity)
   marks the day as studied; writing a note about it stays optional.
 - **The audience is whoever is studying.** The profile carries an age band
@@ -119,6 +129,7 @@ Installation needs HTTPS, which the Vercel deployment already provides.
 ### Study Modes
 
 - Objectives with a weighted study checklist and a percentage of reach, summarised on the dashboard.
+- Study plans that turn a goal into ordered objectives, drafted by AI or from ready-made models.
 - General study dashboard with planning, notes, distractions, and pomodoro count.
 - Diverse subject study mode for custom topics and AI-generated questions.
 - Programming curriculum with subjects, topics, generated explanations, quizzes, and flashcards.
@@ -338,6 +349,7 @@ python scripts/test_ai_credits.py
 python scripts/test_password_security.py
 python scripts/test_tenant_isolation.py
 python scripts/test_objectives_progress.py
+python scripts/test_study_plan.py
 python scripts/test_account_modules.py
 python scripts/test_account_self_service.py
 python scripts/test_billing_and_usage.py
@@ -357,6 +369,7 @@ node apps/web/scripts/test-runtime-backend-state.mjs
 node apps/web/scripts/test-lesson-question-state.mjs
 node apps/web/scripts/test-diverse-question-state.mjs
 node apps/web/scripts/test-objectives-ui.mjs
+node apps/web/scripts/test-objective-plan-ui.mjs
 ```
 
 The test suite is a mix of service-level tests, API behavior checks, and lightweight frontend state tests. It focuses on high-risk areas: AI output validation, concurrent/stale generation flows, runtime backend selection, and review state consistency.

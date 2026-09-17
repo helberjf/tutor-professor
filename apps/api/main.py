@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, Literal, Optional
+from typing import Iterable, Iterator, Literal, Optional, Sequence
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -63,7 +63,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -91,6 +91,17 @@ from schemas.schemas import (
     LevelAnalysisSchema,
     CreateObjectiveItemSchema,
     CreateObjectiveSchema,
+    CreatePlanRequestSchema,
+    GeneratePlanRequestSchema,
+    PlanContextSchema,
+    PlanDraftSchema,
+    PlanFormSchema,
+    PlanItemDraftSchema,
+    PlanPriorityDraftSchema,
+    PlanTemplateSummarySchema,
+    RevisePlanRequestSchema,
+    StudyPlanSchema,
+    UpdatePlanSchema,
     ObjectiveItemSchema,
     ObjectiveSchema,
     ObjectivesSummarySchema,
@@ -282,7 +293,17 @@ from services.coding_service import (
     validate_programming_question_batch,
     VALID_TOPIC_STATUSES,
 )
-from services.ai_flashcard_service import sanitize_context
+from services.ai_flashcard_service import normalize_front, sanitize_context
+from services.study_plan_service import (
+    CurrentPriority,
+    PriorityProgress,
+    build_learner_snapshot,
+    build_plan_prompts,
+    draft_to_payload,
+    load_plan_templates,
+    parse_plan_response,
+    plan_progress,
+)
 from services.language_question_service import (
     MAX_LESSON_QUESTIONS,
     build_language_questions_prompt,
@@ -10929,6 +10950,8 @@ def build_objective_schema(objective: Objective, items: list[ObjectiveItem]) -> 
         status=objective.status,
         achieved_at=objective.achieved_at,
         order_index=objective.order_index,
+        plan_id=objective.plan_id,
+        plan_order=objective.plan_order,
         created_at=objective.created_at,
         updated_at=objective.updated_at,
         items=[ObjectiveItemSchema.model_validate(item) for item in items],
@@ -11015,7 +11038,7 @@ def create_objective_items(
     *,
     objective: Objective,
     child_id: int,
-    payloads: list[CreateObjectiveItemSchema],
+    payloads: Sequence[CreateObjectiveItemSchema | PlanItemDraftSchema],
     start_order: int,
 ) -> None:
     now = datetime.utcnow()
@@ -11037,6 +11060,21 @@ def create_objective_items(
         )
 
 
+def archived_plan_ids(session: Session, child_id: int) -> set[int]:
+    """Plans put away by the learner. Their priorities leave the active views with them."""
+
+    return {
+        plan_id
+        for plan_id in session.exec(
+            select(StudyPlan.id).where(
+                StudyPlan.child_id == child_id,
+                StudyPlan.status == OBJECTIVE_ARCHIVED,
+            )
+        ).all()
+        if plan_id is not None
+    }
+
+
 @app.get("/api/objectives", response_model=list[ObjectiveSchema])
 def list_objectives(
     request: Request,
@@ -11050,6 +11088,9 @@ def list_objectives(
     if not include_archived:
         query = query.where(Objective.status == OBJECTIVE_ACTIVE)
     objectives = sorted_objectives(session.exec(query).all())
+    if not include_archived:
+        hidden_plans = archived_plan_ids(session, child_id)
+        objectives = [objective for objective in objectives if objective.plan_id not in hidden_plans]
     return [
         build_objective_schema(objective, objective_items_for(session, objective.id or 0))
         for objective in objectives
@@ -11067,7 +11108,12 @@ def get_objectives_summary(
     objectives = sorted_objectives(
         session.exec(select(Objective).where(Objective.child_id == child_id)).all()
     )
-    active = [objective for objective in objectives if objective.status == OBJECTIVE_ACTIVE]
+    hidden_plans = archived_plan_ids(session, child_id)
+    active = [
+        objective
+        for objective in objectives
+        if objective.status == OBJECTIVE_ACTIVE and objective.plan_id not in hidden_plans
+    ]
     schemas = [
         build_objective_schema(objective, objective_items_for(session, objective.id or 0))
         for objective in active
@@ -11259,6 +11305,704 @@ def delete_objective_item(
     session.commit()
     session.refresh(objective)
     return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+
+
+# ── Planos de estudo ──────────────────────────────────────────────────────────
+# "Criar plano" drafts a strategy for one goal — by the AI, or from a ready-made
+# model when there is no AI — and nothing is stored until the learner reviews
+# it. Each accepted priority becomes an ordinary objective linked to the plan,
+# so the percentages come from the same checklists as everywhere else.
+
+PLAN_NOT_FOUND = "Plano não encontrado."
+PLAN_TEMPLATE_NOT_FOUND = "Modelo de plano não encontrado."
+PLAN_AI_NOT_CONFIGURED = (
+    "Configure uma chave de API de IA na sua conta para montar o plano com IA, "
+    "ou comece por um modelo pronto."
+)
+PLAN_AI_UNUSABLE = (
+    "A IA respondeu, mas não montou um plano utilizável. Tente de novo em instantes "
+    "ou comece por um modelo pronto."
+)
+PLAN_PRIORITY_WITHOUT_ITEMS = "Cada prioridade nova precisa de pelo menos um item."
+PLAN_REVISION_MISMATCH = "A revisão não corresponde às prioridades atuais deste plano. Gere a revisão de novo."
+# One generation has to fit the 60 seconds a Vercel function gets.
+PLAN_GENERATION_TIMEOUT_SECONDS = int(os.getenv("PLAN_GENERATION_TIMEOUT_SECONDS", "45"))
+MAX_PLANS_PER_CHILD = 20
+MAX_REVISION_ITEMS_SHOWN = 20
+
+
+def require_owned_plan(session: Session, *, plan_id: int, child_id: int) -> StudyPlan:
+    plan = session.get(StudyPlan, plan_id)
+    if plan is None or plan.child_id != child_id:
+        raise HTTPException(status_code=404, detail=PLAN_NOT_FOUND)
+    return plan
+
+
+def plan_objectives_for(session: Session, plan: StudyPlan) -> list[Objective]:
+    """The plan's priorities: active ones in plan order, then the archived ones."""
+
+    objectives = session.exec(
+        select(Objective).where(
+            Objective.plan_id == plan.id,
+            Objective.child_id == plan.child_id,
+        )
+    ).all()
+    return sorted(
+        objectives,
+        key=lambda objective: (
+            objective.status != OBJECTIVE_ACTIVE,
+            objective.plan_order is None,
+            objective.plan_order or 0,
+            objective.id or 0,
+        ),
+    )
+
+
+def build_study_plan_schema(session: Session, plan: StudyPlan) -> StudyPlanSchema:
+    objectives = plan_objectives_for(session, plan)
+    schemas = [
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        for objective in objectives
+    ]
+    overall, next_objective_id, achieved = plan_progress(
+        [
+            PriorityProgress(
+                objective_id=schema.id,
+                plan_order=schema.plan_order,
+                percent=schema.progress_percent,
+                item_count=schema.item_count,
+                active=schema.status == OBJECTIVE_ACTIVE,
+            )
+            for schema in schemas
+        ]
+    )
+    return StudyPlanSchema(
+        id=plan.id or 0,
+        child_id=plan.child_id,
+        title=plan.title,
+        goal=plan.goal,
+        profile=plan.profile,
+        weekly_hours=plan.weekly_hours,
+        target_date=plan.target_date,
+        diagnosis=plan.diagnosis,
+        focus=plan.focus,
+        avoid=[entry for entry in (plan.avoid or []) if isinstance(entry, dict) and entry.get("title")],
+        shortest_path=[str(step) for step in (plan.shortest_path or []) if str(step).strip()],
+        source=plan.source,
+        status=plan.status,
+        revision=plan.revision,
+        created_at=plan.created_at,
+        updated_at=plan.updated_at,
+        revised_at=plan.revised_at,
+        objectives=schemas,
+        progress_percent=overall,
+        active_count=sum(1 for schema in schemas if schema.status == OBJECTIVE_ACTIVE),
+        achieved_count=achieved,
+        next_objective_id=next_objective_id,
+    )
+
+
+def plan_ai_config(
+    session_record: UserSession | None,
+    session: Session,
+) -> tuple[AIProviderConfig | None, str | None]:
+    """The account's AI config, or why the AI path is closed right now."""
+
+    try:
+        config = _get_user_ai_config(session_record, session)
+    except HTTPException as exc:
+        if exc.status_code == 402:
+            return None, "no_credits"
+        raise
+    if config is None or not (config.api_key or "").strip():
+        return None, "no_config"
+    return config, None
+
+
+def learner_snapshot_for(
+    session: Session,
+    request: Request,
+    child: ChildProfile,
+    *,
+    exclude_plan_id: int | None = None,
+) -> list[str]:
+    """What the app has recorded about the learner, respecting the module switches."""
+
+    user = get_request_user(request=request, session=session)
+    modules = resolve_modules(user.enabled_modules if user else None)
+    child_id = child.id or 0
+
+    streak, last_study_date = compute_study_streak(session, child_id)
+    since = activity_today() - timedelta(days=29)
+    recent = session.exec(
+        select(DailyActivity).where(
+            DailyActivity.child_id == child_id,
+            DailyActivity.activity_date >= since,
+        )
+    ).all()
+    visible = [
+        activity
+        for activity in recent
+        if activity_view_type(activity, coding_enabled=modules["coding"]) is not None
+    ]
+
+    question_subjects: list[tuple[str, int, int]] = []
+    if modules["coding"]:
+        question_subjects.extend(
+            (metric.subject_name, metric.correct_count, metric.error_count)
+            for metric in build_question_subject_metrics(session, child_id)
+        )
+    study_rows = session.exec(
+        select(
+            StudyQuestion.area,
+            StudyQuestion.subject_name,
+            func.coalesce(func.sum(StudyQuestion.correct_count), 0),
+            func.coalesce(func.sum(StudyQuestion.error_count), 0),
+        )
+        .where(StudyQuestion.child_id == child_id, StudyQuestion.attempt_count > 0)
+        .group_by(StudyQuestion.area, StudyQuestion.subject_name)
+    ).all()
+    for area, subject_name, correct, errors in study_rows:
+        if area == "diverse" and not modules["diverse"]:
+            continue
+        question_subjects.append((str(subject_name), int(correct or 0), int(errors or 0)))
+    question_subjects.sort(key=lambda row: row[1] + row[2], reverse=True)
+
+    coding_subjects: list[tuple[str, int, int]] = []
+    leetcode_categories: list[tuple[str, int]] = []
+    if modules["coding"]:
+        subjects = sorted(
+            session.exec(select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id)).all(),
+            key=lambda subject: (
+                subject.last_used_at is None,
+                -(subject.last_used_at.timestamp() if subject.last_used_at else 0),
+                -subject.relevance,
+                subject.name,
+            ),
+        )
+        for subject in subjects[:8]:
+            statuses = session.exec(
+                select(ProgrammingTopic.status).where(ProgrammingTopic.subject_id == subject.id)
+            ).all()
+            studied = sum(1 for status in statuses if str(getattr(status, "value", status)) in ("studied", "mastered"))
+            coding_subjects.append((subject.name, studied, len(statuses)))
+        leetcode_rows = session.exec(
+            select(LeetCodeMethod.category, func.count())
+            .where(LeetCodeMethod.child_id == child_id)
+            .group_by(LeetCodeMethod.category)
+        ).all()
+        leetcode_categories = sorted(
+            ((str(category or "Geral"), int(count or 0)) for category, count in leetcode_rows),
+            key=lambda row: row[1],
+            reverse=True,
+        )
+
+    exams: list[tuple[str, int | None, int]] = []
+    if modules["exams"]:
+        for exam in session.exec(select(Exam).where(Exam.child_id == child_id).order_by(Exam.name)).all()[:5]:
+            scores = session.exec(
+                select(ExamAttempt.score_percent).where(
+                    ExamAttempt.exam_id == exam.id,
+                    ExamAttempt.child_id == child_id,
+                    ExamAttempt.status == "finished",
+                )
+            ).all()
+            valid = [score for score in scores if score is not None]
+            exams.append((exam.name, max(valid) if valid else None, len(scores)))
+
+    objectives: list[tuple[str, int]] = []
+    hidden_plans = archived_plan_ids(session, child_id)
+    for objective in sorted_objectives(
+        session.exec(
+            select(Objective).where(
+                Objective.child_id == child_id,
+                Objective.status == OBJECTIVE_ACTIVE,
+            )
+        ).all()
+    ):
+        if objective.plan_id in hidden_plans or (
+            exclude_plan_id is not None and objective.plan_id == exclude_plan_id
+        ):
+            continue
+        _, _, percent = objective_progress(objective_items_for(session, objective.id or 0))
+        objectives.append((objective.title, percent))
+
+    return build_learner_snapshot(
+        target_language=child.target_language,
+        language_level=child.level_override or child.current_level,
+        streak_days=streak,
+        last_study_date=last_study_date,
+        active_days_30=len({activity.activity_date for activity in visible}),
+        activities_30=len(visible),
+        question_subjects=question_subjects,
+        coding_subjects=coding_subjects,
+        exams=exams,
+        leetcode_categories=leetcode_categories,
+        objectives=objectives,
+    )
+
+
+def count_child_objectives(session: Session, child_id: int) -> int:
+    return int(
+        session.exec(
+            select(func.count()).select_from(Objective).where(Objective.child_id == child_id)
+        ).one()
+        or 0
+    )
+
+
+def ensure_objective_capacity(session: Session, child_id: int, new_objectives: int) -> int:
+    existing = count_child_objectives(session, child_id)
+    if existing + new_objectives > MAX_OBJECTIVES_PER_CHILD:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Este plano criaria {new_objectives} objetivos e você já tem {existing} "
+                f"de {MAX_OBJECTIVES_PER_CHILD}. Desmarque algumas prioridades ou exclua "
+                "objetivos antigos."
+            ),
+        )
+    return existing
+
+
+def add_plan_objective(
+    session: Session,
+    *,
+    plan: StudyPlan,
+    priority: PlanPriorityDraftSchema,
+    plan_order: int,
+    order_index: int,
+    now: datetime,
+) -> Objective:
+    objective = Objective(
+        child_id=plan.child_id,
+        title=priority.title.strip(),
+        description=(priority.why or "").strip() or None,
+        icon_emoji=(priority.icon_emoji or "").strip() or None,
+        order_index=order_index,
+        plan_id=plan.id,
+        plan_order=plan_order,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(objective)
+    session.flush()
+    create_objective_items(
+        session,
+        objective=objective,
+        child_id=plan.child_id,
+        payloads=priority.items[:MAX_ITEMS_PER_OBJECTIVE],
+        start_order=1,
+    )
+    return objective
+
+
+def plan_source_for(draft: PlanDraftSchema) -> str:
+    """Only "ai" or a model that really exists: the value is shown back later."""
+
+    source = (draft.source or "").strip()
+    if source.startswith("template:") and source.split(":", 1)[1] in load_plan_templates():
+        return source
+    return "ai"
+
+
+def apply_plan_form(plan: StudyPlan, form: PlanFormSchema) -> None:
+    plan.goal = form.goal.strip()
+    plan.profile = (form.profile or "").strip()[:4000] or None
+    plan.weekly_hours = form.weekly_hours
+    plan.target_date = form.target_date
+
+
+@app.get("/api/objectives/plan/context", response_model=PlanContextSchema)
+def get_study_plan_context(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> PlanContextSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    config, reason = plan_ai_config(session_record, session)
+    last_plan = session.exec(
+        select(StudyPlan)
+        .where(StudyPlan.child_id == (child.id or 0))
+        .order_by(StudyPlan.updated_at.desc(), StudyPlan.id.desc())
+    ).first()
+    return PlanContextSchema(
+        ai_available=config is not None,
+        ai_unavailable_reason=reason,
+        snapshot=learner_snapshot_for(session, request, child),
+        last_form=(
+            PlanFormSchema(
+                goal=last_plan.goal,
+                profile=last_plan.profile,
+                weekly_hours=last_plan.weekly_hours,
+                target_date=last_plan.target_date,
+            )
+            if last_plan is not None
+            else None
+        ),
+    )
+
+
+@app.get("/api/objectives/plan/templates", response_model=list[PlanTemplateSummarySchema])
+def list_study_plan_templates(
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[PlanTemplateSummarySchema]:
+    require_parent_session(request, session)
+    return [
+        PlanTemplateSummarySchema(
+            slug=template.slug,
+            title=template.title,
+            summary=template.summary,
+            priority_count=len(template.draft.priorities),
+        )
+        for template in load_plan_templates().values()
+    ]
+
+
+@app.get("/api/objectives/plan/templates/{slug}", response_model=PlanDraftSchema)
+def get_study_plan_template(
+    slug: str,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> PlanDraftSchema:
+    require_parent_session(request, session)
+    template = load_plan_templates().get(slug)
+    if template is None:
+        raise HTTPException(status_code=404, detail=PLAN_TEMPLATE_NOT_FOUND)
+    return PlanDraftSchema.model_validate(
+        draft_to_payload(template.draft, source=f"template:{template.slug}")
+    )
+
+
+@app.post("/api/objectives/plan/generate", response_model=PlanDraftSchema)
+def generate_study_plan_draft(
+    payload: GeneratePlanRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> PlanDraftSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+
+    revising: StudyPlan | None = None
+    labels: dict[str, int] = {}
+    current_plan = None
+    if payload.plan_id is not None:
+        revising = require_owned_plan(session, plan_id=payload.plan_id, child_id=child_id)
+        priorities: list[CurrentPriority] = []
+        active = [
+            objective
+            for objective in plan_objectives_for(session, revising)
+            if objective.status == OBJECTIVE_ACTIVE
+        ]
+        for position, objective in enumerate(active, start=1):
+            items = objective_items_for(session, objective.id or 0)
+            _, _, percent = objective_progress(items)
+            label = f"P{position}"
+            labels[label] = objective.id or 0
+            priorities.append(
+                CurrentPriority(
+                    label=label,
+                    objective_id=objective.id or 0,
+                    title=objective.title,
+                    percent=percent,
+                    items=tuple((item.title, item.done) for item in items[:MAX_REVISION_ITEMS_SHOWN]),
+                )
+            )
+        current_plan = (revising.diagnosis, priorities)
+
+    config, reason = plan_ai_config(session_record, session)
+    if config is None:
+        if reason == "no_credits":
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+        raise HTTPException(status_code=403, detail=PLAN_AI_NOT_CONFIGURED)
+
+    snapshot = (
+        learner_snapshot_for(
+            session,
+            request,
+            child,
+            exclude_plan_id=revising.id if revising is not None else None,
+        )
+        if payload.include_app_history
+        else []
+    )
+    system_text, prompt = build_plan_prompts(
+        goal=payload.goal,
+        profile=payload.profile,
+        weekly_hours=payload.weekly_hours,
+        target_date=payload.target_date,
+        snapshot=snapshot,
+        base_language=child.base_language,
+        age_group=child_age_group(child),
+        today=activity_today(),
+        current_plan=current_plan,
+    )
+    try:
+        response_text = phrase_generation_service.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=0.4,
+            ai_config=config,
+            timeout_seconds=PLAN_GENERATION_TIMEOUT_SECONDS,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    try:
+        draft = parse_plan_response(response_text, allowed_continues=labels.keys())
+    except ValueError as exc:
+        logger.warning("study plan draft rejected: %s", exc)
+        raise HTTPException(status_code=502, detail=PLAN_AI_UNUSABLE) from exc
+
+    body = draft_to_payload(draft, source="ai")
+    if revising is not None:
+        continued: set[int] = set()
+        for priority_body, priority in zip(body["priorities"], draft.priorities):
+            if priority.continues:
+                objective_id = labels[priority.continues]
+                priority_body["objective_id"] = objective_id
+                continued.add(objective_id)
+                # Models repeat existing items despite being told not to. Saving
+                # would skip them anyway; dropping them here keeps the review
+                # screen from announcing them as new.
+                existing = {
+                    normalize_front(item.title)
+                    for item in objective_items_for(session, objective_id)
+                }
+                priority_body["items"] = [
+                    item
+                    for item in priority_body["items"]
+                    if normalize_front(item["title"]) not in existing
+                ]
+        body["plan_id"] = revising.id
+        body["dropped_objective_ids"] = [
+            objective_id for objective_id in labels.values() if objective_id not in continued
+        ]
+    return PlanDraftSchema.model_validate(body)
+
+
+@app.get("/api/objectives/plans", response_model=list[StudyPlanSchema])
+def list_study_plans(
+    request: Request,
+    include_archived: bool = False,
+    session: Session = Depends(get_session),
+) -> list[StudyPlanSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    query = select(StudyPlan).where(StudyPlan.child_id == (child.id or 0))
+    if not include_archived:
+        query = query.where(StudyPlan.status == OBJECTIVE_ACTIVE)
+    plans = session.exec(query.order_by(StudyPlan.created_at.desc(), StudyPlan.id.desc())).all()
+    return [build_study_plan_schema(session, plan) for plan in plans]
+
+
+@app.post("/api/objectives/plans", response_model=StudyPlanSchema, status_code=201)
+def create_study_plan(
+    payload: CreatePlanRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyPlanSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    draft = payload.draft
+    if any(not priority.items for priority in draft.priorities):
+        raise HTTPException(status_code=422, detail=PLAN_PRIORITY_WITHOUT_ITEMS)
+    plans = int(
+        session.exec(
+            select(func.count()).select_from(StudyPlan).where(StudyPlan.child_id == child_id)
+        ).one()
+        or 0
+    )
+    if plans >= MAX_PLANS_PER_CHILD:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Limite de {MAX_PLANS_PER_CHILD} planos atingido. Exclua um plano antigo antes de criar outro.",
+        )
+    existing = ensure_objective_capacity(session, child_id, len(draft.priorities))
+
+    now = datetime.utcnow()
+    plan = StudyPlan(
+        child_id=child_id,
+        title=draft.title.strip(),
+        goal=payload.goal.strip(),
+        diagnosis=draft.diagnosis.strip(),
+        focus=(draft.focus or "").strip() or None,
+        avoid=[entry.model_dump() for entry in draft.avoid],
+        shortest_path=[step.strip() for step in draft.shortest_path if step.strip()],
+        source=plan_source_for(draft),
+        created_at=now,
+        updated_at=now,
+    )
+    apply_plan_form(plan, payload)
+    session.add(plan)
+    session.flush()
+    for position, priority in enumerate(draft.priorities, start=1):
+        add_plan_objective(
+            session,
+            plan=plan,
+            priority=priority,
+            plan_order=position,
+            order_index=existing + position,
+            now=now,
+        )
+    session.commit()
+    session.refresh(plan)
+    return build_study_plan_schema(session, plan)
+
+
+@app.put("/api/objectives/plans/{plan_id}", response_model=StudyPlanSchema)
+def update_study_plan(
+    plan_id: int,
+    payload: UpdatePlanSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyPlanSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    plan = require_owned_plan(session, plan_id=plan_id, child_id=child.id or 0)
+    if payload.title is not None:
+        plan.title = payload.title.strip() or plan.title
+    if payload.status is not None:
+        plan.status = payload.status
+    plan.updated_at = datetime.utcnow()
+    session.add(plan)
+    session.commit()
+    session.refresh(plan)
+    return build_study_plan_schema(session, plan)
+
+
+@app.delete("/api/objectives/plans/{plan_id}", status_code=204)
+def delete_study_plan(
+    plan_id: int,
+    request: Request,
+    delete_objectives: bool = False,
+    session: Session = Depends(get_session),
+) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    plan = require_owned_plan(session, plan_id=plan_id, child_id=child.id or 0)
+    for objective in plan_objectives_for(session, plan):
+        if delete_objectives:
+            for item in objective_items_for(session, objective.id or 0):
+                session.delete(item)
+            session.delete(objective)
+        else:
+            # The progress belongs to the learner, not to the plan: without the
+            # plan these simply become standalone objectives.
+            objective.plan_id = None
+            objective.plan_order = None
+            objective.updated_at = datetime.utcnow()
+            session.add(objective)
+    session.flush()
+    session.delete(plan)
+    session.commit()
+
+
+@app.post("/api/objectives/plans/{plan_id}/revise", response_model=StudyPlanSchema)
+def revise_study_plan(
+    plan_id: int,
+    payload: RevisePlanRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyPlanSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    plan = require_owned_plan(session, plan_id=plan_id, child_id=child_id)
+    by_id = {objective.id: objective for objective in plan_objectives_for(session, plan)}
+    draft = payload.draft
+
+    continued_ids = [priority.objective_id for priority in draft.priorities if priority.objective_id is not None]
+    archive_ids = set(payload.archive_objective_ids)
+    if (
+        any(objective_id not in by_id for objective_id in continued_ids)
+        or len(set(continued_ids)) != len(continued_ids)
+        or any(objective_id not in by_id for objective_id in archive_ids)
+        or archive_ids & set(continued_ids)
+    ):
+        raise HTTPException(status_code=422, detail=PLAN_REVISION_MISMATCH)
+    new_priorities = [priority for priority in draft.priorities if priority.objective_id is None]
+    if any(not priority.items for priority in new_priorities):
+        raise HTTPException(status_code=422, detail=PLAN_PRIORITY_WITHOUT_ITEMS)
+    existing = ensure_objective_capacity(session, child_id, len(new_priorities))
+
+    now = datetime.utcnow()
+    touched: list[Objective] = []
+    position = 0
+    created = 0
+    for priority in draft.priorities:
+        position += 1
+        if priority.objective_id is None:
+            created += 1
+            add_plan_objective(
+                session,
+                plan=plan,
+                priority=priority,
+                plan_order=position,
+                order_index=existing + created,
+                now=now,
+            )
+            continue
+        objective = by_id[priority.objective_id]
+        objective.plan_order = position
+        objective.status = OBJECTIVE_ACTIVE
+        if priority.why and priority.why.strip():
+            objective.description = priority.why.strip()
+        # Existing items are never removed or rewritten, done or not: the
+        # revision only adds what is new.
+        items = objective_items_for(session, objective.id or 0)
+        known = {normalize_front(item.title) for item in items}
+        fresh = []
+        for item in priority.items:
+            key = normalize_front(item.title)
+            if key and key not in known:
+                known.add(key)
+                fresh.append(item)
+        create_objective_items(
+            session,
+            objective=objective,
+            child_id=child_id,
+            payloads=fresh[: max(0, MAX_ITEMS_PER_OBJECTIVE - len(items))],
+            start_order=next_objective_item_order(session, objective.id or 0),
+        )
+        objective.updated_at = now
+        session.add(objective)
+        touched.append(objective)
+
+    # Priorities the revision neither kept nor archived carry on, after the rest.
+    continued_set = set(continued_ids)
+    for objective in by_id.values():
+        if objective.status != OBJECTIVE_ACTIVE or objective.id in continued_set or objective.id in archive_ids:
+            continue
+        position += 1
+        objective.plan_order = position
+        session.add(objective)
+    for objective_id in archive_ids:
+        objective = by_id[objective_id]
+        objective.status = OBJECTIVE_ARCHIVED
+        objective.updated_at = now
+        session.add(objective)
+
+    plan.title = draft.title.strip()
+    plan.diagnosis = draft.diagnosis.strip()
+    plan.focus = (draft.focus or "").strip() or None
+    plan.avoid = [entry.model_dump() for entry in draft.avoid]
+    plan.shortest_path = [step.strip() for step in draft.shortest_path if step.strip()]
+    if payload.form is not None:
+        apply_plan_form(plan, payload.form)
+    plan.revision = (plan.revision or 1) + 1
+    plan.revised_at = now
+    plan.updated_at = now
+    session.add(plan)
+    session.flush()
+    # New unchecked items can pull a finished priority back below 100%.
+    for objective in touched:
+        sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
+    session.commit()
+    session.refresh(plan)
+    return build_study_plan_schema(session, plan)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1557,6 +1557,8 @@ export interface Objective {
   status: 'active' | 'archived';
   achieved_at: string | null;
   order_index: number;
+  plan_id: number | null;
+  plan_order: number | null;
   created_at: string;
   updated_at: string;
   items: ObjectiveItem[];
@@ -1608,6 +1610,96 @@ export interface UpdateObjectiveItemPayload {
   area?: ObjectiveArea;
   weight?: number;
   done?: boolean;
+}
+
+// ── Planos de estudo ─────────────────────────────────────────────────────────
+// "Criar plano" monta um rascunho (pela IA ou a partir de um modelo pronto) que
+// só vira objetivos depois de revisado. Cada prioridade aceita é um objetivo
+// comum ligado ao plano, então a porcentagem vem das mesmas checklists.
+
+export interface PlanItemDraft {
+  title: string;
+  notes?: string | null;
+  area: ObjectiveArea;
+  weight: number;
+}
+
+export interface PlanPriorityDraft {
+  title: string;
+  why?: string | null;
+  icon_emoji?: string | null;
+  items: PlanItemDraft[];
+  /** Só na revisão: o objetivo que esta prioridade continua. */
+  objective_id?: number | null;
+}
+
+export interface PlanAvoid {
+  title: string;
+  reason?: string | null;
+}
+
+export interface PlanDraft {
+  title: string;
+  diagnosis: string;
+  focus?: string | null;
+  priorities: PlanPriorityDraft[];
+  avoid: PlanAvoid[];
+  shortest_path: string[];
+  source: string;
+  /** Só na revisão: o plano revisado e as prioridades que a revisão deixou de fora. */
+  plan_id?: number | null;
+  dropped_objective_ids: number[];
+}
+
+export interface PlanForm {
+  goal: string;
+  profile?: string | null;
+  weekly_hours?: number | null;
+  target_date?: string | null;
+}
+
+export interface GeneratePlanPayload extends PlanForm {
+  include_app_history: boolean;
+  plan_id?: number | null;
+}
+
+export interface StudyPlan {
+  id: number;
+  child_id: number;
+  title: string;
+  goal: string;
+  profile: string | null;
+  weekly_hours: number | null;
+  target_date: string | null;
+  diagnosis: string;
+  focus: string | null;
+  avoid: PlanAvoid[];
+  shortest_path: string[];
+  source: string;
+  status: 'active' | 'archived';
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  revised_at: string | null;
+  objectives: Objective[];
+  progress_percent: number;
+  active_count: number;
+  achieved_count: number;
+  next_objective_id: number | null;
+}
+
+export interface PlanTemplateSummary {
+  slug: string;
+  title: string;
+  summary: string;
+  priority_count: number;
+}
+
+export interface PlanContext {
+  ai_available: boolean;
+  ai_unavailable_reason: 'no_config' | 'no_credits' | null;
+  snapshot: string[];
+  last_form: PlanForm | null;
 }
 
 export const api = {
@@ -2160,6 +2252,25 @@ export const api = {
     fetchAPI<Objective>(`/api/objectives/items/${itemId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteObjectiveItem: (itemId: number) =>
     fetchAPI<Objective>(`/api/objectives/items/${itemId}`, { method: 'DELETE' }),
+  // Planos de estudo
+  getPlanContext: () => fetchAPI<PlanContext>('/api/objectives/plan/context'),
+  getPlanTemplates: () => fetchAPI<PlanTemplateSummary[]>('/api/objectives/plan/templates'),
+  getPlanTemplateDraft: (slug: string) =>
+    fetchAPI<PlanDraft>(`/api/objectives/plan/templates/${encodeURIComponent(slug)}`),
+  generatePlanDraft: (payload: GeneratePlanPayload) =>
+    fetchAPI<PlanDraft>('/api/objectives/plan/generate', { method: 'POST', body: JSON.stringify(payload) }),
+  getPlans: (options: { includeArchived?: boolean } = {}) =>
+    fetchAPI<StudyPlan[]>(`/api/objectives/plans${options.includeArchived ? '?include_archived=true' : ''}`),
+  createPlan: (form: PlanForm, draft: PlanDraft) =>
+    fetchAPI<StudyPlan>('/api/objectives/plans', { method: 'POST', body: JSON.stringify({ ...form, draft }) }),
+  updatePlan: (id: number, payload: { title?: string; status?: 'active' | 'archived' }) =>
+    fetchAPI<StudyPlan>(`/api/objectives/plans/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deletePlan: (id: number, options: { deleteObjectives?: boolean } = {}) =>
+    fetchAPI<void>(`/api/objectives/plans/${id}${options.deleteObjectives ? '?delete_objectives=true' : ''}`, {
+      method: 'DELETE',
+    }),
+  revisePlan: (id: number, payload: { draft: PlanDraft; archive_objective_ids: number[]; form?: PlanForm }) =>
+    fetchAPI<StudyPlan>(`/api/objectives/plans/${id}/revise`, { method: 'POST', body: JSON.stringify(payload) }),
   // Daily Activity Tracking
   logActivity: (payload: DailyActivityCreatePayload) =>
     fetchAPI<DailyActivity>('/api/activity/log', { method: 'POST', body: JSON.stringify(payload) }),
