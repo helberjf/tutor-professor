@@ -136,19 +136,19 @@ export function DashboardOverview({
         <SummaryCard icon={<ClipboardList size={22} />} value={periodLoading ? '…' : `${periodSummary?.questions_answered ?? 0}`} label={`Questões · ${currentPeriodLabel.toLowerCase()}`} tone="amber" />
       </div>
 
-      <div className="rounded-[1.4rem] border-2 border-emerald-100 bg-emerald-50/60 p-5">
+      <div className="rounded-[1.4rem] border-2 border-emerald-100 bg-emerald-100/70 p-5 dark:border-emerald-300/30 dark:bg-emerald-400/10">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-600">Atividade por período</p>
-            <h2 className="mt-1 text-xl font-black text-slate-800">O que você fez · {currentPeriodLabel}</h2>
-            <p className="mt-1 text-xs font-bold text-emerald-700">{periodDateLabel}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-200">Atividade por período</p>
+            <h2 className="mt-1 text-xl font-black text-slate-800 dark:text-slate-50">O que você fez · {currentPeriodLabel}</h2>
+            <p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-100">{periodDateLabel}</p>
           </div>
-          <label className="flex items-center gap-2 text-xs font-black text-slate-600">
+          <label className="flex items-center gap-2 text-xs font-black text-slate-600 dark:text-slate-100">
             Período
             <select
               value={activityPeriod}
               onChange={(event) => setActivityPeriod(event.target.value as ActivityPeriod)}
-              className="rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-black text-slate-700 outline-none focus:border-emerald-400"
+              className="rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-black text-slate-700 outline-none focus:border-emerald-400 dark:border-emerald-300/30 dark:bg-slate-950/60 dark:text-slate-50"
             >
               <option value="day">Dia</option>
               <option value="month">Mês</option>
@@ -158,39 +158,39 @@ export function DashboardOverview({
           </label>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
-            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.questions_answered ?? 0}</p>
-            <p className="text-xs font-bold text-slate-500">Questões feitas</p>
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.questions_answered ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-200">Questões feitas</p>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
-            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.topics_studied ?? 0}</p>
-            <p className="text-xs font-bold text-slate-500">Tópicos estudados</p>
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.topics_studied ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-200">Tópicos estudados</p>
           </div>
-          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center">
-            <p className="text-2xl font-black text-slate-800">{periodLoading ? '…' : periodSummary?.subjects_studied ?? 0}</p>
-            <p className="text-xs font-bold text-slate-500">Matérias</p>
+          <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.subjects_studied ?? 0}</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-200">Matérias</p>
           </div>
         </div>
-        <div className="mt-4 rounded-2xl border border-emerald-100 bg-white px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Matérias estudadas no período</p>
+        <div className="mt-4 rounded-2xl border border-emerald-100 bg-white px-4 py-3 dark:border-emerald-300/20 dark:bg-slate-950/45">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-emerald-100">Matérias estudadas no período</p>
           {(periodSummary?.subject_names ?? []).length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {(periodSummary?.subject_names ?? []).map((name) => (
-                <span key={name} className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-800">{name}</span>
+                <span key={name} className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-100">{name}</span>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm font-bold text-slate-500">As matérias aparecerão aqui assim que você responder ou concluir uma atividade neste período.</p>
+            <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-200">As matérias aparecerão aqui assim que você responder ou concluir uma atividade neste período.</p>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-[1.4rem] border-2 border-sky-100 bg-sky-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-[1.4rem] border-2 border-sky-100 bg-sky-100/70 p-4 dark:border-sky-300/30 dark:bg-sky-400/10 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Comparativo semanal</p>
-          <p className="mt-1 text-sm font-bold text-slate-700">{thisWeekActivities} atividades nos últimos 7 dias · {previousWeekActivities} nos 7 dias anteriores</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600 dark:text-sky-100">Comparativo semanal</p>
+          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-100">{thisWeekActivities} atividades nos últimos 7 dias · {previousWeekActivities} nos 7 dias anteriores</p>
         </div>
-        <span className={`w-fit rounded-full px-3 py-1 text-sm font-black ${weeklyDelta >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+        <span className={`w-fit rounded-full px-3 py-1 text-sm font-black ${weeklyDelta >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-100' : 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-100'}`}>
           {previousWeekActivities === 0 ? 'Primeira semana' : `${weeklyDelta >= 0 ? '+' : ''}${weeklyDelta} eventos`}
         </span>
       </div>
