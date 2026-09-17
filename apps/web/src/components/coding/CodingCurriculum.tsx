@@ -114,20 +114,15 @@ export function CodingCurriculum({
   }
 
   useEffect(() => {
-    void loadSubjects(1, 'last_used', true);
-  // The initial deep link is consumed once; later refreshes must not reopen it.
+    void loadSubjects(1, 'last_used', Boolean(initialSubjectId));
+  // A deep-link id can arrive after mount while the URL state is restored.
+  // Once consumed, ordinary refreshes must not reopen it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialSubjectId]);
 
   useEffect(() => {
     if (loading || loadingTopics) return;
-    if (view.type === 'topics') {
-      rememberStudyLocation({
-        kind: 'coding_subject',
-        subject_id: view.subject.id,
-        mode: focusMode,
-      });
-    } else if (view.type === 'topic') {
+    if (view.type === 'topic') {
       rememberStudyLocation({
         kind: 'coding_topic',
         subject_id: view.subject.id,
@@ -201,19 +196,28 @@ export function CodingCurriculum({
     setError('');
     try {
       const shouldRestore = restoreDeepLink && !initialRestoreDoneRef.current;
-      const [loadedPage, fetchedSubject] = await Promise.all([
-        api.getCodingSubjectPage(requestedPage, requestedSort),
-        shouldRestore && initialSubjectId
-          ? api.getCodingSubject(initialSubjectId).catch(() => null)
-          : Promise.resolve(null),
-      ]);
+      const fetchedSubject = shouldRestore && initialSubjectId
+        ? await api.getCodingSubject(initialSubjectId).catch(() => null)
+        : null;
+      if (subjectLoadRequestRef.current !== requestId) return;
+      if (fetchedSubject) {
+        initialRestoreDoneRef.current = true;
+        if (focusMode === 'flashcards') {
+          void api.markCodingSubjectUsed(fetchedSubject.id).catch(() => undefined);
+          setView({ type: 'deck', subject: fetchedSubject });
+        } else {
+          void loadTopics(fetchedSubject, initialTopicId);
+        }
+        return;
+      }
+
+      const loadedPage = await api.getCodingSubjectPage(requestedPage, requestedSort);
       if (subjectLoadRequestRef.current !== requestId) return;
       setSubjects(loadedPage.items);
       setSubjectPage(loadedPage);
       if (shouldRestore) {
         initialRestoreDoneRef.current = true;
-        const requestedSubject = fetchedSubject
-          ?? loadedPage.items.find((subject) => subject.id === initialSubjectId);
+        const requestedSubject = loadedPage.items.find((subject) => subject.id === initialSubjectId);
         if (requestedSubject) {
           if (focusMode === 'flashcards') {
             void api.markCodingSubjectUsed(requestedSubject.id).catch(() => undefined);
@@ -234,14 +238,19 @@ export function CodingCurriculum({
   async function loadTopics(subject: ProgrammingSubject, requestedTopicId: number | null = null) {
     setLoadingTopics(true);
     setError('');
+    rememberStudyLocation({
+      kind: 'coding_subject',
+      subject_id: subject.id,
+      mode: focusMode,
+    });
     void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
     // Navega imediatamente para a matéria; os tópicos carregam na própria tela.
     setTopics([]);
     setView({ type: 'topics', subject });
+    void api.getMyAICredits().then(setAiCredits).catch(() => undefined);
     try {
-      const [loadedTopics, credits] = await Promise.all([api.getCodingTopics(subject.id), api.getMyAICredits()]);
+      const loadedTopics = await api.getCodingTopics(subject.id);
       setTopics(loadedTopics);
-      setAiCredits(credits);
       const requestedTopic = loadedTopics.find((topic) => topic.id === requestedTopicId);
       if (requestedTopic) {
         setView(

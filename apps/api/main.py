@@ -3446,6 +3446,18 @@ def _coding_resume(
     subject_id = _context_int(context, "subject_id")
     subject = session.get(ProgrammingSubject, subject_id) if subject_id else None
     if subject is None or subject.child_id != child_id:
+        subject = session.exec(
+            select(ProgrammingSubject)
+            .where(
+                ProgrammingSubject.child_id == child_id,
+                ProgrammingSubject.last_used_at.is_not(None),
+            )
+            .order_by(
+                ProgrammingSubject.last_used_at.desc(),
+                ProgrammingSubject.id.desc(),
+            )
+        ).first()
+    if subject is None:
         return (
             _resume_result(
                 kind="coding_subject",

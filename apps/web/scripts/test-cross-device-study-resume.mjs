@@ -54,12 +54,42 @@ assert.match(
 assert.match(studyPage, /get\('mode'\)/, 'the study page should restore the programming mode');
 assert.match(studyPage, /get\('subject_id'\)/, 'the study page should restore the programming subject');
 assert.match(studyPage, /get\('topic_id'\)/, 'the study page should restore the programming topic');
+assert.match(
+  studyPage,
+  /if \(loading && \(activeTab === 'english' \|\| activeTab === 'dashboard'\)\)/,
+  'coding resume must render without waiting for the unrelated dashboard request',
+);
+assert.doesNotMatch(
+  studyPage,
+  /import \{ (?:CodingCurriculum|SyntaxCodeBlock|DashboardOverview|StudyStatisticsPanel) \}/,
+  'the study route must not eagerly import unused heavy components',
+);
 assert.match(codingTab, /initialSubjectId/, 'the coding tab should forward the requested subject');
 assert.match(codingTab, /initialTopicId/, 'the coding tab should forward the requested topic');
 assert.match(
   codingCurriculum,
   /loadTopics\(requestedSubject, initialTopicId\)[\s\S]*loadedTopics\.find\([\s\S]{0,120}requestedTopicId/,
   'the programming curriculum should open the requested topic after loading it',
+);
+assert.match(
+  codingCurriculum,
+  /loadSubjects\(1, 'last_used', Boolean\(initialSubjectId\)\)[\s\S]{0,320}\[initialSubjectId\]/,
+  'a subject id that arrives after mount must still restore the requested subject',
+);
+assert.match(
+  codingCurriculum,
+  /async function loadTopics[\s\S]{0,500}rememberStudyLocation\(\{[\s\S]{0,180}kind: 'coding_subject'/,
+  'opening a subject must save the bookmark before its topics finish loading',
+);
+assert.doesNotMatch(
+  codingCurriculum,
+  /Promise\.all\(\[[\s\S]{0,240}getCodingSubjectPage[\s\S]{0,240}getCodingSubject/,
+  'direct resume must not wait for the general subject page before opening the subject',
+);
+assert.doesNotMatch(
+  codingCurriculum,
+  /Promise\.all\(\[[\s\S]{0,160}getCodingTopics[\s\S]{0,160}getMyAICredits/,
+  'topic rendering must not wait for the unrelated AI credit balance',
 );
 for (const kind of ['coding_subject', 'coding_topic', 'coding_questions', 'coding_flashcards']) {
   assert.match(

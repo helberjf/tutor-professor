@@ -9,10 +9,6 @@ import {
 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
-import { SyntaxCodeBlock } from '@/components/coding/SyntaxCodeBlock';
-import { DashboardOverview } from '@/components/dashboard-overview';
-import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
 import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
 import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, removeDiverseSubjectById, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -1205,7 +1201,7 @@ export default function StudyPage() {
         secondaryHref="/" secondaryLabel="Voltar ao início" />
     );
   }
-  if (loading) {
+  if (loading && (activeTab === 'english' || activeTab === 'dashboard')) {
     return <StatusCard tone="loading" title="Abrindo caderno de estudos" message="Buscando planejamento e histórico..." secondaryHref="/" secondaryLabel="Voltar ao início" />;
   }
   if (error?.isUnconfigured || error?.isOffline) {

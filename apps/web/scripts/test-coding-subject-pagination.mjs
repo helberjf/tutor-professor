@@ -15,7 +15,7 @@ assert.match(
 );
 assert.match(
   curriculum,
-  /loadSubjects\(1, 'last_used', true\)/,
+  /loadSubjects\(1, 'last_used', Boolean\(initialSubjectId\)\)/,
   'the initial page request always asks for last-used ordering',
 );
 assert.match(curriculum, /Data de criação/, 'creation-date ordering is available');
