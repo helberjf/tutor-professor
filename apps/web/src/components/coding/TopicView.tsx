@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clipboard
 import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
 import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
+import { DeepeningMarkdown } from './DeepeningMarkdown';
 import { SummarySheetModal } from './SummarySheetModal';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
@@ -1229,17 +1230,17 @@ function ReadingStudyModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="reading-study-title"
-      className="fixed inset-0 z-50 flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-3 lg:p-4"
+      className="fixed inset-0 z-[60] flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-3 lg:p-4"
     >
-      <div className="flex min-h-[100dvh] w-full flex-col dialog-sheet text-slate-900 shadow-2xl sm:min-h-0 sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
-        <header className="border-b border-slate-200 px-5 pb-4 pt-[calc(1rem_+_env(safe-area-inset-top))] sm:px-7 sm:pt-4">
+      <div className="flex h-[100dvh] min-h-0 w-full flex-col dialog-sheet text-slate-900 shadow-2xl sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
+        <header className="shrink-0 border-b border-slate-200 px-3 pb-2 pt-[calc(0.5rem_+_env(safe-area-inset-top))] sm:px-7 sm:pb-4 sm:pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-widest text-primary">{subjectName}</p>
-              <h2 id="reading-study-title" className="mt-1 text-xl font-black leading-tight text-slate-900 sm:text-2xl">
+              <p className="text-[0.65rem] font-black uppercase tracking-widest text-primary sm:text-xs">{subjectName}</p>
+              <h2 id="reading-study-title" className="mt-0.5 text-base font-black leading-tight text-slate-900 sm:mt-1 sm:text-2xl">
                 {topicTitle}
               </h2>
-              <p className="mt-1 text-sm font-bold text-slate-500">
+              <p className="mt-0.5 text-xs font-bold text-slate-500 sm:mt-1 sm:text-sm">
                 {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questão'}
               </p>
             </div>
@@ -1249,21 +1250,21 @@ function ReadingStudyModal({
               type="button"
               onClick={onClose}
               aria-label="Fechar estudo"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl"
             >
               <X size={18} />
             </button>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="flex items-center rounded-2xl border border-slate-200">
+          <div className="mt-2 flex flex-nowrap items-center gap-1 sm:mt-3 sm:flex-wrap sm:gap-2">
+              <div className="flex shrink-0 items-center rounded-xl border border-slate-200 sm:rounded-2xl">
                 <button
                   type="button"
                   onClick={() => changeFontIndex(-1)}
                   disabled={!canShrink}
                   aria-label="Diminuir tamanho da letra"
                   title="Diminuir tamanho da letra"
-                  className="flex h-11 w-9 items-center justify-center rounded-l-2xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                  className="flex h-10 w-8 items-center justify-center rounded-l-xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-l-2xl"
                 >
                   A<span className="text-[0.6rem]">−</span>
                 </button>
@@ -1274,7 +1275,7 @@ function ReadingStudyModal({
                   disabled={!canGrow}
                   aria-label="Aumentar tamanho da letra"
                   title="Aumentar tamanho da letra"
-                  className="flex h-11 w-9 items-center justify-center rounded-r-2xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35"
+                  className="flex h-10 w-8 items-center justify-center rounded-r-xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-r-2xl"
                 >
                   A<span className="text-[0.6rem]">+</span>
                 </button>
@@ -1283,81 +1284,107 @@ function ReadingStudyModal({
                 type="button"
                 onClick={() => void handleSpeakCurrentStep()}
                 title="Ouvir o texto desta etapa"
-                className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-2 py-1 text-[0.68rem] font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 <Volume2 size={15} />
-                <span>{speaking ? 'Parar áudio' : 'Ouvir texto'}</span>
+                <span className="whitespace-nowrap">{speaking ? 'Parar áudio' : 'Ouvir texto'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setShowDeepening((value) => !value);
+                  setShowDeepening(true);
                   setDeepeningError('');
                 }}
                 title="Aprofundar este assunto com IA"
-                className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 px-3 py-2 text-xs font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50"
+                className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-xl border border-violet-200 px-2 py-1 text-[0.68rem] font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 <Sparkles size={15} />
-                <span>Aprofundar com IA</span>
+                <span className="whitespace-nowrap">Aprofundar com IA</span>
               </button>
           </div>
           {speechError && (
             <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700">{speechError}</p>
           )}
-          {showDeepening && (
-            <form onSubmit={handleDeepenCurrentStep} className="mt-3 space-y-3 rounded-2xl border border-violet-100 bg-violet-50 p-3">
-              <label className="block">
-                <span className="text-xs font-black text-violet-800">Qual dúvida você tem mais sobre este assunto?</span>
-                <textarea
-                  value={deepeningQuestion}
-                  onChange={(event) => setDeepeningQuestion(event.target.value)}
-                  placeholder="Padrão: ensinar os conceitos importantes de forma resumida e objetiva, com exemplos de cada conceito, pronto para copiar no Notion."
-                  maxLength={1000}
-                  rows={3}
-                  className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-100 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-violet-400"
-                />
-              </label>
-              {deepeningError && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{deepeningError}</p>}
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="submit"
-                  disabled={deepeningLoading}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-xs font-black text-white hover:bg-violet-700 disabled:opacity-50"
-                >
-                  {deepeningLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  {deepeningLoading ? 'Aprofundando...' : 'Gerar aprofundamento'}
-                </button>
-              </div>
-              {deepeningAnswer && (
-                <div className="space-y-2">
-                  <textarea
-                    readOnly
-                    value={deepeningAnswer}
-                    onFocus={(event) => event.currentTarget.select()}
-                    rows={8}
-                    className="w-full resize-y rounded-2xl border-2 border-violet-100 bg-white px-3 py-2 font-mono text-xs leading-relaxed text-slate-700 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void handleCopyDeepening()}
-                    className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 bg-white px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
-                  >
-                    <Copy size={14} />
-                    {deepeningCopied ? 'Copiado!' : 'Copiar para Notion'}
-                  </button>
-                </div>
-              )}
-            </form>
-          )}
-          <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
-            <div className="h-2 rounded-full bg-primary-dark transition-all" style={{ width: `${progress}%` }} />
+          <div className="mt-2 h-1 w-full rounded-full bg-slate-100 sm:mt-4 sm:h-2">
+            <div className="h-1 rounded-full bg-primary-dark transition-all sm:h-2" style={{ width: `${progress}%` }} />
           </div>
         </header>
 
         {/* Every size below is in `em`, so the reader's choice scales the whole
             pane proportionally instead of only the body copy. */}
-        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 lg:py-10" style={{ fontSize: `${fontPx}px` }}>
-          {step.type === 'section' ? (
+        <main className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 lg:py-10" style={{ fontSize: `${fontPx}px` }}>
+          {showDeepening ? (
+            <section className="mx-auto w-full max-w-[76ch]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+                <div>
+                  <p className="text-[0.72em] font-black uppercase tracking-widest text-violet-600">Aprofundamento com IA</p>
+                  <h3 className="mt-1 text-[1.45em] font-black leading-tight text-slate-950">Explore esta parte da aula</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDeepening(false)}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-[0.8em] font-black text-slate-700 hover:bg-slate-100"
+                >
+                  <ChevronLeft size={16} />
+                  Voltar à aula
+                </button>
+              </div>
+
+              <form onSubmit={handleDeepenCurrentStep} className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                <label className="block">
+                  <span className="text-[0.82em] font-black text-violet-900">Qual dúvida você tem sobre este assunto?</span>
+                  <textarea
+                    value={deepeningQuestion}
+                    onChange={(event) => setDeepeningQuestion(event.target.value)}
+                    placeholder="Padrão: ensinar os conceitos importantes de forma resumida e objetiva, com exemplos de cada conceito, pronto para copiar no Notion."
+                    maxLength={1000}
+                    rows={3}
+                    className="mt-2 w-full resize-y rounded-2xl border-2 border-violet-100 bg-white px-4 py-3 text-[0.9em] leading-relaxed text-slate-800 outline-none focus:border-violet-400"
+                  />
+                </label>
+                {deepeningError && (
+                  <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-[0.8em] font-bold text-rose-700">
+                    {deepeningError}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={deepeningLoading}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-[0.8em] font-black text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {deepeningLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {deepeningLoading ? 'Aprofundando...' : deepeningAnswer ? 'Gerar novamente' : 'Gerar aprofundamento'}
+                  </button>
+                  {deepeningAnswer && (
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyDeepening()}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 bg-white px-4 py-2 text-[0.8em] font-black text-violet-700 hover:bg-violet-100"
+                    >
+                      <Copy size={16} />
+                      {deepeningCopied ? 'Copiado!' : 'Copiar para Notion'}
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {deepeningLoading && !deepeningAnswer ? (
+                <div role="status" className="mt-8 flex items-center justify-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-12 text-[0.95em] font-bold text-slate-600">
+                  <Loader2 size={22} className="animate-spin text-violet-600" />
+                  Preparando um aprofundamento claro e objetivo...
+                </div>
+              ) : deepeningAnswer ? (
+                <div className="mt-8 pb-4">
+                  <DeepeningMarkdown content={deepeningAnswer} fallbackLanguage={subjectName} />
+                </div>
+              ) : (
+                <p className="mt-6 rounded-2xl bg-slate-50 px-5 py-4 text-[0.9em] font-medium leading-relaxed text-slate-600">
+                  Você pode escrever uma dúvida específica ou deixar o campo vazio para receber os conceitos mais importantes desta etapa, com exemplos.
+                </p>
+              )}
+            </section>
+          ) : step.type === 'section' ? (
             <article className="mx-auto w-full max-w-[72ch]">
               <p className="text-[0.72em] font-black uppercase tracking-widest text-slate-400">
                 Parte {step.sectionIndex + 1}
@@ -1384,26 +1411,26 @@ function ReadingStudyModal({
           )}
         </main>
 
-        <footer className="border-t border-slate-200 dialog-sheet px-5 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] sm:rounded-b-3xl sm:px-7 sm:pb-4">
-          <div className="grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
+        <footer className="shrink-0 border-t border-slate-200 dialog-sheet px-3 pt-2 pb-[calc(0.5rem_+_env(safe-area-inset-bottom))] sm:rounded-b-3xl sm:px-7 sm:pt-4 sm:pb-4">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between sm:gap-3">
             <button
               type="button"
               onClick={goPrevious}
               disabled={isFirst}
               aria-label="Etapa anterior do estudo"
-              className="flex items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-xl border-2 border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
             >
-              <ChevronLeft size={17} />
+              <ChevronLeft className="h-4 w-4 sm:h-[17px] sm:w-[17px]" />
               Anterior
             </button>
             <button
               type="button"
               onClick={goNext}
               aria-label="Próxima etapa do estudo"
-              className="flex items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 py-3 text-sm font-black text-white hover:bg-primary-dark"
+              className="flex items-center justify-center gap-1 rounded-xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
             >
               {isLast ? 'Concluir' : 'Próximo'}
-              {!isLast && <ChevronRight size={17} />}
+              {!isLast && <ChevronRight className="h-4 w-4 sm:h-[17px] sm:w-[17px]" />}
             </button>
           </div>
         </footer>
