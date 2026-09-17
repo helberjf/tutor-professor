@@ -17,7 +17,7 @@ import asyncio
 import os
 import sys
 import tempfile
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +77,7 @@ async def run() -> None:
         headers = await sign_in(client, ACCOUNT_A)
 
         # ── An objective starts empty, and empty is 0% ───────────────────────
-        target = (date.today() + timedelta(days=30)).isoformat()
+        target = (main.activity_today() + timedelta(days=30)).isoformat()
         created = await client.post(
             "/api/objectives",
             headers=headers,
