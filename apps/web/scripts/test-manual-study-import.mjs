@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 const helperUrl = new URL('../src/lib/manual-study-import.ts', import.meta.url);
+const diverseTabUrl = new URL('../src/app/study/_components/DiverseTab.tsx', import.meta.url);
 
 let source;
 try {
@@ -12,6 +13,18 @@ try {
 } catch {
   assert.fail('Expected manual-study-import.ts to exist');
 }
+const diverseTab = readFileSync(diverseTabUrl, 'utf8');
+
+assert.match(
+  diverseTab,
+  /dark:bg-violet-400\/10[\s\S]*dark:text-violet-100[\s\S]*Importar estudo com IA/,
+  'manual AI import panel keeps readable violet contrast in dark mode',
+);
+assert.match(
+  diverseTab,
+  /dark:text-emerald-100[\s\S]*Sem usar a chave ou os créditos do app\./,
+  'manual AI import credit note keeps readable green contrast in dark mode',
+);
 
 const compiled = ts.transpileModule(source, {
   compilerOptions: {

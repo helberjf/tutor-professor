@@ -458,7 +458,7 @@ export function ManualStudyImportPanel({
   }
 
   return (
-    <section className="rounded-[1.5rem] border-2 border-violet-200 bg-violet-50/70 p-4">
+    <section className="rounded-[1.5rem] border-2 border-violet-200 bg-violet-100/70 p-4 dark:border-violet-300/30 dark:bg-violet-400/10">
       <button
         type="button"
         onClick={() => { setOpen((current) => !current); setError(''); }}
@@ -470,21 +470,21 @@ export function ManualStudyImportPanel({
             <ClipboardList size={18} />
           </span>
           <span>
-            <span className="block text-sm font-black text-violet-900">Importar estudo com IA</span>
-            <span className="block text-xs font-semibold text-violet-600">Copie o prompt e cole aqui a resposta de qualquer IA</span>
-            <span className="mt-0.5 block text-[11px] font-bold text-emerald-700">Sem usar a chave ou os créditos do app.</span>
+            <span className="block text-sm font-black text-violet-900 dark:text-violet-100">Importar estudo com IA</span>
+            <span className="block text-xs font-semibold text-violet-600 dark:text-violet-200">Copie o prompt e cole aqui a resposta de qualquer IA</span>
+            <span className="mt-0.5 block text-[11px] font-bold text-emerald-700 dark:text-emerald-100">Sem usar a chave ou os créditos do app.</span>
           </span>
         </span>
-        <ChevronDown size={18} className={`shrink-0 text-violet-500 transition ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={18} className={`shrink-0 text-violet-500 transition dark:text-violet-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="mt-4 space-y-4 border-t border-violet-200 pt-4">
+        <div className="mt-4 space-y-4 border-t border-violet-200 pt-4 dark:border-violet-300/25">
           <p role="status" aria-live="polite" className="sr-only">
             {copied ? 'Prompt copiado.' : preview ? `Prévia pronta com ${preview.lessons?.length ?? 0} aulas e ${preview.topics.length} questões.` : ''}
           </p>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">1. Prepare o prompt</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">1. Prepare o prompt</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_9rem]">
               <input
                 aria-label="Tema do estudo para a IA"
@@ -492,7 +492,7 @@ export function ManualStudyImportPanel({
                 onChange={(event) => setPromptSubject(event.target.value)}
                 maxLength={60}
                 placeholder="Ex.: Sistema Solar"
-                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950/60 dark:text-slate-50"
               />
               <input
                 aria-label="Quantidade de questões"
@@ -501,7 +501,7 @@ export function ManualStudyImportPanel({
                 max={50}
                 value={questionCount}
                 onChange={(event) => setQuestionCount(Math.min(50, Math.max(1, Number(event.target.value) || 1)))}
-                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500"
+                className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950/60 dark:text-slate-50"
               />
             </div>
             <textarea
@@ -509,7 +509,7 @@ export function ManualStudyImportPanel({
               readOnly
               value={prompt}
               rows={5}
-              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-100 bg-white/80 px-3 py-2 font-mono text-[11px] leading-5 text-slate-600 outline-none focus:border-violet-400"
+              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-100 bg-white/80 px-3 py-2 font-mono text-[11px] leading-5 text-slate-600 outline-none focus:border-violet-400 dark:border-violet-300/25 dark:bg-slate-950/45 dark:text-slate-200"
             />
             <button
               type="button"
@@ -521,7 +521,7 @@ export function ManualStudyImportPanel({
           </div>
 
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">2. Cole a resposta da IA</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">2. Cole a resposta da IA</p>
             <textarea
               aria-label="Resposta JSON da IA"
               value={responseText}
@@ -529,28 +529,28 @@ export function ManualStudyImportPanel({
               maxLength={150_000}
               rows={7}
               placeholder={'Cole aqui o JSON completo com matéria, aulas, perguntas e respostas.'}
-              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 outline-none focus:border-violet-500"
+              className="mt-2 w-full resize-y rounded-xl border-2 border-violet-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 outline-none focus:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950/60 dark:text-slate-100"
             />
             <button
               type="button"
               onClick={verifyResponse}
               disabled={!responseText.trim() || busy}
-              className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl border-2 border-violet-300 bg-white px-4 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-50"
+              className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl border-2 border-violet-300 bg-white px-4 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-50 dark:border-violet-300/40 dark:bg-slate-950/45 dark:text-violet-100 dark:hover:bg-violet-300/15"
             >
               Verificar estudo
             </button>
           </div>
 
-          {error && <p role="alert" className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700">{error}</p>}
+          {error && <p role="alert" className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700 dark:bg-rose-400/15 dark:text-rose-100">{error}</p>}
 
           {preview && (
-            <div className="rounded-2xl border-2 border-emerald-200 bg-white p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600">3. Prévia pronta</p>
-              <h3 className="mt-1 text-lg font-black text-slate-800">{preview.name}</h3>
-              <p className="mt-1 text-sm font-semibold text-slate-500">
+            <div className="rounded-2xl border-2 border-emerald-200 bg-white p-4 dark:border-emerald-300/30 dark:bg-slate-950/45">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-100">3. Prévia pronta</p>
+              <h3 className="mt-1 text-lg font-black text-slate-800 dark:text-slate-50">{preview.name}</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-200">
                 {preview.lessons?.length ?? 0} aula(s) · {preview.topics.length} questão(ões)
               </p>
-              <ul className="mt-3 space-y-1 text-xs font-semibold text-slate-600">
+              <ul className="mt-3 space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-200">
                 {preview.lessons?.slice(0, 4).map((lesson) => <li key={lesson.id}>• {lesson.title} ({lesson.topic_ids.length})</li>)}
                 {(preview.lessons?.length ?? 0) > 4 && <li>• e mais {(preview.lessons?.length ?? 0) - 4} aula(s)</li>}
               </ul>

@@ -398,7 +398,7 @@ html[data-theme='dark'] :is(.text-slate-500, .text-slate-400, .text-slate-300) {
  * scripts/test_dark_mode_coverage.py instead of silently shipping unreadable.
  */
 html[data-theme='dark'] :is(
-  .text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-amber-950,
+  .text-amber-300, .text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900, .text-amber-950,
   .text-secondary-dark
 ) {
   color: #fde68a !important;
