@@ -487,10 +487,10 @@ export function CodingCurriculum({
                   <div
                     role="group"
                     aria-label={`Relevância de ${subject.name}`}
-                    className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-amber-50/70 px-3 py-2"
+                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200/70 bg-amber-100/80 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <span className="text-xs font-black text-amber-800">Relevância</span>
+                    <span className="text-xs font-black text-amber-800 dark:text-amber-100">Relevância</span>
                     <span className="flex items-center">
                       {Array.from({ length: 5 }, (_, index) => {
                         const level = index + 1;
@@ -503,11 +503,11 @@ export function CodingCurriculum({
                             aria-label={`Definir relevância ${level} de 5 para ${subject.name}`}
                             aria-pressed={level === subject.relevance}
                             onClick={() => void handleRelevanceChange(subject, level)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-amber-200/70 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-amber-300/15"
                           >
                             <Star
                               size={17}
-                              className={active ? 'fill-amber-400 text-amber-500' : 'text-slate-300'}
+                              className={active ? 'fill-amber-400 text-amber-500 dark:text-amber-300' : 'text-slate-300 dark:text-slate-500'}
                             />
                           </button>
                         );
@@ -655,17 +655,17 @@ export function CodingCurriculum({
             )}
           </div>
 
-          <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
-            <p className="text-sm font-black text-violet-900">Resumo da matéria</p>
-            <p className="mt-1 text-xs font-bold text-violet-700">
+          <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-100/70 p-4 dark:border-violet-300/30 dark:bg-violet-400/10">
+            <p className="text-sm font-black text-violet-900 dark:text-violet-100">Resumo da matéria</p>
+            <p className="mt-1 text-xs font-bold text-violet-700 dark:text-violet-200">
               Resume cada tópico e junta tudo em uma folha só. Tópico novo entra sem refazer o resto.
             </p>
-            <p className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-xs font-black text-violet-800">
+            <p className="mt-2 rounded-xl border border-violet-200/70 bg-slate-50/90 px-3 py-2 text-xs font-black text-violet-800 dark:border-violet-300/20 dark:bg-slate-950/45 dark:text-violet-100">
               {summaryCreditCost === 0
                 ? 'Nenhum crédito será usado: os resumos já estão prontos.'
                 : `Esta ação usará ${summaryCreditCost} ${summaryCreditCost === 1 ? 'crédito' : 'créditos'} de IA.`}
               {aiCredits && !aiCredits.unlimited && summaryCreditCost > 0 && (
-                <span className="ml-1 font-bold text-violet-600">Você tem {aiCredits.credits} hoje.</span>
+                <span className="ml-1 font-bold text-violet-600 dark:text-violet-200">Você tem {aiCredits.credits} hoje.</span>
               )}
             </p>
             <button

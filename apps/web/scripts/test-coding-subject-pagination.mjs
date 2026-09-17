@@ -23,6 +23,21 @@ assert.match(curriculum, /Ordem alfabética/, 'alphabetical ordering is availabl
 assert.match(curriculum, /Relevância/, 'relevance ordering is available');
 assert.match(curriculum, /Definir relevância/, 'cards expose an accessible relevance control');
 assert.match(curriculum, /Array\.from\(\{ length: 5 \}/, 'relevance has five levels');
+assert.match(
+  curriculum,
+  /aria-label=\{`Relevância de \$\{subject\.name\}`\}[\s\S]*dark:bg-amber-400\/10[\s\S]*dark:text-amber-100/,
+  'the relevance control keeps readable amber contrast in dark mode',
+);
+assert.match(
+  curriculum,
+  /dark:border-violet-300\/30[\s\S]*dark:bg-violet-400\/10[\s\S]*dark:text-violet-100[\s\S]*Resumo da matéria/,
+  'the subject summary card keeps readable violet contrast in dark mode',
+);
+assert.match(
+  curriculum,
+  /dark:bg-slate-950\/45[\s\S]*dark:text-violet-100[\s\S]*Esta ação usará/,
+  'the summary credit notice does not stay as a pale pill in dark mode',
+);
 assert.match(curriculum, /SubjectCardSkeleton/, 'initial and page loading use card skeletons');
 assert.match(curriculum, /Página \{subjectPage\.page\} de \{subjectPage\.total_pages\}/, 'the lazy paginator reports its position');
 assert.match(curriculum, /api\.markCodingSubjectUsed/, 'opening a subject records last use');
