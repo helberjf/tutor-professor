@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Sparkles, Target } from 'lucide-react';
 
-import { api, ApiError, type Objective } from '@/lib/api';
+import { api, ApiError, type Objective, type StudyPlan } from '@/lib/api';
 import { CreateObjectiveModal } from './CreateObjectiveModal';
+import { CreatePlanWizard } from './CreatePlanWizard';
 import { ObjectiveCard } from './ObjectiveCard';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
+import { PlanPanel } from './PlanPanel';
 
 /** Active objectives first, then archived, each keeping the backend's order. */
 function sortObjectives(objectives: Objective[]) {
@@ -19,19 +21,32 @@ function sortObjectives(objectives: Objective[]) {
 
 export function ObjectivesBoard() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [plans, setPlans] = useState<StudyPlan[]>([]);
+  // False when the server has objectives but not plans yet: the plan button hides.
+  const [plansAvailable, setPlansAvailable] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [serverOutdated, setServerOutdated] = useState(false);
   const [creating, setCreating] = useState(false);
+  // null: closed. { plan: null }: new plan. { plan }: revising that plan.
+  const [planWizard, setPlanWizard] = useState<{ plan: StudyPlan | null } | null>(null);
 
   const load = useCallback(async (includeArchived: boolean) => {
     setLoading(true);
     setError('');
     setServerOutdated(false);
     try {
-      const data = await api.getObjectives({ includeArchived });
+      const [data, loadedPlans] = await Promise.all([
+        api.getObjectives({ includeArchived }),
+        api.getPlans({ includeArchived }).catch((err: unknown) => {
+          if (err instanceof ApiError && err.status === 404) return null;
+          throw err;
+        }),
+      ]);
       setObjectives(sortObjectives(data));
+      setPlans(loadedPlans ?? []);
+      setPlansAvailable(loadedPlans !== null);
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 404) {
         setServerOutdated(true);
@@ -57,6 +72,17 @@ export function ObjectivesBoard() {
     [objectives],
   );
 
+  const visiblePlans = useMemo(
+    () => (showArchived ? plans : plans.filter((plan) => plan.status === 'active')),
+    [plans, showArchived],
+  );
+
+  // A plan's priorities live inside its panel; only the rest are listed below.
+  const looseObjectives = useMemo(() => {
+    const planIds = new Set(plans.map((plan) => plan.id));
+    return visible.filter((objective) => objective.plan_id == null || !planIds.has(objective.plan_id));
+  }, [visible, plans]);
+
   const averagePercent = active.length
     ? Math.round(active.reduce((total, objective) => total + objective.progress_percent, 0) / active.length)
     : 0;
@@ -65,6 +91,7 @@ export function ObjectivesBoard() {
     (total, objective) => total + (objective.item_count - objective.done_count),
     0,
   );
+  const canPlan = plansAvailable && !serverOutdated;
 
   function replaceObjective(updated: Objective) {
     setObjectives((previous) => {
@@ -74,6 +101,23 @@ export function ObjectivesBoard() {
         showArchived ? next : next.filter((objective) => objective.status === 'active'),
       );
     });
+  }
+
+  function removeObjective(objectiveId: number) {
+    setObjectives((previous) => previous.filter((item) => item.id !== objectiveId));
+  }
+
+  function handlePlanChanged(updated: StudyPlan) {
+    const previous = plans.find((plan) => plan.id === updated.id);
+    setPlans((list) => list.map((plan) => (plan.id === updated.id ? updated : plan)));
+    // Archiving a plan takes its priorities out of the active list, and back.
+    if (previous && previous.status !== updated.status) void load(showArchived);
+  }
+
+  function handlePlanDeleted(planId: number) {
+    setPlans((list) => list.filter((plan) => plan.id !== planId));
+    // Its objectives were either deleted or became standalone ones.
+    void load(showArchived);
   }
 
   return (
@@ -90,14 +134,25 @@ export function ObjectivesBoard() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            disabled={serverOutdated}
-            className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
-          >
-            <Plus size={18} /> Novo objetivo
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {canPlan ? (
+              <button
+                type="button"
+                onClick={() => setPlanWizard({ plan: null })}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-800"
+              >
+                <Sparkles size={18} /> Criar plano
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              disabled={serverOutdated}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+            >
+              <Plus size={18} /> Novo objetivo
+            </button>
+          </div>
         </div>
 
         {active.length > 0 ? (
@@ -140,37 +195,68 @@ export function ObjectivesBoard() {
 
       {loading ? (
         <p className="text-sm font-semibold text-slate-500">Carregando objetivos...</p>
-      ) : serverOutdated ? null : visible.length === 0 ? (
-        <section className="rounded-[1.6rem] border-2 border-dashed border-slate-200 bg-white p-8 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
-            <Target size={28} />
-          </span>
-          <h2 className="mt-4 text-lg font-black text-slate-800">Defina seu primeiro objetivo</h2>
-          <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
-            Escreva aonde quer chegar e liste o que precisa estudar para isso. A cada item concluído a
-            porcentagem de alcance sobe.
-          </p>
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="mx-auto mt-5 flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
-          >
-            <Plus size={18} /> Criar objetivo
-          </button>
-        </section>
-      ) : (
-        <div className="space-y-4">
-          {visible.map((objective) => (
-            <ObjectiveCard
-              key={objective.id}
-              objective={objective}
-              onChanged={replaceObjective}
-              onDeleted={(objectiveId) =>
-                setObjectives((previous) => previous.filter((item) => item.id !== objectiveId))
-              }
+      ) : serverOutdated ? null : (
+        <>
+          {visiblePlans.map((plan) => (
+            <PlanPanel
+              key={plan.id}
+              plan={plan}
+              onChanged={handlePlanChanged}
+              onDeleted={handlePlanDeleted}
+              onRevise={(target) => setPlanWizard({ plan: target })}
+              onObjectiveChanged={replaceObjective}
+              onObjectiveDeleted={removeObjective}
             />
           ))}
-        </div>
+
+          {looseObjectives.length === 0 && visiblePlans.length === 0 ? (
+            <section className="rounded-[1.6rem] border-2 border-dashed border-slate-200 bg-white p-8 text-center">
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
+                <Target size={28} />
+              </span>
+              <h2 className="mt-4 text-lg font-black text-slate-800">Defina seu primeiro objetivo</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
+                Escreva aonde quer chegar e liste o que precisa estudar para isso. A cada item concluído a
+                porcentagem de alcance sobe. Sem saber por onde começar? Crie um plano: ele ordena as
+                prioridades para você.
+              </p>
+              <div className="mx-auto mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                {canPlan ? (
+                  <button
+                    type="button"
+                    onClick={() => setPlanWizard({ plan: null })}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-800"
+                  >
+                    <Sparkles size={18} /> Criar plano
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setCreating(true)}
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
+                >
+                  <Plus size={18} /> Criar objetivo
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {looseObjectives.length > 0 ? (
+            <div className="space-y-4">
+              {visiblePlans.length > 0 ? (
+                <p className="px-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outros objetivos</p>
+              ) : null}
+              {looseObjectives.map((objective) => (
+                <ObjectiveCard
+                  key={objective.id}
+                  objective={objective}
+                  onChanged={replaceObjective}
+                  onDeleted={removeObjective}
+                />
+              ))}
+            </div>
+          ) : null}
+        </>
       )}
 
       {creating ? (
@@ -179,6 +265,17 @@ export function ObjectivesBoard() {
           onCreated={(objective) => {
             setObjectives((previous) => sortObjectives([...previous, objective]));
             setCreating(false);
+          }}
+        />
+      ) : null}
+
+      {planWizard ? (
+        <CreatePlanWizard
+          plan={planWizard.plan}
+          onClose={() => setPlanWizard(null)}
+          onSaved={() => {
+            setPlanWizard(null);
+            void load(showArchived);
           }}
         />
       ) : null}

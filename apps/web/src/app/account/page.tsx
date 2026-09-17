@@ -679,7 +679,7 @@ export default function ParentsPage() {
               </form>
             </div>
 
-            <div className="app-surface border-indigo-200 p-5 md:p-8">
+            <div id="ia-da-conta" className="app-surface scroll-mt-24 border-indigo-200 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Bot className="text-indigo-700" size={28} />
                 <h2 className="text-xl font-black text-slate-800 md:text-2xl">IA da conta</h2>

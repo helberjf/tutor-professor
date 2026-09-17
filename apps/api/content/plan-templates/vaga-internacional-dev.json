@@ -1,0 +1,293 @@
+{
+  "slug": "vaga-internacional-dev",
+  "title": "Vaga internacional de dev",
+  "summary": "Para quem já constrói bastante coisa e precisa virar isso em contratação: CV em inglês, posicionamento, cases, fundamentos, entrevistas e candidaturas.",
+  "draft": {
+    "title": "Vaga internacional de dev",
+    "diagnosis": "O gargalo provavelmente não é falta de tecnologia: é transformar o que você já construiu em prova clara de experiência e se preparar especificamente para o processo de contratação internacional.",
+    "focus": "Apresentar-se em 30 a 60 minutos de entrevista como alguém que já resolve problemas de software profissionalmente.",
+    "priorities": [
+      {
+        "title": "Currículo internacional em inglês",
+        "why": "É a primeira coisa que o recrutador vê: precisa mostrar problemas reais resolvidos, não só estudos e projetos.",
+        "icon_emoji": "📄",
+        "items": [
+          {
+            "title": "Reescrever cada experiência em bullets XYZ",
+            "notes": "Ação + tecnologia + resultado. Ex.: Built and maintained 40+ API routes using TypeScript, PostgreSQL and Prisma.",
+            "area": "free",
+            "weight": 3
+          },
+          {
+            "title": "Colocar números reais onde houver",
+            "notes": "Usuários, rotas, tempo economizado, custo, cobertura de testes.",
+            "area": "free",
+            "weight": 2
+          },
+          {
+            "title": "Revisar o inglês do CV",
+            "notes": "Com alguém fluente ou uma ferramenta de escrita.",
+            "area": "language",
+            "weight": 1
+          },
+          {
+            "title": "Fechar a versão em PDF de 1 a 2 páginas",
+            "area": "free",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "title": "Posicionamento único",
+        "why": "Saber muita coisa dilui a candidatura; um título claro faz você ser encontrado e lembrado.",
+        "icon_emoji": "🧭",
+        "items": [
+          {
+            "title": "Escolher o título profissional",
+            "notes": "Ex.: Full-Stack TypeScript Developer | React | Node.js | PostgreSQL | AWS.",
+            "area": "free",
+            "weight": 1
+          },
+          {
+            "title": "Definir as 5 tecnologias que vão aparecer em todo lugar",
+            "area": "free",
+            "weight": 1
+          },
+          {
+            "title": "Alinhar CV, LinkedIn e GitHub ao mesmo posicionamento",
+            "area": "free",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Transformar 2 a 3 projetos em cases",
+        "why": "Poucos projetos bem explicados valem mais do que dez listados, e alimentam CV, LinkedIn e entrevistas.",
+        "icon_emoji": "🗂️",
+        "items": [
+          {
+            "title": "Escolher os 3 projetos mais relevantes para as vagas",
+            "area": "free",
+            "weight": 1
+          },
+          {
+            "title": "Escrever o case de cada projeto",
+            "notes": "Problema, arquitetura, decisões, dificuldades, resultados e trade-offs.",
+            "area": "free",
+            "weight": 5
+          },
+          {
+            "title": "Atualizar o README de cada projeto com esse resumo",
+            "area": "free",
+            "weight": 2
+          },
+          {
+            "title": "Ensaiar cada case em inglês em até 3 minutos",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Fundamentos de entrevista técnica",
+        "why": "Resolver problemas Easy e Medium explicando o raciocínio é o filtro mais comum das empresas.",
+        "icon_emoji": "🧩",
+        "items": [
+          {
+            "title": "Arrays, HashMap e Two Pointers: 15 problemas",
+            "area": "coding",
+            "weight": 3
+          },
+          {
+            "title": "Sliding Window, Stack e Queue: 10 problemas",
+            "area": "coding",
+            "weight": 3
+          },
+          {
+            "title": "Linked List, Trees, BFS e DFS: 10 problemas",
+            "area": "coding",
+            "weight": 3
+          },
+          {
+            "title": "Explicar a complexidade (Big O) em voz alta em cada solução",
+            "area": "coding",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "JavaScript, TypeScript e Node sem framework",
+        "why": "As perguntas de entrevista caem nos fundamentos, e isso rende mais agora do que aprender outra biblioteca.",
+        "icon_emoji": "⚙️",
+        "items": [
+          {
+            "title": "Event loop, promises, async/await e closures",
+            "area": "coding",
+            "weight": 3
+          },
+          {
+            "title": "Hoisting, escopos e prototypes",
+            "area": "coding",
+            "weight": 2
+          },
+          {
+            "title": "HTTP, REST, middleware, streams e tratamento de erros",
+            "area": "coding",
+            "weight": 3
+          },
+          {
+            "title": "Autenticação, JWT, cookies e CORS",
+            "area": "coding",
+            "weight": 2
+          },
+          {
+            "title": "SQL: transações, índices e concorrência",
+            "area": "coding",
+            "weight": 3
+          }
+        ]
+      },
+      {
+        "title": "System Design júnior e pleno",
+        "why": "Organizar a resposta vale tanto quanto conhecer as ferramentas.",
+        "icon_emoji": "🏗️",
+        "items": [
+          {
+            "title": "Fixar o roteiro de resposta",
+            "notes": "Requisitos, escala, API, banco, cache, filas, segurança, observabilidade e trade-offs.",
+            "area": "coding",
+            "weight": 2
+          },
+          {
+            "title": "Resolver 5 problemas clássicos seguindo o roteiro",
+            "area": "coding",
+            "weight": 5
+          },
+          {
+            "title": "Começar pelo problema antes de escolher a tecnologia",
+            "notes": "Não abrir a resposta escolhendo AWS antes de entender os requisitos.",
+            "area": "coding",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "title": "Histórias de entrevista comportamental",
+        "why": "Entrevistas internacionais sempre avaliam como você trabalha, não só o que você sabe.",
+        "icon_emoji": "🗣️",
+        "items": [
+          {
+            "title": "Escrever 5 histórias STAR: problema difícil, erro, conflito, liderança e decisão técnica",
+            "area": "free",
+            "weight": 3
+          },
+          {
+            "title": "Escrever 5 histórias STAR: bug em produção, performance, projeto do zero, aprendizado rápido e discordância",
+            "area": "free",
+            "weight": 3
+          },
+          {
+            "title": "Contar cada história em inglês em 1 a 2 minutos",
+            "area": "language",
+            "weight": 3
+          }
+        ]
+      },
+      {
+        "title": "Inglês para entrevista técnica",
+        "why": "O que falta é fluidez para explicar raciocínio técnico, não gramática.",
+        "icon_emoji": "🎙️",
+        "items": [
+          {
+            "title": "Montar um banco de frases técnicas",
+            "notes": "The trade-off here is…, I chose PostgreSQL because…, The bottleneck was…, I would start by…",
+            "area": "language",
+            "weight": 2
+          },
+          {
+            "title": "Fazer 1 entrevista simulada completa em inglês por semana",
+            "area": "language",
+            "weight": 5
+          },
+          {
+            "title": "Gravar e revisar a explicação de uma solução",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "LinkedIn para recrutadores internacionais",
+        "why": "Recrutadores buscam por palavras-chave, e o perfil precisa repeti-las com naturalidade.",
+        "icon_emoji": "🔎",
+        "items": [
+          {
+            "title": "Reescrever headline e About com as palavras do posicionamento",
+            "area": "free",
+            "weight": 2
+          },
+          {
+            "title": "Atualizar Experience e Skills com as mesmas tecnologias",
+            "area": "free",
+            "weight": 2
+          },
+          {
+            "title": "Adicionar recrutadores e engineering managers das empresas-alvo",
+            "area": "free",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Processo de candidaturas",
+        "why": "Começar agora gera dados reais para descobrir se o problema está no CV, na experiência ou na entrevista.",
+        "icon_emoji": "📬",
+        "items": [
+          {
+            "title": "Criar a planilha de candidaturas",
+            "notes": "Empresa, vaga, stack, data, resposta, etapa e motivo de rejeição.",
+            "area": "free",
+            "weight": 1
+          },
+          {
+            "title": "Enviar de 5 a 10 candidaturas boas por dia",
+            "area": "free",
+            "weight": 5
+          },
+          {
+            "title": "Revisar os resultados a cada 50 candidaturas",
+            "area": "free",
+            "weight": 2
+          }
+        ]
+      }
+    ],
+    "avoid": [
+      {
+        "title": "Kubernetes avançado",
+        "reason": "Não é o que separa você da contratação agora."
+      },
+      {
+        "title": "Outra linguagem de programação",
+        "reason": "Dilui o posicionamento em vez de fortalecê-lo."
+      },
+      {
+        "title": "Mais um framework de frontend",
+        "reason": "Você já tem stack suficiente para concorrer."
+      },
+      {
+        "title": "Mais um projeto grande",
+        "reason": "Explicar bem os projetos que já existem rende mais."
+      }
+    ],
+    "shortest_path": [
+      "CV em inglês",
+      "LinkedIn",
+      "Selecionar 3 projetos",
+      "Fundamentos de JS, TS e Node",
+      "LeetCode",
+      "Entrevistas em inglês",
+      "Candidaturas todos os dias"
+    ]
+  }
+}

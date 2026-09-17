@@ -1,0 +1,114 @@
+{
+  "slug": "fluencia-entrevista",
+  "title": "Inglês para entrevistas",
+  "summary": "Fluidez para falar do seu trabalho sob pressão: pitch, vocabulário, histórias STAR, conversação e entrevistas simuladas.",
+  "draft": {
+    "title": "Inglês para entrevistas",
+    "diagnosis": "Entender inglês não é o mesmo que falar sob pressão: o que trava a entrevista costuma ser a fluidez para explicar o que você fez e por quê.",
+    "focus": "Praticar falar sobre o seu próprio trabalho, não gramática genérica.",
+    "priorities": [
+      {
+        "title": "Pitch pessoal",
+        "why": "Quase toda entrevista começa por ele, e a primeira impressão pesa.",
+        "icon_emoji": "🙋",
+        "items": [
+          {
+            "title": "Escrever o \"Tell me about yourself\" em 90 segundos",
+            "area": "language",
+            "weight": 2
+          },
+          {
+            "title": "Gravar e ajustar até soar natural",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Vocabulário do seu trabalho",
+        "why": "Frases prontas para decisões e trade-offs liberam a cabeça para pensar.",
+        "icon_emoji": "🧠",
+        "items": [
+          {
+            "title": "Listar 30 frases para explicar decisões e trade-offs",
+            "area": "language",
+            "weight": 3
+          },
+          {
+            "title": "Fazer a lição do dia no app por 3 semanas",
+            "area": "language",
+            "weight": 5
+          }
+        ]
+      },
+      {
+        "title": "Histórias no formato STAR",
+        "why": "As perguntas comportamentais são previsíveis; as respostas podem ser treinadas.",
+        "icon_emoji": "🗣️",
+        "items": [
+          {
+            "title": "Preparar 6 histórias em inglês",
+            "area": "language",
+            "weight": 3
+          },
+          {
+            "title": "Contar cada uma em até 2 minutos",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Conversação com retorno",
+        "why": "Falar todo dia, mesmo pouco, é o que cria fluidez.",
+        "icon_emoji": "💬",
+        "items": [
+          {
+            "title": "Conversar 10 minutos por dia no chat do app",
+            "area": "language",
+            "weight": 3
+          },
+          {
+            "title": "Revisar os erros que se repetem",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      },
+      {
+        "title": "Entrevistas simuladas",
+        "why": "Só a simulação completa mostra onde você trava.",
+        "icon_emoji": "🎯",
+        "items": [
+          {
+            "title": "Fazer 4 entrevistas simuladas completas",
+            "area": "language",
+            "weight": 5
+          },
+          {
+            "title": "Treinar de novo as perguntas em que travou",
+            "area": "language",
+            "weight": 2
+          }
+        ]
+      }
+    ],
+    "avoid": [
+      {
+        "title": "Estudar gramática isolada",
+        "reason": "Ajuda pouco na fala sob pressão."
+      },
+      {
+        "title": "Maratonar séries sem praticar a fala",
+        "reason": "Melhora a escuta, não a resposta na entrevista."
+      }
+    ],
+    "shortest_path": [
+      "Pitch",
+      "Vocabulário",
+      "Histórias STAR",
+      "Conversação",
+      "Entrevistas simuladas"
+    ]
+  }
+}

@@ -698,6 +698,45 @@ class LeetCodeMethod(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class StudyPlan(SQLModel, table=True):
+    """A strategy for getting somewhere, and the objectives that carry it out.
+
+    The plan holds what does not fit a checklist: the diagnosis of the biggest
+    gap, the order the priorities go in, what to leave alone for now and the
+    shortest path through all of it. Each accepted priority is an ordinary
+    Objective pointing back here, so its percentage is computed the same way as
+    any objective's, and the plan's progress is simply theirs.
+    """
+
+    __table_args__ = (Index("ix_studyplan_child_status", "child_id", "status"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    title: str = Field(min_length=1, max_length=120)
+    # What the learner said they want, in their own words.
+    goal: str = Field(min_length=1, max_length=500)
+    # The "about you" text sent to the AI. Kept so the next plan, or a revision,
+    # starts from it instead of asking for everything again.
+    profile: Optional[str] = Field(default=None, sa_column=Column(Text))
+    weekly_hours: Optional[int] = Field(default=None)
+    target_date: Optional[date] = Field(default=None)
+    diagnosis: str = Field(default="", max_length=1000)
+    focus: Optional[str] = Field(default=None, max_length=300)
+    # [{"title": ..., "reason": ...}] — what not to prioritize right now.
+    avoid: list = Field(default_factory=list, sa_column=Column(JSON))
+    # Ordered steps, e.g. ["CV em inglês", "LinkedIn", ...].
+    shortest_path: list = Field(default_factory=list, sa_column=Column(JSON))
+    # "ai", or "template:<slug>" for a plan started from a ready-made model.
+    source: str = Field(default="ai", max_length=60)
+    # active | archived
+    status: str = Field(default="active", max_length=12)
+    # Starts at 1 and goes up every time a revision is applied.
+    revision: int = Field(default=1)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    revised_at: Optional[datetime] = Field(default=None)
+
+
 class Objective(SQLModel, table=True):
     """Something the learner is working towards, plus the study that gets there.
 
@@ -724,6 +763,11 @@ class Objective(SQLModel, table=True):
     # unchecked afterwards, so "conquistado" always matches the current items.
     achieved_at: Optional[datetime] = Field(default=None)
     order_index: int = Field(default=0)
+    # Set when the objective is one of a plan's priorities. Deleting the plan can
+    # leave the objective behind with this cleared, so the progress survives.
+    plan_id: Optional[int] = Field(default=None, foreign_key="studyplan.id", index=True)
+    # Position among the plan's priorities; 1 is the first thing to do.
+    plan_order: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

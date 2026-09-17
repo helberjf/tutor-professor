@@ -1,0 +1,137 @@
+{
+  "slug": "certificacao",
+  "title": "Passar em uma certificação",
+  "summary": "Estudo guiado pelo guia oficial da prova e pelos erros dos simulados, do diagnóstico ao dia do exame.",
+  "draft": {
+    "title": "Passar em uma certificação",
+    "diagnosis": "O risco mais comum não é estudar pouco, é estudar sem medir: sem simulados você não sabe quais domínios da prova ainda derrubam a sua nota.",
+    "focus": "Estudar pelo guia oficial da prova e pelos erros dos simulados, nessa ordem.",
+    "priorities": [
+      {
+        "title": "Mapear o guia oficial da prova",
+        "why": "O guia diz o que cai e quanto pesa; é ele que decide a ordem do estudo.",
+        "icon_emoji": "🗺️",
+        "items": [
+          {
+            "title": "Listar os domínios da prova com o peso de cada um",
+            "area": "exam",
+            "weight": 1
+          },
+          {
+            "title": "Marcar em cada domínio o que você já domina e o que é novo",
+            "area": "exam",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "title": "Simulado diagnóstico",
+        "why": "Medir antes de estudar mostra onde o tempo rende mais.",
+        "icon_emoji": "📊",
+        "items": [
+          {
+            "title": "Fazer 1 simulado completo e cronometrado",
+            "area": "exam",
+            "weight": 3
+          },
+          {
+            "title": "Anotar os 3 domínios com mais erros",
+            "area": "exam",
+            "weight": 1
+          }
+        ]
+      },
+      {
+        "title": "Domínios mais fracos primeiro",
+        "why": "Subir um domínio fraco muda a nota mais do que polir um que já está bom.",
+        "icon_emoji": "📚",
+        "items": [
+          {
+            "title": "Estudar o domínio mais fraco com material oficial",
+            "area": "diverse",
+            "weight": 5
+          },
+          {
+            "title": "Resolver 30 questões desse domínio",
+            "area": "exam",
+            "weight": 3
+          },
+          {
+            "title": "Repetir para o segundo e o terceiro domínios",
+            "area": "diverse",
+            "weight": 5
+          }
+        ]
+      },
+      {
+        "title": "Revisão espaçada dos erros",
+        "why": "Cada erro de simulado é uma pergunta que pode voltar na prova.",
+        "icon_emoji": "🔁",
+        "items": [
+          {
+            "title": "Transformar cada erro de simulado em flashcard",
+            "area": "diverse",
+            "weight": 2
+          },
+          {
+            "title": "Revisar os flashcards todos os dias por 3 semanas",
+            "area": "diverse",
+            "weight": 3
+          }
+        ]
+      },
+      {
+        "title": "Simulados semanais",
+        "why": "A nota dos simulados é o melhor sinal de que você está pronto.",
+        "icon_emoji": "⏱️",
+        "items": [
+          {
+            "title": "Fazer 1 simulado completo por semana",
+            "area": "exam",
+            "weight": 5
+          },
+          {
+            "title": "Chegar a 80% em 2 simulados seguidos",
+            "area": "exam",
+            "weight": 5
+          }
+        ]
+      },
+      {
+        "title": "Logística da prova",
+        "why": "Uma data marcada transforma o estudo em prazo.",
+        "icon_emoji": "📅",
+        "items": [
+          {
+            "title": "Agendar a prova numa data realista",
+            "area": "free",
+            "weight": 1
+          },
+          {
+            "title": "Revisar as regras e o formato do dia da prova",
+            "area": "free",
+            "weight": 1
+          }
+        ]
+      }
+    ],
+    "avoid": [
+      {
+        "title": "Ler toda a documentação do fornecedor",
+        "reason": "O guia da prova diz o que cai; o resto pode esperar."
+      },
+      {
+        "title": "Trocar de curso no meio do caminho",
+        "reason": "Os simulados mostram o que falta melhor do que outro curso."
+      }
+    ],
+    "shortest_path": [
+      "Guia oficial",
+      "Simulado diagnóstico",
+      "Domínios fracos",
+      "Revisão dos erros",
+      "Simulados semanais",
+      "Prova"
+    ]
+  }
+}

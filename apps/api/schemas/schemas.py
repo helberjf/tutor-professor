@@ -1580,6 +1580,9 @@ class ObjectiveSchema(FromAttributesModel):
     status: str = "active"
     achieved_at: Optional[datetime] = None
     order_index: int = 0
+    # The plan this objective is a priority of, and its place in that plan.
+    plan_id: Optional[int] = None
+    plan_order: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     items: list[ObjectiveItemSchema] = Field(default_factory=list)
@@ -1643,3 +1646,132 @@ class ObjectivesSummarySchema(BaseModel):
 
 
 CreateObjectiveSchema.model_rebuild()
+
+
+# ── Planos de estudo ─────────────────────────────────────────────────────────
+# A plan is drafted first (by the AI or from a ready-made model), reviewed on
+# screen, and only then saved. The draft travels back to the server as the
+# learner edited it, so these schemas validate it again on the way in.
+
+ObjectiveAreaLiteral = Literal["free", "language", "coding", "diverse", "exam"]
+
+
+class PlanItemDraftSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    area: ObjectiveAreaLiteral = "free"
+    weight: int = Field(default=1, ge=1, le=10)
+
+
+class PlanPriorityDraftSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    # Why this priority matters for the goal. Stored as the objective description.
+    why: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    items: list[PlanItemDraftSchema] = Field(default_factory=list, max_length=12)
+    # Only in a revision: the objective this priority continues. Its done items
+    # stay; the items listed here are the ones to add.
+    objective_id: Optional[int] = None
+
+
+class PlanAvoidSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+
+class PlanDraftSchema(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    diagnosis: str = Field(default="", max_length=1000)
+    focus: Optional[str] = Field(default=None, max_length=300)
+    priorities: list[PlanPriorityDraftSchema] = Field(min_length=1, max_length=10)
+    avoid: list[PlanAvoidSchema] = Field(default_factory=list, max_length=8)
+    shortest_path: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(
+        default_factory=list, max_length=12
+    )
+    # "ai" or "template:<slug>".
+    source: str = Field(default="ai", max_length=60)
+    # Only in a revision: the plan being revised, and its active priorities the
+    # revision leaves out. The screen offers to archive those.
+    plan_id: Optional[int] = None
+    dropped_objective_ids: list[int] = Field(default_factory=list)
+
+
+class PlanFormSchema(BaseModel):
+    """What the learner typed in "sobre você"."""
+
+    goal: str = Field(min_length=1, max_length=500)
+    profile: Optional[str] = Field(default=None, max_length=4000)
+    weekly_hours: Optional[int] = Field(default=None, ge=1, le=100)
+    target_date: Optional[date] = None
+
+
+class GeneratePlanRequestSchema(PlanFormSchema):
+    # Off means nothing recorded by the app goes to the AI provider.
+    include_app_history: bool = True
+    # Set to revise that plan instead of drafting a new one.
+    plan_id: Optional[int] = None
+
+
+class CreatePlanRequestSchema(PlanFormSchema):
+    # The draft as reviewed: only the priorities the learner kept.
+    draft: PlanDraftSchema
+
+
+class RevisePlanRequestSchema(BaseModel):
+    draft: PlanDraftSchema
+    # Priorities to archive. Anything the revision dropped but the learner chose
+    # to keep is simply left out of this list.
+    archive_objective_ids: list[int] = Field(default_factory=list, max_length=60)
+    form: Optional[PlanFormSchema] = None
+
+
+class UpdatePlanSchema(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    status: Optional[Literal["active", "archived"]] = None
+
+
+class StudyPlanSchema(BaseModel):
+    id: int
+    child_id: int
+    title: str
+    goal: str
+    profile: Optional[str] = None
+    weekly_hours: Optional[int] = None
+    target_date: Optional[date] = None
+    diagnosis: str = ""
+    focus: Optional[str] = None
+    avoid: list[PlanAvoidSchema] = Field(default_factory=list)
+    shortest_path: list[str] = Field(default_factory=list)
+    source: str = "ai"
+    status: str = "active"
+    revision: int = 1
+    created_at: datetime
+    updated_at: datetime
+    revised_at: Optional[datetime] = None
+    # Active priorities in plan order, then the archived ones.
+    objectives: list[ObjectiveSchema] = Field(default_factory=list)
+    # Derived from the active priorities, the same way the objectives board does.
+    progress_percent: int = 0
+    active_count: int = 0
+    achieved_count: int = 0
+    # The first active priority, in plan order, that is not at 100% yet.
+    next_objective_id: Optional[int] = None
+
+
+class PlanTemplateSummarySchema(BaseModel):
+    slug: str
+    title: str
+    summary: str
+    priority_count: int
+
+
+class PlanContextSchema(BaseModel):
+    """Everything the "Criar plano" form needs before the first click."""
+
+    ai_available: bool = False
+    # "no_config" or "no_credits" when the AI path is off; None otherwise.
+    ai_unavailable_reason: Optional[str] = None
+    # Exactly what would be sent to the AI about the learner's history.
+    snapshot: list[str] = Field(default_factory=list)
+    # The last plan's answers, so "sobre você" is not typed twice.
+    last_form: Optional[PlanFormSchema] = None
