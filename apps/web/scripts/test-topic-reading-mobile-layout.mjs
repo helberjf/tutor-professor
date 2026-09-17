@@ -15,6 +15,6 @@ assert.match(topicView, /Aprofundar com IA/, 'the AI action must retain its full
 assert.match(topicView, /<main className="min-h-0 flex-1 overflow-y-auto/, 'only the reading body should consume remaining scroll space');
 assert.match(topicView, /<footer className="shrink-0[^\"]*env\(safe-area-inset-bottom\)/, 'the fixed footer must respect the iPhone safe area');
 assert.match(topicView, /aria-label="Etapa anterior do estudo"[\s\S]*?rounded-xl[^\"]*px-3 py-2 text-xs[^\"]*sm:rounded-2xl/, 'the previous button must be visually smaller on mobile');
-assert.match(topicView, /aria-label="Proxima etapa do estudo"[\s\S]*?rounded-xl[^\"]*px-3 py-2 text-xs[^\"]*sm:rounded-2xl/, 'the next button must be visually smaller on mobile');
+assert.match(topicView, /aria-label="Próxima etapa do estudo"[\s\S]*?rounded-xl[^\"]*px-3 py-2 text-xs[^\"]*sm:rounded-2xl/, 'the next button must be visually smaller on mobile');
 
 console.log('topic reading mobile layout checks passed');
