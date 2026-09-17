@@ -23,7 +23,7 @@ import asyncio
 import os
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -189,7 +189,7 @@ async def test_start_builds_a_queue_and_resumes_it(
 async def test_finish_closes_the_day(
     client: httpx.AsyncClient, headers: dict[str, str], session_id: int, total: int
 ) -> None:
-    today = date.today().isoformat()
+    today = main.activity_today().isoformat()
     before = await client.get(f"/api/study/day/{today}", headers=headers)
     require(before.json()["is_study_day"] is False, "the day starts open")
 
@@ -216,7 +216,7 @@ async def test_day_also_closes_from_plain_activity(
 ) -> None:
     """A lesson or review answered anywhere counts, not only a finished queue."""
 
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = main.activity_today() - timedelta(days=1)
     with Session(main.engine) as session:
         session.add(
             DailyActivity(
@@ -308,7 +308,7 @@ async def test_free_question_bank_needs_no_provider(
     with Session(main.engine) as session:
         user = session.exec(select(User).where(User.email == EMAIL)).first()
         user.ai_credits = 0
-        user.ai_credits_reset_date = date.today()
+        user.ai_credits_reset_date = main.activity_today()
         user.ai_unlimited = False
         session.add(user)
         session.commit()
