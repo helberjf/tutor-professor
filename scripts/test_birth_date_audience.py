@@ -64,7 +64,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def years_ago(years: int, *, days: int = 0) -> date:
-    today = date.today()
+    today = main.activity_today()
     try:
         anchor = today.replace(year=today.year - years)
     except ValueError:  # 29 February
@@ -174,7 +174,7 @@ async def test_account_area_updates_the_date(client: httpx.AsyncClient, headers:
 
 
 async def test_an_impossible_date_is_refused(client: httpx.AsyncClient, headers: dict[str, str]) -> None:
-    future = (date.today() + timedelta(days=1)).isoformat()
+    future = (main.activity_today() + timedelta(days=1)).isoformat()
     refused = await client.post(
         "/api/parent/settings", headers=headers, json={"birth_date": future}
     )

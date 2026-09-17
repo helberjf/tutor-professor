@@ -15,7 +15,6 @@ import asyncio
 import os
 import sys
 import tempfile
-from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +36,7 @@ import main  # noqa: E402
 from account_approval_support import approve_all_accounts, enable_all_modules  # noqa: E402
 
 VALID_CPF = "52998224725"
-TODAY = date.today().isoformat()
+TODAY = main.activity_today().isoformat()
 
 
 def require(condition: bool, message: str) -> None:
