@@ -422,7 +422,7 @@ export function CodingCurriculum({
               onChange={(event) => handleSubjectSortChange(event.target.value as CodingSubjectSort)}
               className="min-h-11 rounded-xl border-2 border-slate-200 bg-white px-3 font-bold text-slate-700 outline-none focus:border-primary"
             >
-              <option value="last_used">Últimas estudadas (padrão)</option>
+              <option value="last_used">Último uso (padrão)</option>
               <option value="created_at">Data de criação</option>
               <option value="alphabetical">Ordem alfabética</option>
               <option value="relevance">Relevância</option>

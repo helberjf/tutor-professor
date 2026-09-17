@@ -7,7 +7,17 @@ const api = readFileSync(new URL('../src/lib/api.ts', import.meta.url), 'utf8');
 assert.match(curriculum, /const SUBJECTS_PER_PAGE = 10/, 'the curriculum fixes the page size at 10');
 assert.match(curriculum, /api\.getCodingSubjectPage/, 'the curriculum requests paged subjects');
 assert.doesNotMatch(curriculum, /api\.getCodingSubjects\(\)/, 'the curriculum no longer downloads every subject');
-assert.match(curriculum, /Últimas estudadas \(padrão\)/, 'last-used ordering is the default');
+assert.match(curriculum, /Último uso \(padrão\)/, 'last-used ordering is explicit and the default');
+assert.match(
+  curriculum,
+  /useState<CodingSubjectSort>\('last_used'\)/,
+  'every fresh visit starts with last-used ordering',
+);
+assert.match(
+  curriculum,
+  /loadSubjects\(1, 'last_used', true\)/,
+  'the initial page request always asks for last-used ordering',
+);
 assert.match(curriculum, /Data de criação/, 'creation-date ordering is available');
 assert.match(curriculum, /Ordem alfabética/, 'alphabetical ordering is available');
 assert.match(curriculum, /Relevância/, 'relevance ordering is available');
