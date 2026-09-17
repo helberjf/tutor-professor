@@ -71,3 +71,18 @@ assert.match(rendererSource, /<strong/);
 assert.match(rendererSource, /<em/);
 assert.match(rendererSource, /<code/);
 assert.doesNotMatch(rendererSource, /dangerouslySetInnerHTML/);
+
+const topicViewPath = resolve(scriptDir, '../src/components/coding/TopicView.tsx');
+const topicViewSource = readFileSync(topicViewPath, 'utf8');
+assert.match(topicViewSource, /import \{ DeepeningMarkdown \} from '\.\/DeepeningMarkdown';/);
+assert.match(topicViewSource, /showDeepening \? \(/, 'the main pane must switch between lesson and deepening');
+assert.match(topicViewSource, /Voltar à aula/);
+assert.match(topicViewSource, /<DeepeningMarkdown content=\{deepeningAnswer\}/);
+assert.match(topicViewSource, /navigator\.clipboard\.writeText\(deepeningAnswer\)/);
+assert.doesNotMatch(
+  topicViewSource,
+  /readOnly[\s\S]{0,100}value=\{deepeningAnswer\}/,
+  'the answer must not remain in a small textarea',
+);
+
+console.log('topic deepening reader checks passed');
