@@ -6,7 +6,7 @@ import asyncio
 import os
 import sys
 import tempfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +36,7 @@ from models.database import (  # noqa: E402
     LessonItem,
     ProgrammingSubject,
     ProgrammingTopic,
+    StudyResume,
     User,
 )
 
@@ -108,7 +109,11 @@ def seed_shared_lesson() -> int:
 
 def seed_programming(child_id: int) -> tuple[int, int]:
     with Session(main.engine) as session:
-        subject = ProgrammingSubject(child_id=child_id, name="Python")
+        subject = ProgrammingSubject(
+            child_id=child_id,
+            name="DVA-C02",
+            last_used_at=datetime(2026, 9, 16, 20, 0, 0),
+        )
         session.add(subject)
         session.commit()
         session.refresh(subject)
@@ -167,6 +172,17 @@ def delete_subject(subject_id: int) -> None:
         subject = session.get(ProgrammingSubject, subject_id)
         require(subject is not None, "seeded subject disappeared too early")
         session.delete(subject)
+        session.commit()
+
+
+def clear_resume_subject(child_id: int) -> None:
+    with Session(main.engine) as session:
+        record = session.exec(
+            select(StudyResume).where(StudyResume.child_id == child_id)
+        ).one()
+        record.kind = "coding_subject"
+        record.context = {}
+        session.add(record)
         session.commit()
 
 
@@ -236,7 +252,7 @@ async def run() -> None:
             },
         )
         require(saved.status_code == 200, saved.text)
-        require(saved.json()["label"] == "Python — Listas", saved.text)
+        require(saved.json()["label"] == "DVA-C02 — Listas", saved.text)
         require(
             saved.json()["href"]
             == f"/study?tab=coding&mode=reading&subject_id={subject_id}&topic_id={topic_id}",
@@ -261,6 +277,16 @@ async def run() -> None:
             },
         )
         require(forbidden.status_code == 404, forbidden.text)
+
+        clear_resume_subject(first_child_id)
+        recovered_subject = await client.get("/api/study/resume", headers=first_headers)
+        require(recovered_subject.status_code == 200, recovered_subject.text)
+        require(recovered_subject.json()["label"] == "DVA-C02", recovered_subject.text)
+        require(
+            recovered_subject.json()["href"]
+            == f"/study?tab=coding&mode=reading&subject_id={subject_id}",
+            "a generic programming bookmark must reopen the last used subject",
+        )
 
         delete_topic(topic_id)
         subject_fallback = await client.get("/api/study/resume", headers=first_headers)
