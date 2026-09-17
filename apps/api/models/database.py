@@ -396,6 +396,8 @@ class ProgrammingSubject(SQLModel, table=True):
     description: Optional[str] = Field(default=None, max_length=500)
     context: Optional[str] = Field(default=None, max_length=2000)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    relevance: int = Field(default=3, ge=1, le=5, index=True)
+    last_used_at: Optional[datetime] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

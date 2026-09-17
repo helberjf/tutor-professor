@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, Optional
+from typing import Iterable, Iterator, Literal, Optional
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import func, inspect, text, update
+from sqlalchemy import case, func, inspect, text, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -163,6 +163,7 @@ from schemas.schemas import (
     ProgrammingQuestionAttemptSchema,
     ProgrammingFlashcardSchema,
     ProgrammingQuestionSchema,
+    ProgrammingSubjectPageSchema,
     QuestionSubjectMetricsSchema,
     ProgrammingSubjectSchema,
     ProgrammingTopicSchema,
@@ -6284,28 +6285,235 @@ def _persist_programming_questions(
     return created
 
 
+CODING_SUBJECT_PAGE_SIZE = 10
+CodingSubjectSort = Literal["last_used", "created_at", "alphabetical", "relevance"]
+
+
+def _coding_subject_metrics(
+    session: Session,
+    child_id: int,
+    subject_ids: list[int],
+) -> dict[int, tuple[int, int, int]]:
+    """Load card counters in two grouped queries instead of one query per card."""
+
+    if not subject_ids:
+        return {}
+
+    topic_rows = session.exec(
+        select(
+            ProgrammingTopic.subject_id,
+            func.count(ProgrammingTopic.id),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (ProgrammingTopic.status.in_(("studied", "mastered")), 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        )
+        .where(ProgrammingTopic.subject_id.in_(subject_ids))
+        .group_by(ProgrammingTopic.subject_id)
+    ).all()
+    due_rows = session.exec(
+        select(ProgrammingFlashcard.subject_id, func.count(CodingReviewItem.id))
+        .select_from(CodingReviewItem)
+        .join(
+            ProgrammingFlashcard,
+            ProgrammingFlashcard.id == CodingReviewItem.flashcard_id,
+        )
+        .where(
+            CodingReviewItem.child_id == child_id,
+            CodingReviewItem.next_review <= datetime.utcnow(),
+            ProgrammingFlashcard.subject_id.in_(subject_ids),
+        )
+        .group_by(ProgrammingFlashcard.subject_id)
+    ).all()
+
+    topic_by_subject = {
+        int(subject_id): (int(topic_count or 0), int(studied_count or 0))
+        for subject_id, topic_count, studied_count in topic_rows
+    }
+    due_by_subject = {
+        int(subject_id): int(due_count or 0)
+        for subject_id, due_count in due_rows
+    }
+    return {
+        subject_id: (
+            topic_by_subject.get(subject_id, (0, 0))[0],
+            topic_by_subject.get(subject_id, (0, 0))[1],
+            due_by_subject.get(subject_id, 0),
+        )
+        for subject_id in subject_ids
+    }
+
+
+def _coding_subject_schema(
+    subject: ProgrammingSubject,
+    metrics: tuple[int, int, int] = (0, 0, 0),
+) -> ProgrammingSubjectSchema:
+    topic_count, studied_count, due_review_count = metrics
+    return ProgrammingSubjectSchema(
+        id=subject.id or 0,
+        child_id=subject.child_id,
+        name=subject.name,
+        description=subject.description,
+        context=subject.context,
+        icon_emoji=subject.icon_emoji,
+        relevance=subject.relevance,
+        last_used_at=subject.last_used_at,
+        created_at=subject.created_at,
+        topic_count=topic_count,
+        studied_count=studied_count,
+        due_review_count=due_review_count,
+    )
+
+
+def _coding_subject_schemas(
+    session: Session,
+    child_id: int,
+    subjects: list[ProgrammingSubject],
+) -> list[ProgrammingSubjectSchema]:
+    ids = [subject.id or 0 for subject in subjects]
+    metrics = _coding_subject_metrics(session, child_id, ids)
+    return [
+        _coding_subject_schema(subject, metrics.get(subject.id or 0, (0, 0, 0)))
+        for subject in subjects
+    ]
+
+
+def _coding_subject_totals(session: Session, child_id: int) -> tuple[int, int, int]:
+    topic_count, studied_count = session.exec(
+        select(
+            func.count(ProgrammingTopic.id),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (ProgrammingTopic.status.in_(("studied", "mastered")), 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        )
+        .select_from(ProgrammingTopic)
+        .join(
+            ProgrammingSubject,
+            ProgrammingSubject.id == ProgrammingTopic.subject_id,
+        )
+        .where(ProgrammingSubject.child_id == child_id)
+    ).one()
+    due_review_count = session.exec(
+        select(func.count(CodingReviewItem.id))
+        .select_from(CodingReviewItem)
+        .join(
+            ProgrammingFlashcard,
+            ProgrammingFlashcard.id == CodingReviewItem.flashcard_id,
+        )
+        .where(
+            CodingReviewItem.child_id == child_id,
+            CodingReviewItem.next_review <= datetime.utcnow(),
+            ProgrammingFlashcard.child_id == child_id,
+        )
+    ).one()
+    return int(topic_count or 0), int(studied_count or 0), int(due_review_count or 0)
+
+
+def _ensure_coding_subjects(session: Session, child_id: int) -> None:
+    existing = session.exec(
+        select(ProgrammingSubject.id).where(ProgrammingSubject.child_id == child_id).limit(1)
+    ).first()
+    if existing is None:
+        _materialize_legacy_coding_curriculum(session, child_id)
+
+
 @app.get("/api/coding/subjects", response_model=list[ProgrammingSubjectSchema])
 def list_coding_subjects(request: Request, session: Session = Depends(get_session)) -> list[ProgrammingSubjectSchema]:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
+    _ensure_coding_subjects(session, child_id)
     subjects = session.exec(
-        select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id).order_by(ProgrammingSubject.id)
+        select(ProgrammingSubject)
+        .where(ProgrammingSubject.child_id == child_id)
+        .order_by(ProgrammingSubject.id)
     ).all()
-    if not subjects:
-        subjects = _materialize_legacy_coding_curriculum(session, child_id)
-    result = []
-    for s in subjects:
-        topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == s.id)).all()
-        result.append(ProgrammingSubjectSchema(
-            id=s.id or 0, child_id=s.child_id, name=s.name,
-            description=s.description, context=s.context, icon_emoji=s.icon_emoji,
-            created_at=s.created_at,
-            topic_count=len(topics),
-            studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
-            due_review_count=count_due_coding_items(session, child_id, subject_id=s.id),
-        ))
-    return result
+    return _coding_subject_schemas(session, child_id, list(subjects))
+
+
+@app.get("/api/coding/subjects/page", response_model=ProgrammingSubjectPageSchema)
+def page_coding_subjects(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    sort: CodingSubjectSort = Query(default="last_used"),
+    session: Session = Depends(get_session),
+) -> ProgrammingSubjectPageSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    _ensure_coding_subjects(session, child_id)
+
+    total = int(
+        session.exec(
+            select(func.count(ProgrammingSubject.id)).where(
+                ProgrammingSubject.child_id == child_id
+            )
+        ).one()
+        or 0
+    )
+    total_pages = max(1, (total + CODING_SUBJECT_PAGE_SIZE - 1) // CODING_SUBJECT_PAGE_SIZE)
+    page = min(page, total_pages)
+
+    query = select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id)
+    if sort == "alphabetical":
+        query = query.order_by(func.lower(ProgrammingSubject.name), ProgrammingSubject.id)
+    elif sort == "created_at":
+        query = query.order_by(ProgrammingSubject.created_at.desc(), ProgrammingSubject.id.desc())
+    elif sort == "relevance":
+        query = query.order_by(
+            ProgrammingSubject.relevance.desc(),
+            ProgrammingSubject.last_used_at.is_(None),
+            ProgrammingSubject.last_used_at.desc(),
+            func.lower(ProgrammingSubject.name),
+        )
+    else:
+        query = query.order_by(
+            ProgrammingSubject.last_used_at.is_(None),
+            ProgrammingSubject.last_used_at.desc(),
+            ProgrammingSubject.created_at.desc(),
+            ProgrammingSubject.id.desc(),
+        )
+
+    subjects = session.exec(
+        query.offset((page - 1) * CODING_SUBJECT_PAGE_SIZE).limit(CODING_SUBJECT_PAGE_SIZE)
+    ).all()
+    topic_count, studied_count, due_review_count = _coding_subject_totals(session, child_id)
+    return ProgrammingSubjectPageSchema(
+        items=_coding_subject_schemas(session, child_id, list(subjects)),
+        page=page,
+        page_size=CODING_SUBJECT_PAGE_SIZE,
+        total=total,
+        total_pages=total_pages,
+        topic_count=topic_count,
+        studied_count=studied_count,
+        due_review_count=due_review_count,
+    )
+
+
+@app.get("/api/coding/subjects/{subject_id}", response_model=ProgrammingSubjectSchema)
+def get_coding_subject(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingSubjectSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    metrics = _coding_subject_metrics(session, child.id or 0, [subject_id])
+    return _coding_subject_schema(subject, metrics.get(subject_id, (0, 0, 0)))
 
 
 @app.post("/api/coding/subjects", response_model=ProgrammingSubjectSchema, status_code=201)
@@ -6330,6 +6538,7 @@ def create_coding_subject(
     return ProgrammingSubjectSchema(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
+        relevance=subject.relevance, last_used_at=subject.last_used_at,
         created_at=subject.created_at,
         topic_count=0,
         studied_count=0,
@@ -6357,6 +6566,8 @@ def update_coding_subject(
         subject.context = payload.context.strip() or None
     if payload.icon_emoji is not None:
         subject.icon_emoji = payload.icon_emoji.strip() or None
+    if payload.relevance is not None:
+        subject.relevance = payload.relevance
     session.add(subject)
     session.commit()
     session.refresh(subject)
@@ -6364,11 +6575,31 @@ def update_coding_subject(
     return ProgrammingSubjectSchema(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
+        relevance=subject.relevance, last_used_at=subject.last_used_at,
         created_at=subject.created_at,
         topic_count=len(topics),
         studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
         due_review_count=count_due_coding_items(session, child.id or 0, subject_id=subject.id),
     )
+
+
+@app.post("/api/coding/subjects/{subject_id}/use", response_model=ProgrammingSubjectSchema)
+def mark_coding_subject_used(
+    subject_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ProgrammingSubjectSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    subject.last_used_at = datetime.utcnow()
+    session.add(subject)
+    session.commit()
+    session.refresh(subject)
+    metrics = _coding_subject_metrics(session, child.id or 0, [subject_id])
+    return _coding_subject_schema(subject, metrics.get(subject_id, (0, 0, 0)))
 
 
 @app.delete("/api/coding/subjects/{subject_id}", status_code=204)
