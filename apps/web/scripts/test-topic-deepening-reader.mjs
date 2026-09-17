@@ -61,3 +61,13 @@ Texto objetivo.
 assert.deepEqual(parseDeepeningMarkdown('Texto com **marcador incompleto'), [
   { type: 'paragraph', content: [{ type: 'text', value: 'Texto com **marcador incompleto' }] },
 ]);
+
+const rendererPath = resolve(scriptDir, '../src/components/coding/DeepeningMarkdown.tsx');
+assert.equal(existsSync(rendererPath), true, 'the formatted deepening renderer must exist');
+const rendererSource = readFileSync(rendererPath, 'utf8');
+assert.match(rendererSource, /parseDeepeningMarkdown\(content\)/);
+assert.match(rendererSource, /<SyntaxCodeBlock/);
+assert.match(rendererSource, /<strong/);
+assert.match(rendererSource, /<em/);
+assert.match(rendererSource, /<code/);
+assert.doesNotMatch(rendererSource, /dangerouslySetInnerHTML/);
