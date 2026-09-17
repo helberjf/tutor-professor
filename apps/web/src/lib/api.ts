@@ -964,7 +964,22 @@ export interface ProgrammingSubject {
   description: string | null;
   context: string | null;
   icon_emoji: string | null;
+  relevance: number;
+  last_used_at: string | null;
   created_at: string;
+  topic_count: number;
+  studied_count: number;
+  due_review_count: number;
+}
+
+export type CodingSubjectSort = 'last_used' | 'created_at' | 'alphabetical' | 'relevance';
+
+export interface ProgrammingSubjectPage {
+  items: ProgrammingSubject[];
+  page: number;
+  page_size: 10;
+  total: number;
+  total_pages: number;
   topic_count: number;
   studied_count: number;
   due_review_count: number;
@@ -1974,9 +1989,15 @@ export const api = {
   // Coding Curriculum
   getCodingSubjects: () =>
     fetchAPI<ProgrammingSubject[]>('/api/coding/subjects'),
+  getCodingSubjectPage: (page = 1, sort: CodingSubjectSort = 'last_used') =>
+    fetchAPI<ProgrammingSubjectPage>(`/api/coding/subjects/page?page=${page}&sort=${sort}`),
+  getCodingSubject: (id: number) =>
+    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`),
+  markCodingSubjectUsed: (id: number) =>
+    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}/use`, { method: 'POST' }),
   createCodingSubject: (payload: { name: string; description?: string; context?: string; icon_emoji?: string }) =>
     fetchAPI<ProgrammingSubject>('/api/coding/subjects', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string }) =>
+  updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string; relevance?: number }) =>
     fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCodingSubject: (id: number) =>
     fetchAPI<void>(`/api/coding/subjects/${id}`, { method: 'DELETE' }),

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, FileText, Flame, Layers, Loader2, Plus, Sparkles, Trash2, Trophy } from 'lucide-react';
-import { api, type AICredits, type CodingReviewCard, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingTopic } from '@/lib/api';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, Loader2, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
+import { api, type AICredits, type CodingReviewCard, type CodingSubjectSort, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingSubjectPage, type ProgrammingTopic } from '@/lib/api';
 import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
@@ -23,6 +23,18 @@ type View =
 
 type CodingFocusMode = 'reading' | 'flashcards' | 'questions';
 
+const SUBJECTS_PER_PAGE = 10;
+const EMPTY_SUBJECT_PAGE: ProgrammingSubjectPage = {
+  items: [],
+  page: 1,
+  page_size: SUBJECTS_PER_PAGE,
+  total: 0,
+  total_pages: 1,
+  topic_count: 0,
+  studied_count: 0,
+  due_review_count: 0,
+};
+
 
 interface CodingCurriculumProps {
   focusMode?: CodingFocusMode;
@@ -37,6 +49,8 @@ export function CodingCurriculum({
 }: CodingCurriculumProps) {
   const [view, setView] = useState<View>({ type: 'subjects' });
   const [subjects, setSubjects] = useState<ProgrammingSubject[]>([]);
+  const [subjectPage, setSubjectPage] = useState<ProgrammingSubjectPage>(EMPTY_SUBJECT_PAGE);
+  const [subjectSort, setSubjectSort] = useState<CodingSubjectSort>('last_used');
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTopics, setLoadingTopics] = useState(false);
@@ -55,7 +69,9 @@ export function CodingCurriculum({
   const [summaryProgress, setSummaryProgress] = useState('');
   const [summaryError, setSummaryError] = useState('');
   const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
+  const [updatingRelevanceId, setUpdatingRelevanceId] = useState<number | null>(null);
   const initialRestoreDoneRef = useRef(false);
+  const subjectLoadRequestRef = useRef(0);
 
   async function openSubjectSummary(subject: ProgrammingSubject, regenerate = false) {
     setLoadingSummary(true);
@@ -98,7 +114,7 @@ export function CodingCurriculum({
   }
 
   useEffect(() => {
-    loadSubjects();
+    void loadSubjects(1, 'last_used', true);
   // The initial deep link is consumed once; later refreshes must not reopen it.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -174,17 +190,33 @@ export function CodingCurriculum({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
-  async function loadSubjects() {
+  async function loadSubjects(
+    requestedPage = subjectPage.page,
+    requestedSort = subjectSort,
+    restoreDeepLink = false,
+  ) {
+    const requestId = subjectLoadRequestRef.current + 1;
+    subjectLoadRequestRef.current = requestId;
     setLoading(true);
     setError('');
     try {
-      const loadedSubjects = await api.getCodingSubjects();
-      setSubjects(loadedSubjects);
-      if (!initialRestoreDoneRef.current) {
+      const shouldRestore = restoreDeepLink && !initialRestoreDoneRef.current;
+      const [loadedPage, fetchedSubject] = await Promise.all([
+        api.getCodingSubjectPage(requestedPage, requestedSort),
+        shouldRestore && initialSubjectId
+          ? api.getCodingSubject(initialSubjectId).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      if (subjectLoadRequestRef.current !== requestId) return;
+      setSubjects(loadedPage.items);
+      setSubjectPage(loadedPage);
+      if (shouldRestore) {
         initialRestoreDoneRef.current = true;
-        const requestedSubject = loadedSubjects.find((subject) => subject.id === initialSubjectId);
+        const requestedSubject = fetchedSubject
+          ?? loadedPage.items.find((subject) => subject.id === initialSubjectId);
         if (requestedSubject) {
           if (focusMode === 'flashcards') {
+            void api.markCodingSubjectUsed(requestedSubject.id).catch(() => undefined);
             setView({ type: 'deck', subject: requestedSubject });
           } else {
             void loadTopics(requestedSubject, initialTopicId);
@@ -192,15 +224,17 @@ export function CodingCurriculum({
         }
       }
     } catch {
+      if (subjectLoadRequestRef.current !== requestId) return;
       setError('Erro ao carregar matérias.');
     } finally {
-      setLoading(false);
+      if (subjectLoadRequestRef.current === requestId) setLoading(false);
     }
   }
 
   async function loadTopics(subject: ProgrammingSubject, requestedTopicId: number | null = null) {
     setLoadingTopics(true);
     setError('');
+    void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
     // Navega imediatamente para a matéria; os tópicos carregam na própria tela.
     setTopics([]);
     setView({ type: 'topics', subject });
@@ -231,6 +265,7 @@ export function CodingCurriculum({
         alert('Nenhum flashcard para revisar agora. Continue estudando e volte mais tarde!');
         return;
       }
+      void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
       setView({ type: 'review', subject, cards: session.items });
     } finally {
       setLoadingReview(false);
@@ -241,12 +276,50 @@ export function CodingCurriculum({
     if (!confirm('Remover esta matéria e todos os seus tópicos e flashcards?')) return;
     try {
       await api.deleteCodingSubject(id);
-      setSubjects((prev) => prev.filter((s) => s.id !== id));
+      const nextPage = subjects.length === 1 && subjectPage.page > 1
+        ? subjectPage.page - 1
+        : subjectPage.page;
+      await loadSubjects(nextPage, subjectSort);
       if (view.type !== 'subjects') setView({ type: 'subjects' });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Não foi possível remover a matéria. Tente novamente.');
       await loadSubjects();
     }
+  }
+
+  async function handleRelevanceChange(subject: ProgrammingSubject, relevance: number) {
+    if (relevance === subject.relevance || updatingRelevanceId === subject.id) return;
+    const previousRelevance = subject.relevance;
+    setUpdatingRelevanceId(subject.id);
+    setSubjects((current) => current.map((item) => (
+      item.id === subject.id ? { ...item, relevance } : item
+    )));
+    try {
+      const updated = await api.updateCodingSubject(subject.id, { relevance });
+      setSubjects((current) => current.map((item) => (
+        item.id === subject.id ? updated : item
+      )));
+      if (subjectSort === 'relevance') {
+        await loadSubjects(subjectPage.page, subjectSort);
+      }
+    } catch (err: unknown) {
+      setSubjects((current) => current.map((item) => (
+        item.id === subject.id ? { ...item, relevance: previousRelevance } : item
+      )));
+      setError(err instanceof Error ? err.message : 'Não foi possível atualizar a relevância.');
+    } finally {
+      setUpdatingRelevanceId(null);
+    }
+  }
+
+  function handleSubjectSortChange(nextSort: CodingSubjectSort) {
+    setSubjectSort(nextSort);
+    void loadSubjects(1, nextSort);
+  }
+
+  function handleSubjectPageChange(nextPage: number) {
+    if (loading || nextPage < 1 || nextPage > subjectPage.total_pages) return;
+    void loadSubjects(nextPage, subjectSort);
   }
 
   async function handleDeleteTopic(id: number, subject: ProgrammingSubject) {
@@ -277,11 +350,23 @@ export function CodingCurriculum({
   // ── Subjects view ────────────────────────────────────────────────────────
   function openSubject(subject: ProgrammingSubject) {
     if (focusMode === 'flashcards') {
+      void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
       setView({ type: 'deck', subject });
       return;
     }
 
     void loadTopics(subject);
+  }
+
+  function openFlashcardDeck(subject: ProgrammingSubject) {
+    void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
+    setView({ type: 'deck', subject });
+  }
+
+  function returnToSubjectList() {
+    setView({ type: 'subjects' });
+    const returnPage = subjectSort === 'last_used' ? 1 : subjectPage.page;
+    void loadSubjects(returnPage, subjectSort);
   }
 
   function openQuestionTopic(subject: ProgrammingSubject, topic: ProgrammingTopic) {
@@ -302,9 +387,9 @@ export function CodingCurriculum({
                 : 'Modo leitura: escolha uma matéria para estudar.'}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-            <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label="Matérias" value={subjects.length} tone="sky" />
-            <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label="Tópicos estudados" value={subjects.reduce((a, s) => a + s.studied_count, 0)} tone="green" />
-            <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label="Para revisar" value={subjects.reduce((a, s) => a + s.due_review_count, 0)} tone="orange" />
+            <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label="Matérias" value={subjectPage.total} tone="sky" />
+            <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label="Tópicos estudados" value={subjectPage.studied_count} tone="green" />
+            <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label="Para revisar" value={subjectPage.due_review_count} tone="orange" />
           </div>
         </section>
 
@@ -324,12 +409,51 @@ export function CodingCurriculum({
           <Sparkles size={18} className="shrink-0 text-amber-400" />
         </button>
 
-        {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="animate-spin text-primary" size={32} /></div>
-        ) : (
-          <>
-            {error && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-2 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div>
+            <p className="text-sm font-black text-slate-700">Exibindo até {SUBJECTS_PER_PAGE} matérias</p>
+            <p className="text-xs font-semibold text-slate-500">As próximas são carregadas somente quando você troca de página.</p>
+          </div>
+          <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-slate-600" htmlFor="coding-subject-sort">
+            Ordenar por
+            <select
+              id="coding-subject-sort"
+              value={subjectSort}
+              onChange={(event) => handleSubjectSortChange(event.target.value as CodingSubjectSort)}
+              className="min-h-11 rounded-xl border-2 border-slate-200 bg-white px-3 font-bold text-slate-700 outline-none focus:border-primary"
+            >
+              <option value="last_used">Últimas estudadas (padrão)</option>
+              <option value="created_at">Data de criação</option>
+              <option value="alphabetical">Ordem alfabética</option>
+              <option value="relevance">Relevância</option>
+            </select>
+          </label>
+        </div>
+
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void loadSubjects(subjectPage.page, subjectSort)}
+              className="shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black text-white hover:bg-rose-700"
+            >
+              Tentar de novo
+            </button>
+          </div>
+        )}
+
+        <div
+          aria-busy={loading}
+          aria-live="polite"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {loading ? (
+            Array.from({ length: SUBJECTS_PER_PAGE }, (_, index) => (
+              <SubjectCardSkeleton key={index} />
+            ))
+          ) : (
+            <>
               {subjects.map((subject) => (
                 <div
                   key={subject.id}
@@ -351,6 +475,36 @@ export function CodingCurriculum({
                   </div>
                   <h3 className="font-black text-slate-800">{subject.name}</h3>
                   {subject.description && <p className="mt-1 text-xs text-slate-500 line-clamp-2">{subject.description}</p>}
+                  <div
+                    role="group"
+                    aria-label={`Relevância de ${subject.name}`}
+                    className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-amber-50/70 px-3 py-2"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <span className="text-xs font-black text-amber-800">Relevância</span>
+                    <span className="flex items-center">
+                      {Array.from({ length: 5 }, (_, index) => {
+                        const level = index + 1;
+                        const active = level <= subject.relevance;
+                        return (
+                          <button
+                            key={level}
+                            type="button"
+                            disabled={updatingRelevanceId === subject.id}
+                            aria-label={`Definir relevância ${level} de 5 para ${subject.name}`}
+                            aria-pressed={level === subject.relevance}
+                            onClick={() => void handleRelevanceChange(subject, level)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            <Star
+                              size={17}
+                              className={active ? 'fill-amber-400 text-amber-500' : 'text-slate-300'}
+                            />
+                          </button>
+                        );
+                      })}
+                    </span>
+                  </div>
                   <div className="mt-3 flex items-center gap-3 text-xs font-semibold text-slate-500">
                     <span>{subject.studied_count}/{subject.topic_count} estudados</span>
                     {subject.due_review_count > 0 && (
@@ -393,7 +547,7 @@ export function CodingCurriculum({
                     </div>
                     <button
                       type="button"
-                      onClick={() => setView({ type: 'deck', subject })}
+                      onClick={() => openFlashcardDeck(subject)}
                       className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
                     >
                       <Layers size={12} /> Flashcards
@@ -401,6 +555,12 @@ export function CodingCurriculum({
                   </div>
                 </div>
               ))}
+              {subjects.length === 0 && (
+                <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center sm:col-span-2 lg:col-span-3">
+                  <p className="font-black text-slate-600">Nenhuma matéria cadastrada.</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">Crie sua primeira matéria para começar.</p>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setShowCreateSubject(true)}
@@ -409,13 +569,43 @@ export function CodingCurriculum({
                 <Plus size={28} />
                 <span className="font-black">Nova Matéria</span>
               </button>
+            </>
+          )}
+        </div>
+
+        {!loading && subjectPage.total_pages > 1 && (
+          <nav aria-label="Paginação de matérias" className="flex flex-col items-center justify-between gap-3 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:px-4">
+            <p className="text-sm font-black text-slate-600">
+              Página {subjectPage.page} de {subjectPage.total_pages}
+              <span className="ml-2 font-semibold text-slate-400">· {subjectPage.total} matérias</span>
+            </p>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <button
+                type="button"
+                disabled={subjectPage.page <= 1}
+                onClick={() => handleSubjectPageChange(subjectPage.page - 1)}
+                className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl border-2 border-slate-200 bg-white px-4 text-sm font-black text-slate-600 hover:border-primary/40 hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+              >
+                <ChevronLeft size={17} /> Anterior
+              </button>
+              <button
+                type="button"
+                disabled={subjectPage.page >= subjectPage.total_pages}
+                onClick={() => handleSubjectPageChange(subjectPage.page + 1)}
+                className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-primary-dark px-4 text-sm font-black text-white hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
+              >
+                Próxima <ChevronRight size={17} />
+              </button>
             </div>
-          </>
+          </nav>
         )}
         {showCreateSubject && (
           <CreateSubjectModal
             onClose={() => setShowCreateSubject(false)}
-            onCreated={(s) => { setSubjects((prev) => [...prev, s]); setShowCreateSubject(false); }}
+            onCreated={() => {
+              setShowCreateSubject(false);
+              void loadSubjects(1, subjectSort);
+            }}
           />
         )}
       </div>
@@ -431,7 +621,7 @@ export function CodingCurriculum({
     return (
       <div className="space-y-6">
         <section className="app-surface border-primary/30 p-6">
-          <button type="button" onClick={() => setView({ type: 'subjects' })} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
+          <button type="button" onClick={returnToSubjectList} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
             <ArrowLeft size={16} /> Todas as matérias
           </button>
           <div className="flex items-center gap-3">
@@ -637,7 +827,15 @@ export function CodingCurriculum({
         subjectId={subject.id}
         subjectName={subject.name}
         subjectIcon={subject.icon_emoji}
-        onBack={() => { loadSubjects(); setView(returnToTopics ? { type: 'topics', subject } : { type: 'subjects' }); }}
+        onBack={() => {
+          if (returnToTopics) {
+            void loadSubjects();
+          } else {
+            const returnPage = subjectSort === 'last_used' ? 1 : subjectPage.page;
+            void loadSubjects(returnPage, subjectSort);
+          }
+          setView(returnToTopics ? { type: 'topics', subject } : { type: 'subjects' });
+        }}
         onChanged={loadSubjects}
       />
     );
@@ -645,7 +843,7 @@ export function CodingCurriculum({
 
   // ── LeetCode trainer view ────────────────────────────────────────────────
   if (view.type === 'leetcode') {
-    return <LeetCodeTrainer onBack={() => setView({ type: 'subjects' })} />;
+    return <LeetCodeTrainer onBack={returnToSubjectList} />;
   }
 
   return null;
@@ -660,6 +858,26 @@ function MetricChip({ icon, label, value, tone }: { icon: React.ReactNode; label
         <p className="text-lg font-black sm:text-xl">{value}</p>
         <p className="text-[11px] font-semibold leading-4 opacity-75 sm:text-xs">{label}</p>
       </div>
+    </div>
+  );
+}
+
+function SubjectCardSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="min-h-[22rem] animate-pulse rounded-3xl border-2 border-slate-100 bg-white p-5 shadow-sm"
+    >
+      <div className="flex items-start justify-between">
+        <div className="h-12 w-12 rounded-2xl bg-slate-100" />
+        <div className="h-11 w-11 rounded-xl bg-slate-100" />
+      </div>
+      <div className="mt-4 h-5 w-2/3 rounded-full bg-slate-100" />
+      <div className="mt-2 h-3 w-full rounded-full bg-slate-100" />
+      <div className="mt-4 h-12 rounded-xl bg-amber-50" />
+      <div className="mt-4 h-3 w-1/2 rounded-full bg-slate-100" />
+      <div className="mt-6 h-11 rounded-2xl bg-slate-100" />
+      <div className="mt-2 h-11 rounded-2xl bg-slate-100" />
     </div>
   );
 }

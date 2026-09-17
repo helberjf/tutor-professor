@@ -723,7 +723,20 @@ class ProgrammingSubjectSchema(FromAttributesModel):
     description: Optional[str] = None
     context: Optional[str] = None
     icon_emoji: Optional[str] = None
+    relevance: int = 3
+    last_used_at: Optional[datetime] = None
     created_at: datetime
+    topic_count: int = 0
+    studied_count: int = 0
+    due_review_count: int = 0
+
+
+class ProgrammingSubjectPageSchema(BaseModel):
+    items: List[ProgrammingSubjectSchema] = Field(default_factory=list)
+    page: int = 1
+    page_size: int = 10
+    total: int = 0
+    total_pages: int = 1
     topic_count: int = 0
     studied_count: int = 0
     due_review_count: int = 0
@@ -741,6 +754,7 @@ class UpdateProgrammingSubjectSchema(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     context: Optional[str] = Field(default=None, max_length=2000)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    relevance: Optional[int] = Field(default=None, ge=1, le=5)
 
 
 class ProgrammingTopicSchema(FromAttributesModel):
