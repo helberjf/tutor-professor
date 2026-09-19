@@ -194,6 +194,44 @@ Novo projeto, **Root Directory = `apps/api`**. Os arquivos já estão no reposit
 Se você migrar para o plano Pro, suba `maxDuration` para 300 no `vercel.json` e
 afrouxe os valores da tabela em §5.
 
+### Publicando a API (o push na main **não** faz isso)
+
+Um push na `main` sobe os projetos de frontend; a API é deploy explícito. Rode
+sempre de uma árvore que esteja exatamente no commit que você quer publicar:
+
+```bash
+cd apps/api && vercel --prod
+```
+
+**Confira em qual projeto o deploy vai cair antes de rodar.** O vínculo mora em
+`apps/api/.vercel/project.json`, que é ignorado pelo git e portanto varia por
+máquina e por checkout. Um `orgId` de outra conta com o `projectId` certo deploya
+em silêncio no projeto errado — o comando responde "Production: ..." como se
+tivesse dado certo, e a API de produção continua velha.
+
+```bash
+vercel whoami            # tem que ser a conta dona da API
+vercel project inspect   # tem que dizer <conta>/tutor-professor-api
+```
+
+Se o vínculo estiver errado, corrija o `orgId` no arquivo (ou apague o arquivo e
+refaça o `vercel link`). Em conta pessoal, `vercel link --scope <conta>` falha
+com "You cannot set your Personal Account as the scope", e sem `--scope` o modo
+não interativo para em `missing_scope`: nesse caso escreva o arquivo à mão com o
+`projectId` e o `orgId` corretos.
+
+**Depois de publicar, prove que subiu** — `/health` responde 200 mesmo na versão
+antiga e mesmo sem banco, então ele não prova nada sozinho:
+
+```bash
+# 401 = a rota nova existe e pede sessão. 404 = ainda é a versão anterior.
+curl -s -o /dev/null -w "%{http_code}
+" https://tutor-professor-api.vercel.app/api/<rota-nova>
+# 401 = o banco responde. 500 = variável de ambiente quebrada (veja abaixo).
+curl -s -o /dev/null -w "%{http_code}
+" -X POST https://tutor-professor-api.vercel.app/api/auth/login   -H "Content-Type: application/json" -d '{"email":"x@example.invalid","password":"x"}'
+```
+
 ### Duas armadilhas que custaram tempo na primeira vez
 
 **Não use `rewrites` no `vercel.json`.** A Vercel detecta o FastAPI e roteia tudo

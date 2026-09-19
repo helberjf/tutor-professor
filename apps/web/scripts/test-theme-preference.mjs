@@ -46,4 +46,29 @@ assert.equal(resolveThemePreference('system', true), 'dark');
 assert.equal(resolveThemePreference('light', true), 'light');
 assert.equal(resolveThemePreference('dark', false), 'dark');
 
+// ── The first client render must match the server's HTML ────────────────────
+// Reading localStorage or matchMedia in a useState initializer makes the first
+// client render disagree with the server for anyone whose theme is not the
+// default, and React reports a hydration mismatch on every page. The stored
+// preference is adopted in an effect instead; ThemeScript keeps the paint
+// correct in the meantime, so nothing flashes.
+const provider = readFileSync(resolve(scriptDir, '../src/components/theme-provider.tsx'), 'utf8');
+const initializers = provider.match(/useState<[^>]*>\([^;]*?\);/gs) ?? [];
+assert.ok(initializers.length >= 2, 'the provider should still hold its theme state');
+for (const initializer of initializers) {
+  assert.doesNotMatch(
+    initializer,
+    /readInitialPreference|getSystemPrefersDark|localStorage|matchMedia/,
+    `a useState initializer must not read the browser: ${initializer}`,
+  );
+}
+assert.match(
+  provider,
+  /useEffect\(\(\) => \{\s*const stored = readInitialPreference\(\)/,
+  'the stored preference should be adopted after hydration',
+);
+
+const script = readFileSync(resolve(scriptDir, '../src/components/theme-script.tsx'), 'utf8');
+assert.match(script, /root\.dataset\.theme = theme/, 'the inline script still paints before hydration');
+
 console.log('theme preference tests passed');
