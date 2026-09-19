@@ -37,19 +37,36 @@ function applyTheme(preference: ThemePreference, systemPrefersDark = getSystemPr
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [preference, setPreferenceState] = useState<ThemePreference>(readInitialPreference);
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveThemePreference(readInitialPreference(), getSystemPrefersDark()),
-  );
+  // The first client render has to match the HTML the server sent, so it starts
+  // from the server's own answer instead of reading localStorage here. Reading
+  // it during the initial render is what made React report a hydration mismatch
+  // on every page for anyone whose theme was not the default.
+  //
+  // Nothing flashes because of this: ThemeScript already wrote data-theme on
+  // <html> before the first paint, so the page is painted in the right colours
+  // while these two values catch up one tick later.
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
+  const [adopted, setAdopted] = useState(false);
 
   useEffect(() => {
+    const stored = readInitialPreference();
+    setPreferenceState(stored);
+    setResolvedTheme(resolveThemePreference(stored, getSystemPrefersDark()));
+    setAdopted(true);
+  }, []);
+
+  useEffect(() => {
+    // Until the stored preference is known, applying "system" here would undo
+    // what ThemeScript did for someone who chose light or dark by hand.
+    if (!adopted) return;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const syncTheme = () => setResolvedTheme(applyTheme(preference, media.matches));
 
     syncTheme();
     media.addEventListener('change', syncTheme);
     return () => media.removeEventListener('change', syncTheme);
-  }, [preference]);
+  }, [adopted, preference]);
 
   const setPreference = useCallback((nextPreference: ThemePreference) => {
     const normalized = normalizeThemePreference(nextPreference);
