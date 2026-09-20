@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, TrendingUp } from 'lucide-react';
 import { DailyActivityWidget } from '@/components/daily-activity-widget';
 import { WeeklyActivityChart } from '@/components/weekly-activity-chart';
+import { t } from '@/lib/i18n';
 
 export function StudyStatisticsPanel() {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -16,7 +17,7 @@ export function StudyStatisticsPanel() {
         className="inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50"
       >
         <TrendingUp size={18} />
-        Ver Estatísticas
+        {t("Ver Estatísticas")}
       </button>
     );
   }
@@ -25,10 +26,10 @@ export function StudyStatisticsPanel() {
     <div className="space-y-4 rounded-xl border-2 border-slate-200 bg-white p-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-slate-800">Estatísticas</h3>
+        <h3 className="font-bold text-slate-800">{t("Estatísticas")}</h3>
         <button
           type="button"
-          aria-label="Recolher estatísticas"
+          aria-label={t("Recolher estatísticas")}
           onClick={() => setIsExpanded(false)}
           className="inline-flex h-11 w-11 items-center justify-center rounded text-slate-600 transition hover:bg-slate-100"
         >

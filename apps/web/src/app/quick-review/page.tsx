@@ -9,6 +9,7 @@ import { CelebrationOverlay } from '@/components/celebration';
 import { ApiError, api, type ReviewSession, type VocabularyReviewCard } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { playAudioWithFallback } from '@/lib/browser-speech';
+import { t } from '@/lib/i18n';
 
 export default function QuickReviewPage() {
   const authState = useRequireAuth();
@@ -35,7 +36,7 @@ export default function QuickReviewPage() {
       const data = await api.getReviewSession(15, { vocabularyOnly: true });
       setSession(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar a revisão.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar a revisão.")));
     } finally {
       setLoading(false);
     }
@@ -105,10 +106,10 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando seu cadastro..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando seu cadastro...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -116,13 +117,13 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Ver status")}</Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -133,10 +134,10 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Preparando as palavras"
-        message="O tutor está selecionando as palavras para revisar agora."
+        title={t("Preparando as palavras")}
+        message={t("O tutor está selecionando as palavras para revisar agora.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -145,13 +146,13 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponível"
-        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
+        title={t("Tutor temporariamente indisponível")}
+        message={t("Não foi possível carregar a revisão agora. Tente novamente em instantes.")}
         primaryAction={
-          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>
+          <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Ver status")}</Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -160,15 +161,15 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Sem conexão com o tutor"
-        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
+        title={t("Sem conexão com o tutor")}
+        message={t("Não foi possível carregar a revisão agora. Tente novamente em instantes.")}
         primaryAction={
           <button onClick={() => void loadSession()} className="app-button bg-brand-orange hover:bg-secondary-dark">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexão"
+        secondaryLabel={t("Trocar conexão")}
       />
     );
   }
@@ -177,15 +178,15 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="error"
-        title="Não foi possível carregar"
+        title={t("Não foi possível carregar")}
         message={error.message}
         primaryAction={
           <button onClick={() => void loadSession()} className="app-button bg-brand-pink hover:bg-pink-500">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -194,10 +195,10 @@ export default function QuickReviewPage() {
     return (
       <StatusCard
         tone="empty"
-        title="Nenhuma palavra para revisar"
-        message="Termine uma lição primeiro. As palavras aparecerão aqui para revisão rápida."
+        title={t("Nenhuma palavra para revisar")}
+        message={t("Termine uma lição primeiro. As palavras aparecerão aqui para revisão rápida.")}
         secondaryHref="/lesson"
-        secondaryLabel="Começar uma lição"
+        secondaryLabel={t("Começar uma lição")}
       />
     );
   }
@@ -216,9 +217,9 @@ export default function QuickReviewPage() {
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
                 <CheckCircle2 className="text-accent-dark" size={44} />
               </div>
-              <p className="app-tag text-xs">Revisão Rápida</p>
+              <p className="app-tag text-xs">{t("Revisão Rápida")}</p>
               <h1 className="mt-3 text-3xl font-black text-slate-800">
-                {pct >= 80 ? 'Incrível!' : pct >= 50 ? 'Muito bem!' : 'Continue praticando!'}
+                {pct >= 80 ? 'Incrível!' : pct >= 50 ? t("Muito bem!") : t("Continue praticando!")}
               </h1>
               <p className="mt-2 text-lg text-slate-600">
                 <span className="font-black text-slate-800">{correctCount}</span> de{' '}
@@ -236,13 +237,13 @@ export default function QuickReviewPage() {
                   onClick={() => void loadSession()}
                   className="app-button w-full justify-center bg-primary-dark hover:bg-primary-dark"
                 >
-                  Revisar de novo
+                  {t("Revisar de novo")}
                 </button>
                 <Link
                   href="/"
                   className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                 >
-                  Voltar ao início
+                  {t("Voltar ao início")}
                 </Link>
               </div>
             </div>
@@ -266,11 +267,11 @@ export default function QuickReviewPage() {
         {/* Nav */}
         <div className="mb-5 flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={18} /> Sair
+            <ArrowLeft size={18} /> {t("Sair")}
           </Link>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-              <Zap size={12} /> Revisao Rapida
+              <Zap size={12} /> {t("Revisão Rápida")}
             </span>
             <span className="app-tag text-xs">{currentIndex + 1}/{total}</span>
           </div>
@@ -299,7 +300,7 @@ export default function QuickReviewPage() {
           {/* English word + audio */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">O que significa?</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("O que significa?")}</p>
               <h1 className="mt-2 text-4xl font-black leading-tight text-slate-800 md:text-5xl">
                 {card.word_en}
               </h1>
@@ -355,7 +356,7 @@ export default function QuickReviewPage() {
             <div className="mt-5">
               <p className={`text-center text-base font-black ${selectedOption === card.word_pt ? 'text-accent-dark' : 'text-rose-600'}`}>
                 {selectedOption === card.word_pt
-                  ? '🎉 Acertou!'
+                  ? t("🎉 Acertou!")
                   : `💪 Era: "${card.word_pt}"`}
               </p>
               <button
@@ -365,7 +366,7 @@ export default function QuickReviewPage() {
                   selectedOption === card.word_pt ? 'bg-accent hover:bg-accent-dark' : 'bg-primary-dark hover:bg-primary-dark'
                 }`}
               >
-                {currentIndex < total - 1 ? 'Próxima →' : 'Ver resultado'}
+                {currentIndex < total - 1 ? t("Próxima →") : t("Ver resultado")}
               </button>
             </div>
           )}

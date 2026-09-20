@@ -32,6 +32,7 @@ import {
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { t } from '@/lib/i18n';
 
 // ── Language metadata ─────────────────────────────────────────────────────────
 const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
@@ -39,7 +40,7 @@ const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: stri
   French:   { flag: '🇫🇷', label: 'Français', ttsCode: 'fr' },
   Spanish:  { flag: '🇪🇸', label: 'Español', ttsCode: 'es' },
   German:   { flag: '🇩🇪', label: 'Deutsch',  ttsCode: 'de' },
-  Italian:  { flag: '🇮🇹', label: 'Italiano', ttsCode: 'it' },
+  Italian:  { flag: '🇮🇹', label: "Italiano", ttsCode: 'it' },
   Russian:  { flag: '🇷🇺', label: 'Русский', ttsCode: 'ru' },
 };
 
@@ -50,13 +51,13 @@ function getLangMeta(lang: string) {
 }
 
 const LEVEL_LABELS: Record<number, string> = {
-  1: 'Iniciante', 2: 'Iniciante', 3: 'Básico', 4: 'Básico',
-  5: 'Intermediário', 6: 'Intermediário', 7: 'Avançado', 8: 'Avançado',
-  9: 'Expert', 10: 'Expert',
+  1: "Iniciante", 2: "Iniciante", 3: "Básico", 4: "Básico",
+  5: "Intermediário", 6: "Intermediário", 7: "Avançado", 8: "Avançado",
+  9: "Expert", 10: "Expert",
 };
 
 function levelLabel(level: number) {
-  return LEVEL_LABELS[level] ?? 'Iniciante';
+  return LEVEL_LABELS[level] ?? t("Iniciante");
 }
 
 function levelColor(level: number): string {
@@ -98,10 +99,10 @@ export default function BooksPage() {
       fallback={
         <StatusCard
           tone="loading"
-          title="Carregando livros"
-          message="Buscando seus livros..."
+          title={t("Carregando livros")}
+          message={t("Buscando seus livros...")}
           secondaryHref="/"
-          secondaryLabel="Voltar ao início"
+          secondaryLabel={t("Voltar ao início")}
         />
       }
     >
@@ -149,7 +150,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
     e.preventDefault();
     setError(null);
     if (!bookContext.trim()) {
-      setError('Conte o contexto do livro antes de gerar.');
+      setError(t("Conte o contexto do livro antes de gerar."));
       return;
     }
     setStep('generating-outline');
@@ -163,7 +164,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
       setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
       setStep('outline');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao gerar roteiro.');
+      setError(err instanceof ApiError ? err.message : t("Erro ao gerar roteiro."));
       setStep('form');
     }
   }
@@ -184,7 +185,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
       setPages([]);
       setStep('generating-pages');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Erro ao iniciar livro.');
+      setError(err instanceof ApiError ? err.message : t("Erro ao iniciar livro."));
       setStep('outline');
     }
   }
@@ -224,20 +225,20 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
 
   function stepTitle() {
     switch (step) {
-      case 'form': return 'Gerar com IA';
-      case 'generating-outline': return 'Criando roteiro';
-      case 'outline': return 'Roteiro do livro';
+      case 'form': return t("Gerar com IA");
+      case 'generating-outline': return t("Criando roteiro");
+      case 'outline': return t("Roteiro do livro");
       case 'starting': return 'Preparando';
-      case 'generating-pages': return 'Gerando páginas';
-      case 'complete': return 'Livro pronto!';
+      case 'generating-pages': return t("Gerando páginas");
+      case 'complete': return t("Livro pronto!");
     }
   }
 
   function stepSubtitle() {
     switch (step) {
-      case 'form': return 'Novo livro';
+      case 'form': return t("Novo livro");
       case 'generating-outline': return 'Aguarde...';
-      case 'outline': return 'Revise antes de criar';
+      case 'outline': return t("Revise antes de criar");
       case 'starting': return 'Aguarde...';
       case 'generating-pages':
         return outline ? `${pages.length}/${outline.num_pages} páginas` : '';
@@ -252,33 +253,33 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
           <form onSubmit={(e) => void handleCreateOutline(e)} className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-black text-slate-700">
-                Dificuldade
+                {t("Dificuldade")}
                 <span className="ml-2 font-normal text-slate-400">
                   {level === 0
-                    ? '— Automática (usa seu nível)'
+                    ? t("— Automática (usa seu nível)")
                     : `— Nível ${level}: ${levelLabel(level)}`}
                 </span>
               </label>
               <input
-                aria-label="Nível do livro"
+                aria-label={t("Nível do livro")}
                 type="range" min={0} max={10} value={level}
                 onChange={(e) => setLevel(Number(e.target.value))}
                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary"
               />
               <div className="mt-1 flex justify-between text-xs text-slate-400">
                 <span>Auto</span>
-                <span>Iniciante</span>
-                <span>Intermediário</span>
-                <span>Expert</span>
+                <span>{t("Iniciante")}</span>
+                <span>{t("Intermediário")}</span>
+                <span>{t("Expert")}</span>
               </div>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-black text-slate-700">
-                Paginas: <span className="font-normal text-slate-500">{numPages}</span>
+                {t("Páginas:")} <span className="font-normal text-slate-500">{numPages}</span>
               </label>
               <input
-                aria-label="Número de páginas"
+                aria-label={t("Número de páginas")}
                 type="range" min={1} max={5} value={numPages}
                 onChange={(e) => setNumPages(Number(e.target.value))}
                 className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-primary"
@@ -290,10 +291,10 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
 
             <div>
               <label className="mb-2 block text-sm font-black text-slate-700">
-                Contexto do livro
+                {t("Contexto do livro")}
               </label>
               <textarea
-                placeholder="ex: Um menino que encontra um mapa no quintal e aprende palavras sobre natureza..."
+                placeholder={t("ex: Um menino que encontra um mapa no quintal e aprende palavras sobre natureza...")}
                 value={bookContext}
                 onChange={(e) => setBookContext(e.target.value)}
                 maxLength={300}
@@ -301,7 +302,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 className="w-full resize-none rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm font-medium leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-primary"
               />
               <p className="mt-1 text-xs font-semibold text-slate-400">
-                A IA usa esse contexto para planejar o livro e depois cria uma página por vez.
+                {t("A IA usa esse contexto para planejar o livro e depois cria uma página por vez.")}
               </p>
             </div>
 
@@ -317,7 +318,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-dark py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Sparkles size={20} />
-              Criar roteiro com IA
+              {t("Criar roteiro com IA")}
             </button>
           </form>
         );
@@ -327,9 +328,9 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
           <div className="flex flex-col items-center gap-5 py-10">
             <Loader2 size={44} className="animate-spin text-primary" />
             <div className="text-center">
-              <p className="text-base font-black text-slate-800">Criando roteiro...</p>
+              <p className="text-base font-black text-slate-800">{t("Criando roteiro...")}</p>
               <p className="mt-1 text-sm text-slate-500">
-                A IA está planejando o título, personagens e cada cena
+                {t("A IA está planejando o título, personagens e cada cena")}
               </p>
             </div>
           </div>
@@ -340,7 +341,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
         return (
           <div className="space-y-5">
             <div className="rounded-2xl border-2 border-sky-100 bg-sky-50 p-5">
-              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-sky-500">Título</p>
+              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-sky-500">{t("Título")}</p>
               <p className="text-xl font-black text-slate-800">{outline.title}</p>
               {outline.synopsis && (
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{outline.synopsis}</p>
@@ -350,7 +351,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             {outline.characters.length > 0 && (
               <div>
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-                  <Users size={12} /> Personagens
+                  <Users size={12} /> {t("Personagens")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {outline.characters.map((c) => (
@@ -367,7 +368,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
 
             <div>
               <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">
-                Roteiro — {outline.num_pages} páginas
+                {t("Roteiro —")} {outline.num_pages} {t("páginas")}
               </p>
               <ol className="space-y-2">
                 {outline.page_outlines.map((p) => (
@@ -410,7 +411,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 onClick={() => { setStep('form'); setError(null); }}
                 className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 py-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary"
               >
-                Ajustar
+                {t("Ajustar")}
               </button>
               <button
                 type="button"
@@ -418,7 +419,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                 className="flex flex-[2] items-center justify-center gap-3 rounded-2xl bg-primary-dark py-3 text-sm font-black text-white shadow-[0_8px_24px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
               >
                 <BookOpen size={18} />
-                Criar livro
+                {t("Criar livro")}
               </button>
             </div>
           </div>
@@ -429,7 +430,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
         return (
           <div className="flex flex-col items-center gap-5 py-10">
             <Loader2 size={44} className="animate-spin text-primary" />
-            <p className="text-base font-black text-slate-800">Preparando livro...</p>
+            <p className="text-base font-black text-slate-800">{t("Preparando livro...")}</p>
           </div>
         );
 
@@ -462,7 +463,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
                     {lastPage.page_number}
                   </span>
                   <p className="text-xs font-bold uppercase tracking-widest text-sky-500">
-                    Pagina {lastPage.page_number}
+                    {t("Página")} {lastPage.page_number}
                   </p>
                 </div>
                 <p className="text-sm font-medium leading-relaxed text-slate-800">
@@ -489,7 +490,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             {done < total && outline.page_outlines[done] && (
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
                 <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Proxima cena
+                  {t("Próxima cena")}
                 </p>
                 <p className="text-sm text-slate-600">{outline.page_outlines[done].scene}</p>
               </div>
@@ -510,12 +511,12 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               {isGeneratingPage ? (
                 <>
                   <Loader2 size={20} className="animate-spin" />
-                  Gerando página {nextPageNum}...
+                  {t("Gerando página")} {nextPageNum}...
                 </>
               ) : (
                 <>
                   <Sparkles size={20} />
-                  Gerar página {nextPageNum} de {total}
+                  {t("Gerar página")} {nextPageNum} de {total}
                 </>
               )}
             </button>
@@ -532,7 +533,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <div>
               <p className="text-xl font-black text-slate-800">{completeBook?.title}</p>
               <p className="mt-1 text-sm text-slate-500">
-                Livro completo com {completeBook?.pages.length} páginas!
+                {t("Livro completo com")} {completeBook?.pages.length} {t("páginas!")}
               </p>
             </div>
             <button
@@ -541,7 +542,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
               className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-700 py-4 text-base font-black text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800"
             >
               <BookOpen size={20} />
-              Ler livro
+              {t("Ler livro")}
             </button>
           </div>
         );
@@ -565,7 +566,7 @@ function GenerateForm({ onClose, onBookComplete, targetLanguage }: GenerateFormP
             <h2 className="mt-1 text-2xl font-black text-slate-800">{stepTitle()}</h2>
             {aiCredits?.metered ? (
               <p className="mt-1 text-xs font-black text-indigo-600">
-                {aiCredits.credits} de {aiCredits.daily_limit} créditos disponíveis hoje
+                {aiCredits.credits} de {aiCredits.daily_limit} {t("créditos disponíveis hoje")}
               </p>
             ) : null}
           </div>
@@ -632,9 +633,9 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-lg font-black text-slate-700">Este livro não tem páginas ainda.</p>
+          <p className="text-lg font-black text-slate-700">{t("Este livro não tem páginas ainda.")}</p>
           <button onClick={onBack} className="mt-4 text-sm font-bold text-primary hover:text-primary-dark">
-            Voltar
+            {t("Voltar")}
           </button>
         </div>
       </main>
@@ -680,17 +681,17 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
             onClick={onBack}
             className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary"
           >
-            <ArrowLeft size={20} /> Meus livros
+            <ArrowLeft size={20} /> {t("Meus livros")}
           </button>
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${levelColor(book.level)}`}>
               <Sparkles size={12} />
-              Nivel {book.level} — {levelLabel(book.level)}
+              {t("Nivel")} {book.level} — {levelLabel(book.level)}
             </span>
             <p className="app-tag text-xs">{pageIndex + 1} / {book.pages.length}</p>
             <button
               onClick={() => setReadingMode((m) => !m)}
-              title={readingMode ? 'Modo dividido' : 'Modo leitura'}
+              title={readingMode ? t("Modo dividido") : t("Modo leitura")}
               className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-slate-200 text-slate-500 transition hover:border-primary hover:text-primary"
             >
               {readingMode ? <Columns2 size={15} /> : <BookOpen size={15} />}
@@ -717,12 +718,12 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
             <div className="p-6 md:p-8">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                  {langMeta.flag} {langMeta.label}
+                  {langMeta.flag} {t(langMeta.label)}
                 </span>
                 <button
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
-                  title={`Ouvir em ${langMeta.label}`}
+                  title={`${t("Ouvir em")} ${t(langMeta.label)}`}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-dark text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -739,9 +740,9 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                 className="flex w-full items-center justify-center gap-2 py-3 text-sm font-black text-slate-400 transition hover:text-emerald-600"
               >
                 {showTranslation ? (
-                  <><EyeOff size={16} /> Esconder tradução</>
+                  <><EyeOff size={16} /> {t("Esconder tradução")}</>
                 ) : (
-                  <><Eye size={16} /> Ver tradução em português</>
+                  <><Eye size={16} /> {t("Ver tradução em português")}</>
                 )}
               </button>
             </div>
@@ -755,7 +756,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                   <button
                     onClick={() => void playPt()}
                     disabled={audioLoadingPt}
-                    title="Ouvir em português"
+                    title={t("Ouvir em português")}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800 disabled:opacity-60"
                   >
                     {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -772,12 +773,12 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
             <div className="app-surface flex flex-col gap-4 border-sky-200 p-5 md:p-6">
               <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-black text-sky-700">
-                  {langMeta.flag} {langMeta.label}
+                  {langMeta.flag} {t(langMeta.label)}
                 </span>
                 <button
                   onClick={() => void playEn()}
                   disabled={audioLoadingEn}
-                  title={`Ouvir em ${langMeta.label}`}
+                  title={`${t("Ouvir em")} ${t(langMeta.label)}`}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-dark text-white shadow-[0_6px_16px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark disabled:opacity-60"
                 >
                   {audioLoadingEn ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -795,7 +796,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
                 <button
                   onClick={() => void playPt()}
                   disabled={audioLoadingPt}
-                  title="Ouvir em português"
+                  title={t("Ouvir em português")}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-white shadow-[0_6px_16px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800 disabled:opacity-60"
                 >
                   {audioLoadingPt ? <Loader2 size={18} className="animate-spin" /> : <Volume2 size={18} />}
@@ -810,7 +811,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
 
         {page.vocabulary.length > 0 && (
           <div className="mt-5 rounded-2xl border-2 border-slate-100 bg-white px-5 py-4">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Palavras desta página</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">{t("Palavras desta página")}</p>
             <div className="flex flex-wrap gap-2">
               {page.vocabulary.map((word) => (
                 <span
@@ -830,7 +831,7 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
             disabled={isFirst}
             className="flex items-center gap-2 rounded-2xl border-2 border-slate-200 px-5 py-3 text-sm font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-30"
           >
-            <ChevronLeft size={18} /> Anterior
+            <ChevronLeft size={18} /> {t("Anterior")}
           </button>
 
           {isLast ? (
@@ -838,14 +839,14 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
               onClick={onBack}
               className="flex items-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(16,185,129,0.3)] transition hover:bg-emerald-800"
             >
-              Fim do livro! <BookOpen size={18} />
+              {t("Fim do livro!")} <BookOpen size={18} />
             </button>
           ) : (
             <button
               onClick={goNext}
               className="flex items-center gap-2 rounded-2xl bg-primary-dark px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
             >
-              Proxima <ChevronRight size={18} />
+              {t("Próxima")} <ChevronRight size={18} />
             </button>
           )}
         </div>
@@ -889,7 +890,7 @@ function BooksPageContent() {
       if (err instanceof ApiError) {
         setError({ isUnconfigured: err.isUnconfigured, isOffline: err.isOffline, message: err.message });
       } else {
-        setError({ message: 'Não foi possível carregar os livros.' });
+        setError({ message: t("Não foi possível carregar os livros.") });
       }
     } finally {
       setLoading(false);
@@ -931,10 +932,10 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando seu cadastro..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando seu cadastro...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -942,13 +943,13 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
         primaryAction={
-          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">{t("Tentar de novo")}</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -957,10 +958,10 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title="Carregando livros"
-        message="Buscando seus livros..."
+        title={t("Carregando livros")}
+        message={t("Buscando seus livros...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -969,13 +970,13 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Conecte o tutor primeiro"
-        message="Não foi possível carregar a configuração do aplicativo agora."
+        title={t("Conecte o tutor primeiro")}
+        message={t("Não foi possível carregar a configuração do aplicativo agora.")}
         primaryAction={
-          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadBooks()} className="app-button bg-primary-dark hover:bg-primary-dark">{t("Tentar de novo")}</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -984,15 +985,15 @@ function BooksPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Sistema indisponível"
-        message="Não foi possível acessar os livros. Tente novamente em instantes."
+        title={t("Sistema indisponível")}
+        message={t("Não foi possível acessar os livros. Tente novamente em instantes.")}
         primaryAction={
           <button onClick={() => void loadBooks()} className="app-button bg-brand-orange hover:bg-secondary-dark">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -1005,14 +1006,14 @@ function BooksPageContent() {
           <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-xs font-bold text-slate-400 hover:text-primary">
-                <ArrowLeft size={14} /> Inicio
+                <ArrowLeft size={14} /> {t("Início")}
               </Link>
               <div className="mt-2 flex items-center gap-3">
                 <KidsBookLogo size={52} />
                 <div>
-                  <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Livros Pequenos</h1>
+                  <h1 className="text-3xl font-black text-slate-800 md:text-4xl">{t("Livros Pequenos")}</h1>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Histórias em inglês criadas por IA no seu nível
+                    {t("Histórias em inglês criadas por IA no seu nível")}
                   </p>
                 </div>
               </div>
@@ -1022,7 +1023,7 @@ function BooksPageContent() {
               className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl bg-primary-dark px-4 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
             >
               <Plus size={18} />
-              <span className="hidden sm:inline">Novo livro</span>
+              <span className="hidden sm:inline">{t("Novo livro")}</span>
             </button>
           </div>
 
@@ -1030,9 +1031,9 @@ function BooksPageContent() {
             <div className="app-surface flex flex-col items-center gap-5 border-primary/30 py-14 text-center">
               <KidsBookLogo size={80} />
               <div>
-                <p className="text-lg font-black text-slate-800">Nenhum livro ainda</p>
+                <p className="text-lg font-black text-slate-800">{t("Nenhum livro ainda")}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                    Gere o seu primeiro livro em inglês com a IA!
+                    {t("Gere o seu primeiro livro em inglês com a IA!")}
                 </p>
               </div>
               <button
@@ -1040,7 +1041,7 @@ function BooksPageContent() {
                 className="flex items-center gap-2 rounded-2xl bg-primary-dark px-6 py-3 text-sm font-black text-white shadow-[0_8px_20px_rgba(14,165,233,0.3)] transition hover:bg-primary-dark"
               >
                 <Sparkles size={18} />
-                Gerar primeiro livro
+                {t("Gerar primeiro livro")}
               </button>
             </div>
           ) : (
@@ -1064,7 +1065,7 @@ function BooksPageContent() {
                     <p className="mt-0.5 text-xs capitalize text-slate-500">{book.theme}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span>{book.num_pages} páginas</span>
+                    <span>{book.num_pages} {t("páginas")}</span>
                     <span>·</span>
                     <span>{levelLabel(book.level)}</span>
                   </div>

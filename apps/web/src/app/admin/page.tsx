@@ -21,25 +21,26 @@ import {
 
 import { api, type AdminNotificationType, type AdminOverview } from '@/lib/api';
 import { StatusCard } from '@/components/status-card';
+import { t } from '@/lib/i18n';
 
 const NOTIFICATION_META: Record<
   AdminNotificationType,
   { label: string; icon: typeof Bell; className: string; iconClassName: string }
 > = {
   account_approval_requested: {
-    label: 'Nova conta aguardando aprovação',
+    label: "Nova conta aguardando aprovação",
     icon: Clock3,
     className: 'border-amber-100 bg-amber-50/70',
     iconClassName: 'bg-amber-100 text-amber-700',
   },
   account_approved: {
-    label: 'Conta aprovada',
+    label: "Conta aprovada",
     icon: CheckCircle2,
     className: 'border-emerald-100 bg-emerald-50/70',
     iconClassName: 'bg-emerald-100 text-emerald-700',
   },
   account_rejected: {
-    label: 'Acesso recusado',
+    label: "Acesso recusado",
     icon: ShieldAlert,
     className: 'border-rose-100 bg-rose-50/70',
     iconClassName: 'bg-rose-100 text-rose-700',
@@ -82,10 +83,10 @@ export default function AdminDashboardPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando permissões de administrador..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando permissões de administrador...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -94,10 +95,10 @@ export default function AdminDashboardPage() {
     return (
       <StatusCard
         tone="error"
-        title="Acesso restrito"
-        message="Esta área e exclusiva para o administrador configurado no backend."
+        title={t("Acesso restrito")}
+        message={t("Esta área e exclusiva para o administrador configurado no backend.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -105,42 +106,42 @@ export default function AdminDashboardPage() {
   const pending = overview?.pending_users ?? 0;
   const metrics = [
     {
-      label: 'Aguardando aprovação',
+      label: t("Aguardando aprovação"),
       value: pending,
       icon: <UserCheck size={18} />,
       highlight: pending > 0,
     },
-    { label: 'Contas aprovadas', value: overview?.approved_users ?? 0, icon: <Users size={18} /> },
-    { label: 'Cadastros em 7 dias', value: overview?.signups_last_7_days ?? 0, icon: <UserPlus size={18} /> },
-    { label: 'Contas com IA liberada', value: overview?.ai_authorized_users ?? 0, icon: <KeyRound size={18} /> },
+    { label: t("Contas aprovadas"), value: overview?.approved_users ?? 0, icon: <Users size={18} /> },
+    { label: t("Cadastros em 7 dias"), value: overview?.signups_last_7_days ?? 0, icon: <UserPlus size={18} /> },
+    { label: t("Contas com IA liberada"), value: overview?.ai_authorized_users ?? 0, icon: <KeyRound size={18} /> },
     {
-      label: 'Contas sem créditos',
+      label: t("Contas sem créditos"),
       value: overview?.out_of_credit_users ?? 0,
       icon: <Coins size={18} />,
       highlight: (overview?.out_of_credit_users ?? 0) > 0,
     },
-    { label: 'Créditos de IA gastos', value: overview?.ai_credits_spent ?? 0, icon: <Coins size={18} /> },
+    { label: t("Créditos de IA gastos"), value: overview?.ai_credits_spent ?? 0, icon: <Coins size={18} /> },
   ];
 
   const cards = [
     {
       href: '/admin/accounts',
-      title: 'Aprovação de contas',
-      description: 'Liberar, recusar ou apagar contas e seus dados relacionados.',
+      title: t("Aprovação de contas"),
+      description: t("Liberar, recusar ou apagar contas e seus dados relacionados."),
       icon: <UserCheck size={22} />,
       badge: pending > 0 ? `${pending} na fila` : null,
     },
     {
       href: '/admin/users',
-      title: 'Usuários',
-      description: 'Listar contas cadastradas e autorizar o uso da IA para cada usuário.',
+      title: t("Usuários"),
+      description: t("Listar contas cadastradas e autorizar o uso da IA para cada usuário."),
       icon: <Users size={22} />,
       badge: null,
     },
     {
       href: '/admin/learn',
-      title: 'Conteúdo admin',
-      description: 'Acessar modulos, flashcards e editor de estudos administrativos.',
+      title: t("Conteúdo admin"),
+      description: t("Acessar modulos, flashcards e editor de estudos administrativos."),
       icon: <BookOpen size={22} />,
       badge: null,
     },
@@ -150,7 +151,7 @@ export default function AdminDashboardPage() {
     <main className="min-h-screen px-4 py-6 md:px-10 md:py-12">
       <div className="mx-auto max-w-5xl space-y-6">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
-          <ArrowLeft size={16} /> Inicio
+          <ArrowLeft size={16} /> {t("Início")}
         </Link>
 
         <section className="rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
@@ -159,26 +160,26 @@ export default function AdminDashboardPage() {
               <LayoutDashboard size={24} />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Admin</p>
-              <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Dashboard administrativo</h1>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("Admin")}</p>
+              <h1 className="text-3xl font-black text-slate-800 md:text-4xl">{t("Dashboard administrativo")}</h1>
             </div>
           </div>
           <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-            Area separada para aprovar contas novas, gerenciar usuarios, autorizacao de IA e conteudos internos.
+            {t("Área separada para aprovar contas novas, gerenciar usuários, autorização de IA e conteúdos internos.")}
           </p>
 
           <div className="mt-6 flex flex-wrap items-end justify-between gap-2">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-dark">Resumo da operação</p>
-              <h2 className="mt-1 text-xl font-black text-slate-800">Visão geral</h2>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-primary-dark">{t("Resumo da operação")}</p>
+              <h2 className="mt-1 text-xl font-black text-slate-800">{t("Visão geral")}</h2>
             </div>
-            <span className="text-xs font-bold text-slate-400">Dados atuais</span>
+            <span className="text-xs font-bold text-slate-400">{t("Dados atuais")}</span>
           </div>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.map((metric) => (
               <div
-                key={metric.label}
+                key={t(metric.label)}
                 className={`rounded-2xl border-2 p-4 ${
                   metric.highlight ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-slate-50'
                 }`}
@@ -191,7 +192,7 @@ export default function AdminDashboardPage() {
                   {metric.icon}
                 </span>
                 <p className="mt-3 text-3xl font-black text-slate-800">{metric.value}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">{metric.label}</p>
+                <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">{t(metric.label)}</p>
               </div>
             ))}
           </div>
@@ -202,7 +203,7 @@ export default function AdminDashboardPage() {
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-dark px-4 py-2 text-sm font-black text-white transition hover:bg-primary-dark"
             >
               <UserCheck size={16} />
-              Revisar {pending} {pending === 1 ? 'conta' : 'contas'} agora
+              {t("Revisar")} {pending} {pending === 1 ? 'conta' : 'contas'} agora
             </Link>
           ) : null}
         </section>
@@ -215,19 +216,19 @@ export default function AdminDashboardPage() {
               <Server size={19} />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Saúde do sistema</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("Saúde do sistema")}</p>
               <h2 className="text-xl font-black text-slate-800">
-                {systemHealth?.status === 'ok' ? 'API e banco operacionais' : 'Não foi possível confirmar o sistema'}
+                {systemHealth?.status === 'ok' ? t("API e banco operacionais") : t("Não foi possível confirmar o sistema")}
               </h2>
             </div>
           </div>
           <p className="mt-3 text-sm font-semibold text-slate-500">
             {systemHealth
               ? `Banco: ${systemHealth.database}. Verificado em ${formatNotificationDate(systemHealth.timestamp)}.`
-              : 'Atualize a página ou confira os logs do servidor.'}
+              : t("Atualize a página ou confira os logs do servidor.")}
           </p>
           <Link href="/connect" className="mt-4 inline-flex text-sm font-black text-primary-dark hover:text-primary">
-            Configuracao tecnica do backend
+            {t("Configuração técnica do backend")}
           </Link>
         </section>
 
@@ -238,15 +239,15 @@ export default function AdminDashboardPage() {
                 <Bell size={19} />
               </span>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Acompanhe o movimento</p>
-                <h2 className="text-xl font-black text-slate-800">Últimas notificações</h2>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("Acompanhe o movimento")}</p>
+                <h2 className="text-xl font-black text-slate-800">{t("Últimas notificações")}</h2>
               </div>
             </div>
             <Link
               href="/admin/accounts"
               className="inline-flex items-center gap-1 text-sm font-black text-primary-dark hover:text-primary"
             >
-              Ver contas <ArrowRight size={15} />
+              {t("Ver contas")} <ArrowRight size={15} />
             </Link>
           </div>
 
@@ -264,7 +265,7 @@ export default function AdminDashboardPage() {
                     <Icon size={17} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-black text-slate-700">{meta.label}</span>
+                    <span className="block text-sm font-black text-slate-700">{t(meta.label)}</span>
                     <span className="block truncate text-xs font-bold text-slate-500">
                       {notification.user_name} · {notification.user_email}
                     </span>
@@ -277,7 +278,7 @@ export default function AdminDashboardPage() {
             })}
             {(overview?.recent_notifications ?? []).length === 0 ? (
               <p className="rounded-xl border-2 border-dashed border-slate-200 px-4 py-5 text-center text-sm font-bold text-slate-500">
-                Nenhuma movimentação de conta recente.
+                {t("Nenhuma movimentação de conta recente.")}
               </p>
             ) : null}
           </div>
@@ -300,8 +301,8 @@ export default function AdminDashboardPage() {
                   </span>
                 ) : null}
               </div>
-              <h2 className="mt-4 text-xl font-black text-slate-800">{card.title}</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{card.description}</p>
+              <h2 className="mt-4 text-xl font-black text-slate-800">{t(card.title)}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{t(card.description)}</p>
             </Link>
           ))}
         </section>

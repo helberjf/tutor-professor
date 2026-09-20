@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2, X } from 'lucide-react';
 
 import { api, type CreateObjectiveItemPayload, type Objective, type ObjectiveArea } from '@/lib/api';
 import { OBJECTIVE_AREAS } from './objective-areas';
+import { t } from '@/lib/i18n';
 
 interface Props {
   onClose: () => void;
@@ -54,7 +55,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
       });
       onCreated(objective);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Não foi possível criar o objetivo.');
+      setError(err instanceof Error ? err.message : t("Não foi possível criar o objetivo."));
     } finally {
       setSaving(false);
     }
@@ -64,11 +65,11 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-black text-slate-800">Novo objetivo</h2>
+          <h2 className="text-xl font-black text-slate-800">{t("Novo objetivo")}</h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fechar"
+            aria-label={t("Fechar")}
             className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"
           >
             <X size={20} />
@@ -78,7 +79,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-3">
             <input
-              aria-label="Emoji do objetivo"
+              aria-label={t("Emoji do objetivo")}
               value={emoji}
               onChange={(event) => setEmoji(event.target.value)}
               placeholder="🎯"
@@ -86,10 +87,10 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
               className="w-16 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3 text-center text-xl outline-none focus:border-primary"
             />
             <input
-              aria-label="Título do objetivo"
+              aria-label={t("Título do objetivo")}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Ex: passar na certificação AWS"
+              placeholder={t("Ex: passar na certificação AWS")}
               maxLength={120}
               required
               autoFocus
@@ -98,17 +99,17 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
           </div>
 
           <textarea
-            aria-label="Descrição do objetivo"
+            aria-label={t("Descrição do objetivo")}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Por que este objetivo importa (opcional)"
+            placeholder={t("Por que este objetivo importa (opcional)")}
             maxLength={500}
             rows={2}
             className="w-full resize-y rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
           />
 
           <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Prazo (opcional)</span>
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Prazo (opcional)")}</span>
             <input
               type="date"
               value={targetDate}
@@ -118,9 +119,9 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
           </label>
 
           <div className="rounded-2xl border-2 border-slate-200 p-4">
-            <p className="text-sm font-bold text-slate-700">O que precisa estudar</p>
+            <p className="text-sm font-bold text-slate-700">{t("O que precisa estudar")}</p>
             <p className="mt-0.5 text-xs font-medium text-slate-400">
-              Cada item concluído aumenta a porcentagem do objetivo. O peso diz o tamanho do item.
+              {t("Cada item concluído aumenta a porcentagem do objetivo. O peso diz o tamanho do item.")}
             </p>
 
             {items.length > 0 ? (
@@ -147,7 +148,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
 
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
-                aria-label="Item de estudo"
+                aria-label={t("Item de estudo")}
                 value={itemTitle}
                 onChange={(event) => setItemTitle(event.target.value)}
                 onKeyDown={(event) => {
@@ -157,12 +158,12 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
                     addItem();
                   }
                 }}
-                placeholder="Ex: terminar o módulo 3"
+                placeholder={t("Ex: terminar o módulo 3")}
                 maxLength={200}
                 className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
               />
               <select
-                aria-label="Área do item"
+                aria-label={t("Área do item")}
                 value={itemArea}
                 onChange={(event) => setItemArea(event.target.value as ObjectiveArea)}
                 className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
@@ -172,7 +173,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
                 ))}
               </select>
               <select
-                aria-label="Peso do item"
+                aria-label={t("Peso do item")}
                 value={itemWeight}
                 onChange={(event) => setItemWeight(Number(event.target.value))}
                 className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
@@ -187,7 +188,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
                 disabled={!itemTitle.trim()}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 hover:bg-slate-200 disabled:opacity-50"
               >
-                <Plus size={16} /> Adicionar
+                <Plus size={16} /> {t("Adicionar")}
               </button>
             </div>
           </div>
@@ -202,14 +203,14 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
               onClick={onClose}
               className="min-h-11 flex-1 rounded-2xl border-2 border-slate-200 py-3 font-bold text-slate-600 hover:bg-slate-50"
             >
-              Cancelar
+              {t("Cancelar")}
             </button>
             <button
               type="submit"
               disabled={saving || !title.trim()}
               className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
-              {saving ? <Loader2 size={18} className="animate-spin" /> : 'Criar objetivo'}
+              {saving ? <Loader2 size={18} className="animate-spin" /> : t("Criar objetivo")}
             </button>
           </div>
         </form>

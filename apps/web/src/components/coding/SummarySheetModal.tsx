@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Check, Copy, Loader2, Pencil, Sparkles, X } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 interface SummarySheetModalProps {
   subjectName: string;
@@ -131,18 +132,18 @@ export function SummarySheetModal({
                 {heading}
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
-                Só o que cai na prova · {scopeLabel} · {words} palavras · {readingMinutes} min de leitura
+                {t("Só o que cai na prova ·")} {scopeLabel} · {words} {t("palavras ·")} {readingMinutes} min de leitura
               </p>
               {savedAt && (
                 <p className="mt-1 text-xs font-bold text-slate-400">
-                  Resumo salvo em {savedAt} — reaproveitado sem gastar créditos de IA.
+                  {t("Resumo salvo em")} {savedAt} {t("— reaproveitado sem gastar créditos de IA.")}
                 </p>
               )}
             </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Fechar resumo"
+              aria-label={t("Fechar resumo")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
             >
               <X size={18} />
@@ -156,7 +157,7 @@ export function SummarySheetModal({
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
             >
               <Copy size={15} />
-              {copied ? 'Copiado!' : 'Copiar para Notion'}
+              {copied ? 'Copiado!' : t("Copiar para Notion")}
             </button>
             {onSave && draft === null && (
               <button
@@ -165,7 +166,7 @@ export function SummarySheetModal({
                 className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary"
               >
                 <Pencil size={15} />
-                Editar
+                {t("Editar")}
               </button>
             )}
             {onSave && draft !== null && (
@@ -177,14 +178,14 @@ export function SummarySheetModal({
                   className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                  {saving ? 'Salvando...' : 'Salvar'}
+                  {saving ? 'Salvando...' : t("Salvar")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDraft(null)}
                   className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100"
                 >
-                  Cancelar
+                  {t("Cancelar")}
                 </button>
               </>
             )}
@@ -195,16 +196,14 @@ export function SummarySheetModal({
               className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 px-3 py-2 text-xs font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:opacity-50"
             >
               {regenerating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              {regenerating ? 'Gerando...' : 'Gerar de novo'}
+              {regenerating ? 'Gerando...' : t("Gerar de novo")}
             </button>
           </div>
           {/* Editing is easy to miss, and the sheet is the reader's to own —
               they may prefer their own wording, or one written elsewhere. */}
           {onSave && draft === null && (
             <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-2 text-xs font-bold leading-5 text-sky-800">
-              Dica: toque em <span className="font-black">Editar</span> para escrever o resumo do seu
-              jeito — ou colar um que você fez em outro lugar, como o ChatGPT. O que você salvar é o
-              que passa a valer aqui e no resumo da matéria.
+              {t("Dica: toque em")} <span className="font-black">{t("Editar")}</span> {t("para escrever o resumo do seu jeito — ou colar um que você fez em outro lugar, como o ChatGPT. O que você salvar é o que passa a valer aqui e no resumo da matéria.")}
             </p>
           )}
           {progress && (
@@ -227,15 +226,14 @@ export function SummarySheetModal({
             ) : (
               <>
                 <p className="mb-3 rounded-2xl bg-sky-50 px-4 py-3 text-xs font-bold leading-5 text-sky-800">
-                  Escreva do seu jeito ou cole um resumo pronto — do ChatGPT, por exemplo. Aceita
-                  Markdown: <span className="font-mono">##</span> para títulos e{' '}
-                  <span className="font-mono">-</span> para tópicos.
+                  {t("Escreva do seu jeito ou cole um resumo pronto — do ChatGPT, por exemplo. Aceita Markdown:")} <span className="font-mono">##</span> {t("para títulos e")}{' '}
+                  <span className="font-mono">-</span> {t("para tópicos.")}
                 </p>
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   rows={24}
-                  aria-label="Editar o resumo"
+                  aria-label={t("Editar o resumo")}
                   aria-invalid={overLimit}
                   aria-describedby="summary-length-counter"
                   className={`w-full resize-y rounded-2xl border-2 bg-white px-4 py-3 font-mono text-sm leading-relaxed text-slate-700 outline-none ${

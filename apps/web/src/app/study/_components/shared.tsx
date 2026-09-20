@@ -9,6 +9,7 @@ import type { StudyDashboard } from '@/lib/api';
 import { formatTimer, type PomodoroMode } from '@/lib/pomodoro';
 
 import { getPomodoroCompletionMessage } from '../_lib/study-helpers';
+import { t } from '@/lib/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB BUTTON
@@ -60,10 +61,10 @@ export function PomodoroWidget({
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Pomodoro</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{t("Pomodoro")}</p>
           <p className="flex items-baseline gap-2">
             <span className="text-base font-black leading-tight text-slate-800 md:text-lg">
-              {isFocus ? 'Foco' : 'Pausa'}
+              {isFocus ? t("Foco") : t("Pausa")}
             </span>
             <span
               className={`font-mono text-base font-black tabular-nums leading-tight text-slate-800 md:hidden ${
@@ -91,7 +92,7 @@ export function PomodoroWidget({
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-controls="pomodoro-details"
-          aria-label={open ? 'Fechar ajustes do pomodoro' : 'Abrir ajustes do pomodoro'}
+          aria-label={open ? t("Fechar ajustes do pomodoro") : t("Abrir ajustes do pomodoro")}
           className="inline-flex h-11 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 md:hidden"
         >
           <ChevronDown size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -102,7 +103,7 @@ export function PomodoroWidget({
         <div className="mt-3 rounded-[1.25rem] border-2 border-slate-100 bg-white p-3 text-center md:rounded-[1.5rem] md:p-5">
           <p className="font-mono text-3xl font-black text-slate-800 md:text-5xl">{formatTimer(seconds)}</p>
           <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-left md:mt-4 md:rounded-2xl md:px-4 md:py-3">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">Pomodoros hoje</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-600">{t("Pomodoros hoje")}</p>
             <p className="mt-1 text-lg font-black text-emerald-700 md:text-2xl">
               {todayCount} <span className="text-xs font-bold text-emerald-600 md:text-sm">{todayCount === 1 ? 'feito' : 'feitos'}</span>
             </p>
@@ -110,16 +111,16 @@ export function PomodoroWidget({
           <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4">
             <button type="button" onClick={() => onSwitch('focus')}
               className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'focus' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-              Foco
+              {t("Foco")}
             </button>
             <button type="button" onClick={() => onSwitch('break')}
               className={`min-h-11 rounded-xl px-3 py-2 text-xs font-black transition md:rounded-2xl md:text-sm ${mode === 'break' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-              Pausa
+              {t("Pausa")}
             </button>
           </div>
           <button type="button" onClick={() => onSwitch(mode)}
             className="mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary md:rounded-2xl md:text-sm">
-            <RotateCcw size={15} /> Reiniciar
+            <RotateCcw size={15} /> {t("Reiniciar")}
           </button>
         </div>
 
@@ -127,7 +128,7 @@ export function PomodoroWidget({
           disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}
           className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 md:rounded-2xl md:text-sm">
           <Bell size={15} />
-          {notificationPermission === 'granted' ? 'Notificações ativas' : notificationPermission === 'unsupported' ? 'Sem suporte' : 'Ativar notificações'}
+          {notificationPermission === 'granted' ? t("Notificações ativas") : notificationPermission === 'unsupported' ? t("Sem suporte") : t("Ativar notificações")}
         </button>
       </div>
 

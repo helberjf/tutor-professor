@@ -38,6 +38,7 @@ import {
   revealMixedReviewLessonAnswer,
   type ReviewConfidenceValue,
 } from '@/lib/mixed-review-state';
+import { t } from '@/lib/i18n';
 
 type GenerationMessage = {
   tone: 'success' | 'warning' | 'error';
@@ -55,10 +56,10 @@ interface ConfidenceLevel {
 }
 
 const CONFIDENCE_LEVELS: ConfidenceLevel[] = [
-  { value: 0, label: 'Não sei', emoji: '😵', bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-700', correct: false },
-  { value: 1, label: 'Dúvida', emoji: '🤔', bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', correct: false },
-  { value: 2, label: 'Quase certeza', emoji: '😊', bg: 'bg-sky-50', border: 'border-sky-300', text: 'text-sky-700', correct: true },
-  { value: 3, label: 'Sei!', emoji: '🎉', bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700', correct: true },
+  { value: 0, label: "Não sei", emoji: '😵', bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-700', correct: false },
+  { value: 1, label: "Dúvida", emoji: '🤔', bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', correct: false },
+  { value: 2, label: "Quase certeza", emoji: '😊', bg: 'bg-sky-50', border: 'border-sky-300', text: 'text-sky-700', correct: true },
+  { value: 3, label: "Sei!", emoji: '🎉', bg: 'bg-emerald-50', border: 'border-emerald-400', text: 'text-emerald-700', correct: true },
 ];
 
 const REVIEW_LIMIT = 8;
@@ -135,7 +136,7 @@ export default function ReviewPage() {
       return true;
     } catch (err) {
       if (!mountedRef.current || reviewRequestRef.current !== requestToken) return false;
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar a revisão.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar a revisão.")));
       return false;
     } finally {
       if (mountedRef.current && reviewRequestRef.current === requestToken) setLoading(false);
@@ -227,7 +228,7 @@ export default function ReviewPage() {
       if (!isCurrentRequest()) return;
       setGenerationMessage({
         tone: 'error',
-        text: err instanceof Error ? err.message : 'Não foi possível criar a próxima lição.',
+        text: err instanceof Error ? err.message : t("Não foi possível criar a próxima lição."),
       });
     } finally {
       if (mountedRef.current && generationRequestRef.current === requestToken) {
@@ -247,8 +248,8 @@ export default function ReviewPage() {
       setGenerationMessage({
         tone: reloaded ? 'success' : 'error',
         text: reloaded
-          ? 'Revisão recarregada. Confira as questões antes de gerar novamente.'
-          : 'Ainda não foi possível recarregar a revisão.',
+          ? t("Revisão recarregada. Confira as questões antes de gerar novamente.")
+          : t("Ainda não foi possível recarregar a revisão."),
       });
       generationInFlightRef.current = false;
       setGenerating(false);
@@ -386,10 +387,10 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando seu cadastro..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando seu cadastro...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -397,11 +398,11 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Ver status")}</Link>}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -409,10 +410,10 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Separando sua revisão"
-        message="O tutor está escolhendo palavras e questões que precisam de prática."
+        title={t("Separando sua revisão")}
+        message={t("O tutor está escolhendo palavras e questões que precisam de prática.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -420,11 +421,11 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponível"
-        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
+        title={t("Tutor temporariamente indisponível")}
+        message={t("Não foi possível carregar a revisão agora. Tente novamente em instantes.")}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Ver status")}</Link>}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -432,11 +433,11 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="offline"
-        title="A revisão não conseguiu se conectar"
-        message="Não foi possível carregar a revisão agora. Tente novamente em instantes."
-        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-orange hover:bg-secondary-dark">Tentar de novo</button>}
+        title={t("A revisão não conseguiu se conectar")}
+        message={t("Não foi possível carregar a revisão agora. Tente novamente em instantes.")}
+        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-orange hover:bg-secondary-dark">{t("Tentar de novo")}</button>}
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexão"
+        secondaryLabel={t("Trocar conexão")}
       />
     );
   }
@@ -444,11 +445,11 @@ export default function ReviewPage() {
     return (
       <StatusCard
         tone="error"
-        title="A revisão travou"
+        title={t("A revisão travou")}
         message={error.message}
-        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-pink hover:bg-pink-500">Recarregar revisão</button>}
+        primaryAction={<button onClick={() => void loadReview()} className="app-button bg-brand-pink hover:bg-pink-500">{t("Recarregar revisão")}</button>}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -463,14 +464,14 @@ export default function ReviewPage() {
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-accent-light">
               <RotateCcw className="text-accent-dark" size={44} />
             </div>
-            <h1 className="mt-5 text-3xl font-black text-slate-800">Revisão concluída!</h1>
+            <h1 className="mt-5 text-3xl font-black text-slate-800">{t("Revisão concluída!")}</h1>
             <p className="mt-3 text-lg text-slate-600">
-              <span className="font-black text-emerald-600">{masteredCount}</span> dominadas ·{' '}
-              <span className="font-black text-rose-600">{total - masteredCount}</span> para praticar mais
+              <span className="font-black text-emerald-600">{masteredCount}</span> {t("dominadas ·")}{' '}
+              <span className="font-black text-rose-600">{total - masteredCount}</span> {t("para praticar mais")}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button onClick={() => void loadReview()} className="app-button justify-center bg-primary-dark hover:bg-primary-dark">Praticar de novo</button>
-              <Link href="/" className="rounded-full border-2 border-slate-200 px-5 py-3.5 font-bold text-slate-600">Voltar ao início</Link>
+              <button onClick={() => void loadReview()} className="app-button justify-center bg-primary-dark hover:bg-primary-dark">{t("Praticar de novo")}</button>
+              <Link href="/" className="rounded-full border-2 border-slate-200 px-5 py-3.5 font-bold text-slate-600">{t("Voltar ao início")}</Link>
             </div>
           </div>
         </main>
@@ -482,10 +483,10 @@ export default function ReviewPage() {
     <section className="app-surface mb-6 border-violet-200 p-5" aria-labelledby="generate-review-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="app-tag inline-flex items-center gap-1 text-xs"><Sparkles size={12} /> IA</p>
-          <h2 id="generate-review-title" className="mt-2 text-lg font-black text-slate-800">Criar próxima lição</h2>
+          <p className="app-tag inline-flex items-center gap-1 text-xs"><Sparkles size={12} /> {t("IA")}</p>
+          <h2 id="generate-review-title" className="mt-2 text-lg font-black text-slate-800">{t("Criar próxima lição")}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            A IA cria a próxima lição de {targetLanguage || 'idioma'} e adiciona novas perguntas na revisão.
+            {t("A IA cria a próxima lição de")} {targetLanguage || 'idioma'} {t("e adiciona novas perguntas na revisão.")}
           </p>
         </div>
         <button
@@ -499,27 +500,27 @@ export default function ReviewPage() {
           aria-controls="review-question-generator-panel"
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-60"
         >
-          <Sparkles size={16} /> Criar próxima lição com IA
+          <Sparkles size={16} /> {t("Criar próxima lição com IA")}
         </button>
       </div>
 
       {generationFormOpen && (
         <div id="review-question-generator-panel" className="mt-5 space-y-4 border-t border-violet-100 pt-5">
           <label className="block text-sm font-black text-slate-700">
-            Tema opcional
+            {t("Tema opcional")}
             <textarea
               value={generationContext}
               onChange={(event) => setGenerationContext(event.target.value)}
               maxLength={80}
               disabled={generating}
               rows={2}
-              placeholder="Ex.: frases para viagem, entrevista ou rotina"
+              placeholder={t("Ex.: frases para viagem, entrevista ou rotina")}
               className="mt-2 w-full resize-y rounded-2xl border-2 border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
             />
             <span className="mt-1 block text-right text-xs font-bold text-slate-400">{generationContext.length}/80</span>
           </label>
 
-          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">A próxima lição será criada em sequência, como Dia 6, Dia 7 e assim por diante.</p>
+          <p className="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">{t("A próxima lição será criada em sequência, como Dia 6, Dia 7 e assim por diante.")}</p>
 
           <div aria-live="polite" aria-atomic="true">
             {generationMessage && (
@@ -547,7 +548,7 @@ export default function ReviewPage() {
                 className="app-button justify-center bg-amber-700 hover:bg-amber-800 disabled:opacity-60"
               >
                 {generating ? <Loader2 size={17} className="animate-spin" /> : <RotateCcw size={17} />}
-                Recarregar revisão antes de tentar novamente
+                {t("Recarregar revisão antes de tentar novamente")}
               </button>
             ) : (
               <button
@@ -557,7 +558,7 @@ export default function ReviewPage() {
                 className="app-button justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
               >
                 {generating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-                {generating ? 'Criando próxima lição...' : 'Criar próxima lição'}
+                {generating ? t("Criando próxima lição...") : t("Criar próxima lição")}
               </button>
             )}
           </div>
@@ -570,12 +571,12 @@ export default function ReviewPage() {
     return (
       <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-lg">
-          <Link href="/" className="-ml-2 mb-5 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
+          <Link href="/" className="-ml-2 mb-5 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> {t("Voltar")}</Link>
           {generationPanel}
           <div className="app-surface p-7 text-center">
             <Brain className="mx-auto text-slate-300" size={44} />
-            <h1 className="mt-4 text-2xl font-black text-slate-800">Nada pendente para revisar</h1>
-            <p className="mt-2 text-sm text-slate-500">Você pode criar a próxima lição com IA usando o formulário acima.</p>
+            <h1 className="mt-4 text-2xl font-black text-slate-800">{t("Nada pendente para revisar")}</h1>
+            <p className="mt-2 text-sm text-slate-500">{t("Você pode criar a próxima lição com IA usando o formulário acima.")}</p>
           </div>
         </div>
       </main>
@@ -590,9 +591,9 @@ export default function ReviewPage() {
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
       <div className="mx-auto max-w-lg">
         <div className="mb-5 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> Voltar</Link>
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark"><ArrowLeft size={18} /> {t("Voltar")}</Link>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"><Brain size={12} /> Revisão</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"><Brain size={12} /> {t("Revisão")}</span>
             <span className="app-tag text-xs">{currentIndex + 1}/{total}</span>
           </div>
         </div>
@@ -604,10 +605,10 @@ export default function ReviewPage() {
         </div>
 
         {card.card_type === 'lesson_question' ? (
-          <section className="app-surface border-violet-200 p-6 md:p-8" aria-label="Questão da lição">
+          <section className="app-surface border-violet-200 p-6 md:p-8" aria-label={t("Questão da lição")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-violet-700">{card.question_type.replaceAll('_', ' ')}</span>
-              <span className="text-xs font-bold text-slate-400">Questão da lição</span>
+              <span className="text-xs font-bold text-slate-400">{t("Questão da lição")}</span>
             </div>
             <h1 className="mt-6 text-2xl font-black leading-snug text-slate-800 md:text-3xl">{card.prompt}</h1>
 
@@ -625,7 +626,7 @@ export default function ReviewPage() {
                 className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-violet-200 px-4 py-2 text-sm font-black text-violet-700 transition hover:bg-violet-50"
               >
                 <Languages size={16} />
-                {phraseTranslationShown ? 'Ocultar tradução da frase' : 'Ver tradução da frase'}
+                {phraseTranslationShown ? t("Ocultar tradução da frase") : t("Ver tradução da frase")}
               </button>
             )}
 
@@ -636,16 +637,16 @@ export default function ReviewPage() {
                 disabled={submitting || reviewTransitionRef.current.advancementLocked}
                 className="app-button mt-8 w-full justify-center bg-violet-600 hover:bg-violet-700 disabled:opacity-60"
               >
-                Revelar resposta
+                {t("Revelar resposta")}
               </button>
             ) : (
               <div className="mt-7 space-y-5" aria-live="polite">
                 <div className="rounded-2xl bg-violet-50 p-5">
-                  <p className="text-xs font-black uppercase tracking-widest text-violet-500">Resposta</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-violet-500">{t("Resposta")}</p>
                   <p className="mt-2 text-xl font-black text-slate-800">{card.answer}</p>
                   {card.supporting_example && (
                     <div className="mt-4 border-t border-violet-200 pt-4">
-                      <p className="text-xs font-black uppercase tracking-widest text-violet-500">Exemplo de apoio</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-violet-500">{t("Exemplo de apoio")}</p>
                       <p className="mt-1 text-sm font-semibold text-slate-600">{card.supporting_example}</p>
                       {phraseTranslationShown && card.supporting_example_translation && (
                         <p className="mt-1 text-sm font-semibold text-slate-500">{card.supporting_example_translation}</p>
@@ -653,7 +654,7 @@ export default function ReviewPage() {
                     </div>
                   )}
                 </div>
-                <p className="text-center text-sm font-bold text-slate-500">Você sabia a resposta antes de revelar?</p>
+                <p className="text-center text-sm font-bold text-slate-500">{t("Você sabia a resposta antes de revelar?")}</p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -661,7 +662,7 @@ export default function ReviewPage() {
                     disabled={submitting || reviewTransitionRef.current.advancementLocked}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-rose-300 bg-rose-50 px-4 py-4 font-black text-rose-700 disabled:opacity-60"
                   >
-                    <XCircle size={18} /> Não sabia
+                    <XCircle size={18} /> {t("Não sabia")}
                   </button>
                   <button
                     type="button"
@@ -669,14 +670,14 @@ export default function ReviewPage() {
                     disabled={submitting || reviewTransitionRef.current.advancementLocked}
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-300 bg-emerald-50 px-4 py-4 font-black text-emerald-700 disabled:opacity-60"
                   >
-                    <CheckCircle2 size={18} /> Sabia
+                    <CheckCircle2 size={18} /> {t("Sabia")}
                   </button>
                 </div>
               </div>
             )}
           </section>
         ) : (
-          <section aria-label="Revisão de vocabulário">
+          <section aria-label={t("Revisão de vocabulário")}>
             <div className="flashcard-scene mb-4" style={{ perspective: '1200px', minHeight: '260px' }}>
               <div
                 className="flashcard-inner relative w-full transition-transform duration-500"
@@ -692,9 +693,9 @@ export default function ReviewPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-700">
-                      Frente
+                      {t("Frente")}
                     </span>
-                    <div className="flex items-center gap-2" aria-label="Velocidade do áudio">
+                    <div className="flex items-center gap-2" aria-label={t("Velocidade do áudio")}>
                       {([0.5, 0.75, 1.0] as const).map((speed) => (
                         <button
                           type="button"
@@ -734,7 +735,7 @@ export default function ReviewPage() {
                     onClick={handleFlip}
                     className="mt-2 w-full rounded-2xl border-2 border-dashed border-slate-200 py-3 text-sm font-black text-slate-400 transition hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600"
                   >
-                    Virar carta ↻
+                    {t("Virar carta ↻")}
                   </button>
                 </div>
 
@@ -748,13 +749,13 @@ export default function ReviewPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary-dark">
-                      Verso
+                      {t("Verso")}
                     </span>
                     <span className="text-sm font-bold text-slate-400">{card.word_en}</span>
                   </div>
 
                   <div className="flex flex-1 flex-col items-center justify-center py-4">
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Tradução</p>
+                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("Tradução")}</p>
                     <p className="mt-2 text-center text-3xl font-black text-slate-800 md:text-4xl">
                       {card.word_pt}
                     </p>
@@ -763,7 +764,7 @@ export default function ReviewPage() {
                   {!chosenLevel ? (
                     <div>
                       <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                        Como você se saiu?
+                        {t("Como você se saiu?")}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {CONFIDENCE_LEVELS.map((level) => (
@@ -784,8 +785,8 @@ export default function ReviewPage() {
                     <div className="mt-2" aria-live="polite">
                       <p className="mb-3 text-center text-sm font-semibold text-slate-500">
                         {chosenLevel.correct
-                          ? 'Ótimo! Essa frase voltará mais tarde.'
-                          : 'Sem problema. Ela voltará em breve para mais prática.'}
+                          ? t("Ótimo! Essa frase voltará mais tarde.")
+                          : t("Sem problema. Ela voltará em breve para mais prática.")}
                       </p>
                       <button
                         type="button"
@@ -795,7 +796,7 @@ export default function ReviewPage() {
                           chosenLevel.correct ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-primary-dark hover:bg-primary-dark'
                         }`}
                       >
-                        {currentIndex < total - 1 ? 'Próxima carta →' : 'Ver resultado'}
+                        {currentIndex < total - 1 ? t("Próxima carta →") : t("Ver resultado")}
                       </button>
                     </div>
                   )}
@@ -806,7 +807,7 @@ export default function ReviewPage() {
         )}
 
         {card.difficulty_score > 0 && (
-          <p className="mt-4 text-center text-xs font-bold text-slate-400">Dificuldade: {Math.round(card.difficulty_score * 100)}% · {card.error_count} erros anteriores</p>
+          <p className="mt-4 text-center text-xs font-bold text-slate-400">{t("Dificuldade:")} {Math.round(card.difficulty_score * 100)}% · {card.error_count} erros anteriores</p>
         )}
       </div>
     </main>

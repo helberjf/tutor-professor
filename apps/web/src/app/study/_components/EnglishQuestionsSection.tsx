@@ -5,8 +5,9 @@ import { ClipboardList, Loader2 } from 'lucide-react';
 
 import { StudyQuestionsPanel } from '@/components/questions/StudyQuestionsPanel';
 import { api, type LessonSummary } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
-const SUBJECT_NAME = 'Inglês';
+const SUBJECT_NAME = "Inglês";
 
 /**
  * "Modo questões" for English: pick one of the child's lessons and practise a
@@ -30,7 +31,7 @@ export function EnglishQuestionsSection() {
         setLessons(loaded);
         setSelectedId((current) => current ?? loaded[0]?.id ?? null);
       } catch {
-        if (active) setError('Não foi possível carregar as lições de inglês.');
+        if (active) setError(t("Não foi possível carregar as lições de inglês."));
       } finally {
         if (active) setLoading(false);
       }
@@ -47,15 +48,15 @@ export function EnglishQuestionsSection() {
     <section id="english-questions" className="app-surface scroll-mt-24 border-sky-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
         <ClipboardList size={18} className="text-sky-600" />
-        <h2 className="text-xl font-black text-slate-800">Modo questões</h2>
+        <h2 className="text-xl font-black text-slate-800">{t("Modo questões")}</h2>
       </div>
       <p className="mt-1 text-sm font-bold text-slate-500">
-        Escolha uma lição e faça um simulado de múltipla escolha sobre ela.
+        {t("Escolha uma lição e faça um simulado de múltipla escolha sobre ela.")}
       </p>
 
       {loading ? (
         <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
-          <Loader2 className="animate-spin" size={16} /> Carregando lições
+          <Loader2 className="animate-spin" size={16} /> {t("Carregando lições")}
         </p>
       ) : error ? (
         <p role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
@@ -63,12 +64,12 @@ export function EnglishQuestionsSection() {
         </p>
       ) : lessons.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-          Nenhuma lição de inglês ainda. Gere uma lição para poder montar o simulado.
+          {t("Nenhuma lição de inglês ainda. Gere uma lição para poder montar o simulado.")}
         </p>
       ) : (
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="text-sm font-black text-slate-700">Lição</span>
+            <span className="text-sm font-black text-slate-700">{t("Lição")}</span>
             <select
               value={selectedId ?? ''}
               onChange={(event) => setSelectedId(Number(event.target.value) || null)}
@@ -92,7 +93,7 @@ export function EnglishQuestionsSection() {
                 topic_key: String(selected.id),
                 topic_title: selected.title,
               }}
-              emptyHint="Gere questões de múltipla escolha a partir desta lição para fazer o simulado."
+              emptyHint={t("Gere questões de múltipla escolha a partir desta lição para fazer o simulado.")}
             />
           )}
         </div>
@@ -102,15 +103,15 @@ export function EnglishQuestionsSection() {
     <section id="english-grammar" className="app-surface scroll-mt-24 border-violet-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
         <ClipboardList size={18} className="text-violet-600" />
-        <h2 className="text-xl font-black text-slate-800">Modo gramática</h2>
+        <h2 className="text-xl font-black text-slate-800">{t("Modo gramática")}</h2>
       </div>
       <p className="mt-1 text-sm font-bold text-slate-500">
-        Escolha uma lição e treine as estruturas das 3 frases do dia.
+        {t("Escolha uma lição e treine as estruturas das 3 frases do dia.")}
       </p>
 
       {loading ? (
         <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
-          <Loader2 className="animate-spin" size={16} /> Carregando lições
+          <Loader2 className="animate-spin" size={16} /> {t("Carregando lições")}
         </p>
       ) : error ? (
         <p role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
@@ -118,12 +119,12 @@ export function EnglishQuestionsSection() {
         </p>
       ) : lessons.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-          Nenhuma lição de inglês ainda. Gere uma lição para poder praticar gramática.
+          {t("Nenhuma lição de inglês ainda. Gere uma lição para poder praticar gramática.")}
         </p>
       ) : (
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="text-sm font-black text-slate-700">Lição</span>
+            <span className="text-sm font-black text-slate-700">{t("Lição")}</span>
             <select
               value={selectedId ?? ''}
               onChange={(event) => setSelectedId(Number(event.target.value) || null)}
@@ -143,12 +144,14 @@ export function EnglishQuestionsSection() {
               tone="sky"
               target={{
                 area: 'english',
+                // Identifica a materia no banco: tem de ser a mesma string para todo
+                // mundo, ou o mesmo assunto vira dois conforme o idioma da tela.
                 subject_name: 'Inglês - Gramática',
                 topic_key: `grammar:${selected.id}`,
                 topic_title: `Gramática: ${selected.title}`,
               }}
-              emptyHint="Gere questões focadas em gramática a partir desta lição."
-              generationContext="Crie questões focadas em gramática, estrutura das frases, ordem das palavras, tempos verbais e padrões de uso presentes nesta lição."
+              emptyHint={t("Gere questões focadas em gramática a partir desta lição.")}
+              generationContext={t("Crie questões focadas em gramática, estrutura das frases, ordem das palavras, tempos verbais e padrões de uso presentes nesta lição.")}
             />
           )}
         </div>

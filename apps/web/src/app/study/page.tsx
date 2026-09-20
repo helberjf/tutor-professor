@@ -64,6 +64,7 @@ import type {
   StudyRating,
   StudyTab,
 } from './_lib/study-helpers';
+import { t as translate } from '@/lib/i18n';
 
 // Uma aba de cada vez aparece, mas as três vinham no mesmo pacote: abrir
 // "Estudos" baixava o currículo de programação inteiro — flashcards, treinador
@@ -305,7 +306,7 @@ export default function StudyPage() {
         setPomodoroState((prev) => ({ ...prev, completedByDate: merged }));
         pomodoroSyncBaseRef.current = { ...merged };
       })
-      .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar os estudos.')); })
+      .catch((err) => { if (!cancelled) setError(err instanceof ApiError ? err : new ApiError(translate("Não foi possível carregar os estudos."))); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [authState.status]);
@@ -496,12 +497,12 @@ export default function StudyPage() {
   async function requestNotifications() {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       setNotificationPermission('unsupported');
-      setPomodoroMessage('Este navegador não suporta notificacoes.');
+      setPomodoroMessage(translate("Este navegador não suporta notificacoes."));
       return;
     }
     const p = await Notification.requestPermission();
     setNotificationPermission(p);
-    setPomodoroMessage(p === 'granted' ? 'Notificacoes ativadas.' : 'Notificacoes não foram ativadas.');
+    setPomodoroMessage(p === 'granted' ? translate("Notificacoes ativadas.") : translate("Notificacoes não foram ativadas."));
   }
 
   function addDistraction() {
@@ -521,9 +522,9 @@ export default function StudyPage() {
       await api.saveStudyDay(selectedDate, { plan_text: planText, studied_text: studiedText, distractions });
       const refreshed = await api.getStudyDashboard();
       setDashboard(refreshed);
-      setSavedMessage(studiedText.trim() ? 'Estudo registrado.' : 'Planejamento salvo.');
+      setSavedMessage(studiedText.trim() ? translate("Estudo registrado.") : translate("Planejamento salvo."));
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível salvar.'));
+      setError(err instanceof ApiError ? err : new ApiError(translate("Não foi possível salvar.")));
     } finally { setSaving(false); }
   }
 
@@ -549,9 +550,9 @@ export default function StudyPage() {
     try {
       const saved = await api.saveCodingDay(selectedDate, { subjects: codingDay.subjects });
       setCodingDay(saved);
-      setCodingSaved('Progresso de programação salvo.');
+      setCodingSaved(translate("Progresso de programação salvo."));
     } catch {
-      setCodingError('Não foi possível salvar o progresso.');
+      setCodingError(translate("Não foi possível salvar o progresso."));
     } finally { setSavingCoding(false); }
   }
 
@@ -560,12 +561,12 @@ export default function StudyPage() {
     const name = newSubjectName.trim();
     const initialTopicCount = 3;
     if (!name) {
-      setDiverseError('Digite o nome da matéria para criar.');
+      setDiverseError(translate("Digite o nome da matéria para criar."));
       return;
     }
     const subjects = diverseDay?.custom_subjects ?? [];
     if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
-      setDiverseError('Essa matéria já existe para esta data.');
+      setDiverseError(translate("Essa matéria já existe para esta data."));
       return;
     }
     setDiverseError('');
@@ -584,7 +585,7 @@ export default function StudyPage() {
       });
       const initialTopics = flashcardsToTopics(result.flashcards).slice(0, initialTopicCount);
       if (initialTopics.length !== initialTopicCount) {
-        setDiverseError('A IA não retornou 3 tópicos iniciais para essa matéria. Tente novamente.');
+        setDiverseError(translate("A IA não retornou 3 tópicos iniciais para essa matéria. Tente novamente."));
         return;
       }
       const newSubject: DiverseSubject = { id: createLocalSubjectId(), name, topics: initialTopics, lessons: [] };
@@ -602,9 +603,9 @@ export default function StudyPage() {
       selectDiverseSubjectTab(newSubjectSlug);
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: nextSubjects });
       setDiverseDay(saved);
-      setDiverseSaved('Matéria criada com 3 tópicos iniciais da IA.');
+      setDiverseSaved(translate("Matéria criada com 3 tópicos iniciais da IA."));
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Não foi possível criar a matéria com 3 tópicos iniciais da IA.';
+      const message = err instanceof ApiError ? err.message : translate("Não foi possível criar a matéria com 3 tópicos iniciais da IA.");
       setDiverseError(message);
     } finally {
       diverseMutationLockRef.current = false;
@@ -615,7 +616,7 @@ export default function StudyPage() {
   }
 
   async function importDiverseStudy(subject: DiverseSubject): Promise<boolean> {
-    if (diverseMutationLockRef.current) throw new Error('Aguarde a operação atual terminar.');
+    if (diverseMutationLockRef.current) throw new Error(translate("Aguarde a operação atual terminar."));
     const importDate = selectedDate;
 
     diverseMutationLockRef.current = true;
@@ -627,12 +628,12 @@ export default function StudyPage() {
       if (selectedDateRef.current === importDate) {
         diverseDayRef.current = saved;
         setDiverseDay(saved);
-        setDiverseSaved('Estudo importado e salvo.');
+        setDiverseSaved(translate("Estudo importado e salvo."));
         return true;
       }
       return false;
     } catch (caught) {
-      const message = caught instanceof ApiError ? caught.message : 'Não foi possível importar e salvar o estudo.';
+      const message = caught instanceof ApiError ? caught.message : translate("Não foi possível importar e salvar o estudo.");
       if (selectedDateRef.current !== importDate) return false;
       setDiverseError(message);
       throw new Error(message);
@@ -729,9 +730,9 @@ export default function StudyPage() {
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: subjects });
       diverseDayRef.current = saved;
       setDiverseDay(saved);
-      setDiverseSaved('Matéria removida com sucesso.');
+      setDiverseSaved(translate("Matéria removida com sucesso."));
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Não foi possível apagar a matéria agora.';
+      const message = err instanceof ApiError ? err.message : translate("Não foi possível apagar a matéria agora.");
       setDiverseError(message);
       diverseDayRef.current = diverseDay;
       setDiverseDay(diverseDay);
@@ -861,7 +862,7 @@ export default function StudyPage() {
       const result = await api.generateStudyFlashcards(payload);
       const subjects = diverseDay?.custom_subjects ?? [];
       if (subjects.some((s) => s.name.toLowerCase() === result.subject.toLowerCase())) {
-        setAiError('Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova.');
+        setAiError(translate("Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova."));
         return;
       }
       const newTopics = flashcardsToTopics(result.flashcards);
@@ -878,7 +879,7 @@ export default function StudyPage() {
       setNewSubjectName('');
       selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível criar aula com IA.';
+      const msg = err instanceof ApiError ? err.message : translate("Não foi possível criar aula com IA.");
       setAiError(msg);
     } finally {
       diverseMutationLockRef.current = false;
@@ -891,7 +892,7 @@ export default function StudyPage() {
     const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
     if (!subject?.name.trim()) return;
     if (subject.topics.length >= 50) {
-      setAiError('Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar.');
+      setAiError(translate("Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar."));
       return;
     }
     if (diverseMutationLockRef.current) return;
@@ -912,22 +913,22 @@ export default function StudyPage() {
       });
       const newTopic = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
       if (!newTopic) {
-        setAiError('A IA sugeriu um tópico repetido. Tente novamente para avancar para outro assunto.');
+        setAiError(translate("A IA sugeriu um tópico repetido. Tente novamente para avancar para outro assunto."));
         return;
       }
       const currentDay = diverseDayRef.current;
       const currentSubjects = currentDay?.custom_subjects ?? [];
       if (!currentDay || findItemIndexById(currentSubjects, subject.id) < 0) {
-        setAiError('A matéria foi removida antes de concluir a sugestão. Nenhum tópico foi adicionado.');
+        setAiError(translate("A matéria foi removida antes de concluir a sugestão. Nenhum tópico foi adicionado."));
         return;
       }
       const subjects = appendTopicToSubjectById(currentSubjects, subject.id, newTopic);
       const nextDay = { ...currentDay, custom_subjects: subjects };
       diverseDayRef.current = nextDay;
       setDiverseDay(nextDay);
-      setDiverseSaved('Tópico sugerido pela IA. Salve a matéria para guardar.');
+      setDiverseSaved(translate("Tópico sugerido pela IA. Salve a matéria para guardar."));
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível sugerir tópico com IA.';
+      const msg = err instanceof ApiError ? err.message : translate("Não foi possível sugerir tópico com IA.");
       setAiError(msg);
     } finally {
       diverseMutationLockRef.current = false;
@@ -967,7 +968,7 @@ export default function StudyPage() {
       });
       const replacement = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
       if (!replacement) {
-        setAiError('A IA não conseguiu gerar um tópico novo para substituir este item. Tente novamente.');
+        setAiError(translate("A IA não conseguiu gerar um tópico novo para substituir este item. Tente novamente."));
         return;
       }
 
@@ -991,9 +992,9 @@ export default function StudyPage() {
         diverseDayRef.current = nextDay;
         return nextDay;
       });
-      setDiverseSaved('Tópico regenerado com IA. Salve a matéria para guardar.');
+      setDiverseSaved(translate("Tópico regenerado com IA. Salve a matéria para guardar."));
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível regenerar este tópico com IA.';
+      const msg = err instanceof ApiError ? err.message : translate("Não foi possível regenerar este tópico com IA.");
       setAiError(msg);
     } finally {
       diverseMutationLockRef.current = false;
@@ -1006,7 +1007,7 @@ export default function StudyPage() {
     const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
     if (!subject?.name.trim()) return;
     if (getDiverseSubjectLessons(subject).length >= 30) {
-      setAiError('Limite de 30 blocos de lição atingido para esta matéria.');
+      setAiError(translate("Limite de 30 blocos de lição atingido para esta matéria."));
       return;
     }
     if (diverseMutationLockRef.current) return;
@@ -1028,7 +1029,7 @@ export default function StudyPage() {
       });
       const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
       if (topics.length !== AI_FLASHCARD_COUNT) {
-        setAiError('A IA precisa gerar exatamente 5 questões novas para criar a lição. Nenhum preview foi salvo.');
+        setAiError(translate("A IA precisa gerar exatamente 5 questões novas para criar a lição. Nenhum preview foi salvo."));
         return;
       }
       const lesson: DiverseLessonBlock = {
@@ -1041,13 +1042,13 @@ export default function StudyPage() {
       const currentSubjectIndex = findItemIndexById(currentSubjects, subject.id);
       if (currentSubjectIndex < 0) {
         setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, subject.id));
-        setAiError('A matéria foi removida antes de concluir o preview. Gere novamente em outra matéria.');
+        setAiError(translate("A matéria foi removida antes de concluir o preview. Gere novamente em outra matéria."));
         return;
       }
       setPendingLessonDraft({ subjectId: subject.id, lesson, topics });
-      setDiverseSaved('Preview da lição criado. Revise antes de salvar.');
+      setDiverseSaved(translate("Preview da lição criado. Revise antes de salvar."));
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Não foi possível criar lição com IA.';
+      const msg = err instanceof ApiError ? err.message : translate("Não foi possível criar lição com IA.");
       setAiError(msg);
     } finally {
       diverseMutationLockRef.current = false;
@@ -1064,7 +1065,7 @@ export default function StudyPage() {
     if (findItemIndexById(latestSubjects, subjectId) < 0) {
       setPendingLessonDraft(null);
       setDiverseSaved('');
-      setAiError('A matéria deste preview não existe mais. O preview foi descartado.');
+      setAiError(translate("A matéria deste preview não existe mais. O preview foi descartado."));
       return;
     }
     setDiverseDay((current) => {
@@ -1086,7 +1087,7 @@ export default function StudyPage() {
       return { ...current, custom_subjects: subjects };
     });
     setPendingLessonDraft(null);
-    setDiverseSaved('Lição adicionada em bloco e tópicos incluídos na matéria. Salve para guardar.');
+    setDiverseSaved(translate("Lição adicionada em bloco e tópicos incluídos na matéria. Salve para guardar."));
   }
 
   function discardPendingLessonDraft() {
@@ -1098,20 +1099,20 @@ export default function StudyPage() {
     setGeneratingLesson(true); setLessonGenMessage('');
     try {
       await api.generateMorePhrases({ quantity: 1 });
-      setLessonGenMessage('Nova lição criada com sucesso!');
+      setLessonGenMessage(translate("Nova lição criada com sucesso!"));
     } catch (err) {
-      setLessonGenMessage(err instanceof ApiError ? err.message : 'Não foi possível criar a lição.');
+      setLessonGenMessage(err instanceof ApiError ? err.message : translate("Não foi possível criar a lição."));
     } finally { setGeneratingLesson(false); }
   }
 
   async function generateMoreDiverseQuestions(subjectId: string, lessonId: string, context?: string) {
     if (diverseQuestionGenerationLockRef.current || diverseMutationLockRef.current) {
-      throw new Error('Outra alteração desta matéria ainda está em andamento. Aguarde e tente novamente.');
+      throw new Error(translate("Outra alteração desta matéria ainda está em andamento. Aguarde e tente novamente."));
     }
 
     const currentDay = diverseDayRef.current;
     if (!currentDay || !resolveDiverseGenerationTarget(currentDay, subjectId, lessonId)) {
-      throw new Error('A matéria ou lição selecionada não existe mais. Atualize a seleção e tente novamente.');
+      throw new Error(translate("A matéria ou lição selecionada não existe mais. Atualize a seleção e tente novamente."));
     }
 
     const generationDate = selectedDate;
@@ -1134,7 +1135,7 @@ export default function StudyPage() {
       // Resolve the backend index only from the saved response, never from a captured array index.
       const target = resolveDiverseGenerationTarget(saved, subjectId, lessonId);
       if (!target) {
-        throw new Error('A matéria ou lição foi removida durante a atualização. Nenhuma questão foi criada.');
+        throw new Error(translate("A matéria ou lição foi removida durante a atualização. Nenhuma questão foi criada."));
       }
 
       const outcome = await generateAndSynchronizeDiverseQuestions({
@@ -1156,7 +1157,7 @@ export default function StudyPage() {
       });
       const successMessage = outcome.synchronized
         ? '5 novas questões foram adicionadas à lição.'
-        : '5 novas questões foram criadas. A sincronização final falhou; recarregue a página se necessário.';
+        : translate("5 novas questões foram criadas. A sincronização final falhou; recarregue a página se necessário.");
       if (selectedDateRef.current === generationDate) {
         diverseDayRef.current = outcome.day;
         setDiverseDay(outcome.day);
@@ -1170,7 +1171,7 @@ export default function StudyPage() {
           diverseDayRef.current = fresh;
           setDiverseDay(fresh);
         }
-        throw new Error('A matéria mudou em outra operação. Os dados foram atualizados; revise e tente novamente.');
+        throw new Error(translate("A matéria mudou em outra operação. Os dados foram atualizados; revise e tente novamente."));
       }
       throw err;
     } finally {
@@ -1188,9 +1189,9 @@ export default function StudyPage() {
     try {
       const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: diverseDay.custom_subjects });
       setDiverseDay(saved);
-      setDiverseSaved('Aprendizado diverso salvo.');
+      setDiverseSaved(translate("Aprendizado diverso salvo."));
     } catch {
-      setDiverseError('Não foi possível salvar.');
+      setDiverseError(translate("Não foi possível salvar."));
     } finally {
       diverseMutationLockRef.current = false;
       setSavingDiverse(false);
@@ -1218,23 +1219,23 @@ export default function StudyPage() {
 
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
-    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando seu cadastro..." secondaryHref="/" secondaryLabel="Voltar ao início" />;
+    return <StatusCard tone="loading" title={translate("Verificando acesso")} message={translate("Confirmando seu cadastro...")} secondaryHref="/" secondaryLabel={translate("Voltar ao início")} />;
   }
   if (authState.status === 'server_missing') {
     return (
-      <StatusCard tone="offline" title="Servidor não disponível" message="O sistema está temporariamente indisponível. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
-        secondaryHref="/" secondaryLabel="Voltar ao início" />
+      <StatusCard tone="offline" title={translate("Servidor não disponível")} message={translate("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{translate("Ver status")}</Link>}
+        secondaryHref="/" secondaryLabel={translate("Voltar ao início")} />
     );
   }
   if (loading && (activeTab === 'english' || activeTab === 'dashboard')) {
-    return <StatusCard tone="loading" title="Abrindo caderno de estudos" message="Buscando planejamento e histórico..." secondaryHref="/" secondaryLabel="Voltar ao início" />;
+    return <StatusCard tone="loading" title={translate("Abrindo caderno de estudos")} message={translate("Buscando planejamento e histórico...")} secondaryHref="/" secondaryLabel={translate("Voltar ao início")} />;
   }
   if (error?.isUnconfigured || error?.isOffline) {
     return (
-      <StatusCard tone="offline" title="Não consegui conectar" message={error.message}
-        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
-        secondaryHref="/" secondaryLabel="Voltar ao início" />
+      <StatusCard tone="offline" title={translate("Não consegui conectar")} message={error.message}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{translate("Ver status")}</Link>}
+        secondaryHref="/" secondaryLabel={translate("Voltar ao início")} />
     );
   }
 
@@ -1245,13 +1246,13 @@ export default function StudyPage() {
         {/* Top bar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-2 px-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
-            <ArrowLeft size={18} /> Voltar
+            <ArrowLeft size={18} /> {translate("Voltar")}
           </Link>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <span className="app-tag w-fit text-xs">Painel de disciplina</span>
+            <span className="app-tag w-fit text-xs">{translate("Painel de disciplina")}</span>
             <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
               <CalendarDays size={14} />
-              <span className="sr-only">Data</span>
+              <span className="sr-only">{translate("Data")}</span>
               <input
                 type="date"
                 value={selectedDate}
@@ -1265,14 +1266,14 @@ export default function StudyPage() {
 
         {/* Tab switcher */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
-          <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label="Dashboard" />
+          <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label={translate("Dashboard")} />
           <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="English" mobileLabel="English" />
           <TabButton
             active={activeTab === 'diverse' || activeTab === 'coding'}
             onClick={selectDiverseOverview}
             icon={<Layers size={17} />}
-            label="Outras Matérias"
-            mobileLabel="Matérias"
+            label={translate("Outras Matérias")}
+            mobileLabel={translate("Matérias")}
           />
         </div>
 
@@ -1296,8 +1297,8 @@ export default function StudyPage() {
               <BookOpen size={26} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xl font-black text-slate-800">Começar lição de inglês</span>
-              <span className="mt-1 block text-sm font-semibold text-slate-500">Abrir página de lições</span>
+              <span className="block text-xl font-black text-slate-800">{translate("Começar lição de inglês")}</span>
+              <span className="mt-1 block text-sm font-semibold text-slate-500">{translate("Abrir página de lições")}</span>
             </span>
             <ChevronRight size={24} className="shrink-0 text-primary" />
           </Link>

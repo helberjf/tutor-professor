@@ -5,24 +5,26 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, LogIn, LogOut, Menu, Settings, Target, Trophy, UserPlus, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageToggle } from '@/components/language-toggle';
 import { api } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const primaryLinks = [
-  { href: '/', label: 'Início', icon: Home },
-  { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-  { href: '/objectives', label: 'Objetivos', icon: Target },
-  { href: '/lesson', label: 'Lição', icon: BookOpen },
-  { href: '/study', label: 'Estudos', icon: ClipboardList },
-  { href: '/quiz', label: 'Quiz', icon: Trophy },
-  { href: '/review', label: 'Revisão', icon: Brain },
-  { href: '/chat', label: 'Chat', icon: Bot },
-  { href: '/books', label: 'Livros', icon: Library },
-  { href: '/account', label: 'Área da conta', icon: Settings },
+  { href: '/', label: "Início", icon: Home },
+  { href: '/dashboard', label: "Dashboard", icon: BarChart3 },
+  { href: '/objectives', label: "Objetivos", icon: Target },
+  { href: '/lesson', label: "Lição", icon: BookOpen },
+  { href: '/study', label: "Estudos", icon: ClipboardList },
+  { href: '/quiz', label: "Quiz", icon: Trophy },
+  { href: '/review', label: "Revisão", icon: Brain },
+  { href: '/chat', label: "Chat", icon: Bot },
+  { href: '/books', label: "Livros", icon: Library },
+  { href: '/account', label: "Área da conta", icon: Settings },
 ];
 
 const authLinks = [
-  { href: '/login', label: 'Entrar', icon: LogIn },
-  { href: '/register', label: 'Cadastrar', icon: UserPlus },
+  { href: '/login', label: "Entrar", icon: LogIn },
+  { href: '/register', label: "Cadastrar", icon: UserPlus },
 ];
 
 type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
@@ -81,16 +83,17 @@ export function Navbar() {
               <GraduationCap size={22} className="text-white" strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">Tutor pessoal</p>
+              <p className="truncate text-xs font-bold uppercase tracking-[0.18em] text-slate-400 md:text-sm">{t("Tutor pessoal")}</p>
               <p className="truncate text-sm font-black text-slate-800 md:text-lg">Tutor and Professor</p>
             </div>
           </Link>
 
           <div className="flex items-center gap-2">
+            <LanguageToggle compact className="hidden sm:inline-grid" />
             <ThemeToggle compact className="hidden sm:inline-grid" />
             <button
               className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-primary transition hover:border-primary focus:outline-none"
-              aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+              aria-label={open ? t("Fechar menu") : t("Abrir menu")}
               onClick={() => setOpen((value) => !value)}
             >
               {open ? <X size={24} /> : <Menu size={24} />}
@@ -104,14 +107,14 @@ export function Navbar() {
           <button
             type="button"
             className="app-menu-overlay fixed inset-0 z-40 bg-slate-900/18 backdrop-blur-sm"
-            aria-label="Fechar menu"
+            aria-label={t("Fechar menu")}
             onClick={() => setOpen(false)}
           />
 
           <aside className="app-menu-panel fixed right-0 top-0 z-50 flex h-full w-[min(22rem,88vw)] flex-col border-l border-white/70 bg-white/95 shadow-[0_30px_80px_rgba(15,23,42,0.18)] backdrop-blur-xl">
             <div className="flex shrink-0 items-start justify-between gap-4 p-5 pb-0">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Menu</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Menu")}</p>
                 <h2 className="mt-2 text-2xl font-black text-slate-800">
                   {authStatus === 'authenticated' && firstName
                     ? `Vamos estudar ${firstName}!`
@@ -121,7 +124,7 @@ export function Navbar() {
               <button
                 type="button"
                 className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-primary transition hover:border-primary"
-                aria-label="Fechar menu"
+                aria-label={t("Fechar menu")}
                 onClick={() => setOpen(false)}
               >
                 <X size={22} />
@@ -130,12 +133,17 @@ export function Navbar() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-5">
               <div className="mt-8">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aparencia</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Idioma")}</p>
+                <LanguageToggle className="mt-4 w-full" />
+              </div>
+
+              <div className="mt-8">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Aparencia")}</p>
                 <ThemeToggle className="mt-4 w-full" />
               </div>
 
               <div className="mt-8">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Aprender</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Aprender")}</p>
               <ul className="mt-4 space-y-2">
                 {primaryLinks.map((item) => {
                   const Icon = item.icon;
@@ -152,7 +160,7 @@ export function Navbar() {
                         }`}
                       >
                         <Icon size={19} />
-                        {item.label}
+                        {t(item.label)}
                       </Link>
                     </li>
                   );
@@ -161,7 +169,7 @@ export function Navbar() {
             </div>
 
             <div className="mt-6">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Conta</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Conta")}</p>
               <ul className="mt-4 space-y-2">
                 {authStatus === 'authenticated' ? (
                   <li>
@@ -171,7 +179,7 @@ export function Navbar() {
                       className="flex w-full items-center gap-3 rounded-[1.35rem] px-4 py-3 text-left text-base font-bold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700"
                     >
                       <LogOut size={19} />
-                      Sair
+                      {t("Sair")}
                     </button>
                   </li>
                 ) : null}
@@ -194,7 +202,7 @@ export function Navbar() {
                         }`}
                       >
                         <Icon size={19} />
-                        {item.label}
+                        {t(item.label)}
                       </Link>
                     </li>
                   );

@@ -10,15 +10,16 @@ import { formatCpf, onlyDigits, validateCpf } from '@/lib/cpf';
 import { validatePasswordStrength } from '@/lib/password-validation';
 import { ageFromIsoDate, bandLabel, bandFromIsoDate, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 import { PasswordStrengthMeter } from '@/components/password-strength-meter';
+import { t } from '@/lib/i18n';
 
 // ── Supported languages ──────────────────────────────────────────────────────────────────────────────
 const LANGUAGES = [
-  { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
-  { value: 'French',   flag: '🇫🇷', label: 'Francês' },
-  { value: 'Spanish',  flag: '🇪🇸', label: 'Espanhol' },
-  { value: 'German',   flag: '🇩🇪', label: 'Alemão' },
-  { value: 'Italian',  flag: '🇮🇹', label: 'Italiano' },
-  { value: 'Russian',  flag: '🇷🇺', label: 'Russo' },
+  { value: 'English',  flag: '🇺🇸', label: "Inglês" },
+  { value: 'French',   flag: '🇫🇷', label: "Francês" },
+  { value: 'Spanish',  flag: '🇪🇸', label: "Espanhol" },
+  { value: 'German',   flag: '🇩🇪', label: "Alemão" },
+  { value: 'Italian',  flag: '🇮🇹', label: "Italiano" },
+  { value: 'Russian',  flag: '🇷🇺', label: "Russo" },
 ];
 
 const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
@@ -120,46 +121,46 @@ export default function RegisterPage() {
   function validate(): boolean {
     const next: typeof errors = {};
 
-    if (!form.first_name.trim()) next.first_name = 'Informe o nome.';
-    if (!form.last_name.trim()) next.last_name = 'Informe o sobrenome.';
-    if (!form.child_name.trim()) next.child_name = 'Informe o nome do estudante.';
+    if (!form.first_name.trim()) next.first_name = t("Informe o nome.");
+    if (!form.last_name.trim()) next.last_name = t("Informe o sobrenome.");
+    if (!form.child_name.trim()) next.child_name = t("Informe o nome do estudante.");
 
     const birthProblem = birthDateError(form.birth_date);
     if (birthProblem) next.birth_date = birthProblem;
 
     const email = form.email.trim();
     if (!email) {
-      next.email = 'Informe o e-mail.';
+      next.email = t("Informe o e-mail.");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      next.email = 'E-mail inválido.';
+      next.email = t("E-mail inválido.");
     }
 
     const cpfDigits = onlyDigits(form.cpf);
     if (!cpfDigits) {
-      next.cpf = 'Informe o CPF.';
+      next.cpf = t("Informe o CPF.");
     } else if (cpfDigits.length !== 11) {
-      next.cpf = 'CPF incompleto.';
+      next.cpf = t("CPF incompleto.");
     } else if (!validateCpf(form.cpf)) {
-      next.cpf = 'CPF inválido.';
+      next.cpf = t("CPF inválido.");
     }
 
     if (!form.password) {
-      next.password = 'Informe a senha.';
+      next.password = t("Informe a senha.");
     } else if (!passwordCheck.isValid) {
       next.password = passwordCheck.feedback[0];
     }
 
     if (!form.confirm) {
-      next.confirm = 'Confirme a senha.';
+      next.confirm = t("Confirme a senha.");
     } else if (form.password !== form.confirm) {
-      next.confirm = 'As senhas não coincidem.';
+      next.confirm = t("As senhas não coincidem.");
     }
 
     // A minor's profile only goes through with the supervision term accepted:
     // it is the clause the terms of use state, so the form asks for it here
     // rather than assuming somebody read the document.
     if (!birthProblem && isMinorStudent && !supervisionAccepted) {
-      next.birth_date = 'Confirme que o estudo será acompanhado por um adulto responsável.';
+      next.birth_date = t("Confirme que o estudo será acompanhado por um adulto responsável.");
     }
 
     setErrors(next);
@@ -194,8 +195,8 @@ export default function RegisterPage() {
     } catch (err) {
       const msg =
         err instanceof ApiError
-          ? (err.detail ?? 'Não foi possível criar a conta.')
-          : 'Não foi possível criar a conta.';
+          ? (err.detail ?? t("Não foi possível criar a conta."))
+          : t("Não foi possível criar a conta.");
       setErrors({ submit: msg });
     } finally {
       setLoading(false);
@@ -211,7 +212,7 @@ export default function RegisterPage() {
       const msg =
         err instanceof ApiError
           ? (err.detail ?? err.message)
-          : 'Não foi possível iniciar o Google.';
+          : t("Não foi possível iniciar o Google.");
       setErrors({ submit: msg });
       setGoogleLoading(false);
     }
@@ -225,12 +226,11 @@ export default function RegisterPage() {
       <div className="flex min-h-screen flex-col items-center justify-center px-3 py-10 sm:px-4 sm:py-12">
         <div className="app-surface w-full max-w-md p-6 text-center sm:p-10">
           <CheckCircle2 size={48} className="mx-auto mb-4 text-emerald-500" />
-          <h2 className="text-2xl font-black text-slate-800">Conta criada!</h2>
+          <h2 className="text-2xl font-black text-slate-800">{t("Conta criada!")}</h2>
           <p className="mt-2 text-slate-500">
-            Falta só o administrador liberar o acesso. Você já pode entrar para
-            acompanhar — a tela avisa assim que a conta for aprovada.
+            {t("Falta só o administrador liberar o acesso. Você já pode entrar para acompanhar — a tela avisa assim que a conta for aprovada.")}
           </p>
-          <p className="mt-3 text-sm font-bold text-slate-400">Redirecionando para o login…</p>
+          <p className="mt-3 text-sm font-bold text-slate-400">{t("Redirecionando para o login…")}</p>
         </div>
       </div>
     );
@@ -245,7 +245,7 @@ export default function RegisterPage() {
           className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-primary-dark"
         >
           <ArrowLeft size={16} />
-          Voltar ao início
+          {t("Voltar ao início")}
         </Link>
       </div>
 
@@ -255,12 +255,12 @@ export default function RegisterPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_40px_rgba(14,165,233,0.15)]">
             <User className="text-primary-dark" size={32} />
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">Criar conta</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Criar conta</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">{t("Criar conta")}</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{t("Criar conta")}</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Já tem conta?{' '}
+            {t("Já tem conta?")}{' '}
             <Link href="/login" className="font-bold text-primary hover:underline">
-              Entrar
+              {t("Entrar")}
             </Link>
           </p>
         </div>
@@ -273,37 +273,37 @@ export default function RegisterPage() {
             className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-primary hover:text-primary disabled:opacity-60"
           >
             <Chrome size={18} />
-            {googleLoading ? 'Abrindo Google...' : 'Continuar com Google'}
+            {googleLoading ? t("Abrindo Google...") : t("Continuar com Google")}
           </button>
 
           <div className="mb-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">ou</span>
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">{t("ou")}</span>
             <div className="h-px flex-1 bg-slate-200" />
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Name row */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field id="first_name" label="Nome" icon={<User size={16} className="text-slate-400" />} error={errors.first_name} required>
+              <Field id="first_name" label={t("Nome")} icon={<User size={16} className="text-slate-400" />} error={errors.first_name} required>
                 <input
                   id="first_name"
                   type="text"
                   autoComplete="given-name"
                   required
-                  placeholder="João"
+                  placeholder={t("João")}
                   value={form.first_name}
                   onChange={(e) => set('first_name', e.target.value)}
                   className={inputCls}
                 />
               </Field>
-              <Field id="last_name" label="Sobrenome" icon={<User size={16} className="text-slate-400" />} error={errors.last_name} required>
+              <Field id="last_name" label={t("Sobrenome")} icon={<User size={16} className="text-slate-400" />} error={errors.last_name} required>
                 <input
                   id="last_name"
                   type="text"
                   autoComplete="family-name"
                   required
-                  placeholder="Silva"
+                  placeholder={t("Silva")}
                   value={form.last_name}
                   onChange={(e) => set('last_name', e.target.value)}
                   className={inputCls}
@@ -311,13 +311,13 @@ export default function RegisterPage() {
               </Field>
             </div>
 
-            <Field id="child_name" label="Seu nome / Nome do estudante" icon={<User size={16} className="text-slate-400" />} error={errors.child_name} required>
+            <Field id="child_name" label={t("Seu nome / Nome do estudante")} icon={<User size={16} className="text-slate-400" />} error={errors.child_name} required>
               <input
                 id="child_name"
                 type="text"
                 autoComplete="off"
                 required
-                placeholder="Ana"
+                placeholder={t("Ana")}
                 value={form.child_name}
                 onChange={(e) => set('child_name', e.target.value)}
                 className={inputCls}
@@ -326,7 +326,7 @@ export default function RegisterPage() {
 
             <Field
               id="birth_date"
-              label="Data de nascimento do estudante"
+              label={t("Data de nascimento do estudante")}
               icon={<CalendarDays size={16} className="text-slate-400" />}
               error={errors.birth_date}
               required
@@ -342,11 +342,11 @@ export default function RegisterPage() {
               />
               {studentBand ? (
                 <p className="mt-1.5 text-xs font-bold text-slate-500">
-                  {studentAge} anos · conteúdo gerado para a faixa {bandLabel(studentBand)}.
+                  {studentAge} {t("anos · conteúdo gerado para a faixa")} {bandLabel(studentBand)}.
                 </p>
               ) : (
                 <p className="mt-1.5 text-xs font-semibold text-slate-400">
-                  É ela que define a faixa de idade do conteúdo — e continua certa depois do aniversário.
+                  {t("É ela que define a faixa de idade do conteúdo — e continua certa depois do aniversário.")}
                 </p>
               )}
             </Field>
@@ -357,8 +357,7 @@ export default function RegisterPage() {
                   {/* The terms are still a draft (docs/termos.md says so), so this
                       states the clause instead of linking to a page that does not
                       exist yet. */}
-                  Este perfil é de um menor de 18 anos. Pelos termos de uso, o estudo deve ser
-                  acompanhado por um adulto responsável, que responde pela conta.
+                  {t("Este perfil é de um menor de 18 anos. Pelos termos de uso, o estudo deve ser acompanhado por um adulto responsável, que responde pela conta.")}
                 </p>
                 <label className="mt-3 flex items-start gap-2.5 text-sm font-bold text-amber-900">
                   <input
@@ -368,7 +367,7 @@ export default function RegisterPage() {
                     className="mt-0.5 h-5 w-5 shrink-0 rounded border-2 border-amber-300"
                   />
                   <span>
-                    Sou o responsável legal por este estudante e acompanho o uso do aplicativo.
+                    {t("Sou o responsável legal por este estudante e acompanho o uso do aplicativo.")}
                   </span>
                 </label>
               </div>
@@ -378,7 +377,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <Globe size={14} /> Idioma para aprender <span aria-hidden="true" className="text-brand-pink">*</span>
+                  <Globe size={14} /> {t("Idioma para aprender")} <span aria-hidden="true" className="text-brand-pink">*</span>
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -394,7 +393,7 @@ export default function RegisterPage() {
                     }`}
                   >
                     <span className="text-xl">{lang.flag}</span>
-                    {lang.label}
+                    {t(lang.label)}
                   </button>
                 ))}
               </div>
@@ -404,20 +403,20 @@ export default function RegisterPage() {
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-black text-slate-700 [&::-webkit-details-marker]:hidden">
                 <span className="flex items-center gap-2">
                   <Bot size={16} className="text-primary-dark" />
-                  Configuração de IA (opcional)
+                  {t("Configuração de IA (opcional)")}
                 </span>
                 <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
-                  Gemini padrão
+                  {t("Gemini padrão")}
                   <ChevronDown size={14} className="transition-transform group-open:rotate-180" />
                 </span>
               </summary>
               <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
-                Você pode deixar tudo em branco e criar a conta normalmente. Esses campos só são necessários se você quiser usar uma chave própria de IA.
+                {t("Você pode deixar tudo em branco e criar a conta normalmente. Esses campos só são necessários se você quiser usar uma chave própria de IA.")}
               </p>
 
               <div className="mt-4 space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field id="ai_provider" label="IA" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_provider}>
+                  <Field id="ai_provider" label={t("IA")} icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_provider}>
                     <select
                       id="ai_provider"
                       value={form.ai_provider}
@@ -431,7 +430,7 @@ export default function RegisterPage() {
                       ))}
                     </select>
                   </Field>
-                  <Field id="ai_model" label="Modelo" icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_model}>
+                  <Field id="ai_model" label={t("Modelo")} icon={<Bot size={16} className="text-slate-400" />} error={errors.ai_model}>
                     <input
                       id="ai_model"
                       type="text"
@@ -444,19 +443,19 @@ export default function RegisterPage() {
                   </Field>
                 </div>
 
-                <Field id="ai_api_key" label="Chave API da IA" icon={<KeyRound size={16} className="text-slate-400" />} error={errors.ai_api_key}>
+                <Field id="ai_api_key" label={t("Chave API da IA")} icon={<KeyRound size={16} className="text-slate-400" />} error={errors.ai_api_key}>
                   <input
                     id="ai_api_key"
                     type="password"
                     autoComplete="off"
-                    placeholder="Cole sua chave"
+                    placeholder={t("Cole sua chave")}
                     value={form.ai_api_key}
                     onChange={(e) => set('ai_api_key', e.target.value)}
                     className={inputCls}
                   />
                 </Field>
 
-                <Field id="ai_base_url" label="URL base opcional" icon={<Globe size={16} className="text-slate-400" />} error={errors.ai_base_url}>
+                <Field id="ai_base_url" label={t("URL base opcional")} icon={<Globe size={16} className="text-slate-400" />} error={errors.ai_base_url}>
                   <input
                     id="ai_base_url"
                     type="url"
@@ -471,13 +470,13 @@ export default function RegisterPage() {
             </details>
 
             {/* Email */}
-            <Field id="email" label="E-mail" icon={<Mail size={16} className="text-slate-400" />} error={errors.email} required>
+            <Field id="email" label={t("E-mail")} icon={<Mail size={16} className="text-slate-400" />} error={errors.email} required>
               <input
                 id="email"
                 type="email"
                 autoComplete="email"
                 required
-                placeholder="joao@email.com"
+                placeholder={t("joao@email.com")}
                 value={form.email}
                 onChange={(e) => set('email', e.target.value)}
                 className={inputCls}
@@ -493,8 +492,8 @@ export default function RegisterPage() {
                 errors.cpf ||
                 (cpfTouchedAndInvalid
                   ? cpfDigits.length < 11
-                    ? 'CPF incompleto.'
-                    : 'CPF inválido.'
+                    ? t("CPF incompleto.")
+                    : t("CPF inválido.")
                   : undefined)
               }
               required
@@ -514,13 +513,13 @@ export default function RegisterPage() {
             </Field>
 
             {/* Password */}
-            <Field id="password" label="Senha" icon={<Lock size={16} className="text-slate-400" />} error={errors.password} required>
+            <Field id="password" label={t("Senha")} icon={<Lock size={16} className="text-slate-400" />} error={errors.password} required>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 required
-                placeholder="Crie uma senha forte"
+                placeholder={t("Crie uma senha forte")}
                 value={form.password}
                 onChange={(e) => set('password', e.target.value)}
                 className={`${inputCls} pr-11`}
@@ -540,9 +539,9 @@ export default function RegisterPage() {
             {/* Confirm */}
             <Field
               id="confirm"
-              label="Confirmar senha"
+              label={t("Confirmar senha")}
               icon={<Lock size={16} className="text-slate-400" />}
-              error={errors.confirm || (confirmTouchedAndMismatched ? 'As senhas não coincidem.' : undefined)}
+              error={errors.confirm || (confirmTouchedAndMismatched ? t("As senhas não coincidem.") : undefined)}
               required
             >
               <input
@@ -550,7 +549,7 @@ export default function RegisterPage() {
                 type={showConfirm ? 'text' : 'password'}
                 autoComplete="new-password"
                 required
-                placeholder="Repita a senha"
+                placeholder={t("Repita a senha")}
                 value={form.confirm}
                 onChange={(e) => set('confirm', e.target.value)}
                 className={`${inputCls} pr-11`}
@@ -576,7 +575,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="mt-2 w-full rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 py-3.5 text-sm font-black uppercase tracking-widest text-white shadow-lg transition hover:brightness-110 disabled:opacity-60"
             >
-              {loading ? 'Criando conta…' : 'Criar conta'}
+              {loading ? t("Criando conta…") : t("Criar conta")}
             </button>
           </form>
         </div>

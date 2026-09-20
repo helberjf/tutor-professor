@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Clock, LogOut, RefreshCw, ShieldX } from 'lucide-react';
 
 import { api, type AccountStatus, type UserProfile } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * Shown in place of the app while an account waits in the administrator's queue.
@@ -48,15 +49,15 @@ export function AccountReviewNotice({
           </div>
 
           <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">
-            {rejected ? 'Acesso recusado' : 'Conta em análise'}
+            {rejected ? t("Acesso recusado") : t("Conta em análise")}
           </p>
           <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">
-            {rejected ? 'Seu acesso foi recusado' : 'Aguardando aprovação'}
+            {rejected ? t("Seu acesso foi recusado") : t("Aguardando aprovação")}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-600">
             {rejected
-              ? 'O administrador não liberou esta conta. Se você acha que foi um engano, fale com quem administra o app.'
-              : 'Sua conta foi criada e está na fila do administrador. Assim que ela for aprovada, é só recarregar esta página para entrar.'}
+              ? t("O administrador não liberou esta conta. Se você acha que foi um engano, fale com quem administra o app.")
+              : t("Sua conta foi criada e está na fila do administrador. Assim que ela for aprovada, é só recarregar esta página para entrar.")}
           </p>
 
           <p className="mt-4 break-all text-sm font-bold text-slate-500">{user.email}</p>
@@ -70,7 +71,7 @@ export function AccountReviewNotice({
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-primary-dark px-6 py-3 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
               >
                 <RefreshCw size={17} />
-                Verificar de novo
+                {t("Verificar de novo")}
               </button>
             ) : null}
             <button
@@ -80,7 +81,7 @@ export function AccountReviewNotice({
               className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-slate-200 px-6 py-3 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary disabled:opacity-60"
             >
               <LogOut size={17} />
-              Sair
+              {t("Sair")}
             </button>
           </div>
         </div>

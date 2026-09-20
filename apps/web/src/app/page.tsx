@@ -6,6 +6,7 @@ import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library,
 
 import { ApiError, api, type LevelAnalysis, type Progress, type StudyResume, type StudySessionState } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
+import { t } from '@/lib/i18n';
 
 type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
 
@@ -88,7 +89,7 @@ export default function HomePage() {
         {serverMissing && (
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">
             <WifiOff size={16} className="shrink-0" />
-            <span>O tutor está temporariamente indisponível. Tente novamente em instantes.</span>
+            <span>{t("O tutor está temporariamente indisponível. Tente novamente em instantes.")}</span>
           </div>
         )}
 
@@ -97,7 +98,7 @@ export default function HomePage() {
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-6 py-5 text-center sm:text-left">
             <LogIn size={20} className="shrink-0 text-sky-600" />
             <span className="flex-1 text-sm font-semibold text-sky-700">
-              Faça cadastro ou entre para acessar as lições, quiz e livros.
+              {t("Faça cadastro ou entre para acessar as lições, quiz e livros.")}
             </span>
           </div>
         )}
@@ -107,15 +108,15 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center md:gap-6">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100 sm:px-3 sm:py-2">
-                <Sparkles size={15} /> Seu tutor pessoal
+                <Sparkles size={15} /> {t("Seu tutor pessoal")}
               </span>
             <h1 className="mt-3 max-w-3xl text-[1.7rem] sm:mt-4 font-semibold leading-tight text-slate-800 sm:text-4xl sm:leading-tight md:text-5xl">
-              Vamos aprender tudo do seu jeito
+              {t("Vamos aprender tudo do seu jeito")}
             </h1>
             <p className="mt-3 max-w-2xl text-base font-semibold leading-6 text-slate-600 sm:mt-4 sm:text-lg sm:leading-8">
               {isUnauthenticated
-                ? 'Crie sua conta gratuita e comece com lições, revisão e livros no mesmo lugar.'
-                : 'Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.'}
+                ? t("Crie sua conta gratuita e comece com lições, revisão e livros no mesmo lugar.")
+                : t("Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.")}
             </p>
             </div>
 
@@ -130,7 +131,7 @@ export default function HomePage() {
                 </span>
                 {progress.themes_completed > 0 && (
                   <span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 ring-1 ring-emerald-100">
-                    🏆 {progress.themes_completed} temas concluídos
+                    🏆 {progress.themes_completed} {t("temas concluídos")}
                   </span>
                 )}
               </div>
@@ -143,7 +144,7 @@ export default function HomePage() {
                 className="mt-1 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-amber-300 sm:mt-6 px-6 text-lg font-black text-slate-950 shadow-[0_14px_30px_rgba(251,191,36,0.24)] transition hover:scale-[1.02] hover:bg-amber-200 sm:w-auto sm:px-8"
               >
                 <WifiOff size={24} />
-                Ver status
+                {t("Ver status")}
               </Link>
             ) : isUnauthenticated ? (
               <div className="mt-1 flex flex-col gap-3 sm:mt-6 sm:flex-row">
@@ -152,14 +153,14 @@ export default function HomePage() {
                   className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-lg font-black text-white shadow-[0_14px_30px_rgba(14,165,233,0.22)] transition hover:scale-[1.02] sm:w-auto"
                 >
                   <UserPlus size={22} />
-                  Cadastrar grátis
+                  {t("Cadastrar grátis")}
                 </Link>
                 <Link
                   href="/login"
                   className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-6 text-lg font-black text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 sm:w-auto"
                 >
                   <LogIn size={22} />
-                  Entrar
+                  {t("Entrar")}
                 </Link>
               </div>
             ) : isAuthenticated ? (
@@ -175,7 +176,7 @@ export default function HomePage() {
                     >
                       <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
                         <PlayCircle size={26} />
-                        Continuar de onde parou
+                        {t("Continuar de onde parou")}
                       </span>
                       <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/85">
                         {resumeDestination.label}
@@ -196,11 +197,11 @@ export default function HomePage() {
                     >
                       <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
                         <ClipboardList size={26} />
-                        Iniciar estudos
+                        {t("Iniciar estudos")}
                       </span>
                       {resumeDestination && (
                         <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate-400">
-                          Monta uma fila nova
+                          {t("Monta uma fila nova")}
                         </span>
                       )}
                     </Link>
@@ -218,9 +219,9 @@ export default function HomePage() {
         {isAuthenticated && progress && (
           <section className="mt-3 rounded-[1.5rem] border-2 border-white/80 bg-white/85 p-4 shadow-[0_8px_24px_rgba(14,165,233,0.08)] sm:mt-4 sm:p-5">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Progresso do aluno</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Progresso do aluno")}</p>
               <span className="shrink-0 whitespace-nowrap rounded-full bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-700">
-                Nível {level?.level ?? progress.current_level}
+                {t("Nível")} {level?.level ?? progress.current_level}
                 {/* The label doubles the pill's width, which wraps it onto a
                     second line on a phone. The number carries the meaning. */}
                 {level?.label ? <span className="hidden sm:inline"> · {level.label}</span> : null}
@@ -244,7 +245,7 @@ export default function HomePage() {
                   />
                 </div>
                 <p className="mt-1 text-[0.6875rem] font-semibold text-slate-400 sm:text-xs">
-                  {levelProgress.learned} de {levelProgress.target} tópicos para o nível {levelProgress.nextLevel}
+                  {levelProgress.learned} de {levelProgress.target} {t("tópicos para o nível")} {levelProgress.nextLevel}
                 </p>
               </>
             )}
@@ -256,21 +257,21 @@ export default function HomePage() {
                   <Flame size={16} className="text-orange-600" />
                 </div>
                 <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.streak_count}</p>
-                <p className="text-xs font-semibold text-slate-400">Dias</p>
+                <p className="text-xs font-semibold text-slate-400">{t("Dias")}</p>
               </div>
               <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100 sm:h-8 sm:w-8">
                   <Target size={16} className="text-emerald-600" />
                 </div>
                 <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.vocabulary_learned}</p>
-                <p className="text-xs font-semibold text-slate-400">Tópicos</p>
+                <p className="text-xs font-semibold text-slate-400">{t("Tópicos")}</p>
               </div>
               <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-violet-100 sm:h-8 sm:w-8">
                   <BookOpen size={16} className="text-violet-600" />
                 </div>
                 <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.themes_completed}</p>
-                <p className="text-xs font-semibold text-slate-400">Temas</p>
+                <p className="text-xs font-semibold text-slate-400">{t("Temas")}</p>
               </div>
             </div>
           </section>
@@ -282,8 +283,8 @@ export default function HomePage() {
             href={cardHref('/dashboard')}
             emoji="📊"
             icon={<BarChart3 size={28} />}
-            title="Dashboard"
-            description="Veja as métricas e acompanhe sua evolução"
+            title={t("Dashboard")}
+            description={t("Veja as métricas e acompanhe sua evolução")}
             bg="bg-slate-50"
             border="border-slate-200"
             iconColor="text-slate-700"
@@ -293,8 +294,8 @@ export default function HomePage() {
             href={cardHref('/objectives')}
             emoji="🎯"
             icon={<Target size={28} />}
-            title="Objetivos"
-            description="Defina aonde quer chegar e acompanhe o alcance"
+            title={t("Objetivos")}
+            description={t("Defina aonde quer chegar e acompanhe o alcance")}
             bg="bg-cyan-50"
             border="border-cyan-200"
             iconColor="text-cyan-700"
@@ -304,8 +305,8 @@ export default function HomePage() {
             href={cardHref('/lesson')}
             emoji="📖"
             icon={<BookOpen size={28} />}
-            title="Lição"
-            description="Aprenda as frases de hoje"
+            title={t("Lição")}
+            description={t("Aprenda as frases de hoje")}
             bg="bg-sky-50"
             border="border-sky-200"
             iconColor="text-sky-600"
@@ -315,8 +316,8 @@ export default function HomePage() {
             href={cardHref('/review')}
             emoji="🧠"
             icon={<Brain size={28} />}
-            title="Revisão"
-            description="Pratique o que aprendeu"
+            title={t("Revisão")}
+            description={t("Pratique o que aprendeu")}
             bg="bg-emerald-50"
             border="border-emerald-200"
             iconColor="text-emerald-600"
@@ -326,8 +327,8 @@ export default function HomePage() {
             href={cardHref('/study')}
             emoji="📝"
             icon={<ClipboardList size={28} />}
-            title="Estudos"
-            description="Planeje e registre seu foco"
+            title={t("Estudos")}
+            description={t("Planeje e registre seu foco")}
             bg="bg-teal-50"
             border="border-teal-200"
             iconColor="text-teal-600"
@@ -337,8 +338,8 @@ export default function HomePage() {
             href={cardHref('/diverse')}
             emoji="🧩"
             icon={<Layers size={28} />}
-            title="Outras matérias"
-            description="Crie aulas com IA"
+            title={t("Outras matérias")}
+            description={t("Crie aulas com IA")}
             bg="bg-indigo-50"
             border="border-indigo-200"
             iconColor="text-indigo-600"
@@ -349,8 +350,8 @@ export default function HomePage() {
             href={cardHref('/chat')}
             emoji="🤖"
             icon={<Bot size={28} />}
-            title="Chat"
-            description="Converse com o tutor"
+            title={t("Chat")}
+            description={t("Converse com o tutor")}
             bg="bg-rose-50"
             border="border-rose-200"
             iconColor="text-rose-500"
@@ -360,8 +361,8 @@ export default function HomePage() {
             href={cardHref('/quick-review')}
             emoji="⚡"
             icon={<Zap size={28} />}
-            title="Revisão rápida"
-            description="Relembre palavras em segundos"
+            title={t("Revisão rápida")}
+            description={t("Relembre palavras em segundos")}
             bg="bg-amber-50"
             border="border-amber-300"
             iconColor="text-amber-500"
@@ -372,8 +373,8 @@ export default function HomePage() {
             href={cardHref('/books')}
             emoji="📚"
             icon={<Library size={28} />}
-            title="Livros"
-            description="Leia histórias no idioma que você estuda"
+            title={t("Livros")}
+            description={t("Leia histórias no idioma que você estuda")}
             bg="bg-violet-50"
             border="border-violet-200"
             iconColor="text-violet-600"
@@ -384,7 +385,7 @@ export default function HomePage() {
         {/* Difficult words — only when there's data */}
         {isAuthenticated && progress?.difficult_words && progress.difficult_words.length > 0 && (
           <section className="mt-6 app-surface border-slate-200/60 p-6">
-            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">Para praticar mais</p>
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-400">{t("Para praticar mais")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {progress.difficult_words.map((word) => (
                 <Link
@@ -404,7 +405,7 @@ export default function HomePage() {
         {isAuthenticated && (
           <div className="mt-6 text-center">
             <Link href="/account" className="inline-flex min-h-11 items-center px-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400 transition hover:text-slate-600">
-              Área da conta
+              {t("Área da conta")}
             </Link>
           </div>
         )}
@@ -460,7 +461,7 @@ function describeQueue(state: StudySessionState | null, hasOpenSession: boolean)
     );
   }
   if (parts.length === 0) {
-    return hasOpenSession ? 'Termine a sessão aberta para fechar o dia.' : 'Tudo em dia por aqui.';
+    return hasOpenSession ? t("Termine a sessão aberta para fechar o dia.") : t("Tudo em dia por aqui.");
   }
   return `Na fila: ${parts.join(' · ')}.`;
 }

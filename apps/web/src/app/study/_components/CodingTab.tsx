@@ -9,6 +9,7 @@ import type { PomodoroMode } from '@/lib/pomodoro';
 
 import type { CodingMode } from '../_lib/study-helpers';
 import { PomodoroWidget } from './shared';
+import { t } from '@/lib/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CODING TAB
@@ -60,8 +61,8 @@ export function CodingTab({
               <BookOpen size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Modo leitura</span>
-              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>Abrir aulas e tópicos</span>
+              <span className="block text-sm font-black sm:text-lg">{t("Modo leitura")}</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>{t("Abrir aulas e tópicos")}</span>
             </span>
           </button>
           <button
@@ -77,8 +78,8 @@ export function CodingTab({
               <Layers size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Modo flashcards</span>
-              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>Treinar perguntas por matéria</span>
+              <span className="block text-sm font-black sm:text-lg">{t("Modo flashcards")}</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar perguntas por matéria")}</span>
             </span>
           </button>
           <button
@@ -94,8 +95,8 @@ export function CodingTab({
               <ClipboardList size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Modo questões</span>
-              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>Treinar simulados por tópico</span>
+              <span className="block text-sm font-black sm:text-lg">{t("Modo questões")}</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar simulados por tópico")}</span>
             </span>
           </button>
           <button
@@ -111,8 +112,8 @@ export function CodingTab({
               <GraduationCap size={22} />
             </span>
             <span>
-              <span className="block text-sm font-black sm:text-lg">Modo simulado</span>
-              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>Prova cronometrada com nota no fim</span>
+              <span className="block text-sm font-black sm:text-lg">{t("Modo simulado")}</span>
+              <span className={`mt-0.5 hidden text-xs font-semibold sm:mt-1 sm:block sm:text-sm ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>{t("Prova cronometrada com nota no fim")}</span>
             </span>
           </button>
         </section>

@@ -1,4 +1,5 @@
 import type { ObjectiveArea } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * The study areas an objective item can belong to.
@@ -11,15 +12,15 @@ import type { ObjectiveArea } from '@/lib/api';
 export const OBJECTIVE_AREAS: Array<{ id: ObjectiveArea; label: string; chip: string }> = [
   { id: 'free', label: 'Livre', chip: 'bg-slate-100 text-slate-600' },
   { id: 'language', label: 'Idiomas', chip: 'bg-sky-50 text-sky-700' },
-  { id: 'coding', label: 'Programação', chip: 'bg-orange-50 text-orange-700' },
+  { id: 'coding', label: "Programação", chip: 'bg-orange-50 text-orange-700' },
   { id: 'diverse', label: 'Gerais', chip: 'bg-indigo-50 text-indigo-700' },
-  { id: 'exam', label: 'Simulado', chip: 'bg-violet-50 text-violet-700' },
+  { id: 'exam', label: "Simulado", chip: 'bg-violet-50 text-violet-700' },
 ];
 
 const AREAS_BY_ID = new Map(OBJECTIVE_AREAS.map((area) => [area.id, area]));
 
 export function areaLabel(area: string) {
-  return AREAS_BY_ID.get(area as ObjectiveArea)?.label ?? 'Livre';
+  return t(AREAS_BY_ID.get(area as ObjectiveArea)?.label ?? 'Livre');
 }
 
 export function areaChipClass(area: string) {

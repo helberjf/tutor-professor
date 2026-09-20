@@ -21,6 +21,7 @@ import {
   newPriorityCount,
   selectDraft,
 } from './plan-helpers';
+import { t } from '@/lib/i18n';
 
 type Step = 'start' | 'form' | 'generating' | 'review';
 
@@ -31,15 +32,11 @@ interface Props {
   onSaved: (plan: StudyPlan) => void;
 }
 
-const PROFILE_PLACEHOLDER = `Conte o que a IA precisa saber para montar a estratégia:
-- sua experiência e o que você já construiu (projetos, stack, resultados)
-- onde você quer chegar e por quê
-- o que já tentou e onde sente que trava
-- o que não quer fazer agora`;
+const PROFILE_PLACEHOLDER = "Conte o que a IA precisa saber para montar a estratégia: - sua experiência e o que você já construiu (projetos, stack, resultados) - onde você quer chegar e por quê - o que já tentou e onde sente que trava - o que não quer fazer agora";
 
 function errorMessage(err: unknown, fallback: string) {
   if (err instanceof ApiError && err.status === 404) {
-    return 'O servidor ainda não tem os planos. Tente novamente mais tarde.';
+    return t("O servidor ainda não tem os planos. Tente novamente mais tarde.");
   }
   return err instanceof Error ? err.message : fallback;
 }
@@ -96,7 +93,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
         }
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessage(err, 'Não foi possível abrir o plano.'));
+        if (!cancelled) setError(errorMessage(err, t("Não foi possível abrir o plano.")));
       })
       .finally(() => {
         if (!cancelled) setLoadingContext(false);
@@ -142,7 +139,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
       if (!goal.trim()) setGoal(template.title);
       openDraft(templateDraft);
     } catch (err: unknown) {
-      setError(errorMessage(err, 'Não foi possível abrir o modelo.'));
+      setError(errorMessage(err, t("Não foi possível abrir o modelo.")));
     } finally {
       setSaving(false);
     }
@@ -161,7 +158,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
       });
       openDraft(generated);
     } catch (err: unknown) {
-      setError(errorMessage(err, 'A IA não conseguiu montar o plano agora.'));
+      setError(errorMessage(err, t("A IA não conseguiu montar o plano agora.")));
       setStep('form');
     }
   }
@@ -169,7 +166,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
   async function save() {
     if (!selected || !draft) return;
     if (!goal.trim()) {
-      setError('Diga qual é o objetivo do plano.');
+      setError(t("Diga qual é o objetivo do plano."));
       return;
     }
     setError('');
@@ -185,7 +182,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
         : await api.createPlan(form(), finalDraft);
       onSaved(saved);
     } catch (err: unknown) {
-      setError(errorMessage(err, 'Não foi possível salvar o plano.'));
+      setError(errorMessage(err, t("Não foi possível salvar o plano.")));
     } finally {
       setSaving(false);
     }
@@ -237,7 +234,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
               <button
                 type="button"
                 onClick={() => setStep(step === 'review' && draft?.source === 'ai' ? 'form' : revising ? 'form' : 'start')}
-                aria-label="Voltar"
+                aria-label={t("Voltar")}
                 className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"
               >
                 <ArrowLeft size={20} />
@@ -245,17 +242,17 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
             ) : null}
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                {revising ? `Revisão ${plan ? plan.revision + 1 : ''}` : 'Criar plano'}
+                {revising ? `Revisão ${plan ? plan.revision + 1 : ''}` : t("Criar plano")}
               </p>
               <h2 id="plan-wizard-title" className="truncate text-lg font-black text-slate-800 sm:text-xl">
-                {step === 'start' && 'Como você quer começar?'}
-                {step === 'form' && (revising ? `Revisar: ${plan?.title}` : 'Sobre você e o objetivo')}
-                {step === 'generating' && 'Montando a estratégia'}
-                {step === 'review' && (revising ? 'Revise as mudanças' : 'Revise o plano')}
+                {step === 'start' && t("Como você quer começar?")}
+                {step === 'form' && (revising ? `Revisar: ${plan?.title}` : t("Sobre você e o objetivo"))}
+                {step === 'generating' && t("Montando a estratégia")}
+                {step === 'review' && (revising ? t("Revise as mudanças") : t("Revise o plano"))}
               </h2>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-xl p-2 text-slate-400 hover:bg-slate-100">
+          <button type="button" onClick={onClose} aria-label={t("Fechar")} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100">
             <X size={20} />
           </button>
         </header>
@@ -273,27 +270,26 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                     <Sparkles size={20} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-black text-slate-800">Montar com IA</h3>
+                    <h3 className="font-black text-slate-800">{t("Montar com IA")}</h3>
                     <p className="mt-1 text-sm font-medium leading-6 text-slate-600">
-                      Você conta onde está e aonde quer chegar. A IA acha o maior gargalo, ordena as prioridades,
-                      diz o que não fazer agora e traça o caminho mais curto. Usa 1 crédito de IA.
+                      {t("Você conta onde está e aonde quer chegar. A IA acha o maior gargalo, ordena as prioridades, diz o que não fazer agora e traça o caminho mais curto. Usa 1 crédito de IA.")}
                     </p>
                     {loadingContext ? (
-                      <p className="mt-3 text-sm font-semibold text-slate-500">Verificando a IA da conta...</p>
+                      <p className="mt-3 text-sm font-semibold text-slate-500">{t("Verificando a IA da conta...")}</p>
                     ) : aiAvailable ? (
                       <button
                         type="button"
                         onClick={() => setStep('form')}
                         className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-indigo-700 px-4 text-sm font-black text-white transition hover:bg-indigo-800"
                       >
-                        <Sparkles size={16} /> Começar com IA
+                        <Sparkles size={16} /> {t("Começar com IA")}
                       </button>
                     ) : (
                       <div className="mt-3 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-600">
                         {aiUnavailableMessage(context?.ai_unavailable_reason)}{' '}
                         {context?.ai_unavailable_reason !== 'no_credits' ? (
                           <Link href="/account#ia-da-conta" className="font-black text-primary-dark underline">
-                            Abrir IA da conta
+                            {t("Abrir IA da conta")}
                           </Link>
                         ) : null}
                       </div>
@@ -304,7 +300,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
 
               <section>
                 <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                  <BookMarked size={14} /> Ou comece por um modelo pronto (sem IA)
+                  <BookMarked size={14} /> {t("Ou comece por um modelo pronto (sem IA)")}
                 </p>
                 <ul className="mt-3 grid gap-3 sm:grid-cols-2">
                   {templates.map((template) => (
@@ -318,13 +314,13 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                         <span className="font-black text-slate-800">{template.title}</span>
                         <span className="mt-1 text-xs font-medium leading-5 text-slate-500">{template.summary}</span>
                         <span className="mt-2 text-xs font-black text-slate-400">
-                          {template.priority_count} prioridades · você ajusta tudo depois
+                          {template.priority_count} {t("prioridades · você ajusta tudo depois")}
                         </span>
                       </button>
                     </li>
                   ))}
                   {!loadingContext && templates.length === 0 ? (
-                    <li className="text-sm font-semibold text-slate-500">Nenhum modelo disponível agora.</li>
+                    <li className="text-sm font-semibold text-slate-500">{t("Nenhum modelo disponível agora.")}</li>
                   ) : null}
                 </ul>
               </section>
@@ -335,17 +331,16 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
             <form id="plan-form" onSubmit={generate} className="space-y-4">
               {revising ? (
                 <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-semibold leading-6 text-sky-800">
-                  A IA recebe o progresso de cada prioridade e reajusta o plano. Nada que você concluiu é apagado:
-                  você revisa as mudanças antes de aplicar.
+                  {t("A IA recebe o progresso de cada prioridade e reajusta o plano. Nada que você concluiu é apagado: você revisa as mudanças antes de aplicar.")}
                 </p>
               ) : null}
 
               <label className="block">
-                <span className="text-sm font-black text-slate-700">Qual é o objetivo?</span>
+                <span className="text-sm font-black text-slate-700">{t("Qual é o objetivo?")}</span>
                 <textarea
                   value={goal}
                   onChange={(event) => setGoal(event.target.value)}
-                  placeholder="Ex.: conseguir uma vaga internacional como dev full-stack"
+                  placeholder={t("Ex.: conseguir uma vaga internacional como dev full-stack")}
                   maxLength={500}
                   rows={2}
                   required
@@ -355,9 +350,9 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
               </label>
 
               <label className="block">
-                <span className="text-sm font-black text-slate-700">Sobre você</span>
+                <span className="text-sm font-black text-slate-700">{t("Sobre você")}</span>
                 <span className="mt-0.5 block text-xs font-medium text-slate-500">
-                  Quanto mais concreto, melhor a estratégia. Fica salvo para o próximo plano.
+                  {t("Quanto mais concreto, melhor a estratégia. Fica salvo para o próximo plano.")}
                 </span>
                 <textarea
                   value={profile}
@@ -371,7 +366,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-sm font-black text-slate-700">Horas por semana</span>
+                  <span className="text-sm font-black text-slate-700">{t("Horas por semana")}</span>
                   <input
                     type="number"
                     inputMode="numeric"
@@ -379,12 +374,12 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                     max={100}
                     value={weeklyHours}
                     onChange={(event) => setWeeklyHours(event.target.value)}
-                    placeholder="Ex.: 10"
+                    placeholder={t("Ex.: 10")}
                     className="mt-1.5 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
                   />
                 </label>
                 <label className="block">
-                  <span className="text-sm font-black text-slate-700">Prazo (opcional)</span>
+                  <span className="text-sm font-black text-slate-700">{t("Prazo (opcional)")}</span>
                   <input
                     type="date"
                     value={targetDate}
@@ -403,16 +398,16 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                     className="mt-1 h-4 w-4 accent-sky-600"
                   />
                   <span>
-                    <span className="block text-sm font-black text-slate-700">Incluir meu histórico do app</span>
+                    <span className="block text-sm font-black text-slate-700">{t("Incluir meu histórico do app")}</span>
                     <span className="block text-xs font-medium leading-5 text-slate-500">
-                      Um resumo do que você já estudou aqui vai junto para a IA. Nada além disso é enviado.
+                      {t("Um resumo do que você já estudou aqui vai junto para a IA. Nada além disso é enviado.")}
                     </span>
                   </span>
                 </label>
                 {includeHistory ? (
                   <details className="mt-3">
                     <summary className="cursor-pointer text-xs font-black text-primary-dark">
-                      Ver exatamente o que será enviado
+                      {t("Ver exatamente o que será enviado")}
                     </summary>
                     {context && context.snapshot.length ? (
                       <ul className="mt-2 space-y-1 rounded-xl bg-slate-50 p-3 text-xs font-medium leading-5 text-slate-600">
@@ -422,7 +417,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                       </ul>
                     ) : (
                       <p className="mt-2 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-500">
-                        O app ainda não registrou estudo seu. Só o que você escreveu acima será enviado.
+                        {t("O app ainda não registrou estudo seu. Só o que você escreveu acima será enviado.")}
                       </p>
                     )}
                   </details>
@@ -441,10 +436,10 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <Loader2 size={32} className="animate-spin text-indigo-700" />
               <p className="font-black text-slate-800">
-                {revising ? 'Reajustando o plano com o seu progresso...' : 'Pensando na estratégia...'}
+                {revising ? t("Reajustando o plano com o seu progresso...") : t("Pensando na estratégia...")}
               </p>
               <p className="max-w-sm text-sm font-medium text-slate-500">
-                A IA está diagnosticando o gargalo e ordenando as prioridades. Pode levar até um minuto.
+                {t("A IA está diagnosticando o gargalo e ordenando as prioridades. Pode levar até um minuto.")}
               </p>
             </div>
           ) : null}
@@ -453,7 +448,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
             <div className="space-y-5">
               {draft.source !== 'ai' ? (
                 <label className="block">
-                  <span className="text-sm font-black text-slate-700">Qual é o objetivo deste plano?</span>
+                  <span className="text-sm font-black text-slate-700">{t("Qual é o objetivo deste plano?")}</span>
                   <input
                     value={goal}
                     onChange={(event) => setGoal(event.target.value)}
@@ -485,7 +480,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
               onClick={onClose}
               className="min-h-11 rounded-2xl border-2 border-slate-200 px-5 font-bold text-slate-600 hover:bg-slate-50"
             >
-              Cancelar
+              {t("Cancelar")}
             </button>
             {step === 'form' ? (
               <button
@@ -494,7 +489,7 @@ export function CreatePlanWizard({ plan = null, onClose, onSaved }: Props) {
                 disabled={!goal.trim() || loadingContext || !aiAvailable}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 font-black text-white transition hover:bg-indigo-800 disabled:opacity-50"
               >
-                <Sparkles size={17} /> {revising ? 'Gerar revisão com IA' : 'Gerar plano com IA'}
+                <Sparkles size={17} /> {revising ? t("Gerar revisão com IA") : t("Gerar plano com IA")}
               </button>
             ) : (
               <button

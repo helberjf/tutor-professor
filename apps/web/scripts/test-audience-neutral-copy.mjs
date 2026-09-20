@@ -80,6 +80,6 @@ const parentsRedirect = readFileSync(resolve(srcRoot, 'app/parents/page.tsx'), '
 assert.match(parentsRedirect, /redirect\('\/account'\)/, '/parents must keep working as a redirect');
 
 const navbar = readFileSync(resolve(srcRoot, 'components/navbar.tsx'), 'utf8');
-assert.match(navbar, /href: '\/account', label: 'Área da conta'/, 'the navbar should name the account area');
+assert.match(navbar, /href: '\/account', label: "Área da conta"/, 'the navbar should name the account area');
 
 console.log('audience-neutral copy tests passed');

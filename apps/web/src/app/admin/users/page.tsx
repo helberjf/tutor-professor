@@ -7,6 +7,7 @@ import { ArrowLeft, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AdminUsersPanel } from '@/components/admin-users-panel';
 import { StatusCard } from '@/components/status-card';
+import { t } from '@/lib/i18n';
 
 export default function AdminUsersPage() {
   const [checkDone, setCheckDone] = useState(false);
@@ -23,10 +24,10 @@ export default function AdminUsersPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando permissões de administrador..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando permissões de administrador...")}
         secondaryHref="/admin"
-        secondaryLabel="Voltar ao admin"
+        secondaryLabel={t("Voltar ao admin")}
       />
     );
   }
@@ -35,10 +36,10 @@ export default function AdminUsersPage() {
     return (
       <StatusCard
         tone="error"
-        title="Acesso restrito"
-        message="Somente o administrador pode gerenciar usuários."
+        title={t("Acesso restrito")}
+        message={t("Somente o administrador pode gerenciar usuários.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -48,18 +49,18 @@ export default function AdminUsersPage() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/admin" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={16} /> Dashboard admin
+            <ArrowLeft size={16} /> {t("Dashboard admin")}
           </Link>
           <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
-            <Users size={14} /> Usuarios
+            <Users size={14} /> {t("Usuários")}
           </span>
         </div>
 
         <section className="rounded-[1.75rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Admin</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Usuários e autorização de IA</h1>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">{t("Admin")}</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{t("Usuários e autorização de IA")}</h1>
           <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-            Lista dedicada para ativar a IA por usuário usando a chave global do servidor ou uma chave própria.
+            {t("Lista dedicada para ativar a IA por usuário usando a chave global do servidor ou uma chave própria.")}
           </p>
         </section>
 

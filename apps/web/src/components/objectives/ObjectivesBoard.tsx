@@ -9,6 +9,7 @@ import { api, ApiError, type Objective, type StudyPlan } from '@/lib/api';
 import { ObjectiveCard } from './ObjectiveCard';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { PlanPanel } from './PlanPanel';
+import { t } from '@/lib/i18n';
 
 // Dois diálogos que só existem depois de um clique. Estaticamente importados,
 // o assistente de plano inteiro descia junto com a lista de objetivos.
@@ -62,7 +63,7 @@ export function ObjectivesBoard() {
         setServerOutdated(true);
         return;
       }
-      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar seus objetivos.');
+      setError(err instanceof ApiError ? err.message : t("Não foi possível carregar seus objetivos."));
     } finally {
       setLoading(false);
     }
@@ -135,11 +136,11 @@ export function ObjectivesBoard() {
       <section className="rounded-[1.6rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Alcance geral</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Alcance geral")}</p>
             <p className="mt-1 text-3xl font-black text-slate-800">{averagePercent}%</p>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               {active.length === 0
-                ? 'Nenhum objetivo ativo ainda.'
+                ? t("Nenhum objetivo ativo ainda.")
                 : `${active.length} ${active.length === 1 ? 'objetivo ativo' : 'objetivos ativos'} · ${achievedCount} ${achievedCount === 1 ? 'conquistado' : 'conquistados'} · ${pendingItems} ${pendingItems === 1 ? 'item pendente' : 'itens pendentes'}`}
             </p>
           </div>
@@ -151,7 +152,7 @@ export function ObjectivesBoard() {
                 onClick={() => setPlanWizard({ plan: null })}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-800"
               >
-                <Sparkles size={18} /> Criar plano
+                <Sparkles size={18} /> {t("Criar plano")}
               </button>
             ) : null}
             <button
@@ -160,14 +161,14 @@ export function ObjectivesBoard() {
               disabled={serverOutdated}
               className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
             >
-              <Plus size={18} /> Novo objetivo
+              <Plus size={18} /> {t("Novo objetivo")}
             </button>
           </div>
         </div>
 
         {active.length > 0 ? (
           <div className="mt-4">
-            <ObjectiveProgressBar percent={averagePercent} label="Alcance médio dos objetivos ativos" />
+            <ObjectiveProgressBar percent={averagePercent} label={t("Alcance médio dos objetivos ativos")} />
           </div>
         ) : null}
 
@@ -179,7 +180,7 @@ export function ObjectivesBoard() {
             disabled={serverOutdated}
             className="h-4 w-4 rounded border-2 border-slate-300 accent-sky-600"
           />
-          Mostrar arquivados
+          {t("Mostrar arquivados")}
         </label>
       </section>
 
@@ -191,20 +192,19 @@ export function ObjectivesBoard() {
 
       {serverOutdated ? (
         <section role="alert" className="rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-          <h2 className="font-black">Os objetivos ainda não chegaram ao servidor</h2>
+          <h2 className="font-black">{t("Os objetivos ainda não chegaram ao servidor")}</h2>
           <p className="mt-1 font-semibold leading-6">
-            Esta tela já está no aplicativo, mas o servidor ainda está em uma versão anterior. Tente novamente
-            mais tarde ou continue pela lição e pela revisão.
+            {t("Esta tela já está no aplicativo, mas o servidor ainda está em uma versão anterior. Tente novamente mais tarde ou continue pela lição e pela revisão.")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2 font-black">
-            <Link href="/lesson" className="rounded-xl bg-amber-700 px-3 py-2 text-white hover:bg-amber-800">Abrir a lição</Link>
-            <Link href="/review" className="rounded-xl border-2 border-amber-300 px-3 py-2 text-amber-950 hover:bg-amber-100">Ir para a revisão</Link>
+            <Link href="/lesson" className="rounded-xl bg-amber-700 px-3 py-2 text-white hover:bg-amber-800">{t("Abrir a lição")}</Link>
+            <Link href="/review" className="rounded-xl border-2 border-amber-300 px-3 py-2 text-amber-950 hover:bg-amber-100">{t("Ir para a revisão")}</Link>
           </div>
         </section>
       ) : null}
 
       {loading ? (
-        <p className="text-sm font-semibold text-slate-500">Carregando objetivos...</p>
+        <p className="text-sm font-semibold text-slate-500">{t("Carregando objetivos...")}</p>
       ) : serverOutdated ? null : (
         <>
           {visiblePlans.map((plan) => (
@@ -224,11 +224,9 @@ export function ObjectivesBoard() {
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700">
                 <Target size={28} />
               </span>
-              <h2 className="mt-4 text-lg font-black text-slate-800">Defina seu primeiro objetivo</h2>
+              <h2 className="mt-4 text-lg font-black text-slate-800">{t("Defina seu primeiro objetivo")}</h2>
               <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
-                Escreva aonde quer chegar e liste o que precisa estudar para isso. Cada dia de estudo
-                conclui o próximo item da área correspondente, e você pode marcar o que quiser à mão.
-                Sem saber por onde começar? Crie um plano: ele ordena as prioridades para você.
+                {t("Escreva aonde quer chegar e liste o que precisa estudar para isso. Cada dia de estudo conclui o próximo item da área correspondente, e você pode marcar o que quiser à mão. Sem saber por onde começar? Crie um plano: ele ordena as prioridades para você.")}
               </p>
               <div className="mx-auto mt-5 flex flex-col justify-center gap-2 sm:flex-row">
                 {canPlan ? (
@@ -237,7 +235,7 @@ export function ObjectivesBoard() {
                     onClick={() => setPlanWizard({ plan: null })}
                     className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 py-3 text-sm font-black text-white transition hover:bg-indigo-800"
                   >
-                    <Sparkles size={18} /> Criar plano
+                    <Sparkles size={18} /> {t("Criar plano")}
                   </button>
                 ) : null}
                 <button
@@ -245,7 +243,7 @@ export function ObjectivesBoard() {
                   onClick={() => setCreating(true)}
                   className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 py-3 text-sm font-black text-white transition hover:bg-primary-dark"
                 >
-                  <Plus size={18} /> Criar objetivo
+                  <Plus size={18} /> {t("Criar objetivo")}
                 </button>
               </div>
             </section>
@@ -254,7 +252,7 @@ export function ObjectivesBoard() {
           {looseObjectives.length > 0 ? (
             <div className="space-y-4">
               {visiblePlans.length > 0 ? (
-                <p className="px-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outros objetivos</p>
+                <p className="px-1 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Outros objetivos")}</p>
               ) : null}
               {looseObjectives.map((objective) => (
                 <ObjectiveCard

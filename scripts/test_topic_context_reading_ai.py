@@ -64,7 +64,7 @@ class TopicCreationContextTests(unittest.TestCase):
         for expected in (
             "topicContext",
             "Contexto para a IA",
-            "placeholder=\"Ex.:",
+            "placeholder={t(\"Ex.:",
             "maxLength={1000}",
             "generateAI &&",
             "context: topicContext.trim()",

@@ -9,6 +9,7 @@ import { DeepeningMarkdown } from './DeepeningMarkdown';
 import { SummarySheetModal } from './SummarySheetModal';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
+import { t } from '@/lib/i18n';
 
 interface Props {
   topic: ProgrammingTopic;
@@ -134,7 +135,7 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
       .filter((draft): draft is FlashcardDraft => Boolean(draft))
       .slice(0, 50);
     if (drafts.length > 0) return drafts;
-    throw new Error('JSON sem campos front/back ou question/answer.');
+    throw new Error(t("JSON sem campos front/back ou question/answer."));
   } catch (err) {
     if (!(err instanceof SyntaxError)) throw err;
     // Plain text import is handled below.
@@ -142,7 +143,7 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
 
   const drafts = parseTextFlashcards(text);
   if (drafts.length === 0) {
-    throw new Error('Cole JSON válido ou texto no formato Frente | Verso.');
+    throw new Error(t("Cole JSON válido ou texto no formato Frente | Verso."));
   }
   return drafts;
 }
@@ -224,7 +225,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     } catch (err) {
       // Keep any sheet already on screen: a failed re-run should not throw away
       // the summary the reader is looking at.
-      setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
+      setSummaryError(err instanceof Error ? err.message : t("Não foi possível gerar o resumo."));
     } finally {
       setLoadingSummary(false);
       setRegeneratingSummary(false);
@@ -236,7 +237,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       setSummary(await api.saveTopicSummary(topic.id, content));
     } catch (err) {
-      setSummaryError(err instanceof Error ? err.message : 'Não foi possível salvar o resumo.');
+      setSummaryError(err instanceof Error ? err.message : t("Não foi possível salvar o resumo."));
     }
   }
 
@@ -269,7 +270,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       return true;
     } catch (err) {
       if (requestId !== flashcardLoadRequestId.current) return false;
-      setFlashcardsLoadError(err instanceof Error ? err.message : 'Não foi possível carregar os flashcards.');
+      setFlashcardsLoadError(err instanceof Error ? err.message : t("Não foi possível carregar os flashcards."));
       return false;
     } finally {
       if (requestId === flashcardLoadRequestId.current) setLoadingFc(false);
@@ -289,7 +290,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       return true;
     } catch (err) {
       if (requestId !== questionLoadRequestId.current) return false;
-      setQuestionLoadError(err instanceof Error ? err.message : 'Não foi possível carregar as questões.');
+      setQuestionLoadError(err instanceof Error ? err.message : t("Não foi possível carregar as questões."));
       return false;
     } finally {
       if (requestId === questionLoadRequestId.current) setLoadingQuestions(false);
@@ -354,7 +355,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       setRegenerateContext('');
     } catch (err: unknown) {
       setLoadedFlashcardTopicId(topic.id);
-      setGenError(err instanceof Error ? err.message : 'Erro ao gerar conteúdo.');
+      setGenError(err instanceof Error ? err.message : t("Erro ao gerar conteúdo."));
     } finally {
       setLoadingFc(false);
       setGenerating(false);
@@ -409,11 +410,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       const created = await api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext);
       setFlashcards((current) => appendGeneratedFlashcards(current, created));
-      setAdditionalFlashcardSuccess('5 novas questões foram criadas com IA.');
+      setAdditionalFlashcardSuccess(t("5 novas questões foram criadas com IA."));
       setShowAdditionalFlashcardForm(false);
       setAdditionalFlashcardContext('');
     } catch (err) {
-      setAdditionalFlashcardError(err instanceof Error ? err.message : 'Não foi possível criar mais questões.');
+      setAdditionalFlashcardError(err instanceof Error ? err.message : t("Não foi possível criar mais questões."));
     } finally {
       setGeneratingAdditionalFlashcards(false);
     }
@@ -429,11 +430,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       const created = await api.generateCodingTopicQuestions(topic.id, { context: questionGenerationContext });
       setQuestions((current) => [...current, ...created]);
-      setQuestionGenerationSuccess('5 novas questões foram criadas. Questões criadas não se repetem neste tópico.');
+      setQuestionGenerationSuccess(t("5 novas questões foram criadas. Questões criadas não se repetem neste tópico."));
       setShowQuestionGenerationForm(false);
       setQuestionGenerationContext('');
     } catch (err) {
-      setQuestionGenerationError(err instanceof Error ? err.message : 'Não foi possível gerar mais questões.');
+      setQuestionGenerationError(err instanceof Error ? err.message : t("Não foi possível gerar mais questões."));
     } finally {
       setGeneratingQuestions(false);
     }
@@ -469,11 +470,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     const text = JSON.stringify(payload, null, 2);
     try {
       await navigator.clipboard.writeText(text);
-      setCopyMessage('JSON copiado.');
+      setCopyMessage(t("JSON copiado."));
     } catch {
       setImportFcText(text);
       setShowImportFc(true);
-      setCopyMessage('Não consegui copiar automaticamente; deixei o JSON no campo de importacao.');
+      setCopyMessage(t("Não consegui copiar automaticamente; deixei o JSON no campo de importacao."));
     }
   }
 
@@ -488,11 +489,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       drafts = parseFlashcardImport(importFcText);
     } catch (err) {
-      setImportFcError(err instanceof Error ? err.message : 'Não foi possível ler os flashcards.');
+      setImportFcError(err instanceof Error ? err.message : t("Não foi possível ler os flashcards."));
       return;
     }
     if (drafts.length === 0) {
-      setImportFcError('Cole pelo menos um flashcard.');
+      setImportFcError(t("Cole pelo menos um flashcard."));
       return;
     }
 
@@ -507,7 +508,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       setShowImportFc(false);
       setCopyMessage(`${created.length} flashcard${created.length === 1 ? '' : 's'} importado${created.length === 1 ? '' : 's'}.`);
     } catch (err) {
-      setImportFcError(err instanceof Error ? err.message : 'Não foi possível importar os flashcards.');
+      setImportFcError(err instanceof Error ? err.message : t("Não foi possível importar os flashcards."));
     } finally {
       setImportingFc(false);
     }
@@ -552,7 +553,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   }
 
   const statusLabel =
-    topic.status === 'mastered' ? '⭐ Dominado' : topic.status === 'studied' ? '✅ Estudado' : '🔘 Não iniciado';
+    topic.status === 'mastered' ? t("⭐ Dominado") : topic.status === 'studied' ? t("✅ Estudado") : t("🔘 Não iniciado");
   const flashcardCountLabel = loadingFc ? '...' : loadedFlashcardTopicId === topic.id ? flashcards.length : 'erro';
   const questionCountLabel = loadingQuestions ? '...' : loadedQuestionTopicId === topic.id ? questions.length : 'erro';
   const questionActionsDisabled = generating || generatingAdditionalFlashcards || generatingQuestions || loadingQuestions || loadedQuestionTopicId !== topic.id;
@@ -586,7 +587,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
               >
                 <BookOpen size={16} />
-                Iniciar estudo
+                {t("Iniciar estudo")}
               </button>
             )}
             <button
@@ -596,7 +597,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-800 disabled:opacity-50 sm:w-auto"
             >
               <ClipboardList size={16} />
-              Fazer simulado
+              {t("Fazer simulado")}
             </button>
             {topic.ai_content && (
               <button
@@ -607,7 +608,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               >
                 {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                 {!loadingSummary
-                  ? 'Resumo do tópico'
+                  ? t("Resumo do tópico")
                   : regeneratingSummary
                     ? 'Resumindo...'
                     : 'Abrindo...'}
@@ -624,7 +625,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
               >
                 {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                Recriar aula com IA
+                {t("Recriar aula com IA")}
               </button>
             )}
             {topic.status !== 'mastered' && (
@@ -633,7 +634,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 onClick={() => handleSetStatus(topic.status === 'studied' ? 'mastered' : 'studied')}
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-black text-white hover:bg-emerald-800 sm:w-auto"
               >
-                {topic.status === 'studied' ? <><Star size={14} /> Dominar</> : <><CheckCircle2 size={14} /> Estudado</>}
+                {topic.status === 'studied' ? <><Star size={14} /> {t("Dominar")}</> : <><CheckCircle2 size={14} /> {t("Estudado")}</>}
               </button>
             )}
           </div>
@@ -643,11 +644,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       {topic.ai_content && showRegenerateContext && (
         <div className="rounded-3xl border-2 border-violet-200 bg-violet-50 p-4">
           <label className="block text-left">
-            <span className="text-sm font-black text-violet-800">Como quer recriar esta aula?</span>
+            <span className="text-sm font-black text-violet-800">{t("Como quer recriar esta aula?")}</span>
             <textarea
               value={regenerateContext}
               onChange={(event) => setRegenerateContext(event.target.value)}
-              placeholder="Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns..."
+              placeholder={t("Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns...")}
               maxLength={1000}
               rows={3}
               className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500"
@@ -665,7 +666,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               disabled={loadingFc || generating || generatingAdditionalFlashcards || generatingQuestions}
               className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
             >
-              Cancelar
+              {t("Cancelar")}
             </button>
             <button
               type="button"
@@ -674,7 +675,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Recriar agora
+              {t("Recriar agora")}
             </button>
           </div>
         </div>
@@ -685,9 +686,9 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           <div>
             <h2 className="flex items-center gap-2 font-black text-amber-900">
               <ClipboardList size={18} />
-              Questões do tópico ({questionCountLabel})
+              {t("Questões do tópico (")}{questionCountLabel})
             </h2>
-            <p className="mt-1 text-xs font-bold text-amber-700">Questões criadas não se repetem neste tópico.</p>
+            <p className="mt-1 text-xs font-bold text-amber-700">{t("Questões criadas não se repetem neste tópico.")}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
@@ -697,7 +698,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-50"
             >
               <ClipboardList size={15} />
-              Fazer simulado
+              {t("Fazer simulado")}
             </button>
             <button
               type="button"
@@ -710,7 +711,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 border-amber-200 bg-white px-4 py-2 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
             >
               {generatingQuestions ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              Gerar mais questões
+              {t("Gerar mais questões")}
             </button>
           </div>
         </div>
@@ -723,18 +724,18 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               disabled={loadingQuestions || generatingQuestions}
               className="mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
             >
-              Recarregar questões
+              {t("Recarregar questões")}
             </button>
           </div>
         )}
         {showQuestionGenerationForm && (
           <form onSubmit={handleGenerateMoreQuestions} className="mt-4 space-y-3 rounded-2xl border-2 border-amber-100 bg-white p-4">
             <label className="block">
-              <span className="text-sm font-black text-amber-900">Foco das novas questões</span>
+              <span className="text-sm font-black text-amber-900">{t("Foco das novas questões")}</span>
               <textarea
                 value={questionGenerationContext}
                 onChange={(event) => setQuestionGenerationContext(event.target.value)}
-                placeholder="Ex.: questões estilo prova, cenários práticos, pegadinhas comuns, dificuldade maior..."
+                placeholder={t("Ex.: questões estilo prova, cenários práticos, pegadinhas comuns, dificuldade maior...")}
                 maxLength={1000}
                 rows={3}
                 className="mt-2 w-full resize-none rounded-2xl border-2 border-amber-100 bg-amber-50/40 px-3 py-2 text-sm text-slate-700 outline-none focus:border-amber-400"
@@ -751,7 +752,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 disabled={generatingQuestions}
                 className="rounded-2xl border-2 border-amber-200 bg-white px-4 py-2 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
               >
-                Cancelar
+                {t("Cancelar")}
               </button>
               <button
                 type="submit"
@@ -759,7 +760,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-50"
               >
                 {generatingQuestions ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                {generatingQuestions ? 'Gerando questões...' : 'Criar 5 questões'}
+                {generatingQuestions ? t("Gerando questões...") : t("Criar 5 questões")}
               </button>
             </div>
           </form>
@@ -772,8 +773,8 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       {!topic.ai_content ? (
         <div className="rounded-3xl border-2 border-violet-100 bg-violet-50 p-8 text-center">
           <Sparkles size={32} className="mx-auto mb-3 text-violet-400" />
-          <p className="font-bold text-violet-700">Nenhum conteúdo ainda.</p>
-          <p className="mt-1 text-sm text-violet-500">Gere a aula com IA para criar seções, quiz e flashcards automaticamente.</p>
+          <p className="font-bold text-violet-700">{t("Nenhum conteúdo ainda.")}</p>
+          <p className="mt-1 text-sm text-violet-500">{t("Gere a aula com IA para criar seções, quiz e flashcards automaticamente.")}</p>
           {genError && <p className="mt-3 text-sm font-bold text-rose-600">{genError}</p>}
           <button
             type="button"
@@ -782,7 +783,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             className="mx-auto mt-4 flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-3 font-black text-white hover:bg-violet-700 disabled:opacity-50"
           >
             {generating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            Gerar com IA
+            {t("Gerar com IA")}
           </button>
         </div>
       ) : (
@@ -804,7 +805,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           {topic.ai_content.quiz.length > 0 && (
             <div className="rounded-3xl border-2 border-amber-100 bg-amber-50 p-5">
               <h2 className="mb-4 flex items-center gap-2 font-black text-amber-800">
-                <BookOpen size={18} /> Quiz ({topic.ai_content.quiz.length} perguntas)
+                <BookOpen size={18} /> {t("Quiz (")}{topic.ai_content.quiz.length} perguntas)
               </h2>
               <div className="space-y-5">
                 {topic.ai_content.quiz.map((q, qIdx) => {
@@ -839,7 +840,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                       </div>
                       {state?.answered && (
                         <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-semibold ${state.correct ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                          {state.correct ? '✅ Correto! ' : '❌ Incorreto. '}{q.explanation}
+                          {state.correct ? t("✅ Correto!") : t("❌ Incorreto.")}{q.explanation}
                         </div>
                       )}
                     </div>
@@ -853,11 +854,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
 
       {/* Notes */}
       <div className="rounded-3xl border-2 border-slate-100 bg-white p-5">
-        <h2 className="mb-3 font-black text-slate-800">Minhas Notas</h2>
+        <h2 className="mb-3 font-black text-slate-800">{t("Minhas Notas")}</h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Anote o que aprendeu, dúvidas, links..."
+          placeholder={t("Anote o que aprendeu, dúvidas, links...")}
           maxLength={5000}
           rows={4}
           className="w-full resize-none rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:border-primary"
@@ -868,14 +869,14 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           disabled={savingNotes || notes === (topic.notes ?? '')}
           className="mt-2 min-h-11 rounded-2xl bg-primary-dark px-5 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:opacity-40"
         >
-          {savingNotes ? 'Salvando...' : 'Salvar Notas'}
+          {savingNotes ? 'Salvando...' : t("Salvar Notas")}
         </button>
       </div>
 
       {/* Flashcards */}
       <div className="rounded-3xl border-2 border-slate-100 bg-white p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-black text-slate-800">Flashcards ({flashcardCountLabel})</h2>
+          <h2 className="font-black text-slate-800">{t("Flashcards (")}{flashcardCountLabel})</h2>
           <div className="flex flex-wrap gap-2">
             {!showAdditionalFlashcardForm && (
               <button
@@ -891,7 +892,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-bold text-violet-700 hover:bg-violet-100"
               >
                 <Sparkles size={14} />
-                Criar mais questões com IA
+                {t("Criar mais questões com IA")}
               </button>
             )}
             <button
@@ -901,7 +902,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary disabled:opacity-40"
             >
               <Copy size={14} />
-              Copiar JSON
+              {t("Copiar JSON")}
             </button>
             <button
               type="button"
@@ -916,7 +917,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showImportFc ? <X size={14} /> : <Upload size={14} />}
-              {showImportFc ? 'Cancelar' : 'Importar'}
+              {showImportFc ? t("Cancelar") : 'Importar'}
             </button>
             <button
               type="button"
@@ -930,7 +931,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="min-h-11 flex items-center gap-1.5 rounded-2xl border-2 border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-600 hover:border-primary"
             >
               {showAddFc ? <X size={14} /> : <Plus size={14} />}
-              {showAddFc ? 'Cancelar' : 'Adicionar'}
+              {showAddFc ? t("Cancelar") : t("Adicionar")}
             </button>
           </div>
         </div>
@@ -940,18 +941,18 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
         {showAdditionalFlashcardForm && (
           <form aria-busy={generatingAdditionalFlashcards} onSubmit={handleGenerateAdditionalFlashcards} className="mb-4 space-y-3 rounded-2xl border-2 border-violet-100 bg-violet-50 p-4">
             <label className="block">
-              <span className="text-sm font-black text-violet-800">Contexto para as novas questões (opcional)</span>
+              <span className="text-sm font-black text-violet-800">{t("Contexto para as novas questões (opcional)")}</span>
               <textarea
                 value={additionalFlashcardContext}
                 onChange={(event) => setAdditionalFlashcardContext(event.target.value)}
-                placeholder="Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns..."
+                placeholder={t("Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns...")}
                 maxLength={1000}
                 rows={3}
                 disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
                 className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500 disabled:opacity-60"
               />
             </label>
-            <p className="text-sm font-bold text-violet-700">Serão criadas 5 questões</p>
+            <p className="text-sm font-bold text-violet-700">{t("Serão criadas 5 questões")}</p>
             {additionalFlashcardError && (
               <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{additionalFlashcardError}</p>
             )}
@@ -966,7 +967,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 disabled={generating || generatingAdditionalFlashcards}
                 className="rounded-2xl border-2 border-violet-200 bg-white px-4 py-2 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
               >
-                Cancelar
+                {t("Cancelar")}
               </button>
               <button
                 type="submit"
@@ -974,7 +975,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="min-h-11 flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
               >
                 {generatingAdditionalFlashcards ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {generatingAdditionalFlashcards ? 'Criando questões...' : 'Criar 5 questões'}
+                {generatingAdditionalFlashcards ? t("Criando questões...") : t("Criar 5 questões")}
               </button>
             </div>
           </form>
@@ -998,18 +999,18 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2 font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {importingFc ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              Importar flashcards
+              {t("Importar flashcards")}
             </button>
           </form>
         )}
         {showAddFc && (
           <form onSubmit={handleAddFlashcard} className="mb-4 space-y-3 rounded-2xl bg-slate-50 p-4">
             <input
-              aria-label="Frente (conceito / pergunta)" value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder="Frente (conceito / pergunta)" maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
-            <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder="Verso (resposta / explicação)" maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
-            <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder="Exemplo de código (opcional)" maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
+              aria-label={t("Frente (conceito / pergunta)")} value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder={t("Frente (conceito / pergunta)")} maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
+            <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder={t("Verso (resposta / explicação)")} maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
+            <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder={t("Exemplo de código (opcional)")} maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
             <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
-              {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar Flashcard
+              {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {t("Adicionar Flashcard")}
             </button>
           </form>
         )}
@@ -1017,14 +1018,14 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           <div className="flex justify-center py-4"><Loader2 className="animate-spin text-primary" size={24} /></div>
         ) : flashcardsLoadError || loadedFlashcardTopicId !== topic.id ? (
           <div role="alert" className="rounded-2xl border-2 border-rose-100 bg-rose-50 p-4 text-center">
-            <p>{flashcardsLoadError || 'Não foi possível confirmar os flashcards deste tópico.'}</p>
+            <p>{flashcardsLoadError || t("Não foi possível confirmar os flashcards deste tópico.")}</p>
             <button
               type="button"
               onClick={() => void loadTopicFlashcards(topic.id)}
               disabled={loadingFc || generating || generatingAdditionalFlashcards}
               className="mt-3 rounded-xl bg-rose-600 px-4 py-2 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
             >
-              Tentar recarregar
+              {t("Tentar recarregar")}
             </button>
           </div>
         ) : (
@@ -1046,7 +1047,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               </div>
             ))}
             {loadedFlashcardTopicId === topic.id && !flashcardsLoadError && flashcards.length === 0 && (
-              <p className="py-4 text-center text-sm text-slate-400">Nenhum flashcard. Gere com IA ou adicione manualmente.</p>
+              <p className="py-4 text-center text-sm text-slate-400">{t("Nenhum flashcard. Gere com IA ou adicione manualmente.")}</p>
             )}
           </div>
         )}
@@ -1078,7 +1079,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
       {summaryOpen && summary && (
         <SummarySheetModal
           subjectName={subjectName}
-          heading="Resumo do tópico"
+          heading={t("Resumo do tópico")}
           scopeLabel={topic.title}
           content={summary.content}
           updatedAt={summary.updated_at}
@@ -1190,7 +1191,7 @@ function ReadingStudyModal({
     setSpeaking(true);
     const spoken = await speakWithBrowserVoice(buildSpeakableReadingText(step, topicTitle), 0.95, 'pt-BR');
     setSpeaking(false);
-    if (!spoken) setSpeechError('Não consegui tocar o áudio neste navegador.');
+    if (!spoken) setSpeechError(t("Não consegui tocar o áudio neste navegador."));
   }
 
   async function handleDeepenCurrentStep(e: React.FormEvent) {
@@ -1204,7 +1205,7 @@ function ReadingStudyModal({
       const response = await api.deepenCodingReadingStep(topicId, buildDeepeningPayload(step, deepeningQuestion));
       setDeepeningAnswer(response.content);
     } catch (err) {
-      setDeepeningError(err instanceof Error ? err.message : 'Não foi possível aprofundar este assunto.');
+      setDeepeningError(err instanceof Error ? err.message : t("Não foi possível aprofundar este assunto."));
     } finally {
       setDeepeningLoading(false);
     }
@@ -1241,7 +1242,7 @@ function ReadingStudyModal({
                 {topicTitle}
               </h2>
               <p className="mt-0.5 text-xs font-bold text-slate-500 sm:mt-1 sm:text-sm">
-                {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : 'Questão'}
+                {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : t("Questão")}
               </p>
             </div>
             {/* Close stays anchored top-right; the reading controls sit on their
@@ -1249,7 +1250,7 @@ function ReadingStudyModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Fechar estudo"
+              aria-label={t("Fechar estudo")}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl"
             >
               <X size={18} />
@@ -1262,8 +1263,8 @@ function ReadingStudyModal({
                   type="button"
                   onClick={() => changeFontIndex(-1)}
                   disabled={!canShrink}
-                  aria-label="Diminuir tamanho da letra"
-                  title="Diminuir tamanho da letra"
+                  aria-label={t("Diminuir tamanho da letra")}
+                  title={t("Diminuir tamanho da letra")}
                   className="flex h-10 w-8 items-center justify-center rounded-l-xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-l-2xl"
                 >
                   A<span className="text-[0.6rem]">−</span>
@@ -1273,8 +1274,8 @@ function ReadingStudyModal({
                   type="button"
                   onClick={() => changeFontIndex(1)}
                   disabled={!canGrow}
-                  aria-label="Aumentar tamanho da letra"
-                  title="Aumentar tamanho da letra"
+                  aria-label={t("Aumentar tamanho da letra")}
+                  title={t("Aumentar tamanho da letra")}
                   className="flex h-10 w-8 items-center justify-center rounded-r-xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-r-2xl"
                 >
                   A<span className="text-[0.6rem]">+</span>
@@ -1283,11 +1284,11 @@ function ReadingStudyModal({
               <button
                 type="button"
                 onClick={() => void handleSpeakCurrentStep()}
-                title="Ouvir o texto desta etapa"
+                title={t("Ouvir o texto desta etapa")}
                 className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-2 py-1 text-[0.68rem] font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 <Volume2 size={15} />
-                <span className="whitespace-nowrap">{speaking ? 'Parar áudio' : 'Ouvir texto'}</span>
+                <span className="whitespace-nowrap">{speaking ? t("Parar áudio") : t("Ouvir texto")}</span>
               </button>
               <button
                 type="button"
@@ -1295,11 +1296,11 @@ function ReadingStudyModal({
                   setShowDeepening(true);
                   setDeepeningError('');
                 }}
-                title="Aprofundar este assunto com IA"
+                title={t("Aprofundar este assunto com IA")}
                 className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-xl border border-violet-200 px-2 py-1 text-[0.68rem] font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
               >
                 <Sparkles size={15} />
-                <span className="whitespace-nowrap">Aprofundar com IA</span>
+                <span className="whitespace-nowrap">{t("Aprofundar com IA")}</span>
               </button>
           </div>
           {speechError && (
@@ -1317,8 +1318,8 @@ function ReadingStudyModal({
             <section className="mx-auto w-full max-w-[76ch]">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
-                  <p className="text-[0.72em] font-black uppercase tracking-widest text-violet-600">Aprofundamento com IA</p>
-                  <h3 className="mt-1 text-[1.45em] font-black leading-tight text-slate-950">Explore esta parte da aula</h3>
+                  <p className="text-[0.72em] font-black uppercase tracking-widest text-violet-600">{t("Aprofundamento com IA")}</p>
+                  <h3 className="mt-1 text-[1.45em] font-black leading-tight text-slate-950">{t("Explore esta parte da aula")}</h3>
                 </div>
                 <button
                   type="button"
@@ -1326,17 +1327,17 @@ function ReadingStudyModal({
                   className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-[0.8em] font-black text-slate-700 hover:bg-slate-100"
                 >
                   <ChevronLeft size={16} />
-                  Voltar à aula
+                  {t("Voltar à aula")}
                 </button>
               </div>
 
               <form onSubmit={handleDeepenCurrentStep} className="mt-5 rounded-2xl border border-violet-200 bg-violet-50 p-4">
                 <label className="block">
-                  <span className="text-[0.82em] font-black text-violet-900">Qual dúvida você tem sobre este assunto?</span>
+                  <span className="text-[0.82em] font-black text-violet-900">{t("Qual dúvida você tem sobre este assunto?")}</span>
                   <textarea
                     value={deepeningQuestion}
                     onChange={(event) => setDeepeningQuestion(event.target.value)}
-                    placeholder="Padrão: ensinar os conceitos importantes de forma resumida e objetiva, com exemplos de cada conceito, pronto para copiar no Notion."
+                    placeholder={t("Padrão: ensinar os conceitos importantes de forma resumida e objetiva, com exemplos de cada conceito, pronto para copiar no Notion.")}
                     maxLength={1000}
                     rows={3}
                     className="mt-2 w-full resize-y rounded-2xl border-2 border-violet-100 bg-white px-4 py-3 text-[0.9em] leading-relaxed text-slate-800 outline-none focus:border-violet-400"
@@ -1354,7 +1355,7 @@ function ReadingStudyModal({
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-[0.8em] font-black text-white hover:bg-violet-700 disabled:opacity-50"
                   >
                     {deepeningLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    {deepeningLoading ? 'Aprofundando...' : deepeningAnswer ? 'Gerar novamente' : 'Gerar aprofundamento'}
+                    {deepeningLoading ? 'Aprofundando...' : deepeningAnswer ? t("Gerar novamente") : t("Gerar aprofundamento")}
                   </button>
                   {deepeningAnswer && (
                     <button
@@ -1363,7 +1364,7 @@ function ReadingStudyModal({
                       className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-violet-200 bg-white px-4 py-2 text-[0.8em] font-black text-violet-700 hover:bg-violet-100"
                     >
                       <Copy size={16} />
-                      {deepeningCopied ? 'Copiado!' : 'Copiar para Notion'}
+                      {deepeningCopied ? 'Copiado!' : t("Copiar para Notion")}
                     </button>
                   )}
                 </div>
@@ -1372,7 +1373,7 @@ function ReadingStudyModal({
               {deepeningLoading && !deepeningAnswer ? (
                 <div role="status" className="mt-8 flex items-center justify-center gap-3 rounded-3xl border border-slate-200 bg-slate-50 px-5 py-12 text-[0.95em] font-bold text-slate-600">
                   <Loader2 size={22} className="animate-spin text-violet-600" />
-                  Preparando um aprofundamento claro e objetivo...
+                  {t("Preparando um aprofundamento claro e objetivo...")}
                 </div>
               ) : deepeningAnswer ? (
                 <div className="mt-8 pb-4">
@@ -1380,14 +1381,14 @@ function ReadingStudyModal({
                 </div>
               ) : (
                 <p className="mt-6 rounded-2xl bg-slate-50 px-5 py-4 text-[0.9em] font-medium leading-relaxed text-slate-600">
-                  Você pode escrever uma dúvida específica ou deixar o campo vazio para receber os conceitos mais importantes desta etapa, com exemplos.
+                  {t("Você pode escrever uma dúvida específica ou deixar o campo vazio para receber os conceitos mais importantes desta etapa, com exemplos.")}
                 </p>
               )}
             </section>
           ) : step.type === 'section' ? (
             <article className="mx-auto w-full max-w-[72ch]">
               <p className="text-[0.72em] font-black uppercase tracking-widest text-slate-400">
-                Parte {step.sectionIndex + 1}
+                {t("Parte")} {step.sectionIndex + 1}
               </p>
               <h3 className="mt-2 text-[1.55em] font-black leading-tight text-slate-900">
                 {step.section.title}
@@ -1417,16 +1418,16 @@ function ReadingStudyModal({
               type="button"
               onClick={goPrevious}
               disabled={isFirst}
-              aria-label="Etapa anterior do estudo"
+              aria-label={t("Etapa anterior do estudo")}
               className="flex items-center justify-center gap-1 rounded-xl border-2 border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
             >
               <ChevronLeft className="h-4 w-4 sm:h-[17px] sm:w-[17px]" />
-              Anterior
+              {t("Anterior")}
             </button>
             <button
               type="button"
               onClick={goNext}
-              aria-label="Próxima etapa do estudo"
+              aria-label={t("Próxima etapa do estudo")}
               className="flex items-center justify-center gap-1 rounded-xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark sm:gap-2 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
             >
               {isLast ? 'Concluir' : 'Próximo'}
@@ -1452,7 +1453,7 @@ function ReadingQuizStep({
 }) {
   return (
     <section className="mx-auto w-full max-w-[72ch]">
-      <p className="text-[0.72em] font-black uppercase tracking-widest text-amber-500">Questao {quizIndex + 1}</p>
+      <p className="text-[0.72em] font-black uppercase tracking-widest text-amber-500">{t("Questão")} {quizIndex + 1}</p>
       <h3 className="mt-3 text-[1.55em] font-black leading-tight text-slate-900">{question.question}</h3>
       <div className="mt-6 space-y-3">
         {(() => {
@@ -1489,7 +1490,7 @@ function ReadingQuizStep({
       </div>
       {state?.answered && (
         <div className={`mt-6 rounded-2xl px-4 py-3 text-[0.9em] font-bold leading-relaxed ${state.correct ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
-          {state.correct ? 'Correto. ' : 'Ainda não. '}
+          {state.correct ? 'Correto. ' : t("Ainda não.")}
           {question.explanation}
         </div>
       )}

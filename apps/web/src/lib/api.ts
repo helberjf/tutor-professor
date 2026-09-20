@@ -1589,6 +1589,14 @@ async function performApiFetch(url: string, options: RequestInit) {
     headers: {
       'Content-Type': 'application/json',
       ...(activeChildId ? { 'X-Child-ID': String(activeChildId) } : {}),
+      // A lingua em que a pessoa esta lendo o app. O servidor usa isso para
+      // escrever as traducoes das licoes na mesma lingua da interface. Vem do
+      // <html lang>, que o LocaleScript grava antes da primeira pintura, em vez
+      // de um import: este modulo e carregado isolado pelos testes e nao deve
+      // depender da camada de UI.
+      ...(typeof document === 'undefined'
+        ? {}
+        : { 'X-App-Locale': document.documentElement.lang || 'pt-BR' }),
       ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
       ...options.headers,
     },

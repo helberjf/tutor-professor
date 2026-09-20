@@ -9,6 +9,7 @@ import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type Quiz, type QuizSubmitResponse } from '@/lib/api';
 import { formatQuestionPrompt } from '@/lib/question-format';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { t } from '@/lib/i18n';
 
 export default function QuizPage() {
   return (
@@ -16,10 +17,10 @@ export default function QuizPage() {
       fallback={
         <StatusCard
           tone="loading"
-          title="Preparando o quiz"
-          message="O tutor está separando as perguntas de hoje e as estrelas da pontuação."
+          title={t("Preparando o quiz")}
+          message={t("O tutor está separando as perguntas de hoje e as estrelas da pontuação.")}
           secondaryHref="/"
-          secondaryLabel="Voltar ao início"
+          secondaryLabel={t("Voltar ao início")}
         />
       }
     >
@@ -70,7 +71,7 @@ function QuizPageContent() {
       setSubmitMessage(null);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar o quiz.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar o quiz.")));
     } finally {
       setLoading(false);
     }
@@ -118,7 +119,7 @@ function QuizPageContent() {
       setFinished(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível salvar o resultado do quiz.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível salvar o resultado do quiz.")));
     } finally {
       setSavingResult(false);
     }
@@ -128,10 +129,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando seu cadastro..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando seu cadastro...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -139,15 +140,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
         primaryAction={
           <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
-            Conectar
+            {t("Conectar")}
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -156,10 +157,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title="Preparando o quiz"
-        message="O tutor está separando as perguntas de hoje e as estrelas da pontuação."
+        title={t("Preparando o quiz")}
+        message={t("O tutor está separando as perguntas de hoje e as estrelas da pontuação.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -168,15 +169,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponível"
-        message="Não foi possível carregar os quizzes agora. Tente novamente em instantes."
+        title={t("Tutor temporariamente indisponível")}
+        message={t("Não foi possível carregar os quizzes agora. Tente novamente em instantes.")}
         primaryAction={
           <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
-            Abrir configuração de conexão
+            {t("Abrir configuração de conexão")}
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -185,15 +186,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="O quiz não conseguiu se conectar"
-        message="Não foi possível carregar o quiz agora. Tente novamente em instantes."
+        title={t("O quiz não conseguiu se conectar")}
+        message={t("Não foi possível carregar o quiz agora. Tente novamente em instantes.")}
         primaryAction={
           <button onClick={() => void loadQuiz()} className="app-button bg-brand-orange hover:bg-secondary-dark">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexão"
+        secondaryLabel={t("Trocar conexão")}
       />
     );
   }
@@ -202,15 +203,15 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="error"
-        title="O quiz se enrolou"
+        title={t("O quiz se enrolou")}
         message={error.message}
         primaryAction={
           <button onClick={() => void loadQuiz()} className="app-button bg-brand-pink hover:bg-pink-500">
-            Recarregar quiz
+            {t("Recarregar quiz")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -219,10 +220,10 @@ function QuizPageContent() {
     return (
       <StatusCard
         tone="empty"
-        title="Ainda não há quiz"
-        message="Não encontramos perguntas de quiz. Adicione o conteúdo do quiz e volte depois."
+        title={t("Ainda não há quiz")}
+        message={t("Não encontramos perguntas de quiz. Adicione o conteúdo do quiz e volte depois.")}
         secondaryHref="/lesson"
-        secondaryLabel="Ir para a lição"
+        secondaryLabel={t("Ir para a lição")}
       />
     );
   }
@@ -239,9 +240,9 @@ function QuizPageContent() {
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-secondary-light md:h-28 md:w-28">
               <Trophy className="text-secondary-dark" size={54} />
             </div>
-            <h1 className="mt-5 text-3xl font-black text-slate-800 md:mt-6 md:text-5xl">Quiz completo!</h1>
+            <h1 className="mt-5 text-3xl font-black text-slate-800 md:mt-6 md:text-5xl">{t("Quiz completo!")}</h1>
             <p className="mt-4 text-lg text-slate-600 md:text-2xl">
-              Voce fez <span className="font-black text-slate-800">{score}</span> de{' '}
+              {t("Você fez")} <span className="font-black text-slate-800">{score}</span> de{' '}
               <span className="font-black text-slate-800">{total}</span>.
             </p>
             <div className="mt-6 flex justify-center gap-2">
@@ -258,13 +259,13 @@ function QuizPageContent() {
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link href="/review" className="app-button bg-primary-dark hover:bg-primary-dark">
-                Praticar revisão de frases
+                {t("Praticar revisão de frases")}
               </Link>
               <Link
                 href="/"
                 className="rounded-full border-2 border-slate-200 px-5 py-3.5 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-6 md:py-4 md:text-lg"
               >
-                Voltar ao início
+                {t("Voltar ao início")}
               </Link>
             </div>
           </div>
@@ -282,15 +283,15 @@ function QuizPageContent() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
-            <ArrowLeft size={22} /> Voltar
+            <ArrowLeft size={22} /> {t("Voltar")}
           </Link>
           <p className="app-tag">
-            Pergunta {currentIndex + 1} de {quiz.questions.length}
+            {t("Pergunta")} {currentIndex + 1} de {quiz.questions.length}
           </p>
         </div>
 
         <div className="app-surface border-secondary/50 p-5 md:p-10">
-          <p className="app-tag">Hora do quiz</p>
+          <p className="app-tag">{t("Hora do quiz")}</p>
           {formattedQuestion.focusText ? (
             <div className="mt-4 space-y-3 md:mt-5 md:space-y-4">
               <p className="text-lg font-black leading-8 text-slate-600 md:text-2xl md:leading-10">
@@ -338,7 +339,7 @@ function QuizPageContent() {
                   <XCircle className="text-rose-600" size={32} />
                 )}
                 <p className={`text-xl font-black md:text-2xl ${isCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
-                  {isCorrect ? 'Acertou!' : 'Boa tentativa!'}
+                  {isCorrect ? 'Acertou!' : t("Boa tentativa!")}
                 </p>
               </div>
               <p className="mt-4 text-base leading-7 text-slate-700 md:text-xl md:leading-9">{question.explanation}</p>
@@ -347,13 +348,13 @@ function QuizPageContent() {
                 disabled={savingResult}
                 className="app-button mt-6 bg-secondary-dark hover:bg-secondary"
               >
-                {currentIndex < quiz.questions.length - 1 ? 'Próxima pergunta' : savingResult ? 'Salvando...' : 'Ver minha pontuação'}
+                {currentIndex < quiz.questions.length - 1 ? t("Próxima pergunta") : savingResult ? 'Salvando...' : t("Ver minha pontuação")}
                 <ChevronRight className="ml-2" size={20} />
               </button>
             </div>
           ) : (
             <p className="mt-6 text-base font-bold uppercase tracking-[0.15em] text-slate-400">
-              Escolha uma resposta para liberar a explicacao.
+              {t("Escolha uma resposta para liberar a explicação.")}
             </p>
           )}
         </div>
@@ -364,10 +365,10 @@ function QuizPageContent() {
 
 function buildFallbackMessage(percentage: number) {
   if (percentage === 100) {
-    return 'Trabalho incrível! Todas as respostas foram certeiras.';
+    return t("Trabalho incrível! Todas as respostas foram certeiras.");
   }
   if (percentage >= 60) {
-    return 'Muito bem! Você lembrou bastante coisa. Um pouco de revisão vai te deixar ainda melhor.';
+    return t("Muito bem! Você lembrou bastante coisa. Um pouco de revisão vai te deixar ainda melhor.");
   }
-  return 'Bom esforço! Revise as frases mais uma vez e volte para tentar de novo.';
+  return t("Bom esforço! Revise as frases mais uma vez e volte para tentar de novo.");
 }

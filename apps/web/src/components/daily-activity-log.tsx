@@ -5,6 +5,7 @@ import { AlertCircle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock, 
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
 import { ActivityDetails } from './activity-details';
+import { t } from '@/lib/i18n';
 
 // Utility functions to replace date-fns
 const formatDate = (date: Date, format: string): string => {
@@ -37,12 +38,12 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
-  lesson: 'Lição',
-  review: 'Revisão',
-  coding: 'Programação',
+  lesson: "Lição",
+  review: "Revisão",
+  coding: "Programação",
   leetcode: 'LeetCode',
-  question: 'Questão',
-  exam: 'Simulado',
+  question: "Questão",
+  exam: "Simulado",
   objective: 'Objetivo',
   chat: 'Conversa',
 };
@@ -65,7 +66,9 @@ interface DailyActivityLogProps {
 }
 
 function getActivityLabel(type: string) {
-  return ACTIVITY_LABELS[type] || type.replace(/_/g, ' ');
+  // Traduz aqui, e nao na constante: uma constante de modulo e avaliada uma
+  // unica vez, na importacao, antes de o idioma ser resolvido.
+  return t(ACTIVITY_LABELS[type] || type.replace(/_/g, ' '));
 }
 
 function getActivityIcon(type: string) {
@@ -121,7 +124,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
         if (err instanceof ApiError) {
           setError(`Erro ao carregar atividades: ${err.message}`);
         } else {
-          setError('Erro ao carregar atividades');
+          setError(t("Erro ao carregar atividades"));
         }
       } finally {
         setLoading(false);
@@ -143,12 +146,12 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="mr-auto text-2xl font-black text-slate-800">
-          {isToday ? 'Atividades do Dia' : 'Atividades do dia escolhido'}
+          {isToday ? t("Atividades do Dia") : t("Atividades do dia escolhido")}
         </h2>
         <button
           type="button"
           onClick={() => shiftDay(-1)}
-          aria-label="Dia anterior"
+          aria-label={t("Dia anterior")}
           className="inline-flex h-11 w-11 items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 transition hover:bg-slate-50"
         >
           <ChevronLeft size={18} />
@@ -163,14 +166,14 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
             setDate(new Date(year, month - 1, day));
             setSelectedFilters(new Set());
           }}
-          aria-label="Escolher o dia"
+          aria-label={t("Escolher o dia")}
           className="h-11 rounded-lg border-2 border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary"
         />
         <button
           type="button"
           onClick={() => shiftDay(1)}
           disabled={isToday}
-          aria-label="Próximo dia"
+          aria-label={t("Próximo dia")}
           className="inline-flex h-11 w-11 items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronRight size={18} />
@@ -184,7 +187,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
             }}
             className="h-11 rounded-lg border-2 border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
           >
-            Hoje
+            {t("Hoje")}
           </button>
         )}
       </div>
@@ -207,13 +210,13 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
   }
 
   if (error) {
-    return frame(<StatusCard title="Erro ao carregar" message={error} tone="error" />);
+    return frame(<StatusCard title={t("Erro ao carregar")} message={error} tone="error" />);
   }
 
   if (!activities || activities.total_activities === 0) {
     return frame(
       <StatusCard
-        title="Nenhuma atividade"
+        title={t("Nenhuma atividade")}
         message={`Nenhuma atividade registrada para ${dateLabel}`}
         tone="empty"
       />,
@@ -231,17 +234,17 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
           <div className="text-2xl font-bold text-slate-800">{activities.total_activities}</div>
-          <div className="text-xs font-medium text-slate-600">Total</div>
+          <div className="text-xs font-medium text-slate-600">{t("Total")}</div>
         </div>
         <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
           <div className="text-2xl font-bold text-slate-800">{formatDuration(activities.total_duration_seconds ?? 0)}</div>
-          <div className="text-xs font-medium text-slate-600">Tempo registrado</div>
+          <div className="text-xs font-medium text-slate-600">{t("Tempo registrado")}</div>
         </div>
         <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
           <div className="text-2xl font-bold text-slate-800">
             {activities.average_score === null || activities.average_score === undefined ? '—' : `${Math.round(activities.average_score)}%`}
           </div>
-          <div className="text-xs font-medium text-slate-600">Média c/ nota</div>
+          <div className="text-xs font-medium text-slate-600">{t("Média c/ nota")}</div>
         </div>
         {Object.entries(activities.activities_by_type).map(([type, count]) => (
           <div key={type} className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
@@ -289,7 +292,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
               onClick={() => setSelectedFilters(new Set())}
               className="inline-flex items-center gap-1 rounded-lg border-2 border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
             >
-              Limpar <X size={16} />
+              {t("Limpar")} <X size={16} />
             </button>
           )}
         </div>

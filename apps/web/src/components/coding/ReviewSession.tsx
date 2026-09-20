@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckCircle2, ChevronRight, HelpCircle, Loader2, X, XCircle } from 'lucide-react';
 import { api, type CodingReviewCard, type ReviewRating } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
+import { t } from '@/lib/i18n';
 
 interface Props {
   subjectName: string;
@@ -67,20 +68,20 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
         <div className="rounded-full bg-emerald-100 p-6">
           <CheckCircle2 size={48} className="text-emerald-500" />
         </div>
-        <h2 className="text-2xl font-black text-slate-800">Revisão concluída!</h2>
+        <h2 className="text-2xl font-black text-slate-800">{t("Revisão concluída!")}</h2>
         <div className="flex gap-8">
-          <div><p className="text-3xl font-black text-emerald-600">{knew}</p><p className="text-sm font-bold text-slate-500">Sabia</p></div>
-          <div><p className="text-3xl font-black text-amber-500">{partial}</p><p className="text-sm font-bold text-slate-500">Parcial</p></div>
-          <div><p className="text-3xl font-black text-rose-500">{unknown}</p><p className="text-sm font-bold text-slate-500">Não sabia</p></div>
-          <div><p className="text-3xl font-black text-slate-700">{total}</p><p className="text-sm font-bold text-slate-500">Total</p></div>
+          <div><p className="text-3xl font-black text-emerald-600">{knew}</p><p className="text-sm font-bold text-slate-500">{t("Sabia")}</p></div>
+          <div><p className="text-3xl font-black text-amber-500">{partial}</p><p className="text-sm font-bold text-slate-500">{t("Parcial")}</p></div>
+          <div><p className="text-3xl font-black text-rose-500">{unknown}</p><p className="text-sm font-bold text-slate-500">{t("Não sabia")}</p></div>
+          <div><p className="text-3xl font-black text-slate-700">{total}</p><p className="text-sm font-bold text-slate-500">{t("Total")}</p></div>
         </div>
         <p className="max-w-sm text-sm text-slate-500">
-          O que você marcou como <span className="font-bold text-rose-500">não sabia</span> volta em minutos,{' '}
-          <span className="font-bold text-amber-500">parcial</span> volta mais cedo e{' '}
-          <span className="font-bold text-emerald-600">sabia</span> espaça a próxima revisão.
+          {t("O que você marcou como")} <span className="font-bold text-rose-500">{t("não sabia")}</span> {t("volta em minutos,")}{' '}
+          <span className="font-bold text-amber-500">parcial</span> {t("volta mais cedo e")}{' '}
+          <span className="font-bold text-emerald-600">sabia</span> {t("espaça a próxima revisão.")}
         </p>
         <button type="button" onClick={onClose} className="rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark">
-          Fechar
+          {t("Fechar")}
         </button>
       </div>
     );
@@ -93,7 +94,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Revisão · {subjectName}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("Revisão ·")} {subjectName}</p>
           <p className="text-sm font-bold text-slate-600">{index + 1} / {total}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -122,7 +123,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
 
       {/* Card */}
       <div className="min-h-48 rounded-3xl border-2 border-slate-100 bg-white p-6">
-        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Frente</p>
+        <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">{t("Frente")}</p>
         <p className="text-lg font-black text-slate-800">{card.front}</p>
 
         {mode === 'flip' && (
@@ -133,12 +134,12 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                 onClick={() => setStates((prev) => prev.map((s, i) => (i === index ? { ...s, revealed: true } : s)))}
                 className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-primary py-3 font-black text-primary hover:bg-primary-light"
               >
-                <ChevronRight size={18} /> Revelar resposta
+                <ChevronRight size={18} /> {t("Revelar resposta")}
               </button>
             ) : (
               <>
                 <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-                  <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Verso</p>
+                  <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">{t("Verso")}</p>
                   <p className="leading-relaxed text-slate-700">{card.back}</p>
                   {card.code_example && (
                     <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />
@@ -151,7 +152,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     onClick={() => handleAnswer('unknown')}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-rose-200 bg-rose-50 py-3 text-sm font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />} Não sabia
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />} {t("Não sabia")}
                   </button>
                   <button
                     type="button"
@@ -159,7 +160,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     onClick={() => handleAnswer('partial')}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 py-3 text-sm font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <HelpCircle size={16} />} Parcial
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <HelpCircle size={16} />} {t("Parcial")}
                   </button>
                   <button
                     type="button"
@@ -167,7 +168,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     onClick={() => handleAnswer('knew')}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 py-3 text-sm font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                   >
-                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} Sabia!
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} {t("Sabia!")}
                   </button>
                 </div>
               </>

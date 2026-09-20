@@ -1,4 +1,5 @@
 import type { Objective, PlanDraft, PlanPriorityDraft, StudyPlan } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * The plan rules the screen needs without asking the server again.
@@ -122,13 +123,13 @@ export function newPriorityCount(draft: PlanDraft) {
 }
 
 export function createPlanLabel(count: number) {
-  if (count === 0) return 'Escolha pelo menos uma prioridade';
+  if (count === 0) return t("Escolha pelo menos uma prioridade");
   return `Criar plano com ${count} ${count === 1 ? 'prioridade' : 'prioridades'}`;
 }
 
 export function aiUnavailableMessage(reason: 'no_config' | 'no_credits' | null | undefined) {
   if (reason === 'no_credits') {
-    return 'Seus créditos de IA de hoje acabaram. Comece por um modelo pronto ou volte amanhã.';
+    return t("Seus créditos de IA de hoje acabaram. Comece por um modelo pronto ou volte amanhã.");
   }
-  return 'Para montar o plano com IA, configure uma chave de API na sua conta. Os modelos prontos funcionam sem IA.';
+  return t("Para montar o plano com IA, configure uma chave de API na sua conta. Os modelos prontos funcionam sem IA.");
 }

@@ -7,6 +7,7 @@ import { ArrowLeft, KeyRound, Loader2 } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
 import { PasswordStrengthMeter } from '@/components/password-strength-meter';
+import { t } from '@/lib/i18n';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -26,7 +27,7 @@ function ResetPasswordForm() {
       setError(
         cause instanceof ApiError
           ? (cause.detail ?? cause.message)
-          : 'Não foi possível redefinir a senha.',
+          : t("Não foi possível redefinir a senha."),
       );
       setLoading(false);
     }
@@ -35,15 +36,15 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="app-surface border-rose-200 p-6 md:p-8">
-        <h1 className="text-2xl font-black text-slate-800">Link incompleto</h1>
+        <h1 className="text-2xl font-black text-slate-800">{t("Link incompleto")}</h1>
         <p className="mt-3 text-base leading-7 text-slate-600">
-          Abra o link exatamente como ele chegou no seu e-mail, ou peça um novo.
+          {t("Abra o link exatamente como ele chegou no seu e-mail, ou peça um novo.")}
         </p>
         <Link
           href="/forgot-password"
           className="mt-6 inline-flex min-h-12 items-center justify-center rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark"
         >
-          Pedir um link novo
+          {t("Pedir um link novo")}
         </Link>
       </div>
     );
@@ -53,12 +54,12 @@ function ResetPasswordForm() {
     <div className="app-surface border-primary/40 p-6 md:p-8">
       <div className="flex items-center gap-3">
         <KeyRound className="text-primary-dark" size={28} />
-        <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Criar uma senha nova</h1>
+        <h1 className="text-2xl font-black text-slate-800 md:text-3xl">{t("Criar uma senha nova")}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
         <label className="grid gap-2">
-          <span className="text-sm font-black text-slate-600">Nova senha</span>
+          <span className="text-sm font-black text-slate-600">{t("Nova senha")}</span>
           <input
             type="password"
             required
@@ -75,7 +76,7 @@ function ResetPasswordForm() {
         ) : null}
 
         <p className="text-sm font-semibold text-slate-500">
-          Ao redefinir, todas as sessões abertas com a senha antiga são encerradas.
+          {t("Ao redefinir, todas as sessões abertas com a senha antiga são encerradas.")}
         </p>
 
         <button
@@ -84,7 +85,7 @@ function ResetPasswordForm() {
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 text-base font-black text-white transition hover:bg-primary-dark disabled:opacity-60"
         >
           {loading ? <Loader2 className="animate-spin" size={18} /> : <KeyRound size={18} />}
-          Redefinir senha
+          {t("Redefinir senha")}
         </button>
       </form>
     </div>
@@ -95,9 +96,9 @@ export default function ResetPasswordPage() {
   return (
     <main className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-10">
       <Link href="/login" className="-ml-2 mb-6 inline-flex min-h-11 items-center gap-2 px-2 text-base font-bold text-primary-dark hover:text-primary">
-        <ArrowLeft size={20} /> Voltar para o login
+        <ArrowLeft size={20} /> {t("Voltar para o login")}
       </Link>
-      <Suspense fallback={<div className="app-surface p-6">Carregando...</div>}>
+      <Suspense fallback={<div className="app-surface p-6">{t("Carregando...")}</div>}>
         <ResetPasswordForm />
       </Suspense>
     </main>

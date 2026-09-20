@@ -12,6 +12,7 @@ import { playAudioWithFallback } from '@/lib/browser-speech';
 import { isUncertainLessonQuestionGenerationError, mergeLessonQuestionsById, validateConfirmedLessonQuestionBatch } from '@/lib/lesson-question-state';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { rememberStudyLocation } from '@/lib/study-resume';
+import { t } from '@/lib/i18n';
 
 export default function LessonPage() {
   return (
@@ -19,10 +20,10 @@ export default function LessonPage() {
       fallback={
         <StatusCard
           tone="loading"
-          title="Abrindo a lição de hoje"
-          message="Estamos preparando as frases, os sons e a miniatividade para você."
+          title={t("Abrindo a lição de hoje")}
+          message={t("Estamos preparando as frases, os sons e a miniatividade para você.")}
           secondaryHref="/"
-          secondaryLabel="Voltar ao início"
+          secondaryLabel={t("Voltar ao início")}
         />
       }
     >
@@ -160,7 +161,7 @@ function LessonPageContent() {
       if (err instanceof ApiError && err.status === 404) {
         // allDone already set — not a real error
       } else {
-        setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar a lição.'));
+        setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar a lição.")));
       }
     } finally {
       setLoading(false);
@@ -195,7 +196,7 @@ function LessonPageContent() {
         try { localStorage.setItem(LEVEL_CACHE_KEY, JSON.stringify(level)); } catch { /* ignore */ }
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível gerar a lição.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível gerar a lição.")));
     } finally {
       setGeneratingNew(false);
       setGenerating(false);
@@ -253,7 +254,7 @@ function LessonPageContent() {
           : `Nível ${updated.level} — ${updated.label}. As próximas lições usam esse nível.`,
       );
     } catch (err) {
-      setLevelMessage(err instanceof ApiError ? err.message : 'Não foi possível mudar o nível.');
+      setLevelMessage(err instanceof ApiError ? err.message : t("Não foi possível mudar o nível."));
     } finally {
       setLevelSaving(false);
     }
@@ -278,7 +279,7 @@ function LessonPageContent() {
         correct: isCorrect,
       });
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível salvar a sua prática.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível salvar a sua prática."));
       setSaveError(nextError.message);
     } finally {
       setSubmittingAnswer(false);
@@ -301,7 +302,7 @@ function LessonPageContent() {
       setCompleted(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err : new ApiError('Não foi possível salvar a lição.'));
+      setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível salvar a lição.")));
     } finally {
       setSavingLesson(false);
     }
@@ -342,7 +343,7 @@ function LessonPageContent() {
       setLessonQuestionFormOpen(false);
       setLessonQuestionMessage({
         tone: 'success',
-        text: '5 novas questões foram adicionadas a esta lição.',
+        text: t("5 novas questões foram adicionadas a esta lição."),
       });
     } catch (err) {
       if (
@@ -356,12 +357,12 @@ function LessonPageContent() {
       if (isUncertainLessonQuestionGenerationError(err)) {
         setLessonQuestionMessage({
           tone: 'error',
-          text: 'Não foi possível confirmar o resultado. Recarregue a lição antes de tentar novamente para evitar questões duplicadas.',
+          text: t("Não foi possível confirmar o resultado. Recarregue a lição antes de tentar novamente para evitar questões duplicadas."),
         });
       } else {
         setLessonQuestionMessage({
           tone: 'error',
-          text: err instanceof ApiError ? err.message : 'Não foi possível criar novas questões.',
+          text: err instanceof ApiError ? err.message : t("Não foi possível criar novas questões."),
         });
       }
     } finally {
@@ -378,10 +379,10 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando seu cadastro..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando seu cadastro...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -389,15 +390,15 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
         primaryAction={
           <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
-            Conectar
+            {t("Conectar")}
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -406,14 +407,14 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="loading"
-        title={generating ? 'Gerando nova lição com IA...' : 'Abrindo onde você parou'}
+        title={generating ? t("Gerando nova lição com IA...") : t("Abrindo onde você parou")}
         message={
           generating
-            ? 'O Gemini está criando frases no nível certo para você. Pode demorar alguns segundos.'
-            : 'Buscando sua próxima lição...'
+            ? t("O Gemini está criando frases no nível certo para você. Pode demorar alguns segundos.")
+            : t("Buscando sua próxima lição...")
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -423,20 +424,20 @@ function LessonPageContent() {
       <main className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-10 md:py-12">
         <div className="mx-auto max-w-2xl">
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary mb-6">
-            <ArrowLeft size={18} /> Voltar
+            <ArrowLeft size={18} /> {t("Voltar")}
           </Link>
           <div className="app-surface border-emerald-200 p-8 text-center md:p-12">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="text-emerald-600" size={44} />
             </div>
-            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">Tudo em dia!</h1>
+            <h1 className="text-3xl font-black text-slate-800 md:text-4xl">{t("Tudo em dia!")}</h1>
             <p className="mt-3 text-base leading-7 text-slate-500 md:text-lg">
-              Você completou todas as lições disponíveis no seu nível. Quer continuar com uma nova lição gerada por IA?
+              {t("Você completou todas as lições disponíveis no seu nível. Quer continuar com uma nova lição gerada por IA?")}
             </p>
 
             <div className="mt-8 flex flex-col items-center gap-4">
               <div className="rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-700">
-                ⚠️ Gerar uma nova lição consome tokens da API Gemini.
+                {t("⚠️ Gerar uma nova lição consome tokens da API Gemini.")}
               </div>
               <button
                 type="button"
@@ -445,13 +446,13 @@ function LessonPageContent() {
                 className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary-dark px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark disabled:opacity-70 sm:w-auto sm:px-10 sm:py-5 sm:text-xl"
               >
                 {generatingNew ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
-                {generatingNew ? 'Gerando...' : 'Gerar nova lição com IA'}
+                {generatingNew ? 'Gerando...' : t("Gerar nova lição com IA")}
               </button>
               <Link href="/review" className="rounded-full border-2 border-slate-200 px-8 py-4 text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary">
-                Praticar revisão das frases
+                {t("Praticar revisão das frases")}
               </Link>
               <Link href="/" className="text-sm font-semibold text-slate-400 hover:text-slate-600 transition">
-                Voltar ao início
+                {t("Voltar ao início")}
               </Link>
             </div>
           </div>
@@ -464,15 +465,15 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="Tutor temporariamente indisponível"
-        message="Não foi possível carregar esta lição agora. Tente novamente em instantes."
+        title={t("Tutor temporariamente indisponível")}
+        message={t("Não foi possível carregar esta lição agora. Tente novamente em instantes.")}
         primaryAction={
           <Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">
-            Abrir configuração de conexão
+            {t("Abrir configuração de conexão")}
           </Link>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -481,15 +482,15 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="offline"
-        title="A lição não conseguiu se conectar"
-        message="Não foi possível carregar esta lição agora. Tente novamente em instantes."
+        title={t("A lição não conseguiu se conectar")}
+        message={t("Não foi possível carregar esta lição agora. Tente novamente em instantes.")}
         primaryAction={
           <button onClick={() => void loadLesson()} className="app-button bg-brand-orange hover:bg-secondary-dark">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/offline"
-        secondaryLabel="Trocar conexão"
+        secondaryLabel={t("Trocar conexão")}
       />
     );
   }
@@ -498,15 +499,15 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="error"
-        title="Chave Gemini não configurada"
-        message="Não foi possível gerar uma lição agora. Tente novamente mais tarde."
+        title={t("Chave Gemini não configurada")}
+        message={t("Não foi possível gerar uma lição agora. Tente novamente mais tarde.")}
         primaryAction={
           <button onClick={() => void loadLesson()} className="app-button bg-brand-pink hover:bg-pink-500">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -515,15 +516,15 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="error"
-        title="A lição encontrou um problema"
+        title={t("A lição encontrou um problema")}
         message={error.message}
         primaryAction={
           <button onClick={() => void loadLesson()} className="app-button bg-brand-pink hover:bg-pink-500">
-                  Recarregar lição
+                  {t("Recarregar lição")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -532,10 +533,10 @@ function LessonPageContent() {
     return (
       <StatusCard
         tone="empty"
-        title="Ainda não há lição"
-        message="Não encontramos a lição de hoje. Adicione o conteúdo da lição ou popule o banco e volte depois."
+        title={t("Ainda não há lição")}
+        message={t("Não encontramos a lição de hoje. Adicione o conteúdo da lição ou popule o banco e volte depois.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -552,11 +553,11 @@ function LessonPageContent() {
               <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-accent-light md:h-28 md:w-28">
                 <PartyPopper className="text-accent-dark" size={52} />
               </div>
-              <p className="app-tag mb-3">Lição concluída!</p>
-              <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Você terminou</h1>
+              <p className="app-tag mb-3">{t("Lição concluída!")}</p>
+              <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">{t("Você terminou")}</h1>
               <p className="mt-1 text-2xl font-black text-primary md:text-3xl">{lesson.theme}!</p>
               <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-slate-500">
-                {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}. Agora pratique para fixar!
+                {lesson.items.length} frase{lesson.items.length !== 1 ? 's' : ''} aprendida{lesson.items.length !== 1 ? 's' : ''}{t(". Agora pratique para fixar!")}
               </p>
 
               {/* Primary CTA — Revisao */}
@@ -567,7 +568,7 @@ function LessonPageContent() {
                   className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-emerald-700 px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(34,197,94,0.40)] transition hover:scale-105 hover:bg-emerald-800 sm:w-auto sm:px-10 sm:py-5 sm:text-xl md:text-2xl"
                 >
                   <Brain size={24} />
-                  Praticar revisão
+                  {t("Praticar revisão")}
                 </Link>
               </div>
 
@@ -578,7 +579,7 @@ function LessonPageContent() {
                   className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary-dark px-6 py-4 text-lg font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto sm:px-10 sm:py-5 sm:text-xl md:text-2xl"
                 >
                   <Sparkles size={24} />
-                Próxima lição
+                {t("Próxima lição")}
                 </button>
               </div>
             </div>
@@ -590,16 +591,16 @@ function LessonPageContent() {
                 className="app-surface flex flex-col items-center gap-2 border-amber-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <ChevronRight size={28} className="text-amber-500" />
-                <p className="text-sm font-black text-slate-800">Revisão Rápida</p>
-                <p className="text-xs text-slate-500">3 opções, bem rápido</p>
+                <p className="text-sm font-black text-slate-800">{t("Revisão Rápida")}</p>
+                <p className="text-xs text-slate-500">{t("3 opções, bem rápido")}</p>
               </Link>
               <Link
                 href="/"
                 className="app-surface flex flex-col items-center gap-2 border-slate-200 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-md"
               >
                 <CheckCircle2 size={28} className="text-slate-400" />
-                <p className="text-sm font-black text-slate-800">Voltar ao início</p>
-                <p className="text-xs text-slate-500">Ver todas as atividades</p>
+                <p className="text-sm font-black text-slate-800">{t("Voltar ao início")}</p>
+                <p className="text-xs text-slate-500">{t("Ver todas as atividades")}</p>
               </Link>
             </div>
 
@@ -626,8 +627,8 @@ function LessonPageContent() {
                   <Sparkles size={20} className="lesson-level-icon-symbol" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">Seu nível</p>
-                  <p className="lesson-level-title text-base font-black">Nivel {levelInfo.level} — {levelInfo.label}</p>
+                  <p className="lesson-level-label text-xs font-bold uppercase tracking-widest">{t("Seu nível")}</p>
+                  <p className="lesson-level-title text-base font-black">{t("Nivel")} {levelInfo.level} — {levelInfo.label}</p>
                 </div>
 
                 {/* Level controls — the child can make it easier or harder */}
@@ -636,8 +637,8 @@ function LessonPageContent() {
                     type="button"
                     onClick={() => void changeLevel(levelInfo.level - 1)}
                     disabled={levelSaving || levelInfo.level <= levelInfo.min_level}
-                    aria-label="Deixar mais fácil (baixar um nível)"
-                    title="Deixar mais fácil"
+                    aria-label={t("Deixar mais fácil (baixar um nível)")}
+                    title={t("Deixar mais fácil")}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Minus size={16} />
@@ -646,8 +647,8 @@ function LessonPageContent() {
                     type="button"
                     onClick={() => void changeLevel(levelInfo.level + 1)}
                     disabled={levelSaving || levelInfo.level >= levelInfo.max_level}
-                    aria-label="Deixar mais difícil (subir um nível)"
-                    title="Deixar mais difícil"
+                    aria-label={t("Deixar mais difícil (subir um nível)")}
+                    title={t("Deixar mais difícil")}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-slate-200 bg-white text-slate-600 transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Plus size={16} />
@@ -662,7 +663,7 @@ function LessonPageContent() {
                 </p>
                 {!levelInfo.is_manual_level && levelInfo.next_level_at > 0 && (
                   <p className="lesson-level-stat text-xs">
-                    faltam {Math.max(0, levelInfo.next_level_at - levelInfo.questions_answered)} para o nível {levelInfo.level + 1}
+                    faltam {Math.max(0, levelInfo.next_level_at - levelInfo.questions_answered)} {t("para o nível")} {levelInfo.level + 1}
                   </p>
                 )}
                 {levelInfo.is_manual_level && (
@@ -672,7 +673,7 @@ function LessonPageContent() {
                     disabled={levelSaving}
                     className="text-xs font-bold text-primary-dark underline underline-offset-2 transition hover:text-primary disabled:opacity-50"
                   >
-                    Nível escolhido por você — voltar ao automático
+                    {t("Nível escolhido por você — voltar ao automático")}
                   </button>
                 )}
               </div>
@@ -686,7 +687,7 @@ function LessonPageContent() {
           {/* Nav row */}
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary md:text-base">
-              <ArrowLeft size={20} /> Sair
+              <ArrowLeft size={20} /> {t("Sair")}
             </Link>
             <div className="flex items-center gap-2">
               <Link href="/lesson/history" className="inline-flex items-center gap-1.5 rounded-full border-2 border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:border-primary hover:text-primary">
@@ -728,7 +729,7 @@ function LessonPageContent() {
                   {audioLoading ? <Loader2 size={24} className="animate-spin" /> : <Volume2 size={24} />}
                 </button>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("Velocidade")}</span>
                   <div className="flex gap-2">
                     {([0.5, 0.75, 1.0] as const).map((speed) => (
                       <button
@@ -781,7 +782,7 @@ function LessonPageContent() {
               {selectedAnswer ? (
                 <div className="mt-5 rounded-2xl bg-slate-50 p-4 md:p-5">
                   <p className={`text-xl font-black md:text-2xl ${answerCorrect ? 'text-accent-dark' : 'text-rose-600'}`}>
-                    {answerCorrect ? 'Sim! Muito bem! 🎉' : 'Quase! Vamos lembrar. 💪'}
+                    {answerCorrect ? t("Sim! Muito bem! 🎉") : t("Quase! Vamos lembrar. 💪")}
                   </p>
                   <p className="mt-2 text-base text-slate-700 md:text-lg">
                     <span className="font-black">{currentItem.word_en}</span> significa{' '}
@@ -795,9 +796,9 @@ function LessonPageContent() {
               ) : (
                 /* Miniatividade hint — fica no final do card antes de responder */
                 <div className="mt-5 rounded-2xl bg-sky-50 p-4 md:p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-600">Miniatividade</p>
-                  <p className="mt-2 text-base font-black text-slate-800 md:text-lg">Toque no significado em português.</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">Ouça a frase primeiro e depois escolha a tradução certa.</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-600">{t("Miniatividade")}</p>
+                  <p className="mt-2 text-base font-black text-slate-800 md:text-lg">{t("Toque no significado em português.")}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{t("Ouça a frase primeiro e depois escolha a tradução certa.")}</p>
                 </div>
               )}
 
@@ -807,14 +808,14 @@ function LessonPageContent() {
           <section className="app-surface mt-6 border-violet-200 p-5 md:p-7" aria-labelledby="lesson-questions-title">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">Perguntas da lição</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-600">{t("Perguntas da lição")}</p>
                 <h2 id="lesson-questions-title" className="mt-1 text-2xl font-black text-slate-800">
-                  Pratique o conteúdo
+                  {t("Pratique o conteúdo")}
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
                   {lesson.questions.length > 0
                     ? `${lesson.questions.length} questão${lesson.questions.length === 1 ? '' : 'ões'} salva${lesson.questions.length === 1 ? '' : 's'} nesta lição.`
-                    : 'Ainda não há questões extras nesta lição.'}
+                    : t("Ainda não há questões extras nesta lição.")}
                 </p>
               </div>
               <button
@@ -829,7 +830,7 @@ function LessonPageContent() {
                 className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-violet-600 px-5 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Sparkles size={17} />
-                {lessonQuestionFormOpen ? 'Fechar' : 'Criar mais questões'}
+                {lessonQuestionFormOpen ? t("Fechar") : t("Criar mais questões")}
               </button>
             </div>
 
@@ -843,10 +844,10 @@ function LessonPageContent() {
                 }}
               >
                 <label htmlFor="lesson-question-context" className="text-sm font-black text-slate-800">
-                  Contexto opcional
+                  {t("Contexto opcional")}
                 </label>
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Informe um foco, como gramática, vocabulário ou uma situação de uso. A IA criará exatamente 5 novas questões ligadas a esta lição.
+                  {t("Informe um foco, como gramática, vocabulário ou uma situação de uso. A IA criará exatamente 5 novas questões ligadas a esta lição.")}
                 </p>
                 <textarea
                   id="lesson-question-context"
@@ -855,7 +856,7 @@ function LessonPageContent() {
                   maxLength={1000}
                   disabled={lessonQuestionGenerating}
                   rows={3}
-                  placeholder="Ex.: priorize pronomes e conversacao em viagens"
+                  placeholder={t("Ex.: priorize pronomes e conversacao em viagens")}
                   className="mt-3 w-full resize-y rounded-2xl border-2 border-violet-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-violet-500 disabled:opacity-60"
                 />
                 <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -868,7 +869,7 @@ function LessonPageContent() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {lessonQuestionGenerating ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
-                    {lessonQuestionGenerating ? 'Criando 5 questões...' : 'Criar 5 novas questões'}
+                    {lessonQuestionGenerating ? t("Criando 5 questões...") : t("Criar 5 novas questões")}
                   </button>
                 </div>
               </form>
@@ -905,14 +906,14 @@ function LessonPageContent() {
                     </p>
                     <details className="group mt-3 rounded-xl bg-slate-50 px-4 py-3">
                       <summary className="cursor-pointer text-sm font-black text-violet-700 marker:text-violet-400">
-                        Ver resposta
+                        {t("Ver resposta")}
                       </summary>
                       <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 md:text-base">
                         {question.back}
                       </p>
                       {question.supporting_example ? (
                         <div className="mt-3 rounded-xl bg-white px-3 py-2 text-sm leading-6 text-slate-600">
-                          <span className="font-black text-slate-700">Exemplo: </span>
+                          <span className="font-black text-slate-700">{t("Exemplo:")} </span>
                           {question.supporting_example}
                         </div>
                       ) : null}
@@ -938,8 +939,8 @@ function LessonPageContent() {
               {isLastPhrase
                 ? savingLesson
                   ? 'Salvando...'
-                  : 'Finalizar lição'
-                : 'Próxima frase'}
+                  : t("Finalizar lição")
+                : t("Próxima frase")}
               <ChevronRight size={22} />
             </button>
           </div>
@@ -951,12 +952,12 @@ function LessonPageContent() {
 
 function formatQuestionType(questionType: string) {
   const labels: Record<string, string> = {
-    vocabulary: 'Vocabulário',
-    translation: 'Tradução',
-    grammar: 'Gramática',
-    sentence_completion: 'Completar frase',
+    vocabulary: t("Vocabulário"),
+    translation: t("Tradução"),
+    grammar: t("Gramática"),
+    sentence_completion: t("Completar frase"),
     comprehension: 'Compreensao',
-    contextual_usage: 'Uso em contexto',
+    contextual_usage: t("Uso em contexto"),
   };
   return labels[questionType] || questionType.replaceAll('_', ' ');
 }
@@ -996,9 +997,9 @@ function renderPhraseBreakdown(lesson: Lesson, currentItem: LessonItem, currentI
 
   return (
     <div className="mt-6 rounded-[1.25rem] bg-amber-50 p-4 md:rounded-[1.5rem] md:p-5">
-      <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">Palavra por palavra</p>
+      <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">{t("Palavra por palavra")}</p>
       <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">
-        Frase {currentIndex + 1} - {phraseBreakdown.phrase_en}
+        {t("Frase")} {currentIndex + 1} - {phraseBreakdown.phrase_en}
       </p>
       <div className="mt-4 space-y-3">
         {phraseBreakdown.word_by_word.map((pair) => (

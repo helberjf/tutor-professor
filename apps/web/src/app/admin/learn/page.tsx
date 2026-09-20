@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 import { ApiError, api, type AdminFlashcard, type AdminFlashcardPayload, type AdminModule, type AdminModuleDetail, type AdminModuleQuizQuestion, type AdminUser, type AIProvider } from '@/lib/api';
 import { StatusCard } from '@/components/status-card';
+import { t } from '@/lib/i18n';
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 type Tab = 'modules' | 'flashcards' | 'users' | 'editor';
@@ -13,7 +14,7 @@ type Tab = 'modules' | 'flashcards' | 'users' | 'editor';
 // ─── Editor languages ────────────────────────────────────────────────────────
 const EDITOR_LANGS = [
   { value: 'typescript', label: 'TypeScript' },
-  { value: 'tsx', label: 'TSX / React' },
+  { value: 'tsx', label: "TSX / React" },
   { value: 'javascript', label: 'JavaScript' },
   { value: 'json', label: 'JSON' },
 ];
@@ -23,7 +24,7 @@ const CATEGORY_META: Record<string, { emoji: string; label: string; color: strin
   leetcode:   { emoji: 'LC', label: 'LeetCode', color: 'bg-amber-100 text-amber-800 border-amber-200' },
   react:      { emoji: '⚛️',  label: 'React',      color: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   typescript: { emoji: '🔷',  label: 'TypeScript', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  general:    { emoji: '📚',  label: 'Geral',      color: 'bg-slate-100 text-slate-700 border-slate-200' },
+  general:    { emoji: '📚',  label: "Geral",      color: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
 function categoryMeta(cat: string) {
   return CATEGORY_META[cat] ?? { emoji: '📄', label: cat, color: 'bg-slate-100 text-slate-700 border-slate-200' };
@@ -121,12 +122,12 @@ function ModulesTab() {
           onClick={() => setSelected(null)}
           className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-primary-dark"
         >
-          <ArrowLeft size={15} /> Voltar aos módulos
+          <ArrowLeft size={15} /> {t("Voltar aos módulos")}
         </button>
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.color}`}>
-            {meta.emoji} {meta.label}
+            {meta.emoji} {t(meta.label)}
           </span>
           <h2 className="text-2xl font-black text-slate-800 md:text-3xl">{selected.title}</h2>
         </div>
@@ -169,7 +170,7 @@ function ModulesTab() {
               <div className="mt-6 space-y-3">
                 <div className="flex items-center gap-2">
                   <Code2 size={18} className="text-amber-700" />
-                  <h3 className="text-lg font-black text-slate-800">Prática LeetCode</h3>
+                  <h3 className="text-lg font-black text-slate-800">{t("Prática LeetCode")}</h3>
                 </div>
                 {selected.practice.map((item) => (
                   <article key={item.id} className="rounded-2xl border-2 border-amber-100 bg-amber-50/40 p-5">
@@ -184,7 +185,7 @@ function ModulesTab() {
                       <code>{item.starter_code}</code>
                     </pre>
                     <div className="mt-4 rounded-xl bg-white p-4">
-                      <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">Casos de teste</p>
+                      <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">{t("Casos de teste")}</p>
                       <div className="space-y-2">
                         {item.test_cases.map((testCase, index) => (
                           <div key={`${item.id}-${index}`} className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
@@ -196,7 +197,7 @@ function ModulesTab() {
                       </div>
                     </div>
                     <details className="mt-4 rounded-xl border border-amber-200 bg-white p-4">
-                      <summary className="cursor-pointer text-sm font-black text-amber-800">Ver solução e explicação</summary>
+                      <summary className="cursor-pointer text-sm font-black text-amber-800">{t("Ver solução e explicação")}</summary>
                       <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-900 p-4 text-xs leading-relaxed text-emerald-300">
                         <code>{item.solution}</code>
                       </pre>
@@ -213,7 +214,7 @@ function ModulesTab() {
                 className="app-button mt-6 bg-primary-dark hover:bg-primary-dark"
               >
                 <Brain size={16} className="mr-2" />
-                Iniciar Quiz ({selected.quiz.length} perguntas)
+                {t("Iniciar Quiz (")}{selected.quiz.length} perguntas)
               </button>
             )}
           </>
@@ -221,7 +222,7 @@ function ModulesTab() {
           /* Quiz result */
           <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-6 text-center">
             <CheckCircle2 size={40} className="mx-auto mb-3 text-emerald-600" />
-            <h3 className="text-xl font-black text-slate-800">Quiz concluído!</h3>
+            <h3 className="text-xl font-black text-slate-800">{t("Quiz concluído!")}</h3>
             <p className="mt-2 text-4xl font-black text-emerald-700">
               {score}/{selected.quiz.length}
             </p>
@@ -232,7 +233,7 @@ function ModulesTab() {
               onClick={() => setQuizActive(false)}
               className="app-button mt-6 bg-primary-dark hover:bg-primary-dark"
             >
-              Voltar ao conteúdo
+              {t("Voltar ao conteúdo")}
             </button>
           </div>
         ) : q ? (
@@ -240,10 +241,10 @@ function ModulesTab() {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-bold text-slate-500">
-                Pergunta {quizIndex + 1}/{selected.quiz.length}
+                {t("Pergunta")} {quizIndex + 1}/{selected.quiz.length}
               </span>
               <button onClick={() => setQuizActive(false)} className="text-xs text-slate-400 hover:text-slate-600">
-                Sair do quiz
+                {t("Sair do quiz")}
               </button>
             </div>
             <div className="rounded-2xl border-2 border-slate-100 bg-white p-5">
@@ -274,14 +275,14 @@ function ModulesTab() {
               {chosen && (
                 <div className="mt-4">
                   <p className="mb-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    <span className="font-bold text-slate-700">Explicação: </span>
+                    <span className="font-bold text-slate-700">{t("Explicação:")} </span>
                     {q.explanation}
                   </p>
                   <button
                     onClick={nextQuestion}
                     className="app-button bg-primary-dark hover:bg-primary-dark"
                   >
-                    {quizIndex < selected.quiz.length - 1 ? 'Próxima →' : 'Ver resultado'}
+                    {quizIndex < selected.quiz.length - 1 ? t("Próxima →") : t("Ver resultado")}
                   </button>
                 </div>
               )}
@@ -310,7 +311,7 @@ function ModulesTab() {
           <div key={cat}>
             <div className="mb-3 flex items-center gap-2">
               <span className={`rounded-full border px-3 py-1 text-xs font-black ${meta.color}`}>
-                {meta.emoji} {meta.label}
+                {meta.emoji} {t(meta.label)}
               </span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -323,7 +324,7 @@ function ModulesTab() {
                   <span className="font-black text-slate-800">{mod.title}</span>
                   <span className="text-xs text-slate-500">{mod.description}</span>
                   <span className="mt-2 text-xs text-slate-400">
-                    {mod.total_sections} seções · {mod.total_quiz} perguntas
+                    {mod.total_sections} {t("seções ·")} {mod.total_quiz} perguntas
                   </span>
                 </button>
               ))}
@@ -364,7 +365,7 @@ function FlashcardsTab() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.front.trim() || !form.back.trim()) { setFormError('Frente e verso são obrigatórios.'); return; }
+    if (!form.front.trim() || !form.back.trim()) { setFormError(t("Frente e verso são obrigatórios.")); return; }
     setSaving(true);
     setFormError('');
     try {
@@ -373,7 +374,7 @@ function FlashcardsTab() {
       setForm({ front: '', back: '', category: 'general' });
       setShowForm(false);
     } catch {
-      setFormError('Não foi possível criar o flashcard.');
+      setFormError(t("Não foi possível criar o flashcard."));
     } finally {
       setSaving(false);
     }
@@ -399,7 +400,7 @@ function FlashcardsTab() {
       <div className="pt-2">
         <div className="mb-4 flex items-center justify-between">
           <button onClick={() => setStudyMode(false)} className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary-dark">
-            <ArrowLeft size={15} /> Sair do estudo
+            <ArrowLeft size={15} /> {t("Sair do estudo")}
           </button>
           <span className="text-xs font-bold text-slate-400">{studyIndex + 1}/{studyCards.length}</span>
         </div>
@@ -429,7 +430,7 @@ function FlashcardsTab() {
                 onClick={() => setStudyFlipped(true)}
                 className="mt-4 w-full rounded-xl border-2 border-dashed border-slate-200 py-2.5 text-sm font-bold text-slate-400 hover:border-primary hover:text-primary-dark"
               >
-                Virar →
+                {t("Virar →")}
               </button>
             </div>
             {/* Back */}
@@ -437,7 +438,7 @@ function FlashcardsTab() {
               className="absolute inset-0 flex flex-col rounded-2xl border-2 border-emerald-300 bg-white p-6 shadow-md"
               style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
             >
-              <span className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">Resposta</span>
+              <span className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">{t("Resposta")}</span>
               <div className="flex flex-1 flex-col justify-center gap-3">
                 <p className="text-base leading-7 text-slate-700">{studyCard?.back}</p>
                 {studyCard?.code_example && (
@@ -457,7 +458,7 @@ function FlashcardsTab() {
                 }}
                 className="mt-4 w-full rounded-xl bg-emerald-700 py-3 text-sm font-black text-white hover:bg-emerald-800"
               >
-                {studyIndex < studyCards.length - 1 ? 'Próximo →' : 'Concluir'}
+                {studyIndex < studyCards.length - 1 ? t("Próximo →") : 'Concluir'}
               </button>
             </div>
           </div>
@@ -485,7 +486,7 @@ function FlashcardsTab() {
                 onClick={() => setFilterCat(cat)}
                 className={`rounded-full border px-3 py-1 text-xs font-black transition ${filterCat === cat ? `${m.color}` : 'border-slate-200 text-slate-500 hover:border-primary'}`}
               >
-                {m.emoji} {m.label} ({cards.filter((c) => c.category === cat).length})
+                {m.emoji} {t(m.label)} ({cards.filter((c) => c.category === cat).length})
               </button>
             );
           })}
@@ -496,14 +497,14 @@ function FlashcardsTab() {
               onClick={() => { setStudyIndex(0); setStudyFlipped(false); setStudyMode(true); }}
               className="inline-flex items-center gap-1 rounded-full bg-emerald-700 px-4 py-2 text-xs font-black text-white hover:bg-emerald-800"
             >
-              <RotateCcw size={13} /> Estudar
+              <RotateCcw size={13} /> {t("Estudar")}
             </button>
           )}
           <button
             onClick={() => setShowForm((v) => !v)}
             className="inline-flex items-center gap-1 rounded-full bg-primary-dark px-4 py-2 text-xs font-black text-white hover:bg-primary-dark"
           >
-            <Plus size={13} /> Novo
+            <Plus size={13} /> {t("Novo")}
           </button>
         </div>
       </div>
@@ -512,32 +513,32 @@ function FlashcardsTab() {
       {showForm && (
         <form onSubmit={handleCreate} className="mb-5 rounded-2xl border-2 border-primary/30 bg-white p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-black text-slate-800">Novo flashcard</h3>
+            <h3 className="font-black text-slate-800">{t("Novo flashcard")}</h3>
             <button type="button" onClick={() => setShowForm(false)}><X size={16} className="text-slate-400" /></button>
           </div>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">Frente (termo)</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">{t("Frente (termo)")}</label>
               <input
-              aria-label="O que é um generic?"
+              aria-label={t("O que é um generic?")}
                 value={form.front}
                 onChange={(e) => setForm((f) => ({ ...f, front: e.target.value }))}
                 className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"
-                placeholder="Ex: O que é um generic?"
+                placeholder={t("Ex: O que é um generic?")}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">Verso (resposta)</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">{t("Verso (resposta)")}</label>
               <textarea
                 value={form.back}
                 onChange={(e) => setForm((f) => ({ ...f, back: e.target.value }))}
                 rows={3}
                 className="w-full rounded-xl border-2 border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"
-                placeholder="Resposta / definição"
+                placeholder={t("Resposta / definição")}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">Exemplo de código (opcional)</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">{t("Exemplo de código (opcional)")}</label>
               <textarea
                 value={form.code_example ?? ''}
                 onChange={(e) => setForm((f) => ({ ...f, code_example: e.target.value || undefined }))}
@@ -547,7 +548,7 @@ function FlashcardsTab() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">Categoria</label>
+              <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-slate-400">{t("Categoria")}</label>
               <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
@@ -556,7 +557,7 @@ function FlashcardsTab() {
                 <option value="react">⚛️ React</option>
                 <option value="typescript">🔷 TypeScript</option>
                 <option value="leetcode">LC LeetCode</option>
-                <option value="general">📚 Geral</option>
+                <option value="general">{t("📚 Geral")}</option>
               </select>
             </div>
           </div>
@@ -567,7 +568,7 @@ function FlashcardsTab() {
             className="app-button mt-4 bg-primary-dark hover:bg-primary-dark"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            <span className="ml-2">{saving ? 'Salvando...' : 'Criar flashcard'}</span>
+            <span className="ml-2">{saving ? 'Salvando...' : t("Criar flashcard")}</span>
           </button>
         </form>
       )}
@@ -577,8 +578,8 @@ function FlashcardsTab() {
         <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center">
-          <p className="text-sm font-bold text-slate-400">Nenhum flashcard ainda.</p>
-          <p className="mt-1 text-xs text-slate-400">Clique em &quot;Novo&quot; para criar o primeiro.</p>
+          <p className="text-sm font-bold text-slate-400">{t("Nenhum flashcard ainda.")}</p>
+          <p className="mt-1 text-xs text-slate-400">{t("Clique em &quot;Novo&quot; para criar o primeiro.")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -653,7 +654,7 @@ function EditorTab() {
                   : 'border border-slate-200 text-slate-500 hover:border-slate-400'
               }`}
             >
-              {l.label}
+              {t(l.label)}
             </button>
           ))}
         </div>
@@ -662,13 +663,13 @@ function EditorTab() {
             onClick={handleCopy}
             className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-slate-400"
           >
-            {copied ? '✓ Copiado' : 'Copiar'}
+            {copied ? t("✓ Copiado") : 'Copiar'}
           </button>
           <button
             onClick={handleClear}
             className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-bold text-rose-400 hover:border-rose-400"
           >
-            Limpar
+            {t("Limpar")}
           </button>
         </div>
       </div>
@@ -683,7 +684,7 @@ function EditorTab() {
         placeholder="// Escreva seu código aqui..."
       />
       <p className="mt-2 text-right text-xs text-slate-400">
-        {code.split('\n').length} linhas · {code.length} caracteres
+        {code.split('\n').length} {t("linhas ·")} {code.length} caracteres
       </p>
     </div>
   );
@@ -721,7 +722,7 @@ function UsersTab() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível carregar usuários.',
+        text: error instanceof Error ? error.message : t("Não foi possível carregar usuários."),
       });
     } finally {
       setLoading(false);
@@ -751,7 +752,7 @@ function UsersTab() {
     const form = forms[user.id];
     if (!form) return;
     if (!user.ai_settings.has_api_key && !form.api_key.trim()) {
-      setMessage({ tone: 'error', text: 'Cole a chave de API antes de salvar para este usuário.' });
+      setMessage({ tone: 'error', text: t("Cole a chave de API antes de salvar para este usuário.") });
       return;
     }
     setSavingUserId(user.id);
@@ -780,7 +781,7 @@ function UsersTab() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível salvar a chave de IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível salvar a chave de IA."),
       });
     } finally {
       setSavingUserId(null);
@@ -819,7 +820,7 @@ function UsersTab() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível autorizar o uso da IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível autorizar o uso da IA."),
       });
     } finally {
       setSavingUserId(null);
@@ -840,10 +841,10 @@ function UsersTab() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">Usuários</p>
-          <h2 className="text-2xl font-black text-slate-800">Autorizar IA por conta</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">{t("Usuários")}</p>
+          <h2 className="text-2xl font-black text-slate-800">{t("Autorizar IA por conta")}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Autorize uma conta criada a usar a chave global do servidor ou salve uma chave própria para ela.
+            {t("Autorize uma conta criada a usar a chave global do servidor ou salve uma chave própria para ela.")}
           </p>
         </div>
         <button
@@ -851,7 +852,7 @@ function UsersTab() {
           onClick={loadUsers}
           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-black text-slate-600 hover:border-primary hover:text-primary-dark"
         >
-          <RotateCcw size={15} /> Atualizar
+          <RotateCcw size={15} /> {t("Atualizar")}
         </button>
       </div>
 
@@ -882,7 +883,7 @@ function UsersTab() {
                 <h3 className="text-lg font-black text-slate-800">{user.first_name} {user.last_name}</h3>
                 <p className="break-all text-sm font-bold text-slate-500">{user.email}</p>
                 <p className="mt-1 text-xs font-bold text-slate-400">
-                  Login: {user.auth_provider} - Criado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                  {t("Login:")} {user.auth_provider} {t("- Criado em")} {new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </p>
               </div>
               <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
@@ -890,16 +891,16 @@ function UsersTab() {
               }`}>
                 <KeyRound size={13} />
                 {user.ai_settings.use_global_key
-                  ? 'Autorizado pela chave global'
+                  ? t("Autorizado pela chave global")
                   : user.ai_settings.has_api_key
                     ? `Chave ${user.ai_settings.api_key_preview ?? 'salva'}`
-                    : 'Sem autorização'}
+                    : t("Sem autorização")}
               </span>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-black text-slate-700">
-                Provedor
+                {t("Provedor")}
                 <select
                   value={form.provider}
                   onChange={(event) => {
@@ -911,12 +912,12 @@ function UsersTab() {
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700"
                 >
                   {providers.map((item) => (
-                    <option key={item.id} value={item.id}>{item.label}</option>
+                    <option key={item.id} value={item.id}>{t(item.label)}</option>
                   ))}
                 </select>
               </label>
               <label className="text-sm font-black text-slate-700">
-                Modelo
+                {t("Modelo")}
                 <input
                   value={form.model}
                   onChange={(event) => updateForm(user.id, 'model', event.target.value)}
@@ -924,21 +925,21 @@ function UsersTab() {
                 />
               </label>
               <label className="text-sm font-black text-slate-700 md:col-span-2">
-                Base URL
+                {t("Base URL")}
                 <input
                   value={form.base_url}
                   onChange={(event) => updateForm(user.id, 'base_url', event.target.value)}
-                  placeholder={provider?.requires_base_url ? 'URL obrigatória para este provedor' : 'Opcional'}
+                  placeholder={provider?.requires_base_url ? t("URL obrigatória para este provedor") : 'Opcional'}
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                 />
               </label>
               <label className="text-sm font-black text-slate-700 md:col-span-2">
-                Nova chave API
+                {t("Nova chave API")}
                 <input
                   type="password"
                   value={form.api_key}
                   onChange={(event) => updateForm(user.id, 'api_key', event.target.value)}
-                  placeholder="Cole a nova chave"
+                  placeholder={t("Cole a nova chave")}
                   autoComplete="new-password"
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                 />
@@ -953,7 +954,7 @@ function UsersTab() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                Autorizar IA
+                {t("Autorizar IA")}
               </button>
               <button
                 type="button"
@@ -962,7 +963,7 @@ function UsersTab() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-dark px-4 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                {saving ? 'Salvando...' : 'Salvar chave'}
+                {saving ? 'Salvando...' : t("Salvar chave")}
               </button>
             </div>
           </article>
@@ -971,7 +972,7 @@ function UsersTab() {
 
       {users.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">
-          Nenhum usuário cadastrado ainda.
+          {t("Nenhum usuário cadastrado ainda.")}
         </p>
       ) : null}
     </div>
@@ -994,10 +995,10 @@ export default function AdminLearnPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Verificando acesso"
-        message="Confirmando permissões de administrador..."
+        title={t("Verificando acesso")}
+        message={t("Confirmando permissões de administrador...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -1006,18 +1007,18 @@ export default function AdminLearnPage() {
     return (
       <StatusCard
         tone="error"
-        title="Acesso restrito"
-        message="Esta área é exclusiva para o administrador configurado nas variáveis de ambiente do backend."
+        title={t("Acesso restrito")}
+        message={t("Esta área é exclusiva para o administrador configurado nas variáveis de ambiente do backend.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
 
   const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'modules',    label: 'Módulos',    icon: <BookOpen size={15} /> },
-    { id: 'flashcards', label: 'Flashcards', icon: <Brain size={15} /> },
-    { id: 'users',      label: 'Usuários',   icon: <Users size={15} /> },
+    { id: 'modules',    label: t("Módulos"),    icon: <BookOpen size={15} /> },
+    { id: 'flashcards', label: t("Flashcards"), icon: <Brain size={15} /> },
+    { id: 'users',      label: t("Usuários"),   icon: <Users size={15} /> },
     { id: 'editor',     label: 'Editor',     icon: <Code2 size={15} /> },
   ];
 
@@ -1027,15 +1028,15 @@ export default function AdminLearnPage() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={16} /> Início
+            <ArrowLeft size={16} /> {t("Início")}
           </Link>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
             🔒 Admin
           </span>
         </div>
 
-        <h1 className="mb-1 text-3xl font-black text-slate-800 md:text-4xl">Aprender React & TypeScript</h1>
-        <p className="mb-6 text-sm text-slate-500">Teoria, quizzes, flashcards e editor de código.</p>
+        <h1 className="mb-1 text-3xl font-black text-slate-800 md:text-4xl">{t("Aprender React & TypeScript")}</h1>
+        <p className="mb-6 text-sm text-slate-500">{t("Teoria, quizzes, flashcards e editor de código.")}</p>
 
         {/* Tabs */}
         <div className="mb-6 flex gap-2 rounded-2xl border-2 border-slate-100 bg-slate-50 p-1.5">
@@ -1050,7 +1051,7 @@ export default function AdminLearnPage() {
               }`}
             >
               {tab.icon}
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>

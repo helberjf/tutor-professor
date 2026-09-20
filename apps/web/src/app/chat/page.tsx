@@ -7,6 +7,7 @@ import { ArrowLeft, Bot, Loader2, Send, Volume2, WifiOff } from 'lucide-react';
 import { ApiError, api, type ChatMessage } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { t } from '@/lib/i18n';
 
 type ChatBubble = ChatMessage & {
   audioUrl?: string | null;
@@ -14,8 +15,8 @@ type ChatBubble = ChatMessage & {
 
 const SUGGESTIONS = [
   'Oi!',
-  'Como se diz azul em inglês?',
-  'Podemos praticar cores?',
+  "Como se diz azul em inglês?",
+  "Podemos praticar cores?",
 ];
 
 export default function ChatPage() {
@@ -23,7 +24,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatBubble[]>([
     {
       role: 'assistant',
-      content: 'Oi! Me peça uma frase em inglês e vamos praticar juntos.',
+      content: t("Oi! Me peça uma frase em inglês e vamos praticar juntos."),
     },
   ]);
   const [draft, setDraft] = useState('');
@@ -65,7 +66,7 @@ export default function ChatPage() {
 
       setMessages((current) => [...current, assistantMessage]);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível enviar a mensagem do chat.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível enviar a mensagem do chat."));
       setError(nextError);
       setMessages((current) => current.filter((message, index) => !(index === current.length - 1 && message.role === 'user' && message.content === trimmed)));
     } finally {
@@ -83,7 +84,7 @@ export default function ChatPage() {
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center text-slate-400">
           <Loader2 size={32} className="mx-auto mb-3 animate-spin" />
-          <p className="font-semibold">Verificando acesso...</p>
+          <p className="font-semibold">{t("Verificando acesso...")}</p>
         </div>
       </main>
     );
@@ -93,9 +94,9 @@ export default function ChatPage() {
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="text-center">
           <WifiOff size={32} className="mx-auto mb-3 text-slate-400" />
-          <p className="font-bold text-slate-700">Servidor não disponível</p>
-          <p className="mt-1 text-sm text-slate-500">O sistema está temporariamente indisponível.</p>
-          <Link href="/offline" className="mt-4 inline-block font-bold text-primary hover:underline">Ver status</Link>
+          <p className="font-bold text-slate-700">{t("Servidor não disponível")}</p>
+          <p className="mt-1 text-sm text-slate-500">{t("O sistema está temporariamente indisponível.")}</p>
+          <Link href="/offline" className="mt-4 inline-block font-bold text-primary hover:underline">{t("Ver status")}</Link>
         </div>
       </main>
     );
@@ -106,9 +107,9 @@ export default function ChatPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between gap-4">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Voltar
+            <ArrowLeft size={22} /> {t("Voltar")}
           </Link>
-          <p className="app-tag">Chat com o tutor</p>
+          <p className="app-tag">{t("Chat com o tutor")}</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.8fr,1.2fr]">
@@ -116,23 +117,23 @@ export default function ChatPage() {
             <div className="inline-flex rounded-[1.5rem] bg-rose-50 p-4">
               <Bot className="text-brand-pink" size={34} />
             </div>
-            <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">Converse com o tutor</h1>
+            <h1 className="mt-4 text-3xl font-black text-slate-800 md:mt-5 md:text-4xl">{t("Converse com o tutor")}</h1>
             <p className="mt-4 text-lg leading-8 text-slate-600 md:text-xl md:leading-9">
-              Mantenha o chat curto, seguro e divertido. Peça uma frase, um significado ou uma ideia de pratica.
+              {t("Mantenha o chat curto, seguro e divertido. Peça uma frase, um significado ou uma ideia de prática.")}
             </p>
             <div className="mt-8 space-y-3">
               {SUGGESTIONS.map((suggestion) => (
                 <button
-                  key={suggestion}
+                  key={t(suggestion)}
                   onClick={() => void handleSend(suggestion)}
                     className="w-full rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-left text-base font-bold text-slate-700 transition hover:border-primary hover:bg-primary-light md:text-lg"
                 >
-                  {suggestion}
+                  {t(suggestion)}
                 </button>
               ))}
             </div>
             <div className="mt-6 flex flex-col gap-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Velocidade do áudio</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-400">{t("Velocidade do áudio")}</span>
               <div className="flex gap-2">
                 {([0.5, 0.75, 1.0] as const).map((speed) => (
                   <button
@@ -154,26 +155,26 @@ export default function ChatPage() {
               <div className="mt-8 rounded-[1.5rem] border-2 border-primary bg-primary-light/40 p-5">
                 <div className="flex items-center gap-3 text-primary-dark">
                   <WifiOff size={26} />
-                  <p className="text-xl font-black">Conecte o tutor primeiro.</p>
+                  <p className="text-xl font-black">{t("Conecte o tutor primeiro.")}</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  O chat está temporariamente indisponível. Tente novamente em instantes.
+                  {t("O chat está temporariamente indisponível. Tente novamente em instantes.")}
                 </p>
                 <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Abrir configuração de conexão
+                  {t("Abrir configuração de conexão")}
                 </Link>
               </div>
             ) : error?.isOffline ? (
               <div className="mt-8 rounded-[1.5rem] border-2 border-brand-orange bg-orange-50 p-5">
                 <div className="flex items-center gap-3 text-brand-orange">
                   <WifiOff size={26} />
-                  <p className="text-xl font-black">O backend está offline agora.</p>
+                  <p className="text-xl font-black">{t("O backend está offline agora.")}</p>
                 </div>
                 <p className="mt-3 text-lg leading-8 text-slate-600">
-                  Não foi possível acessar o chat agora. Tente novamente em instantes.
+                  {t("Não foi possível acessar o chat agora. Tente novamente em instantes.")}
                 </p>
                 <Link href="/offline" className="mt-5 inline-flex font-bold uppercase tracking-[0.16em] text-primary-dark">
-                  Abrir configuração de conexão
+                  {t("Abrir configuração de conexão")}
                 </Link>
               </div>
             ) : null}
@@ -200,7 +201,7 @@ export default function ChatPage() {
                           <button
                             onClick={() => void playAudio(index, message.audioUrl, message.content)}
                             disabled={playingIndex !== null}
-                            title="Ouvir"
+                            title={t("Ouvir")}
                             className="mt-1 shrink-0 rounded-full bg-white/80 p-1.5 text-primary-dark shadow-sm transition hover:bg-white disabled:opacity-50"
                           >
                             {playingIndex === index ? <Loader2 size={15} className="animate-spin" /> : <Volume2 size={15} />}
@@ -214,12 +215,12 @@ export default function ChatPage() {
 
               <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-3 border-t border-slate-100 px-2 pt-4 sm:flex-row">
                 <input
-              aria-label="Peça uma frase ou diga oi"
+              aria-label={t("Peça uma frase ou diga oi")}
                   type="text"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   className="min-h-[3.5rem] min-w-0 flex-1 rounded-full border-2 border-slate-200 bg-white px-5 text-lg text-slate-700 outline-none transition focus:border-primary"
-                  placeholder="Peça uma frase ou diga oi..."
+                  placeholder={t("Peça uma frase ou diga oi...")}
                   maxLength={300}
                 />
                 <button type="submit" disabled={sending || !draft.trim()} className="app-button bg-primary-dark hover:bg-primary-dark">

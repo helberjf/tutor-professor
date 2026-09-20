@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Coins, KeyRound, Loader2, RotateCcw, ShieldCheck, ShieldX, Trash2, X } from 'lucide-react';
 
 import { api, type AccountStatus, type AdminUser } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const FILTERS: { id: AccountStatus | 'all'; label: string }[] = [
   { id: 'pending', label: 'Aguardando' },
@@ -13,7 +14,7 @@ const FILTERS: { id: AccountStatus | 'all'; label: string }[] = [
 ];
 
 const STATUS_BADGE: Record<AccountStatus, { label: string; className: string }> = {
-  pending: { label: 'Aguardando aprovação', className: 'bg-amber-50 text-amber-700' },
+  pending: { label: "Aguardando aprovação", className: 'bg-amber-50 text-amber-700' },
   approved: { label: 'Aprovada', className: 'bg-emerald-50 text-emerald-700' },
   rejected: { label: 'Recusada', className: 'bg-rose-50 text-rose-700' },
 };
@@ -42,7 +43,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível carregar as contas.',
+        text: error instanceof Error ? error.message : t("Não foi possível carregar as contas."),
       });
     } finally {
       setLoading(false);
@@ -90,7 +91,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível salvar a decisão.',
+        text: error instanceof Error ? error.message : t("Não foi possível salvar a decisão."),
       });
     } finally {
       setBusyUserId(null);
@@ -123,7 +124,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível mudar o acesso a IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível mudar o acesso a IA."),
       });
     } finally {
       setBusyUserId(null);
@@ -148,7 +149,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível mudar os créditos.',
+        text: error instanceof Error ? error.message : t("Não foi possível mudar os créditos."),
       });
     } finally {
       setBusyUserId(null);
@@ -175,7 +176,7 @@ export function AdminAccountQueue() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível apagar a conta.',
+        text: error instanceof Error ? error.message : t("Não foi possível apagar a conta."),
       });
     } finally {
       setBusyUserId(null);
@@ -207,7 +208,7 @@ export function AdminAccountQueue() {
                   : 'border-slate-200 text-slate-600 hover:border-primary hover:text-primary-dark'
               }`}
             >
-              {item.label} ({counts[item.id]})
+              {t(item.label)} ({counts[item.id]})
             </button>
           ))}
         </div>
@@ -216,7 +217,7 @@ export function AdminAccountQueue() {
           onClick={() => void loadUsers()}
           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-black text-slate-600 hover:border-primary hover:text-primary-dark"
         >
-          <RotateCcw size={15} /> Atualizar
+          <RotateCcw size={15} /> {t("Atualizar")}
         </button>
       </div>
 
@@ -236,10 +237,10 @@ export function AdminAccountQueue() {
         const busy = busyUserId === user.id;
         const hasAI = user.ai_settings.use_global_key || user.ai_settings.has_api_key;
         const aiLabel = user.ai_settings.use_global_key
-          ? 'IA pela chave global'
+          ? t("IA pela chave global")
           : user.ai_settings.has_api_key
-            ? 'IA com chave própria'
-            : 'Sem IA';
+            ? t("IA com chave própria")
+            : t("Sem IA");
 
         return (
           <article key={user.id} className="rounded-2xl border-2 border-slate-100 bg-white p-4 shadow-sm">
@@ -249,23 +250,23 @@ export function AdminAccountQueue() {
                   {user.first_name} {user.last_name}
                   {user.is_admin ? (
                     <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-black text-slate-500">
-                      Administrador
+                      {t("Administrador")}
                     </span>
                   ) : null}
                 </h3>
                 <p className="break-all text-sm font-bold text-slate-500">{user.email}</p>
                 <p className="mt-1 text-xs font-bold text-slate-400">
-                  Cadastro em {formatDate(user.created_at)} - login: {user.auth_provider}
+                  {t("Cadastro em")} {formatDate(user.created_at)} - login: {user.auth_provider}
                   {user.reviewed_at ? ` - decidido em ${formatDate(user.reviewed_at)}` : ''}
                 </p>
                 {user.review_note ? (
-                  <p className="mt-2 text-xs font-bold text-slate-500">Nota: {user.review_note}</p>
+                  <p className="mt-2 text-xs font-bold text-slate-500">{t("Nota:")} {user.review_note}</p>
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${badge.className}`}>
                   {user.status === 'rejected' ? <ShieldX size={13} /> : <ShieldCheck size={13} />}
-                  {badge.label}
+                  {t(badge.label)}
                 </span>
                 <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
                   hasAI ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-500'
@@ -278,23 +279,23 @@ export function AdminAccountQueue() {
 
             {user.is_admin ? (
               <p className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-xs font-bold text-slate-500">
-                A conta do administrador não passa pela fila de aprovação.
+                {t("A conta do administrador não passa pela fila de aprovação.")}
               </p>
             ) : (
               <div className="mt-4 space-y-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    1. Acesso ao app
+                    {t("1. Acesso ao app")}
                   </p>
                   <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end">
                     <label className="flex-1 text-sm font-black text-slate-700">
-                      Nota interna (opcional)
+                      {t("Nota interna (opcional)")}
                       <input
                         value={notes[user.id] ?? ''}
                         onChange={(event) =>
                           setNotes((current) => ({ ...current, [user.id]: event.target.value }))
                         }
-                        placeholder="Ex.: família conhecida, turma da escola..."
+                        placeholder={t("Ex.: família conhecida, turma da escola...")}
                         maxLength={300}
                         className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                       />
@@ -308,7 +309,7 @@ export function AdminAccountQueue() {
                           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                          {user.status === 'rejected' ? 'Reabrir acesso' : 'Aprovar'}
+                          {user.status === 'rejected' ? t("Reabrir acesso") : 'Aprovar'}
                         </button>
                       ) : null}
                       {user.status !== 'rejected' ? (
@@ -319,7 +320,7 @@ export function AdminAccountQueue() {
                           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {busy ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />}
-                          {user.status === 'approved' ? 'Revogar acesso' : 'Recusar'}
+                          {user.status === 'approved' ? t("Revogar acesso") : 'Recusar'}
                         </button>
                       ) : null}
                     </div>
@@ -328,15 +329,15 @@ export function AdminAccountQueue() {
 
                 <div className="border-t-2 border-slate-100 pt-4">
                   <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                    2. Acesso a IA (separado)
+                    {t("2. Acesso a IA (separado)")}
                   </p>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm font-semibold leading-6 text-slate-500">
                       {hasAI
                         ? user.ai_settings.use_global_key
-                          ? 'Usa a sua chave global do servidor.'
+                          ? t("Usa a sua chave global do servidor.")
                           : `Usa a chave própria ${user.ai_settings.api_key_preview ?? 'salva'}.`
-                        : 'Aprovada ou não, esta conta não gera nada por IA até você liberar.'}
+                        : t("Aprovada ou não, esta conta não gera nada por IA até você liberar.")}
                     </p>
                     <div className="flex shrink-0 gap-2">
                       {!user.ai_settings.use_global_key ? (
@@ -347,7 +348,7 @@ export function AdminAccountQueue() {
                           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-sky-200 bg-sky-50 px-4 py-2 text-sm font-black text-sky-700 transition hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {busy ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                          Liberar minha chave
+                          {t("Liberar minha chave")}
                         </button>
                       ) : null}
                       {hasAI ? (
@@ -358,7 +359,7 @@ export function AdminAccountQueue() {
                           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {busy ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                          Revogar IA
+                          {t("Revogar IA")}
                         </button>
                       ) : null}
                     </div>
@@ -369,7 +370,7 @@ export function AdminAccountQueue() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-black text-slate-700">
                           {user.ai_credits.unlimited
-                            ? 'Créditos: ilimitado'
+                            ? t("Créditos: ilimitado")
                             : `Créditos: ${user.ai_credits.credits} restantes`}
                           <span className="ml-2 text-xs font-bold text-slate-400">
                             {user.ai_credits.used} ja usados
@@ -381,14 +382,14 @@ export function AdminAccountQueue() {
                           disabled={busy}
                           className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 transition hover:border-slate-300 disabled:opacity-60"
                         >
-                          {user.ai_credits.unlimited ? 'Voltar a cobrar créditos' : 'Deixar ilimitado'}
+                          {user.ai_credits.unlimited ? t("Voltar a cobrar créditos") : t("Deixar ilimitado")}
                         </button>
                       </div>
                       {!user.ai_credits.unlimited ? (
                         <div className="mt-3 space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-black text-slate-500">
-                              Limite diario: {user.ai_credits.daily_limit}
+                              {t("Limite diário:")} {user.ai_credits.daily_limit}
                             </span>
                             <button
                               type="button"
@@ -396,7 +397,7 @@ export function AdminAccountQueue() {
                               disabled={busy || user.ai_credits.daily_limit === 0}
                               className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 disabled:opacity-60"
                             >
-                              -1 por dia
+                              {t("-1 por dia")}
                             </button>
                             <button
                               type="button"
@@ -404,7 +405,7 @@ export function AdminAccountQueue() {
                               disabled={busy}
                               className="rounded-lg border-2 border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 disabled:opacity-60"
                             >
-                              +1 por dia
+                              {t("+1 por dia")}
                             </button>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -425,7 +426,7 @@ export function AdminAccountQueue() {
                             disabled={busy || user.ai_credits.credits === 0}
                             className="rounded-lg border-2 border-slate-200 px-3 py-1 text-xs font-black text-slate-600 transition hover:border-slate-300 disabled:opacity-60"
                           >
-                            Zerar
+                            {t("Zerar")}
                           </button>
                           </div>
                         </div>
@@ -437,9 +438,9 @@ export function AdminAccountQueue() {
                 <div className="border-t-2 border-rose-100 pt-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-rose-500">Área de risco</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-rose-500">{t("Área de risco")}</p>
                       <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                        Remove a conta e todos os dados relacionados de forma permanente.
+                        {t("Remove a conta e todos os dados relacionados de forma permanente.")}
                       </p>
                     </div>
                     <button
@@ -449,7 +450,7 @@ export function AdminAccountQueue() {
                       className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 px-4 py-2 text-sm font-black text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {busy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                      Apagar conta
+                      {t("Apagar conta")}
                     </button>
                   </div>
                 </div>
@@ -462,8 +463,8 @@ export function AdminAccountQueue() {
       {visible.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">
           {filter === 'pending'
-            ? 'Nenhuma conta esperando aprovação agora.'
-            : 'Nenhuma conta nesta lista.'}
+            ? t("Nenhuma conta esperando aprovação agora.")
+            : t("Nenhuma conta nesta lista.")}
         </p>
       ) : null}
     </div>

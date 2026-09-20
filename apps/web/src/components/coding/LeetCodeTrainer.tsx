@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, ChevronDown, ChevronUp, Clock, Code2, Database, Layers, Loader2, Sparkles, Terminal, Trash2, Trophy } from 'lucide-react';
 import { api, type LeetCodeMethod } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
+import { t } from '@/lib/i18n';
 
 interface Props {
   onBack: () => void;
@@ -71,7 +72,7 @@ function MethodBody({ method, reading, onDelete }: { method: LeetCodeMethod; rea
   return (
     <>
       <div>
-        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">O que é e quando usar</p>
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{t("O que é e quando usar")}</p>
         <p className={`whitespace-pre-wrap text-slate-600 ${reading ? 'text-base leading-8' : 'text-sm leading-relaxed'}`}>
           {method.explanation}
         </p>
@@ -80,7 +81,7 @@ function MethodBody({ method, reading, onDelete }: { method: LeetCodeMethod; rea
       {method.code_example && (
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-            <Code2 size={12} /> Exemplo ({method.language})
+            <Code2 size={12} /> {t("Exemplo (")}{method.language})
           </p>
           <SyntaxCodeBlock code={method.code_example} language={method.language} />
         </div>
@@ -89,7 +90,7 @@ function MethodBody({ method, reading, onDelete }: { method: LeetCodeMethod; rea
       {method.example_output && (
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">
-            <Terminal size={12} /> Resultado do exemplo
+            <Terminal size={12} /> {t("Resultado do exemplo")}
           </p>
           <pre className="leetcode-result-output">
             {method.example_output}
@@ -104,7 +105,7 @@ function MethodBody({ method, reading, onDelete }: { method: LeetCodeMethod; rea
             onClick={onDelete}
             className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-400 hover:bg-rose-50 hover:text-rose-500"
           >
-            <Trash2 size={13} /> Remover método
+            <Trash2 size={13} /> {t("Remover método")}
           </button>
         </div>
       )}
@@ -150,7 +151,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
     try {
       setMethods(await api.getLeetCodeMethods());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar os métodos.');
+      setError(err instanceof Error ? err.message : t("Erro ao carregar os métodos."));
     } finally {
       setLoading(false);
     }
@@ -165,20 +166,20 @@ export function LeetCodeTrainer({ onBack }: Props) {
       setMethods((prev) => [...prev, method]);
       setHint('');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao gerar o método com IA.');
+      setError(err instanceof Error ? err.message : t("Erro ao gerar o método com IA."));
     } finally {
       setGenerating(false);
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Remover este método?')) return;
+    if (!confirm(t("Remover este método?"))) return;
     try {
       await api.deleteLeetCodeMethod(id);
       setMethods((prev) => prev.filter((m) => m.id !== id));
       if (expandedId === id) setExpandedId(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Não foi possível remover o método.');
+      setError(err instanceof Error ? err.message : t("Não foi possível remover o método."));
     }
   }
 
@@ -194,9 +195,9 @@ export function LeetCodeTrainer({ onBack }: Props) {
           languages: Array.from(new Set(methods.map((method) => method.language))),
         },
       });
-      setActivityMessage('Atividade registrada no activity-log.');
+      setActivityMessage(t("Atividade registrada no activity-log."));
     } catch {
-      setActivityMessage('Não foi possível registrar agora.');
+      setActivityMessage(t("Não foi possível registrar agora."));
     } finally {
       setRegisteringActivity(false);
     }
@@ -207,7 +208,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
       {/* Header */}
       <section className="app-surface border-amber-300/50 p-6">
         <button type="button" onClick={onBack} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
-          <ArrowLeft size={16} /> Programação
+          <ArrowLeft size={16} /> {t("Programação")}
         </button>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -215,11 +216,11 @@ export function LeetCodeTrainer({ onBack }: Props) {
               <Trophy size={24} className="text-amber-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-800">LeetCode Trainer</h1>
+              <h1 className="text-2xl font-black text-slate-800">{t("LeetCode Trainer")}</h1>
               <p className="text-sm text-slate-500">
                 {readingMode
-                  ? 'Modo leitura: todos os métodos abertos, um embaixo do outro, para estudar de ponta a ponta.'
-                  : 'Métodos e técnicas para resolver problemas — cada card explica o que é, mostra um exemplo e o resultado.'}
+                  ? t("Modo leitura: todos os métodos abertos, um embaixo do outro, para estudar de ponta a ponta.")
+                  : t("Métodos e técnicas para resolver problemas — cada card explica o que é, mostra um exemplo e o resultado.")}
               </p>
             </div>
           </div>
@@ -227,7 +228,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
             type="button"
             onClick={toggleReadingMode}
             aria-pressed={readingMode}
-            title={readingMode ? 'Voltar para os cards' : 'Abrir no modo leitura'}
+            title={readingMode ? t("Voltar para os cards") : t("Abrir no modo leitura")}
             className={`flex shrink-0 items-center gap-2 rounded-2xl border-2 px-3 py-2 text-sm font-black transition ${
               readingMode
                 ? 'border-sky-300 bg-sky-700 text-white hover:bg-sky-800'
@@ -235,7 +236,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
             }`}
           >
             {readingMode ? <Layers size={16} /> : <BookOpen size={16} />}
-            <span className="hidden sm:inline">{readingMode ? 'Modo cards' : 'Modo leitura'}</span>
+            <span className="hidden sm:inline">{readingMode ? t("Modo cards") : t("Modo leitura")}</span>
           </button>
         </div>
         <button
@@ -245,7 +246,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
           className="mt-4 inline-flex items-center gap-2 rounded-2xl border-2 border-amber-200 bg-amber-50 px-4 py-2 text-sm font-black text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
         >
           {registeringActivity ? <Loader2 size={16} className="animate-spin" /> : <Trophy size={16} />}
-          Registrar atividade de LeetCode
+          {t("Registrar atividade de LeetCode")}
         </button>
         {activityMessage && <p className="mt-3 text-sm font-bold text-slate-500">{activityMessage}</p>}
       </section>
@@ -254,19 +255,19 @@ export function LeetCodeTrainer({ onBack }: Props) {
       {!readingMode && (
         <div className="rounded-3xl border-2 border-violet-100 bg-violet-50 p-5">
           <p className="mb-3 text-sm font-black text-violet-800">
-            Gerar o próximo método com IA
+            {t("Gerar o próximo método com IA")}
             <span className="ml-2 font-normal text-violet-500">
-              (a IA sabe quais você já tem e escolhe o próximo passo)
+              {t("(a IA sabe quais você já tem e escolhe o próximo passo)")}
             </span>
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
-                aria-label="pedir um método específico"
+                aria-label={t("pedir um método específico")}
               type="text"
               value={hint}
               onChange={(e) => setHint(e.target.value)}
               maxLength={120}
-              placeholder="Opcional: pedir um método específico (ex: Sliding Window)"
+              placeholder={t("Opcional: pedir um método específico (ex: Sliding Window)")}
               className="min-w-0 flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
             />
             <select
@@ -300,8 +301,8 @@ export function LeetCodeTrainer({ onBack }: Props) {
       ) : methods.length === 0 ? (
         <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
           <Code2 size={32} className="mx-auto mb-3 text-slate-300" />
-          <p className="font-bold text-slate-500">Nenhum método ainda.</p>
-          <p className="mt-1 text-sm text-slate-400">Gere o primeiro método com IA — comece por Two Pointers ou Binary Search.</p>
+          <p className="font-bold text-slate-500">{t("Nenhum método ainda.")}</p>
+          <p className="mt-1 text-sm text-slate-400">{t("Gere o primeiro método com IA — comece por Two Pointers ou Binary Search.")}</p>
         </div>
       ) : readingMode ? (
         <div className="space-y-4">
@@ -313,7 +314,7 @@ export function LeetCodeTrainer({ onBack }: Props) {
             >
               <header className="mb-4 border-b-2 border-slate-100 pb-4">
                 <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                  Método {idx + 1} de {methods.length}
+                  {t("Método")} {idx + 1} de {methods.length}
                 </p>
                 <h2 className="mt-1 text-xl font-black text-slate-800 sm:text-2xl">{m.name}</h2>
                 <MethodChips method={m} />

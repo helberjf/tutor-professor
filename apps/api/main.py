@@ -1367,6 +1367,43 @@ def child_belongs_to_parent_session(child: ChildProfile, parent_session: UserSes
     return child.user_id == parent_session.user_id
 
 
+# The language the app's own interface is in, and therefore the language the
+# learner reads. Lesson translations are written in it, which is why the two
+# cannot be allowed to disagree: an English interface explaining a Spanish
+# phrase in Portuguese helps nobody.
+UI_LOCALE_TO_BASE_LANGUAGE = {"en": "English", "pt-br": "Portuguese"}
+
+
+def sync_base_language_with_ui(
+    request: Request | None,
+    session: Session,
+    child: ChildProfile,
+) -> ChildProfile:
+    """Keep ``base_language`` in step with the locale the client is showing.
+
+    Only ever changes it on a real mismatch, so the common request writes
+    nothing. Content already generated keeps the language it was written in —
+    this only decides what the next generation is asked for.
+    """
+
+    if request is None:
+        return child
+    raw = (request.headers.get("x-app-locale") or "").strip().lower()
+    wanted = UI_LOCALE_TO_BASE_LANGUAGE.get(raw)
+    if wanted is None or child.base_language == wanted:
+        return child
+    # Explaining a language in itself is not a translation. When the interface
+    # language is also what is being studied, the existing base stays.
+    if wanted.casefold() == (child.target_language or "").strip().casefold():
+        return child
+
+    child.base_language = wanted
+    session.add(child)
+    session.commit()
+    session.refresh(child)
+    return child
+
+
 def get_requested_child(request: Request | None, session: Session) -> ChildProfile:
     parent_session = get_request_user_session(request=request, session=session)
     if parent_session is None and not ALLOW_GUEST_ACCESS:
@@ -1387,9 +1424,12 @@ def get_requested_child(request: Request | None, session: Session) -> ChildProfi
             )
             if not is_accessible or selected_child is None or selected_child.id != requested_child_id:
                 raise HTTPException(status_code=404, detail="Estudante não encontrado.")
-            return normalize_child_voice_preference(selected_child, session=session)
+            resolved = normalize_child_voice_preference(selected_child, session=session)
+            return sync_base_language_with_ui(request, session, resolved)
 
-    return get_default_child(session=session, user_id=logged_user_id)
+    return sync_base_language_with_ui(
+        request, session, get_default_child(session=session, user_id=logged_user_id)
+    )
 
 
 def child_age_group(child: ChildProfile) -> str:

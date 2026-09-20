@@ -31,6 +31,7 @@ import {
   type StudyRating,
 } from '../_lib/study-helpers';
 import { MetricCard, PomodoroWidget } from './shared';
+import { t as translate } from '@/lib/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // OTHER SUBJECTS PICKER
@@ -54,7 +55,7 @@ export function OtherSubjectsPicker({
         htmlFor="diverse-subject-picker"
         className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400"
       >
-        Abrir matéria
+        {translate("Abrir matéria")}
       </label>
       <div className="relative">
         <Layers
@@ -73,8 +74,8 @@ export function OtherSubjectsPicker({
           }}
           className="min-h-12 w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-200 bg-white pl-11 pr-11 text-sm font-bold text-slate-700 outline-none transition hover:border-slate-300 focus:border-primary"
         >
-          <option value="">Todas as matérias</option>
-          {codingEnabled ? <option value="__coding__">Programação</option> : null}
+          <option value="">{translate("Todas as matérias")}</option>
+          {codingEnabled ? <option value="__coding__">{translate("Programação")}</option> : null}
           {subjects.map((subject, index) => {
             const slug = getDiverseSubjectSlug(subject, index, subjects);
             return <option key={slug} value={slug}>{subject.name}</option>;
@@ -191,13 +192,13 @@ export function DiverseTab({
     <div className="space-y-6">
       {/* Header */}
       <section className="app-surface border-primary/30 p-2.5 md:p-8">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Outras matérias</p>
-        <h1 className="mt-1 text-lg font-black text-slate-800 md:mt-2 md:text-4xl">Aprenda qualquer assunto</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{translate("Outras matérias")}</p>
+        <h1 className="mt-1 text-lg font-black text-slate-800 md:mt-2 md:text-4xl">{translate("Aprenda qualquer assunto")}</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-          <MetricCard compact icon={<Layers size={16} />} label="Matérias" value={`${subjects.length}`} helper="Criadas hoje" tone="sky" />
-          <MetricCard compact icon={<CheckCircle2 size={16} />} label="Feitos" value={`${totalDone}/${totalTopics}`} helper="No total" tone="green" />
-          <MetricCard compact icon={<Flame size={16} />} label="Meta" value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Progresso'}
+          <MetricCard compact icon={<Layers size={16} />} label={translate("Matérias")} value={`${subjects.length}`} helper={translate("Criadas hoje")} tone="sky" />
+          <MetricCard compact icon={<CheckCircle2 size={16} />} label={translate("Feitos")} value={`${totalDone}/${totalTopics}`} helper={translate("No total")} tone="green" />
+          <MetricCard compact icon={<Flame size={16} />} label={translate("Meta")} value={totalDone > 0 && totalDone === totalTopics ? 'Completa!' : 'Progresso'}
             helper={`${totalTopics - totalDone} restantes`} tone={totalDone === totalTopics && totalTopics > 0 ? 'green' : 'orange'} />
         </div>
       </section>
@@ -257,7 +258,7 @@ export function DiverseTab({
             <div className="flex gap-2">
               <>
                 <input
-              aria-label="Matéria: React, Python, Francês"
+              aria-label={translate("Matéria: React, Python, Francês")}
                   list="catalog-subjects"
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
@@ -268,7 +269,7 @@ export function DiverseTab({
                     }
                   }}
                   maxLength={60}
-                  placeholder="Matéria: React, Python, Francês..."
+                  placeholder={translate("Matéria: React, Python, Francês...")}
                   className="min-h-12 w-full min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary"
                 />
                 <datalist id="catalog-subjects">
@@ -277,7 +278,7 @@ export function DiverseTab({
               </>
               <button type="button" onClick={() => void onAddSubject()} disabled={!newSubjectName.trim() || savingDiverse}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700 disabled:opacity-50">
-                <Plus size={18} /> Criar
+                <Plus size={18} /> {translate("Criar")}
               </button>
             </div>
           </div>
@@ -295,22 +296,22 @@ export function DiverseTab({
               <article className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Matéria</p>
-                    <h2 className="mt-1 text-xl font-black text-slate-800">Programação</h2>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{translate("Matéria")}</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-800">{translate("Programação")}</h2>
                   </div>
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-sky-50 text-primary">
                     <BookOpen size={16} />
                   </span>
                 </div>
                 <p className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm font-semibold text-slate-500">
-                  Currículo de programação com aulas, flashcards e revisão espaçada.
+                  {translate("Currículo de programação com aulas, flashcards e revisão espaçada.")}
                 </p>
                 <button
                   type="button"
                   onClick={onSelectCoding}
                   className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700"
                 >
-                  <Layers size={16} /> Abrir dashboard
+                  <Layers size={16} /> {translate("Abrir dashboard")}
                 </button>
               </article>
               ) : null}
@@ -323,14 +324,14 @@ export function DiverseTab({
                   <article key={item.slug} className="rounded-[1.5rem] border-2 border-slate-100 bg-white p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Matéria</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{translate("Matéria")}</p>
                         <h2 className="mt-1 text-xl font-black text-slate-800">{item.subject.name}</h2>
                       </div>
                       <button
                         type="button"
                         onClick={() => void onRemoveSubject(item.subject.id)}
                         className="inline-flex h-11 w-11 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-500 transition hover:border-rose-300 hover:bg-rose-50"
-                        title="Apagar matéria"
+                        title={translate("Apagar matéria")}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -338,15 +339,15 @@ export function DiverseTab({
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       <div className="rounded-2xl bg-slate-50 p-3">
                         <p className="text-2xl font-black text-slate-800">{total}</p>
-                        <p className="text-xs font-bold text-slate-400">Tópicos</p>
+                        <p className="text-xs font-bold text-slate-400">{translate("Tópicos")}</p>
                       </div>
                       <div className="rounded-2xl bg-indigo-50 p-3">
                         <p className="text-2xl font-black text-indigo-600">{lessonCount}</p>
-                        <p className="text-xs font-bold text-indigo-500">Blocos</p>
+                        <p className="text-xs font-bold text-indigo-500">{translate("Blocos")}</p>
                       </div>
                       <div className="rounded-2xl bg-emerald-50 p-3">
                         <p className="text-2xl font-black text-emerald-600">{done}</p>
-                        <p className="text-xs font-bold text-emerald-500">Feitos</p>
+                        <p className="text-xs font-bold text-emerald-500">{translate("Feitos")}</p>
                       </div>
                     </div>
                     <button
@@ -354,7 +355,7 @@ export function DiverseTab({
                       onClick={() => onSelectSubjectTab(item.slug)}
                       className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700"
                     >
-                      <Layers size={16} /> Abrir dashboard
+                      <Layers size={16} /> {translate("Abrir dashboard")}
                     </button>
                   </article>
                 );
@@ -365,8 +366,8 @@ export function DiverseTab({
           {!loadingDiverse && subjects.length === 0 && (
             <div className="rounded-[1.5rem] border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
               <Layers className="mx-auto text-slate-300" size={32} />
-              <p className="mt-3 text-base font-bold text-slate-400">Nenhuma matéria própria ainda.</p>
-              <p className="mt-1 text-sm text-slate-400">Digite o nome acima e clique em Criar.</p>
+              <p className="mt-3 text-base font-bold text-slate-400">{translate("Nenhuma matéria própria ainda.")}</p>
+              <p className="mt-1 text-sm text-slate-400">{translate("Digite o nome acima e clique em Criar.")}</p>
             </div>
           )}
 
@@ -375,7 +376,7 @@ export function DiverseTab({
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || generatingDiverseQuestions}
             className="app-button w-full bg-primary-dark hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-            Salvar matérias
+            {translate("Salvar matérias")}
           </button>
         </div>
 
@@ -387,11 +388,11 @@ export function DiverseTab({
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
           <div className="app-surface border-slate-100 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{translate("Dica")}</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Digite o nome da matéria (ex: React, Python, Francês) e clique em <strong>Criar</strong> para adicionar manualmente.</p>
-              <p>Abra cada tópico para escrever a explicação/resposta. Depois clique na aba <strong>Estudar</strong> para revisar com feedback.</p>
-              <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>IA:</strong> Configure sua chave de API em Configurações para usar a geração automática.</p>
+              <p>{translate("Digite o nome da matéria (ex: React, Python, Francês) e clique em")} <strong>{translate("Criar")}</strong> {translate("para adicionar manualmente.")}</p>
+              <p>{translate("Abra cada tópico para escrever a explicação/resposta. Depois clique na aba")} <strong>{translate("Estudar")}</strong> {translate("para revisar com feedback.")}</p>
+              <p className="rounded-xl bg-violet-50 px-3 py-2 text-violet-700"><strong>{translate("IA:")}</strong> {translate("Configure sua chave de API em Configurações para usar a geração automática.")}</p>
             </div>
           </div>
         </aside>
@@ -426,7 +427,7 @@ export function ManualStudyImportPanel({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError('Não foi possível copiar automaticamente. Selecione o prompt abaixo e copie.');
+      setError(translate("Não foi possível copiar automaticamente. Selecione o prompt abaixo e copie."));
     }
   }
 
@@ -436,7 +437,7 @@ export function ManualStudyImportPanel({
       setPreview(parseManualStudyImport(responseText));
     } catch (caught) {
       setPreview(null);
-      setError(caught instanceof Error ? caught.message : 'Não foi possível validar o estudo.');
+      setError(caught instanceof Error ? caught.message : translate("Não foi possível validar o estudo."));
     }
   }
 
@@ -451,7 +452,7 @@ export function ManualStudyImportPanel({
       setPreview(null);
       setOpen(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Não foi possível importar o estudo.');
+      setError(caught instanceof Error ? caught.message : translate("Não foi possível importar o estudo."));
     } finally {
       setImporting(false);
     }
@@ -470,9 +471,9 @@ export function ManualStudyImportPanel({
             <ClipboardList size={18} />
           </span>
           <span>
-            <span className="block text-sm font-black text-violet-900 dark:text-violet-100">Importar estudo com IA</span>
-            <span className="block text-xs font-semibold text-violet-600 dark:text-violet-200">Copie o prompt e cole aqui a resposta de qualquer IA</span>
-            <span className="mt-0.5 block text-[11px] font-bold text-emerald-700 dark:text-emerald-100">Sem usar a chave ou os créditos do app.</span>
+            <span className="block text-sm font-black text-violet-900 dark:text-violet-100">{translate("Importar estudo com IA")}</span>
+            <span className="block text-xs font-semibold text-violet-600 dark:text-violet-200">{translate("Copie o prompt e cole aqui a resposta de qualquer IA")}</span>
+            <span className="mt-0.5 block text-[11px] font-bold text-emerald-700 dark:text-emerald-100">{translate("Sem usar a chave ou os créditos do app.")}</span>
           </span>
         </span>
         <ChevronDown size={18} className={`shrink-0 text-violet-500 transition dark:text-violet-200 ${open ? 'rotate-180' : ''}`} />
@@ -481,21 +482,21 @@ export function ManualStudyImportPanel({
       {open && (
         <div className="mt-4 space-y-4 border-t border-violet-200 pt-4 dark:border-violet-300/25">
           <p role="status" aria-live="polite" className="sr-only">
-            {copied ? 'Prompt copiado.' : preview ? `Prévia pronta com ${preview.lessons?.length ?? 0} aulas e ${preview.topics.length} questões.` : ''}
+            {copied ? translate("Prompt copiado.") : preview ? `Prévia pronta com ${preview.lessons?.length ?? 0} aulas e ${preview.topics.length} questões.` : ''}
           </p>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">1. Prepare o prompt</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">{translate("1. Prepare o prompt")}</p>
             <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_9rem]">
               <input
-                aria-label="Tema do estudo para a IA"
+                aria-label={translate("Tema do estudo para a IA")}
                 value={promptSubject}
                 onChange={(event) => setPromptSubject(event.target.value)}
                 maxLength={60}
-                placeholder="Ex.: Sistema Solar"
+                placeholder={translate("Ex.: Sistema Solar")}
                 className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950/60 dark:text-slate-50"
               />
               <input
-                aria-label="Quantidade de questões"
+                aria-label={translate("Quantidade de questões")}
                 type="number"
                 min={1}
                 max={50}
@@ -505,7 +506,7 @@ export function ManualStudyImportPanel({
               />
             </div>
             <textarea
-              aria-label="Prompt pronto para a IA"
+              aria-label={translate("Prompt pronto para a IA")}
               readOnly
               value={prompt}
               rows={5}
@@ -516,19 +517,19 @@ export function ManualStudyImportPanel({
               onClick={() => void copyPrompt()}
               className="mt-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white transition hover:bg-violet-700"
             >
-              <Copy size={14} /> {copied ? 'Prompt copiado!' : 'Copiar prompt'}
+              <Copy size={14} /> {copied ? translate("Prompt copiado!") : translate("Copiar prompt")}
             </button>
           </div>
 
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">2. Cole a resposta da IA</p>
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700 dark:text-violet-100">{translate("2. Cole a resposta da IA")}</p>
             <textarea
-              aria-label="Resposta JSON da IA"
+              aria-label={translate("Resposta JSON da IA")}
               value={responseText}
               onChange={(event) => { setResponseText(event.target.value); setPreview(null); setError(''); }}
               maxLength={150_000}
               rows={7}
-              placeholder={'Cole aqui o JSON completo com matéria, aulas, perguntas e respostas.'}
+              placeholder={translate("Cole aqui o JSON completo com matéria, aulas, perguntas e respostas.")}
               className="mt-2 w-full resize-y rounded-xl border-2 border-violet-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-slate-700 outline-none focus:border-violet-500 dark:border-violet-300/30 dark:bg-slate-950/60 dark:text-slate-100"
             />
             <button
@@ -537,7 +538,7 @@ export function ManualStudyImportPanel({
               disabled={!responseText.trim() || busy}
               className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl border-2 border-violet-300 bg-white px-4 text-xs font-black text-violet-700 transition hover:bg-violet-100 disabled:opacity-50 dark:border-violet-300/40 dark:bg-slate-950/45 dark:text-violet-100 dark:hover:bg-violet-300/15"
             >
-              Verificar estudo
+              {translate("Verificar estudo")}
             </button>
           </div>
 
@@ -545,14 +546,14 @@ export function ManualStudyImportPanel({
 
           {preview && (
             <div className="rounded-2xl border-2 border-emerald-200 bg-white p-4 dark:border-emerald-300/30 dark:bg-slate-950/45">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-100">3. Prévia pronta</p>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-100">{translate("3. Prévia pronta")}</p>
               <h3 className="mt-1 text-lg font-black text-slate-800 dark:text-slate-50">{preview.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-200">
-                {preview.lessons?.length ?? 0} aula(s) · {preview.topics.length} questão(ões)
+                {preview.lessons?.length ?? 0} {translate("aula(s) ·")} {preview.topics.length} {translate("questão(ões)")}
               </p>
               <ul className="mt-3 space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-200">
                 {preview.lessons?.slice(0, 4).map((lesson) => <li key={lesson.id}>• {lesson.title} ({lesson.topic_ids.length})</li>)}
-                {(preview.lessons?.length ?? 0) > 4 && <li>• e mais {(preview.lessons?.length ?? 0) - 4} aula(s)</li>}
+                {(preview.lessons?.length ?? 0) > 4 && <li>{translate("• e mais")} {(preview.lessons?.length ?? 0) - 4} aula(s)</li>}
               </ul>
               <button
                 type="button"
@@ -561,7 +562,7 @@ export function ManualStudyImportPanel({
                 className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-50"
               >
                 {importing ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                {importing ? 'Importando...' : 'Criar matéria e questões'}
+                {importing ? 'Importando...' : translate("Criar matéria e questões")}
               </button>
             </div>
           )}
@@ -659,9 +660,9 @@ export function DiverseSubjectDashboard({
           onClick={onBack}
           className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-600 transition hover:bg-slate-200"
         >
-          <ArrowLeft size={16} /> Voltar para matérias
+          <ArrowLeft size={16} /> {translate("Voltar para matérias")}
         </button>
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dashboard da matéria</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{translate("Dashboard da matéria")}</p>
         <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-4xl">{subject.name}</h1>
         <p className="mt-1 text-sm text-slate-500 md:text-base">{formatDateLabel(selectedDate)}</p>
         <button
@@ -669,27 +670,27 @@ export function DiverseSubjectDashboard({
           onClick={() => setStudyModalOpen(true)}
           className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white shadow-[0_12px_24px_rgba(14,165,233,0.28)] transition hover:bg-primary-dark"
         >
-          <BookOpen size={16} /> Iniciar estudo
+          <BookOpen size={16} /> {translate("Iniciar estudo")}
         </button>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-4">
-          <MetricCard compact icon={<Layers size={18} />} label="Tópicos" value={`${totalTopics}`} helper="Nesta matéria" tone="sky" />
-          <MetricCard compact icon={<BookOpen size={18} />} label="Blocos" value={`${lessons.length}`} helper="Lições criadas" tone="orange" />
-          <MetricCard compact icon={<CheckCircle2 size={18} />} label="Concluidos" value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
-          <MetricCard compact icon={<Flame size={18} />} label="Meta" value={completed ? 'Completa!' : 'Em progresso'} helper="Revise até zerar" tone={completed ? 'green' : 'orange'} />
+          <MetricCard compact icon={<Layers size={18} />} label={translate("Tópicos")} value={`${totalTopics}`} helper={translate("Nesta matéria")} tone="sky" />
+          <MetricCard compact icon={<BookOpen size={18} />} label={translate("Blocos")} value={`${lessons.length}`} helper={translate("Lições criadas")} tone="orange" />
+          <MetricCard compact icon={<CheckCircle2 size={18} />} label={translate("Concluidos")} value={`${doneCount}`} helper={`${pendingCount} restantes`} tone="green" />
+          <MetricCard compact icon={<Flame size={18} />} label={translate("Meta")} value={completed ? 'Completa!' : translate("Em progresso")} helper={translate("Revise até zerar")} tone={completed ? 'green' : 'orange'} />
         </div>
       </section>
 
       <section className="app-surface border-violet-100 p-4 md:p-5">
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-            Contexto para IA
+            {translate("Contexto para IA")}
           </label>
           <textarea
             value={lessonContext}
             onChange={(e) => setLessonContext(e.target.value)}
             rows={3}
             maxLength={700}
-            placeholder="Ex.: criar uma lição sobre hooks, props e erros comuns para dev junior."
+            placeholder={translate("Ex.: criar uma lição sobre hooks, props e erros comuns para dev junior.")}
             className="w-full resize-none rounded-2xl border-2 border-violet-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-violet-400"
           />
         </div>
@@ -701,7 +702,7 @@ export function DiverseSubjectDashboard({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'topic' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'topic' ? 'Escolhendo tópico...' : 'Sugerir tópico com IA'}
+            {aiAction === 'topic' ? translate("Escolhendo tópico...") : translate("Sugerir tópico com IA")}
           </button>
           <button
             type="button"
@@ -710,7 +711,7 @@ export function DiverseSubjectDashboard({
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {aiAction === 'lesson' ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-            {aiAction === 'lesson' ? 'Criando preview...' : 'Criar preview da lição'}
+            {aiAction === 'lesson' ? translate("Criando preview...") : translate("Criar preview da lição")}
           </button>
         </div>
         {aiError && (
@@ -718,7 +719,7 @@ export function DiverseSubjectDashboard({
             <p className="text-sm font-bold text-rose-700">{aiError}</p>
             {needsKeyConfig && (lastAIAction === 'topic' || lastAIAction === 'lesson') && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold text-rose-600">Informe sua chave Gemini para continuar:</p>
+                <p className="text-xs font-semibold text-rose-600">{translate("Informe sua chave Gemini para continuar:")}</p>
                 <div className="flex gap-2">
                   <input
               aria-label="AIza"
@@ -738,7 +739,7 @@ export function DiverseSubjectDashboard({
                     disabled={!aiKeyDraft.trim() || generatingAI || questionGenerationBusy}
                     className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:opacity-50"
                   >
-                    <Sparkles size={14} /> Tentar
+                    <Sparkles size={14} /> {translate("Tentar")}
                   </button>
                 </div>
               </div>
@@ -749,9 +750,9 @@ export function DiverseSubjectDashboard({
           <div className="mt-4 rounded-[1.25rem] border-2 border-violet-200 bg-violet-50/70 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">Preview da lição</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-500">{translate("Preview da lição")}</p>
                 <h2 className="mt-1 text-lg font-black text-slate-800">{pendingLessonDraft.lesson.title}</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} tópicos gerados</p>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{pendingLessonDraft.topics.length} {translate("tópicos gerados")}</p>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:min-w-56">
                 <button
@@ -759,14 +760,14 @@ export function DiverseSubjectDashboard({
                   onClick={onSaveLessonDraft}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition hover:bg-emerald-700"
                 >
-                  <Save size={14} /> Salvar lição
+                  <Save size={14} /> {translate("Salvar lição")}
                 </button>
                 <button
                   type="button"
                   onClick={onDiscardLessonDraft}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-black text-violet-700 transition hover:border-violet-300"
                 >
-                  <X size={14} /> Descartar
+                  <X size={14} /> {translate("Descartar")}
                 </button>
               </div>
             </div>
@@ -774,7 +775,7 @@ export function DiverseSubjectDashboard({
               {pendingLessonDraft.topics.map((topic, index) => (
                 <li key={topic.id} className="rounded-2xl border-2 border-white bg-white/90 p-3">
                   <p className="text-sm font-black text-slate-800">{index + 1}. {topic.topic}</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{topic.answer || 'Sem resposta gerada.'}</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{topic.answer || translate("Sem resposta gerada.")}</p>
                   {topic.code_example && (
                     <SyntaxCodeBlock code={topic.code_example} language={subject.name} className="mt-3 p-3" />
                   )}
@@ -800,7 +801,7 @@ export function DiverseSubjectDashboard({
             onRateTopic={onRateTopic}
             onSessionComplete={onSessionComplete}
             questionGenerationLessons={lessons}
-            questionGenerationButtonLabel="Criar mais questões"
+            questionGenerationButtonLabel={translate("Criar mais questões")}
             onGenerateMoreQuestions={onGenerateMoreQuestions}
             questionGenerationBusy={questionGenerationBusy}
           />
@@ -808,7 +809,7 @@ export function DiverseSubjectDashboard({
           {lessons.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3 px-1">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Lições em blocos</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translate("Lições em blocos")}</p>
                 <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">
                   {lessons.length}
                 </span>
@@ -847,7 +848,7 @@ export function DiverseSubjectDashboard({
                       }}
                       onSessionComplete={onSessionComplete}
                       fixedQuestionGenerationLesson={lesson}
-                      questionGenerationButtonLabel="Criar mais questões"
+                      questionGenerationButtonLabel={translate("Criar mais questões")}
                       onGenerateMoreQuestions={onGenerateMoreQuestions}
                       questionGenerationBusy={questionGenerationBusy}
                     />
@@ -858,7 +859,7 @@ export function DiverseSubjectDashboard({
                         topic_key: lesson.id,
                         topic_title: lesson.title,
                       }}
-                      emptyHint="Gere questões de múltipla escolha a partir desta lição para fazer o simulado."
+                      emptyHint={translate("Gere questões de múltipla escolha a partir desta lição para fazer o simulado.")}
                     />
                   </div>
                 );
@@ -871,7 +872,7 @@ export function DiverseSubjectDashboard({
           <button type="button" onClick={onSave} disabled={savingDiverse || loadingDiverse || questionGenerationBusy}
             className="app-button w-full bg-primary-dark hover:bg-primary-dark">
             {savingDiverse ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-            Salvar matéria
+            {translate("Salvar matéria")}
           </button>
         </div>
 
@@ -883,12 +884,12 @@ export function DiverseSubjectDashboard({
             onToggle={onTogglePomodoro} onSwitch={onSwitchPomodoro} onRequestNotifications={onRequestNotifications}
           />
           <div className="app-surface border-slate-100 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Foco da matéria</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{translate("Foco da matéria")}</p>
             <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Use Lista para ajustar os tópicos e respostas.</p>
-              <p>Use Estudar para revisar a matéria como flashcards.</p>
-              <p>Use a IA para sugerir um tópico rápido ou criar uma lição separada em bloco.</p>
-              <p>A URL desta aba segue o formato <strong>tab=nomedamateria</strong>.</p>
+              <p>{translate("Use Lista para ajustar os tópicos e respostas.")}</p>
+              <p>{translate("Use Estudar para revisar a matéria como flashcards.")}</p>
+              <p>{translate("Use a IA para sugerir um tópico rápido ou criar uma lição separada em bloco.")}</p>
+              <p>{translate("A URL desta aba segue o formato")} <strong>tab=nomedamateria</strong>.</p>
             </div>
           </div>
         </aside>
@@ -935,14 +936,14 @@ export function SubjectTopicsStudyModal({
         <div className="border-b border-slate-200 bg-slate-50 px-5 py-4 dark:border-slate-700 dark:bg-slate-900 sm:px-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Estudo guiado</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">{translate("Estudo guiado")}</p>
               <h2 id="subject-study-modal-title" className="mt-1 text-xl font-black text-slate-900 sm:text-2xl dark:text-white">{subjectName}</h2>
-              <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-200">{topics.length} tópicos para revisar</p>
+              <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-200">{topics.length} {translate("tópicos para revisar")}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Fechar estudo da matéria"
+              aria-label={translate("Fechar estudo da matéria")}
               className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <X size={18} />
@@ -953,7 +954,7 @@ export function SubjectTopicsStudyModal({
         <div className="overflow-y-auto px-5 py-4 sm:px-6">
           {topics.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center dark:border-slate-700 dark:bg-slate-800">
-              <p className="text-sm font-black text-slate-500 dark:text-slate-300">Nenhum tópico disponível para estudar ainda.</p>
+              <p className="text-sm font-black text-slate-500 dark:text-slate-300">{translate("Nenhum tópico disponível para estudar ainda.")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -961,7 +962,7 @@ export function SubjectTopicsStudyModal({
                 <article key={topic.id} className="rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/80">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-400">Tópico {index + 1}</p>
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400 dark:text-slate-400">{translate("Tópico")} {index + 1}</p>
                       <h3 className="mt-1 text-base font-black text-slate-800 dark:text-slate-100">{topic.topic}</h3>
                     </div>
                     <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${topic.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -974,11 +975,11 @@ export function SubjectTopicsStudyModal({
                     className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-xl border-2 border-indigo-200 bg-white px-3 text-xs font-black text-indigo-700 transition hover:border-indigo-400 hover:bg-indigo-50 dark:border-indigo-500/50 dark:bg-slate-900 dark:text-indigo-200 dark:hover:bg-slate-800"
                   >
                     <ChevronRight size={14} className={`transition ${openTopicId === topic.id ? 'rotate-90' : ''}`} />
-                    {openTopicId === topic.id ? 'Ocultar resposta' : 'Mostrar resposta'}
+                    {openTopicId === topic.id ? translate("Ocultar resposta") : translate("Mostrar resposta")}
                   </button>
                   {openTopicId === topic.id && (
                     <>
-                      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-200">{topic.answer?.trim() || 'Sem explicação disponível ainda.'}</p>
+                      <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-200">{topic.answer?.trim() || translate("Sem explicação disponível ainda.")}</p>
                       {topic.code_example && (
                         <SyntaxCodeBlock code={topic.code_example} language={subjectName} className="mt-3 p-3" />
                       )}
@@ -996,7 +997,7 @@ export function SubjectTopicsStudyModal({
             onClick={onClose}
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark"
           >
-            Fechar estudo
+            {translate("Fechar estudo")}
           </button>
         </div>
       </div>
@@ -1048,8 +1049,8 @@ export function DiverseQuestionGenerationForm({
       setDiverseQuestionContext('');
     } catch (err) {
       setError(isUncertainDiverseGenerationError(err)
-        ? 'A criação pode ter sido concluída. Recarregue a página antes de tentar novamente.'
-        : err instanceof Error ? err.message : 'Não foi possível criar as questões. Tente novamente.');
+        ? translate("A criação pode ter sido concluída. Recarregue a página antes de tentar novamente.")
+        : err instanceof Error ? err.message : translate("Não foi possível criar as questões. Tente novamente."));
     } finally {
       submitLockRef.current = false;
       setSubmitting(false);
@@ -1074,13 +1075,13 @@ export function DiverseQuestionGenerationForm({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black text-violet-800">{buttonLabel}</p>
-          <p className="mt-0.5 text-xs font-bold text-violet-600">Serão criadas 5 questões relacionadas a esta lição.</p>
+          <p className="mt-0.5 text-xs font-bold text-violet-600">{translate("Serão criadas 5 questões relacionadas a esta lição.")}</p>
         </div>
         <button
           type="button"
           onClick={() => setOpen(false)}
           disabled={submitting}
-          aria-label="Fechar criação de questões"
+          aria-label={translate("Fechar criação de questões")}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-violet-500 transition hover:bg-violet-100 disabled:opacity-50"
         >
           <X size={15} />
@@ -1089,28 +1090,28 @@ export function DiverseQuestionGenerationForm({
 
       {!fixedLesson && (
         <label className="block text-xs font-black text-slate-600">
-          Lição
+          {translate("Lição")}
           <select
             value={selectedLessonId}
             onChange={(event) => { setSelectedLessonId(event.target.value); setError(''); setMessage(''); }}
             disabled={submitting || busy}
             className="mt-1.5 min-h-11 w-full rounded-xl border-2 border-violet-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
           >
-            <option value="">Selecione uma lição</option>
+            <option value="">{translate("Selecione uma lição")}</option>
             {lessons.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title}</option>)}
           </select>
         </label>
       )}
 
       <label className="block text-xs font-black text-slate-600">
-        Contexto opcional
+        {translate("Contexto opcional")}
         <textarea
           value={diverseQuestionContext}
           onChange={(event) => { setDiverseQuestionContext(event.target.value); setError(''); setMessage(''); }}
           maxLength={1000}
           rows={3}
           disabled={submitting || busy}
-          placeholder="Ex.: foque nos conceitos que costumam cair na prova."
+          placeholder={translate("Ex.: foque nos conceitos que costumam cair na prova.")}
           className="mt-1.5 w-full resize-none rounded-xl border-2 border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400 disabled:opacity-60"
         />
       </label>
@@ -1122,7 +1123,7 @@ export function DiverseQuestionGenerationForm({
         className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {submitting ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-        {submitting ? 'Criando 5 questões...' : 'Adicionar 5 questões'}
+        {submitting ? translate("Criando 5 questões...") : translate("Adicionar 5 questões")}
       </button>
       {error && <p role="alert" className="rounded-xl bg-rose-100 px-3 py-2 text-xs font-bold text-rose-700">{error}</p>}
       {message && <p role="status" className="rounded-xl bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700">{message}</p>}
@@ -1181,10 +1182,10 @@ export function SubjectStudyCard({
     setImportPreview(null);
     try {
       const topics = parseJsonTopics(importText.trim());
-      if (topics.length === 0) { setImportError('Nenhum tópico válido encontrado no JSON.'); return; }
+      if (topics.length === 0) { setImportError(translate("Nenhum tópico válido encontrado no JSON.")); return; }
       setImportPreview(topics);
     } catch {
-      setImportError('JSON inválido. Verifique o formato e tente novamente.');
+      setImportError(translate("JSON inválido. Verifique o formato e tente novamente."));
     }
   }
 
@@ -1192,7 +1193,7 @@ export function SubjectStudyCard({
     if (!importPreview || !onBulkAddTopics) return;
     const remaining = Math.max(0, 50 - subject.topics.length);
     if (remaining === 0) {
-      setImportError('Esta matéria já tem 50 tópicos (limite). Crie uma nova lição em bloco.');
+      setImportError(translate("Esta matéria já tem 50 tópicos (limite). Crie uma nova lição em bloco."));
       return;
     }
     onBulkAddTopics(importPreview.slice(0, remaining));
@@ -1299,14 +1300,14 @@ export function SubjectStudyCard({
           <ChevronRight size={15} className={`transition-transform ${collapsed ? '' : 'rotate-90'}`} />
         </button>
         <input
-          aria-label="Nome da matéria"
+          aria-label={translate("Nome da matéria")}
           value={subject.name}
           onChange={(e) => onUpdateSubjectName(e.target.value)}
           maxLength={60}
           className="min-w-0 flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-lg font-black text-slate-800 outline-none transition focus:border-primary focus:bg-white"
         />
         <div className="flex shrink-0 items-center gap-2">
-          {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">Completo</span>}
+          {allDone && <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">{translate("Completo")}</span>}
           <span className="text-sm font-black text-slate-400">{doneCount}/{totalTopics}</span>
           <button type="button" onClick={onRemove}
             className="flex h-9 w-9 items-center justify-center rounded-2xl border-2 border-rose-100 bg-white text-rose-400 transition hover:border-rose-300 hover:bg-rose-50">
@@ -1321,16 +1322,16 @@ export function SubjectStudyCard({
       {!collapsed && <div className="mt-3 flex gap-1.5 px-5">
         <button type="button" onClick={() => setActiveTab('topics')}
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'topics' ? 'bg-primary-dark text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-          Lista
+          {translate("Lista")}
         </button>
         <button type="button" onClick={() => { resetStudy(); setActiveTab('study'); }} disabled={totalTopics === 0}
-          title="Revisão espaçada: prioriza o que você errou ou não sabia"
+          title={translate("Revisão espaçada: prioriza o que você errou ou não sabia")}
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'study' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
-          <Zap size={12} className="inline mr-1" />Revisar
+          <Zap size={12} className="inline mr-1" />{translate("Revisar")}
         </button>
         <button type="button" onClick={() => setActiveTab('view')} disabled={totalTopics === 0}
           className={`flex-1 rounded-xl px-3 py-2 text-xs font-black transition ${activeTab === 'view' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} disabled:opacity-40 disabled:cursor-not-allowed`}>
-          <BookOpen size={12} className="inline mr-1" />Visualizar
+          <BookOpen size={12} className="inline mr-1" />{translate("Visualizar")}
         </button>
       </div>}
 
@@ -1381,29 +1382,29 @@ export function SubjectStudyCard({
                     >
                       <span className={`flex items-center gap-1.5 break-words text-sm font-black ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
                         {t.last_rating && (
-                          <span className={`h-2 w-2 shrink-0 rounded-full ${RATING_META[t.last_rating].dot}`} title={`Última revisão: ${RATING_META[t.last_rating].label}`} />
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${RATING_META[t.last_rating].dot}`} title={`Última revisão: ${translate(RATING_META[t.last_rating].label)}`} />
                         )}
                         <span className="min-w-0 break-words">{t.topic || `Tópico ${ti + 1}`}</span>
                       </span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-400">
-                        {t.answer && !topicOpen && <span className="truncate">Resposta salva</span>}
-                        {(t.review_count ?? 0) > 0 && <span>· {t.review_count}× revisado</span>}
+                        {t.answer && !topicOpen && <span className="truncate">{translate("Resposta salva")}</span>}
+                        {(t.review_count ?? 0) > 0 && <span>· {t.review_count}{translate("× revisado")}</span>}
                       </span>
                     </button>
                     <button type="button" onClick={() => setExpandedAnswer(topicOpen ? null : ti)}
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition ${topicOpen ? 'border-indigo-300 bg-white text-indigo-700' : 'border-slate-200 bg-white text-slate-400 hover:border-indigo-300 hover:text-indigo-600'}`}
-                      title="Resposta / explicação">
+                      title={translate("Resposta / explicação")}>
                       <ChevronRight size={16} className={`transition ${topicOpen ? 'rotate-90' : ''}`} />
                     </button>
                   </div>
                   {topicOpen && (
                     <div className="space-y-2 px-3 pb-3">
                       <input
-              aria-label="Pergunta / tópico"
+              aria-label={translate("Pergunta / tópico")}
                         value={t.topic}
                         onChange={(e) => onUpdateTopicText(ti, e.target.value)}
                         maxLength={120}
-                        placeholder="Pergunta / tópico"
+                        placeholder={translate("Pergunta / tópico")}
                         className={`w-full rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold outline-none transition focus:border-primary ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}
                       />
                       <textarea
@@ -1411,27 +1412,27 @@ export function SubjectStudyCard({
                         onChange={(e) => onUpdateTopicAnswer(ti, e.target.value)}
                         rows={2}
                         maxLength={300}
-                        placeholder="Explicação / resposta (usada no modo Estudar)"
+                        placeholder={translate("Explicação / resposta (usada no modo Estudar)")}
                         className="w-full resize-none rounded-xl border-2 border-indigo-200 bg-white px-3 py-2 text-sm font-semibold text-indigo-800 outline-none transition focus:border-indigo-400"
                       />
                       {onRegenerateTopicAI && (
                         <div className="rounded-xl border-2 border-violet-200 bg-violet-50 p-3">
-                          <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">Regenerar tópico com IA</p>
+                          <p className="text-xs font-black uppercase tracking-[0.12em] text-violet-700">{translate("Regenerar tópico com IA")}</p>
                           <textarea
                             value={topicRegenerateContext[ti] ?? ''}
                             onChange={(event) => setTopicRegenerateContext((current) => ({ ...current, [ti]: event.target.value }))}
                             rows={2}
                             maxLength={1000}
-                            placeholder="Contexto opcional (ex.: focar em exemplos práticos e prova da OAB)."
+                            placeholder={translate("Contexto opcional (ex.: focar em exemplos práticos e prova da OAB).")}
                             className="mt-2 w-full resize-none rounded-xl border-2 border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-violet-400"
                           />
                           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                             <input
-              aria-label="Chave IA opcional"
+              aria-label={translate("Chave IA opcional")}
                               type="password"
                               value={topicAiKeyDraft[ti] ?? ''}
                               onChange={(event) => setTopicAiKeyDraft((current) => ({ ...current, [ti]: event.target.value }))}
-                              placeholder="Chave IA opcional"
+                              placeholder={translate("Chave IA opcional")}
                               className="min-h-9 min-w-0 flex-1 rounded-xl border-2 border-violet-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none focus:border-violet-500"
                             />
                             <button
@@ -1448,7 +1449,7 @@ export function SubjectStudyCard({
                               className="inline-flex min-h-9 items-center justify-center gap-2 rounded-xl bg-violet-600 px-3 text-xs font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {regeneratingTopicIndex === ti ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                              {regeneratingTopicIndex === ti ? 'Regenerando...' : 'Regenerar tópico'}
+                              {regeneratingTopicIndex === ti ? 'Regenerando...' : translate("Regenerar tópico")}
                             </button>
                           </div>
                         </div>
@@ -1471,7 +1472,7 @@ export function SubjectStudyCard({
               disabled={totalTopics === 0}
               className="inline-flex items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-40"
             >
-              <Copy size={13} /> {copiedJson ? 'Copiado!' : 'Copiar JSON'}
+              <Copy size={13} /> {copiedJson ? 'Copiado!' : translate("Copiar JSON")}
             </button>
             {onBulkAddTopics && (
               <button
@@ -1479,7 +1480,7 @@ export function SubjectStudyCard({
                 onClick={() => { setShowImport((v) => !v); setImportPreview(null); setImportError(''); }}
                 className={`inline-flex items-center gap-1.5 rounded-xl border-2 px-3 py-2 text-xs font-black transition ${showImport ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'}`}
               >
-                <Plus size={13} /> Importar JSON
+                <Plus size={13} /> {translate("Importar JSON")}
               </button>
             )}
           </div>
@@ -1487,9 +1488,9 @@ export function SubjectStudyCard({
           {onBulkAddTopics && showImport && (
             <div className="mt-3 space-y-2 rounded-2xl border-2 border-indigo-100 bg-indigo-50/60 p-3">
               <p className="text-xs font-bold text-indigo-700">
-                Cole um array JSON: <code className="rounded bg-white px-1 py-0.5 text-indigo-600">[{`{"topic":"...","answer":"..."}`}]</code>
+                {translate("Cole um array JSON:")} <code className="rounded bg-white px-1 py-0.5 text-indigo-600">[{`{"topic":"...","answer":"..."}`}]</code>
               </p>
-              <p className="text-xs text-indigo-600">Também aceita: <code className="rounded bg-white px-1 py-0.5">question/answer</code>, <code className="rounded bg-white px-1 py-0.5">front/back</code>, ou objeto com chave <code className="rounded bg-white px-1 py-0.5">flashcards</code>.</p>
+              <p className="text-xs text-indigo-600">{translate("Também aceita:")} <code className="rounded bg-white px-1 py-0.5">question/answer</code>, <code className="rounded bg-white px-1 py-0.5">front/back</code>{translate(", ou objeto com chave")} <code className="rounded bg-white px-1 py-0.5">flashcards</code>.</p>
               <textarea
                 value={importText}
                 onChange={(e) => { setImportText(e.target.value); setImportPreview(null); setImportError(''); }}
@@ -1500,7 +1501,7 @@ export function SubjectStudyCard({
               {importError && <p className="text-xs font-bold text-rose-600">{importError}</p>}
               {importPreview && (
                 <div className="rounded-xl bg-white p-3">
-                  <p className="text-xs font-bold text-slate-500">{importPreview.length} tópico(s) encontrado(s):</p>
+                  <p className="text-xs font-bold text-slate-500">{importPreview.length} {translate("tópico(s) encontrado(s):")}</p>
                   <ul className="mt-1 space-y-1">
                     {importPreview.slice(0, 5).map((tp, i) => (
                       <li key={i} className="truncate text-xs text-slate-700"><span className="font-bold">{i + 1}.</span> {tp.topic}</li>
@@ -1516,7 +1517,7 @@ export function SubjectStudyCard({
                   disabled={!importText.trim()}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white transition hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  Verificar
+                  {translate("Verificar")}
                 </button>
                 {importPreview && importPreview.length > 0 && (
                   <button
@@ -1524,7 +1525,7 @@ export function SubjectStudyCard({
                     onClick={handleConfirmImport}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
                   >
-                    <Plus size={13} /> Adicionar {importPreview.length} tópico(s)
+                    <Plus size={13} /> {translate("Adicionar")} {importPreview.length} {translate("tópico(s)")}
                   </button>
                 )}
               </div>
@@ -1536,34 +1537,34 @@ export function SubjectStudyCard({
         <div className="p-5">
           {totalTopics === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm font-semibold text-slate-400">Nenhum tópico cadastrado.</p>
+              <p className="text-sm font-semibold text-slate-400">{translate("Nenhum tópico cadastrado.")}</p>
               <button type="button" onClick={() => setActiveTab('topics')}
                 className="mt-2 text-sm font-black text-primary hover:underline">
-                Ir para Lista
+                {translate("Ir para Lista")}
               </button>
             </div>
           ) : studyState.done ? (
             /* Summary */
             <div className="flex flex-col items-center gap-4 py-3 text-center">
               <span className="text-4xl">{knewCount >= totalTopics * 0.7 ? '🎉' : knewCount >= totalTopics * 0.4 ? '💪' : '📚'}</span>
-              <p className="text-lg font-black text-slate-800">Sessão completa!</p>
+              <p className="text-lg font-black text-slate-800">{translate("Sessão completa!")}</p>
               <div className="grid w-full grid-cols-3 gap-2">
                 <div className="rounded-xl bg-emerald-50 p-3">
                   <p className="text-2xl font-black text-emerald-600">{knewCount}</p>
-                  <p className="mt-0.5 text-xs font-bold text-emerald-500">Sabia</p>
+                  <p className="mt-0.5 text-xs font-bold text-emerald-500">{translate("Sabia")}</p>
                 </div>
                 <div className="rounded-xl bg-amber-50 p-3">
                   <p className="text-2xl font-black text-amber-600">{partialCount}</p>
-                  <p className="mt-0.5 text-xs font-bold text-amber-500">Parcial</p>
+                  <p className="mt-0.5 text-xs font-bold text-amber-500">{translate("Parcial")}</p>
                 </div>
                 <div className="rounded-xl bg-rose-50 p-3">
                   <p className="text-2xl font-black text-rose-600">{unknownCount}</p>
-                  <p className="mt-0.5 text-xs font-bold text-rose-500">Não sabia</p>
+                  <p className="mt-0.5 text-xs font-bold text-rose-500">{translate("Não sabia")}</p>
                 </div>
               </div>
               <button type="button" onClick={resetStudy}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 py-3 text-sm font-black text-white transition hover:bg-slate-700">
-                <RotateCcw size={14} /> Revisar de novo
+                <RotateCcw size={14} /> {translate("Revisar de novo")}
               </button>
             </div>
           ) : currentTopic ? (
@@ -1583,49 +1584,49 @@ export function SubjectStudyCard({
                 <span>{studyState.position + 1} / {totalTopics}</span>
                 {currentTopic.last_rating && (
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${RATING_META[currentTopic.last_rating].chip}`}>
-                    visto: {RATING_META[currentTopic.last_rating].label}
+                    visto: {translate(RATING_META[currentTopic.last_rating].label)}
                   </span>
                 )}
               </div>
 
               {/* Question */}
               <div className="rounded-2xl bg-indigo-50 px-4 py-5">
-                <p className="text-center text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Pergunta</p>
+                <p className="text-center text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">{translate("Pergunta")}</p>
                 <p className="text-center text-base font-black leading-snug text-slate-800">{currentTopic.topic}</p>
               </div>
 
               {!studyState.revealed ? (
                 <>
                   <div>
-                    <p className="mb-1.5 text-xs font-bold text-slate-500">Sua resposta (opcional)</p>
+                    <p className="mb-1.5 text-xs font-bold text-slate-500">{translate("Sua resposta (opcional)")}</p>
                     <textarea
                       value={studyState.userAnswer}
                       onChange={(e) => setStudyState((prev) => ({ ...prev, userAnswer: e.target.value }))}
                       rows={3}
                       maxLength={300}
-                      placeholder="Escreva o que você sabe sobre este tema..."
+                      placeholder={translate("Escreva o que você sabe sobre este tema...")}
                       className="w-full resize-none rounded-xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-400"
                     />
                   </div>
                   <button type="button" onClick={revealCurrentTopic}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 text-sm font-black text-white transition hover:bg-indigo-700">
-                    <ChevronRight size={16} /> Revelar explicação
+                    <ChevronRight size={16} /> {translate("Revelar explicação")}
                   </button>
                 </>
               ) : (
                 <div className="space-y-3">
                   {/* Explanation */}
                   <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-4 py-4">
-                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2">Explicação</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 mb-2">{translate("Explicação")}</p>
                     <p className="text-sm font-semibold leading-relaxed text-slate-700">
-                      {currentTopic.answer?.trim() || <span className="italic text-slate-400">Sem explicação cadastrada. Adicione uma na aba Lista.</span>}
+                      {currentTopic.answer?.trim() || <span className="italic text-slate-400">{translate("Sem explicação cadastrada. Adicione uma na aba Lista.")}</span>}
                     </p>
                     {currentTopic.code_example && (
                       <SyntaxCodeBlock code={currentTopic.code_example} language={codeLanguage} className="mt-3 p-3" />
                     )}
                     {studyState.userAnswer.trim() && (
                       <div className="mt-3 border-t border-emerald-200 pt-3">
-                        <p className="text-xs font-bold text-slate-400 mb-1">Sua resposta</p>
+                        <p className="text-xs font-bold text-slate-400 mb-1">{translate("Sua resposta")}</p>
                         <p className="text-sm text-slate-600 italic">{studyState.userAnswer}</p>
                       </div>
                     )}
@@ -1635,17 +1636,17 @@ export function SubjectStudyCard({
                     <button type="button" onClick={() => rateAndAdvance('knew')} aria-keyshortcuts="2"
                       className="order-2 sm:order-2 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-emerald-700 px-4 py-4 text-white shadow-sm transition hover:bg-emerald-400 active:scale-[.98]">
                       <span className="text-lg font-black">✓</span>
-                      <span className="text-xs font-black">Sabia</span>
+                      <span className="text-xs font-black">{translate("Sabia")}</span>
                     </button>
                     <button type="button" onClick={() => rateAndAdvance('partial')} aria-keyshortcuts="1"
                       className="order-1 sm:order-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-amber-700 px-4 py-4 text-white transition hover:bg-amber-400 active:scale-[.98]">
                       <span className="text-lg font-black">~</span>
-                      <span className="text-xs font-black">Parcial</span>
+                      <span className="text-xs font-black">{translate("Parcial")}</span>
                     </button>
                     <button type="button" onClick={() => rateAndAdvance('unknown')} aria-keyshortcuts="3"
                       className="order-3 sm:order-3 flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-rose-700 px-4 py-4 text-white transition hover:bg-rose-400 active:scale-[.98]">
                       <span className="text-lg font-black">✗</span>
-                      <span className="text-xs font-black">Não sabia</span>
+                      <span className="text-xs font-black">{translate("Não sabia")}</span>
                     </button>
                   </div>
                 </div>
@@ -1657,19 +1658,19 @@ export function SubjectStudyCard({
         <div className="p-5">
           {totalTopics === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm font-semibold text-slate-400">Nenhum tópico cadastrado.</p>
+              <p className="text-sm font-semibold text-slate-400">{translate("Nenhum tópico cadastrado.")}</p>
               <button type="button" onClick={() => setActiveTab('topics')}
                 className="mt-2 text-sm font-black text-primary hover:underline">
-                Ir para Lista
+                {translate("Ir para Lista")}
               </button>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="rounded-2xl border-2 border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Modo de visualizacao</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{translate("Modo de visualizacao")}</p>
                 <h3 className="mt-1 text-xl font-black text-slate-800">{subject.name}</h3>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-black">
-                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700">{totalTopics} tópicos</span>
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-indigo-700">{totalTopics} {translate("tópicos")}</span>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">{doneCount} concluidos</span>
                 </div>
               </div>
@@ -1683,7 +1684,7 @@ export function SubjectStudyCard({
                       <div className="min-w-0 flex-1">
                         <p className="break-words text-base font-black text-slate-800">{topic.topic || `Tópico ${index + 1}`}</p>
                         <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-600">
-                          {topic.answer?.trim() || 'Sem explicação cadastrada.'}
+                          {topic.answer?.trim() || translate("Sem explicação cadastrada.")}
                         </p>
                         {topic.code_example && (
                           <SyntaxCodeBlock code={topic.code_example} language={codeLanguage} className="mt-3 p-3" />

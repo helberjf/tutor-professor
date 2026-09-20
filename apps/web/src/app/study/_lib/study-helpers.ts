@@ -6,6 +6,7 @@
 import type { CodingTopic, DiverseLessonBlock, DiverseSubject, StudyDay } from '@/lib/api';
 import { resolveItemsByIds, updateItemById } from '@/lib/diverse-question-state';
 import type { PomodoroMode } from '@/lib/pomodoro';
+import { t } from '@/lib/i18n';
 
 export const AI_FLASHCARD_COUNT = 5;
 
@@ -58,8 +59,8 @@ export function buildEmptyDay(studyDate: string): StudyDay {
 
 export function getPomodoroCompletionMessage(mode: PomodoroMode) {
   return mode === 'focus'
-    ? 'Bloco de foco concluído. Hora de uma pausa.'
-    : 'Pausa concluída. Hora de voltar ao foco.';
+    ? t("Bloco de foco concluído. Hora de uma pausa.")
+    : t("Pausa concluída. Hora de voltar ao foco.");
 }
 
 export function slugifySubjectName(name: string) {
@@ -70,7 +71,7 @@ export function slugifySubjectName(name: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return normalized || 'matéria';
+  return normalized || t("matéria");
 }
 
 export function getDiverseSubjectSlug(subject: DiverseSubject, index: number, subjects: DiverseSubject[]) {
@@ -140,9 +141,9 @@ export function buildStudyOrder(topics: CodingTopic[]): number[] {
 }
 
 export const RATING_META: Record<StudyRating, { label: string; dot: string; chip: string }> = {
-  unknown: { label: 'Não sabia', dot: 'bg-rose-400', chip: 'bg-rose-100 text-rose-700' },
-  partial: { label: 'Parcial', dot: 'bg-amber-400', chip: 'bg-amber-100 text-amber-700' },
-  knew: { label: 'Sabia', dot: 'bg-emerald-400', chip: 'bg-emerald-100 text-emerald-700' },
+  unknown: { label: "Não sabia", dot: 'bg-rose-400', chip: 'bg-rose-100 text-rose-700' },
+  partial: { label: "Parcial", dot: 'bg-amber-400', chip: 'bg-amber-100 text-amber-700' },
+  knew: { label: "Sabia", dot: 'bg-emerald-400', chip: 'bg-emerald-100 text-emerald-700' },
 };
 
 export function filterFreshDiverseTopics(topics: CodingTopic[], existingTopics: string[]) {

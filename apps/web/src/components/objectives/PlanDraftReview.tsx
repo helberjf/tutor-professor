@@ -5,6 +5,7 @@ import { Archive, ArrowRight, Ban, Check, RotateCcw, X } from 'lucide-react';
 import type { Objective, PlanDraft } from '@/lib/api';
 import { areaChipClass, areaLabel } from './objective-areas';
 import type { RevisionDiff } from './plan-helpers';
+import { t } from '@/lib/i18n';
 
 interface Props {
   draft: PlanDraft;
@@ -47,7 +48,7 @@ export function PlanDraftReview({
   return (
     <div className="space-y-5">
       <label className="block">
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Nome do plano</span>
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Nome do plano")}</span>
         <input
           value={title}
           onChange={(event) => onTitleChange(event.target.value)}
@@ -57,16 +58,16 @@ export function PlanDraftReview({
       </label>
 
       <section className="rounded-2xl border-2 border-indigo-100 bg-indigo-50 p-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">Maior gargalo</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">{t("Maior gargalo")}</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{draft.diagnosis}</p>
         {draft.focus ? (
-          <p className="mt-2 text-sm font-bold leading-6 text-indigo-800">Foco: {draft.focus}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-indigo-800">{t("Foco:")} {draft.focus}</p>
         ) : null}
       </section>
 
       <section>
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-          Prioridades, na ordem sugerida
+          {t("Prioridades, na ordem sugerida")}
         </p>
         <ol className="mt-3 space-y-3">
           {draft.priorities.map((priority, index) => {
@@ -85,7 +86,7 @@ export function PlanDraftReview({
                     type="button"
                     role="checkbox"
                     aria-checked={selected}
-                    aria-label={`${selected ? 'Deixar de fora' : 'Incluir'} ${priority.title}`}
+                    aria-label={`${selected ? t("Deixar de fora") : 'Incluir'} ${priority.title}`}
                     onClick={() => onTogglePriority(index)}
                     className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition ${
                       selected ? 'border-primary-dark bg-primary-dark text-white' : 'border-slate-300 bg-white text-transparent'
@@ -101,11 +102,11 @@ export function PlanDraftReview({
                       {diff ? (
                         kept ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[0.68rem] font-black text-sky-700">
-                            <RotateCcw size={11} /> Continua · {kept.progress_percent}%
+                            <RotateCcw size={11} /> {t("Continua ·")} {kept.progress_percent}%
                           </span>
                         ) : (
                           <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[0.68rem] font-black text-emerald-700">
-                            Nova
+                            {t("Nova")}
                           </span>
                         )
                       ) : null}
@@ -116,8 +117,8 @@ export function PlanDraftReview({
 
                     {kept ? (
                       <p className="mt-2 text-xs font-bold text-slate-500">
-                        Os itens atuais continuam como estão ({kept.done_count} de {kept.item_count} concluídos).
-                        {priority.items.length ? ' Itens novos:' : ' Nenhum item novo.'}
+                        {t("Os itens atuais continuam como estão (")}{kept.done_count} de {kept.item_count} {t("concluídos).")}
+                        {priority.items.length ? t("Itens novos:") : t("Nenhum item novo.")}
                       </p>
                     ) : null}
 
@@ -174,11 +175,10 @@ export function PlanDraftReview({
       {diff && diff.dropped.length ? (
         <section className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-800">
-            <Archive size={14} /> Saem do plano
+            <Archive size={14} /> {t("Saem do plano")}
           </p>
           <p className="mt-1 text-sm font-semibold leading-6 text-amber-900">
-            A revisão deixou estas prioridades de fora. Marcadas serão arquivadas (nada é apagado);
-            desmarcadas continuam no fim do plano.
+            {t("A revisão deixou estas prioridades de fora. Marcadas serão arquivadas (nada é apagado); desmarcadas continuam no fim do plano.")}
           </p>
           <ul className="mt-3 space-y-2">
             {diff.dropped.map((objective) => {
@@ -209,7 +209,7 @@ export function PlanDraftReview({
       {draft.avoid.length ? (
         <section>
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-            <Ban size={14} /> Não priorizar agora
+            <Ban size={14} /> {t("Não priorizar agora")}
           </p>
           <ul className="mt-2 space-y-1.5">
             {draft.avoid.map((entry) => (
@@ -224,7 +224,7 @@ export function PlanDraftReview({
 
       {draft.shortest_path.length ? (
         <section>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Caminho mais curto</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Caminho mais curto")}</p>
           <ol className="mt-2 flex flex-wrap items-center gap-1.5">
             {draft.shortest_path.map((step, index) => (
               <li key={`${step}-${index}`} className="flex items-center gap-1.5">

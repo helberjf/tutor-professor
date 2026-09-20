@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CreditCard, Loader2, Sparkles } from 'lucide-react';
 import { ApiError, api, type BillingPlan, type BillingSubscription } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const UNLIMITED = -1;
 
@@ -21,9 +22,9 @@ function formatLimit(value: number, singular: string, plural: string): string {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  trialing: 'Em teste',
+  trialing: "Em teste",
   active: 'Ativa',
-  past_due: 'Pagamento pendente',
+  past_due: "Pagamento pendente",
   canceled: 'Cancelada',
 };
 
@@ -43,7 +44,7 @@ export function BillingSection() {
       setSubscription(current);
       setPlans(catalogue);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Não foi possível carregar o plano.');
+      setError(cause instanceof ApiError ? cause.message : t("Não foi possível carregar o plano."));
     }
   }
 
@@ -69,7 +70,7 @@ export function BillingSection() {
       setError(
         cause instanceof ApiError
           ? (cause.detail ?? cause.message)
-          : 'Não foi possível mudar de plano.',
+          : t("Não foi possível mudar de plano."),
       );
     } finally {
       setBusyPlan(null);
@@ -81,8 +82,8 @@ export function BillingSection() {
       <div className="flex items-center gap-3">
         <CreditCard className="text-amber-600" size={28} />
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Assinatura</p>
-          <h2 className="text-2xl font-black text-slate-800 md:text-3xl">Seu plano</h2>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Assinatura")}</p>
+          <h2 className="text-2xl font-black text-slate-800 md:text-3xl">{t("Seu plano")}</h2>
         </div>
       </div>
 
@@ -110,18 +111,18 @@ export function BillingSection() {
               </div>
               {subscription.trial_ends_at ? (
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                  Teste até {new Date(subscription.trial_ends_at).toLocaleDateString('pt-BR')}
+                  {t("Teste até")} {new Date(subscription.trial_ends_at).toLocaleDateString('pt-BR')}
                 </span>
               ) : null}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Metric label="Estudantes" value={String(subscription.children_used)} />
+              <Metric label={t("Estudantes")} value={String(subscription.children_used)} />
               <Metric
-                label="Geracoes no mes"
+                label={t("Geracoes no mes")}
                 value={String(subscription.generations_used)}
               />
               <Metric
-                label="Custo de IA no mes"
+                label={t("Custo de IA no mes")}
                 value={(subscription.month_cost_cents / 100).toLocaleString('pt-BR', {
                   style: 'currency',
                   currency: subscription.plan.currency,
@@ -142,13 +143,13 @@ export function BillingSection() {
                 >
                   <p className="text-lg font-black text-slate-800">{plan.name}</p>
                   <p className="text-sm font-black text-primary-dark">{formatPrice(plan)}</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-500">{plan.description}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-500">{t(plan.description)}</p>
                   <p className="mt-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
                     {formatLimit(plan.max_children, 'estudante', 'estudantes')} ·{' '}
-                    Creditos de IA definidos diariamente pelo administrador
+                    {t("Créditos de IA definidos diariamente pelo administrador")}
                   </p>
                   {isCurrent ? (
-                    <p className="mt-4 text-sm font-black text-primary-dark">Plano atual</p>
+                    <p className="mt-4 text-sm font-black text-primary-dark">{t("Plano atual")}</p>
                   ) : plan.price_cents === 0 ? null : (
                     <button
                       type="button"

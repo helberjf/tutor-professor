@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BookOpen, Brain, ClipboardList, HelpCircle, ListChecks } from 'lucide-react';
+import { t } from '@/lib/i18n';
 
 const tabs = [
-  { href: '/lesson', label: 'Hoje', icon: BookOpen },
-  { href: '/study', label: 'Estudar', icon: ClipboardList },
-  { href: '/quiz', label: 'Questões', icon: HelpCircle },
-  { href: '/review', label: 'Revisão', icon: Brain },
-  { href: '/exams', label: 'Simulado', icon: ListChecks },
+  { href: '/lesson', label: "Hoje", icon: BookOpen },
+  { href: '/study', label: "Estudar", icon: ClipboardList },
+  { href: '/quiz', label: "Questões", icon: HelpCircle },
+  { href: '/review', label: "Revisão", icon: Brain },
+  { href: '/exams', label: "Simulado", icon: ListChecks },
 ];
 
 export function BottomNav() {
@@ -19,7 +20,7 @@ export function BottomNav() {
     <nav
       className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/90 backdrop-blur-xl md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      aria-label="Navegação rápida"
+      aria-label={t("Navegação rápida")}
     >
       <ul className="mx-auto flex max-w-md items-stretch justify-between gap-1 px-2">
         {tabs.map((tab) => {
@@ -42,7 +43,7 @@ export function BottomNav() {
                 >
                   <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
                 </span>
-                <span className="leading-none">{tab.label}</span>
+                <span className="leading-none">{t(tab.label)}</span>
               </Link>
             </li>
           );

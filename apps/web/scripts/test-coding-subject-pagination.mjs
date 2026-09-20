@@ -39,7 +39,7 @@ assert.match(
   'the summary credit notice does not stay as a pale pill in dark mode',
 );
 assert.match(curriculum, /SubjectCardSkeleton/, 'initial and page loading use card skeletons');
-assert.match(curriculum, /Página \{subjectPage\.page\} de \{subjectPage\.total_pages\}/, 'the lazy paginator reports its position');
+assert.match(curriculum, /\{translate\("Página"\)\} \{subjectPage\.page\} de \{subjectPage\.total_pages\}/, 'the lazy paginator reports its position');
 assert.match(curriculum, /api\.markCodingSubjectUsed/, 'opening a subject records last use');
 assert.match(
   curriculum,

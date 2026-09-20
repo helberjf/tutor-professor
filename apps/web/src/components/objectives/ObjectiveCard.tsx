@@ -6,6 +6,7 @@ import { Archive, ArchiveRestore, CalendarClock, Check, Loader2, Plus, Trash2, T
 import { api, type Objective, type ObjectiveArea } from '@/lib/api';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { areaChipClass, areaLabel, deadlineLabel, OBJECTIVE_AREAS } from './objective-areas';
+import { t } from '@/lib/i18n';
 
 interface Props {
   objective: Objective;
@@ -47,7 +48,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     setBusyItemId(itemId);
     const updated = await run(
       () => api.updateObjectiveItem(itemId, { done }),
-      'Não foi possível atualizar o item.',
+      t("Não foi possível atualizar o item."),
     );
     if (updated) onChanged(updated);
     setBusyItemId(null);
@@ -57,7 +58,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     setBusyItemId(itemId);
     const updated = await run(
       () => api.deleteObjectiveItem(itemId),
-      'Não foi possível remover o item.',
+      t("Não foi possível remover o item."),
     );
     if (updated) onChanged(updated);
     setBusyItemId(null);
@@ -70,7 +71,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     setAdding(true);
     const updated = await run(
       () => api.addObjectiveItem(objective.id, { title: clean, area: itemArea, weight: itemWeight }),
-      'Não foi possível adicionar o item.',
+      t("Não foi possível adicionar o item."),
     );
     if (updated) {
       onChanged(updated);
@@ -85,7 +86,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
       () => api.updateObjective(objective.id, {
         status: objective.status === 'archived' ? 'active' : 'archived',
       }),
-      'Não foi possível arquivar o objetivo.',
+      t("Não foi possível arquivar o objetivo."),
     );
     if (updated) onChanged(updated);
   }
@@ -94,7 +95,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     if (!confirm(`Excluir "${objective.title}" e todos os seus itens?`)) return;
     const result = await run(
       () => api.deleteObjective(objective.id),
-      'Não foi possível excluir o objetivo.',
+      t("Não foi possível excluir o objetivo."),
     );
     if (result !== null) onDeleted(objective.id);
   }
@@ -111,11 +112,11 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
             <h3 className="text-base font-black text-slate-800 sm:text-lg">{objective.title}</h3>
             {achieved ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700">
-                <Trophy size={13} /> Conquistado
+                <Trophy size={13} /> {t("Conquistado")}
               </span>
             ) : null}
             {objective.status === 'archived' ? (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500">Arquivado</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500">{t("Arquivado")}</span>
             ) : null}
           </div>
 
@@ -134,8 +135,8 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           <button
             type="button"
             onClick={() => void toggleArchive()}
-            aria-label={objective.status === 'archived' ? 'Reativar objetivo' : 'Arquivar objetivo'}
-            title={objective.status === 'archived' ? 'Reativar objetivo' : 'Arquivar objetivo'}
+            aria-label={objective.status === 'archived' ? t("Reativar objetivo") : t("Arquivar objetivo")}
+            title={objective.status === 'archived' ? t("Reativar objetivo") : t("Arquivar objetivo")}
             className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           >
             {objective.status === 'archived' ? <ArchiveRestore size={18} /> : <Archive size={18} />}
@@ -143,8 +144,8 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           <button
             type="button"
             onClick={() => void removeObjective()}
-            aria-label="Excluir objetivo"
-            title="Excluir objetivo"
+            aria-label={t("Excluir objetivo")}
+            title={t("Excluir objetivo")}
             className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
           >
             <Trash2 size={18} />
@@ -154,7 +155,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
 
       <div className="mt-4">
         <div className="flex items-end justify-between gap-3">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Alcance</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Alcance")}</p>
           <p className="text-2xl font-black text-slate-800">{objective.progress_percent}%</p>
         </div>
         <div className="mt-2">
@@ -165,7 +166,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
         </div>
         <p className="mt-2 text-xs font-semibold text-slate-400">
           {objective.item_count === 0
-            ? 'Adicione o que precisa estudar para começar a medir.'
+            ? t("Adicione o que precisa estudar para começar a medir.")
             : `${objective.done_count} de ${objective.item_count} itens concluídos · peso ${objective.done_weight} de ${objective.total_weight}`}
         </p>
       </div>
@@ -211,7 +212,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
                       clear who ticked it. Unchecking it hands it back. */}
                   {item.auto_completed ? (
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.68rem] font-black text-emerald-700">
-                      concluído estudando
+                      {t("concluído estudando")}
                     </span>
                   ) : null}
                 </div>
@@ -236,7 +237,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           aria-label={`Novo item de estudo para ${objective.title}`}
           value={itemTitle}
           onChange={(event) => setItemTitle(event.target.value)}
-          placeholder="O que falta estudar?"
+          placeholder={t("O que falta estudar?")}
           maxLength={200}
           className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
         />
@@ -265,7 +266,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           disabled={adding || !itemTitle.trim()}
           className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-50"
         >
-          {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Adicionar
+          {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {t("Adicionar")}
         </button>
       </form>
 

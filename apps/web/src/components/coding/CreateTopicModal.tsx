@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import { api, type ProgrammingTopic } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 interface Props {
   subjectId: number;
@@ -33,7 +34,7 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
       setTopicContext('');
       onCreated(topic);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar tópico.');
+      setError(err instanceof Error ? err.message : t("Erro ao criar tópico."));
     } finally {
       setLoading(false);
     }
@@ -43,17 +44,17 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-black text-slate-800">Novo Tópico</h2>
+          <h2 className="text-xl font-black text-slate-800">{t("Novo Tópico")}</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100">
             <X size={20} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-              aria-label="Nome do tópico"
+              aria-label={t("Nome do tópico")}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Nome do tópico (ex: useState Hook)"
+            placeholder={t("Nome do tópico (ex: useState Hook)")}
             maxLength={200}
             required
             autoFocus
@@ -68,18 +69,18 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
             />
             <div>
               <p className="flex items-center gap-1.5 text-sm font-black text-violet-800">
-                <Sparkles size={14} /> Gerar aula com IA
+                <Sparkles size={14} /> {t("Gerar aula com IA")}
               </p>
-              <p className="text-xs text-violet-600">Cria seções, quiz e flashcards automaticamente</p>
+              <p className="text-xs text-violet-600">{t("Cria seções, quiz e flashcards automaticamente")}</p>
             </div>
           </label>
           {generateAI && (
             <label className="block rounded-2xl border-2 border-violet-100 bg-white px-4 py-3">
-              <span className="text-sm font-black text-violet-800">Contexto para a IA</span>
+              <span className="text-sm font-black text-violet-800">{t("Contexto para a IA")}</span>
               <textarea
                 value={topicContext}
                 onChange={(event) => setTopicContext(event.target.value)}
-                placeholder="Ex.: foco em entrevista técnica, prova AWS, exemplos com Step Functions..."
+                placeholder={t("Ex.: foco em entrevista técnica, prova AWS, exemplos com Step Functions...")}
                 maxLength={1000}
                 rows={3}
                 className="mt-2 w-full resize-none rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-400"
@@ -87,19 +88,19 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
             </label>
           )}
           {loading && generateAI && (
-            <p className="text-center text-sm font-semibold text-violet-600">Gerando conteúdo com IA... pode demorar alguns segundos.</p>
+            <p className="text-center text-sm font-semibold text-violet-600">{t("Gerando conteúdo com IA... pode demorar alguns segundos.")}</p>
           )}
           {error && <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 rounded-2xl border-2 border-slate-200 py-3 font-bold text-slate-600 hover:bg-slate-50">
-              Cancelar
+              {t("Cancelar")}
             </button>
             <button
               type="submit"
               disabled={loading || !title.trim()}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : 'Criar'}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : t("Criar")}
             </button>
           </div>
         </form>

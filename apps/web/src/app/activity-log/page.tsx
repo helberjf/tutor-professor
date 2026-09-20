@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { DailyActivityLog } from '@/components/daily-activity-log';
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 type GateState = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
 
@@ -34,18 +35,18 @@ export default function ActivityLogPage() {
   }, []);
 
   if (gateState === 'loading') {
-    return <StatusCard tone="loading" title="Carregando" message="Verificando acesso ao activity log..." />;
+    return <StatusCard tone="loading" title={t("Carregando")} message={t("Verificando acesso ao activity log...")} />;
   }
 
   if (gateState === 'server_missing') {
     return (
       <StatusCard
         tone="offline"
-        title="Servidor não disponível"
-        message="O sistema está temporariamente indisponível. Tente novamente em instantes."
-        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">Ver status</Link>}
+        title={t("Servidor não disponível")}
+        message={t("O sistema está temporariamente indisponível. Tente novamente em instantes.")}
+        primaryAction={<Link href="/offline" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Ver status")}</Link>}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -54,11 +55,11 @@ export default function ActivityLogPage() {
     return (
       <StatusCard
         tone="empty"
-        title="Área restrita"
-        message="Entre com sua conta para ver o activity log."
-        primaryAction={<Link href="/login?next=%2Factivity-log" className="app-button bg-primary-dark hover:bg-primary-dark">Entrar</Link>}
+        title={t("Área restrita")}
+        message={t("Entre com sua conta para ver o activity log.")}
+        primaryAction={<Link href="/login?next=%2Factivity-log" className="app-button bg-primary-dark hover:bg-primary-dark">{t("Entrar")}</Link>}
         secondaryHref="/study"
-        secondaryLabel="Ir para estudos"
+        secondaryLabel={t("Ir para estudos")}
       />
     );
   }
@@ -72,7 +73,7 @@ export default function ActivityLogPage() {
           className="mb-6 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 font-medium text-slate-700 transition hover:bg-slate-50"
         >
           <ArrowLeft size={18} />
-          Voltar
+          {t("Voltar")}
         </Link>
       </div>
 

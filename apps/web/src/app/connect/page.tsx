@@ -14,6 +14,7 @@ import {
   subscribeToApiBaseUrlChange,
   verifySavedApiBaseUrl,
 } from '@/lib/api-config';
+import { t } from '@/lib/i18n';
 
 function describeConnection() {
   const connection = getApiConnectionDetails();
@@ -21,8 +22,8 @@ function describeConnection() {
   if (!connection.baseUrl) {
     return {
       ...connection,
-      title: 'Ainda não existe um backend conectado neste aparelho.',
-      detail: 'Cole a URL HTTPS atual do seu Cloudflare Tunnel para conectar o app.',
+      title: t("Ainda não existe um backend conectado neste aparelho."),
+      detail: t("Cole a URL HTTPS atual do seu Cloudflare Tunnel para conectar o app."),
     };
   }
 
@@ -30,7 +31,7 @@ function describeConnection() {
     return {
       ...connection,
       title: `Conectado a ${connection.host}`,
-      detail: 'Essa URL manual vale neste aparelho enquanto não houver uma URL global publicada na Vercel.',
+      detail: t("Essa URL manual vale neste aparelho enquanto não houver uma URL global publicada na Vercel."),
     };
   }
 
@@ -38,7 +39,7 @@ function describeConnection() {
     return {
       ...connection,
       title: `Usando backend global em ${connection.host}`,
-      detail: 'Essa URL vem da configuração compartilhada publicada na Vercel e vale como padrão para todos os aparelhos no próximo acesso.',
+      detail: t("Essa URL vem da configuração compartilhada publicada na Vercel e vale como padrão para todos os aparelhos no próximo acesso."),
     };
   }
 
@@ -46,14 +47,14 @@ function describeConnection() {
     return {
       ...connection,
       title: `Usando backend local em ${connection.host}`,
-      detail: 'Isso vem do modo de desenvolvimento local nesta máquina.',
+      detail: t("Isso vem do modo de desenvolvimento local nesta máquina."),
     };
   }
 
   return {
     ...connection,
     title: `Usando backend padrão em ${connection.host}`,
-    detail: 'Essa URL padrão veio de NEXT_PUBLIC_API_BASE_URL.',
+    detail: t("Essa URL padrão veio de NEXT_PUBLIC_API_BASE_URL."),
   };
 }
 
@@ -102,7 +103,7 @@ export default function ConnectPage() {
     setDraft(apiUrl);
 
     if (!shouldAutoConnect) {
-      setMessage('A URL do backend foi preenchida a partir do link. Revise e toque em salvar.');
+      setMessage(t("A URL do backend foi preenchida a partir do link. Revise e toque em salvar."));
       return;
     }
 
@@ -110,7 +111,7 @@ export default function ConnectPage() {
 
     async function autoConnectFromLink() {
       setSaving(true);
-      setMessage('Validando a URL recebida do seu link de conexão...');
+      setMessage(t("Validando a URL recebida do seu link de conexão..."));
       setError('');
 
       const result = await verifySavedApiBaseUrl(apiUrl);
@@ -128,7 +129,7 @@ export default function ConnectPage() {
       saveApiBaseUrl(result.baseUrl);
       setDraft(result.baseUrl);
       setConnection(describeConnection());
-      setMessage('Backend conectado automaticamente neste aparelho. Agora você já pode voltar ao início.');
+      setMessage(t("Backend conectado automaticamente neste aparelho. Agora você já pode voltar ao início."));
       setSaving(false);
       window.history.replaceState({}, '', '/connect');
     }
@@ -156,30 +157,30 @@ export default function ConnectPage() {
     saveApiBaseUrl(result.baseUrl);
     setDraft(result.baseUrl);
     setConnection(describeConnection());
-    setMessage('Backend conectado neste aparelho. Agora você já pode voltar ao início.');
+    setMessage(t("Backend conectado neste aparelho. Agora você já pode voltar ao início."));
     setSaving(false);
   }
 
   function handleClearOverride() {
     clearSavedApiBaseUrl();
     setDraft('');
-    setMessage('A conexão salva foi removida. O app vai usar a configuração global ou a URL padrão, se existir.');
+    setMessage(t("A conexão salva foi removida. O app vai usar a configuração global ou a URL padrão, se existir."));
     setError('');
     setConnection(describeConnection());
   }
 
   if (!accessChecked) {
-    return <StatusCard tone="loading" title="Verificando acesso" message="Confirmando permissões de administrador..." />;
+    return <StatusCard tone="loading" title={t("Verificando acesso")} message={t("Confirmando permissões de administrador...")} />;
   }
 
   if (!isAdmin) {
     return (
       <StatusCard
         tone="error"
-        title="Acesso restrito"
-        message="A configuração técnica do backend está disponível somente para o administrador."
+        title={t("Acesso restrito")}
+        message={t("A configuração técnica do backend está disponível somente para o administrador.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -189,9 +190,9 @@ export default function ConnectPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Voltar
+            <ArrowLeft size={22} /> {t("Voltar")}
           </Link>
-          <p className="app-tag">Conexão com o backend</p>
+          <p className="app-tag">{t("Conexão com o backend")}</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
@@ -199,13 +200,13 @@ export default function ConnectPage() {
             <div className="inline-flex rounded-[1.5rem] bg-primary-light p-4">
               <Link2 className="text-primary-dark" size={34} />
             </div>
-            <h1 className="mt-4 text-2xl font-black text-slate-800 sm:text-3xl md:mt-5 md:text-4xl">Conecte este aparelho ao seu backend</h1>
+            <h1 className="mt-4 text-2xl font-black text-slate-800 sm:text-3xl md:mt-5 md:text-4xl">{t("Conecte este aparelho ao seu backend")}</h1>
             <p className="mt-4 text-base leading-7 text-slate-600 sm:text-lg sm:leading-8 md:text-xl md:leading-9">
-              Rode o backend no seu computador, abra um Cloudflare Tunnel para a porta `8001` e depois cole aqui a URL HTTPS completa.
+              {t("Rode o backend no seu computador, abra um Cloudflare Tunnel para a porta `8001` e depois cole aqui a URL HTTPS completa.")}
             </p>
 
             <div className="mt-8 rounded-[1.5rem] border-2 border-slate-200 bg-slate-50 p-5">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Conexão atual</p>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Conexão atual")}</p>
               <p className="mt-3 text-xl font-black text-slate-800 md:text-2xl">{connection.title}</p>
               <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">{connection.detail}</p>
               {connection.baseUrl ? (
@@ -217,7 +218,7 @@ export default function ConnectPage() {
 
             <form onSubmit={handleSave} className="mt-8 space-y-5">
               <div>
-                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">URL do tunnel</label>
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("URL do tunnel")}</label>
                 <input
               aria-label="https://random-name.trycloudflare.com"
                   type="url"
@@ -232,12 +233,12 @@ export default function ConnectPage() {
               </div>
 
               <div className="rounded-[1.5rem] border border-sky-100 bg-sky-50 p-5 text-slate-700">
-                <p className="text-base font-bold uppercase tracking-[0.16em] text-sky-700">No seu computador</p>
+                <p className="text-base font-bold uppercase tracking-[0.16em] text-sky-700">{t("No seu computador")}</p>
                 <pre className="mt-3 overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-7 text-sky-900">
 cloudflared tunnel --url http://127.0.0.1:8001
                 </pre>
                 <p className="mt-3 text-base leading-7">
-                  Copie a URL HTTPS que o Cloudflare mostrar. Nao use o ID do tunnel nem o seu IP publico.
+                  {t("Copie a URL HTTPS que o Cloudflare mostrar. Não use o ID do túnel nem o seu IP público.")}
                 </p>
               </div>
 
@@ -246,14 +247,14 @@ cloudflared tunnel --url http://127.0.0.1:8001
 
               <div className="flex flex-col gap-4 sm:flex-row">
                 <button type="submit" disabled={saving || !draft.trim()} className="app-button bg-primary-dark hover:bg-primary-dark">
-                  {saving ? 'Verificando...' : 'Salvar conexão'}
+                  {saving ? 'Verificando...' : t("Salvar conexão")}
                   <CheckCircle2 className="ml-2" size={18} />
                 </button>
                 <Link
                   href="/"
                   className="rounded-full border-2 border-slate-200 px-6 py-4 text-center text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                 >
-                  Abrir início
+                  {t("Abrir início")}
                 </Link>
                 {connection.source === 'saved' ? (
                   <button
@@ -261,7 +262,7 @@ cloudflared tunnel --url http://127.0.0.1:8001
                     onClick={handleClearOverride}
                     className="rounded-full border-2 border-slate-200 px-6 py-4 text-lg font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                   >
-                    Limpar URL salva
+                    {t("Limpar URL salva")}
                   </button>
                 ) : null}
               </div>
@@ -272,24 +273,24 @@ cloudflared tunnel --url http://127.0.0.1:8001
             <div className="inline-flex rounded-[1.5rem] bg-secondary-light p-4">
               <ShieldCheck className="text-secondary-dark" size={34} />
             </div>
-            <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">Como isso funciona</h2>
+            <h2 className="mt-4 text-2xl font-black text-slate-800 md:mt-5 md:text-3xl">{t("Como isso funciona")}</h2>
             <div className="mt-5 space-y-4 text-base leading-7 text-slate-600 md:mt-6 md:text-lg md:leading-8">
-              <p>A URL manual continua funcionando neste navegador quando não houver uma URL global publicada. Se você usar outro celular, tablet ou computador, você ainda pode salvar uma URL diferente so naquele aparelho.</p>
-              <p>Quando o launcher pública uma configuração global na Vercel, o app troca automaticamente para essa URL no próximo acesso.</p>
-              <p>Quando a URL do tunnel mudar em outro dia, abra esta página de novo, cole a nova URL HTTPS e salve. Não precisa fazer novo deploy na Vercel.</p>
-              <p>Se depois você mover o backend para uma VPS, pode continuar usando esta página como override de emergência ou limpar e voltar para a URL padrão.</p>
+              <p>{t("A URL manual continua funcionando neste navegador quando não houver uma URL global publicada. Se você usar outro celular, tablet ou computador, você ainda pode salvar uma URL diferente so naquele aparelho.")}</p>
+              <p>{t("Quando o launcher pública uma configuração global na Vercel, o app troca automaticamente para essa URL no próximo acesso.")}</p>
+              <p>{t("Quando a URL do tunnel mudar em outro dia, abra esta página de novo, cole a nova URL HTTPS e salve. Não precisa fazer novo deploy na Vercel.")}</p>
+              <p>{t("Se depois você mover o backend para uma VPS, pode continuar usando esta página como override de emergência ou limpar e voltar para a URL padrão.")}</p>
             </div>
 
             <div className="mt-8 rounded-[1.5rem] border-2 border-amber-100 bg-amber-50 p-5">
               <div className="flex items-center gap-3 text-amber-700">
                 <RefreshCw size={24} />
-                <p className="text-lg font-black">Checagem do dia</p>
+                <p className="text-lg font-black">{t("Checagem do dia")}</p>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-700">
-                Antes de abrir o site de outro lugar, confirme que o seu computador está ligado, o backend FastAPI está rodando e o túnel está ativo.
+                {t("Antes de abrir o site de outro lugar, confirme que o seu computador está ligado, o backend FastAPI está rodando e o túnel está ativo.")}
               </p>
               <p className="mt-3 text-base leading-7 text-slate-700">
-                Se preferir, envie o link pronto do terminal. Quando ele abrir este `/connect`, o app tenta salvar a URL automaticamente neste aparelho.
+                {t("Se preferir, envie o link pronto do terminal. Quando ele abrir este `/connect`, o app tenta salvar a URL automaticamente neste aparelho.")}
               </p>
             </div>
           </section>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { ApiError, api, type ModuleInfo } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * Switches for the optional parts of the product.
@@ -25,7 +26,7 @@ export function AccountModulesSection() {
       })
       .catch((cause) => {
         if (cancelled) return;
-        setError(cause instanceof ApiError ? cause.message : 'Não foi possível carregar os modulos.');
+        setError(cause instanceof ApiError ? cause.message : t("Não foi possível carregar os modulos."));
       });
     return () => {
       cancelled = true;
@@ -46,7 +47,7 @@ export function AccountModulesSection() {
           : `${module.label} desativado. Seus dados continuam salvos.`,
       );
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Não foi possível salvar a mudanca.');
+      setError(cause instanceof ApiError ? cause.message : t("Não foi possível salvar a mudanca."));
     } finally {
       setSavingId(null);
     }
@@ -57,13 +58,12 @@ export function AccountModulesSection() {
       <div className="flex items-center gap-3">
         <ToggleRight className="text-indigo-600" size={28} />
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Personalizar</p>
-          <h2 className="text-2xl font-black text-slate-800 md:text-3xl">Modulos do app</h2>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Personalizar")}</p>
+          <h2 className="text-2xl font-black text-slate-800 md:text-3xl">{t("Modulos do app")}</h2>
         </div>
       </div>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Ative apenas o que sua família usa. Desligar um módulo esconde a seção do
-        menu — nada é apagado, e você pode ligar de novo quando quiser.
+        {t("Ative apenas o que sua família usa. Desligar um módulo esconde a seção do menu — nada é apagado, e você pode ligar de novo quando quiser.")}
       </p>
 
       {error ? (
@@ -91,7 +91,7 @@ export function AccountModulesSection() {
                   <p className="mt-0.5 text-sm font-semibold text-slate-500">{module.description}</p>
                   {module.locked ? (
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
-                      Sempre ativo
+                      {t("Sempre ativo")}
                     </p>
                   ) : null}
                 </div>
@@ -100,7 +100,7 @@ export function AccountModulesSection() {
                   onClick={() => void toggle(module)}
                   disabled={module.locked || savingId !== null}
                   aria-pressed={module.enabled}
-                  aria-label={`${module.enabled ? 'Desativar' : 'Ativar'} ${module.label}`}
+                  aria-label={`${module.enabled ? 'Desativar' : t("Ativar")} ${module.label}`}
                   className={`inline-flex min-h-12 shrink-0 items-center gap-2 rounded-2xl px-4 text-sm font-black transition ${
                     module.locked
                       ? 'cursor-not-allowed bg-slate-100 text-slate-400'
@@ -114,7 +114,7 @@ export function AccountModulesSection() {
                   ) : (
                     <Icon size={18} />
                   )}
-                  {module.enabled ? 'Ativo' : 'Desligado'}
+                  {module.enabled ? t("Ativo") : 'Desligado'}
                 </button>
               </li>
             );
