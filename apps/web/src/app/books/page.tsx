@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -599,8 +599,34 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
   const [audioLoadingPt, setAudioLoadingPt] = useState(false);
   const [readingMode, setReadingMode] = useState(true);
   const [showTranslation, setShowTranslation] = useState(false);
+  const loggedBookId = useRef<number | null>(null);
 
   const langMeta = getLangMeta(targetLanguage);
+  const pageCount = book.pages.length;
+
+  // Reading a whole book used to leave no trace at all — not in the day's log,
+  // not in the calendar. The last page is the one moment that means "li isto",
+  // so it is the one that gets written, once per book per visit.
+  useEffect(() => {
+    if (pageCount === 0 || pageIndex !== pageCount - 1) return;
+    if (loggedBookId.current === book.id) return;
+    loggedBookId.current = book.id;
+    void api.logActivity({
+      activity_type: 'lesson',
+      activity_title: `Livro lido: ${book.title}`,
+      activity_id: book.id,
+      result_details: {
+        subject_name: 'Leitura',
+        topic_name: book.title,
+        theme: book.theme,
+        pages: pageCount,
+        target_language: targetLanguage,
+      },
+    }).catch(() => {
+      // Reading must not depend on the log succeeding; allow a later retry.
+      loggedBookId.current = null;
+    });
+  }, [book.id, book.theme, book.title, pageCount, pageIndex, targetLanguage]);
 
   if (book.pages.length === 0) {
     return (

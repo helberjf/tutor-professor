@@ -414,7 +414,7 @@ html[data-theme='dark'] :is(
 
 html[data-theme='dark'] :is(
   .text-cyan-700, .text-cyan-800,
-  .text-teal-600
+  .text-teal-500, .text-teal-600
 ) {
   color: #5eead4 !important;
 }

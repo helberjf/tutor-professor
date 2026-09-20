@@ -1247,6 +1247,10 @@ class DailyActivitySummarySchema(BaseModel):
     subjects_studied: int = 0
     subject_names: List[str] = Field(default_factory=list)
     topic_names: List[str] = Field(default_factory=list)
+    # Pomodoros live on the study day, not on the activity feed. Carrying the
+    # count here is what lets a calendar older than the dashboard's own window
+    # still draw them instead of a row of zeroes.
+    pomodoro_count: int = 0
 
 
 class ActivityPeriodSummarySchema(BaseModel):
@@ -1566,6 +1570,9 @@ class ObjectiveItemSchema(FromAttributesModel):
     weight: int = 1
     done: bool = False
     completed_at: Optional[datetime] = None
+    # True when studying checked this off rather than the learner, so the list
+    # can say so instead of leaving them wondering who ticked the box.
+    auto_completed: bool = False
     order_index: int = 0
     created_at: datetime
 

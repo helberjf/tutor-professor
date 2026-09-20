@@ -69,7 +69,7 @@ export function ObjectivesProgressCard() {
 
       {summary.active_count === 0 ? (
         <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
-          Defina aonde quer chegar e liste o que precisa estudar. O alcance aparece aqui a cada item concluído.
+          Defina aonde quer chegar e liste o que precisa estudar. O alcance sobe sozinho conforme você estuda cada área, e você pode marcar qualquer item à mão.
         </p>
       ) : (
         <>
