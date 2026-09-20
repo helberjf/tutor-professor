@@ -7,6 +7,7 @@ import { ArrowRight, Target, Trophy } from 'lucide-react';
 import { api, type ObjectivesSummary } from '@/lib/api';
 import { ObjectiveProgressBar } from '@/components/objectives/ObjectiveProgressBar';
 import { deadlineLabel } from '@/components/objectives/objective-areas';
+import { t } from '@/lib/i18n';
 
 /**
  * The dashboard's view of the objectives: how close each one is, and nothing else.
@@ -50,10 +51,10 @@ export function ObjectivesProgressCard() {
             <Target size={22} />
           </span>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Objetivos</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Objetivos")}</p>
             <h2 className="mt-0.5 text-lg font-black text-slate-800">
               {summary.active_count === 0
-                ? 'Nenhum objetivo ativo'
+                ? t("Nenhum objetivo ativo")
                 : `${summary.average_progress_percent}% de alcance médio`}
             </h2>
           </div>
@@ -63,18 +64,18 @@ export function ObjectivesProgressCard() {
           href="/objectives"
           className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 transition hover:bg-slate-200"
         >
-          {summary.active_count === 0 ? 'Criar objetivo' : 'Ver objetivos'} <ArrowRight size={16} />
+          {summary.active_count === 0 ? t("Criar objetivo") : t("Ver objetivos")} <ArrowRight size={16} />
         </Link>
       </div>
 
       {summary.active_count === 0 ? (
         <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
-          Defina aonde quer chegar e liste o que precisa estudar. O alcance sobe sozinho conforme você estuda cada área, e você pode marcar qualquer item à mão.
+          {t("Defina aonde quer chegar e liste o que precisa estudar. O alcance sobe sozinho conforme você estuda cada área, e você pode marcar qualquer item à mão.")}
         </p>
       ) : (
         <>
           <p className="mt-3 text-sm font-semibold text-slate-500">
-            {summary.done_items} de {summary.total_items} itens estudados · {summary.achieved_count}{' '}
+            {summary.done_items} de {summary.total_items} {t("itens estudados ·")} {summary.achieved_count}{' '}
             {summary.achieved_count === 1 ? 'objetivo conquistado' : 'objetivos conquistados'}
           </p>
 
@@ -109,7 +110,7 @@ export function ObjectivesProgressCard() {
 
           {summary.active_count > highlighted.length ? (
             <p className="mt-3 text-xs font-bold text-slate-400">
-              +{summary.active_count - highlighted.length} outros objetivos ativos
+              +{summary.active_count - highlighted.length} {t("outros objetivos ativos")}
             </p>
           ) : null}
         </>

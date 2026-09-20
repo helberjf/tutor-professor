@@ -7,6 +7,7 @@ import { Loader2, WifiOff } from 'lucide-react';
 import { ApiError, api, isSessionRejection, subscribeToUserProfileRevalidation, type UserProfile } from '@/lib/api';
 import { AccountReviewNotice } from '@/components/account-review-notice';
 import { isPrivateAppPath } from '@/lib/private-routes';
+import { t } from '@/lib/i18n';
 
 type GateStatus = 'checking' | 'allowed' | 'awaiting_review' | 'redirecting' | 'server_missing';
 
@@ -93,9 +94,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <WifiOff size={28} />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-slate-800">Servidor offline</h1>
+          <h1 className="text-2xl font-black text-slate-800">{t("Servidor offline")}</h1>
           <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-slate-500">
-          Inicie a API e o Cloudflare Tunnel para entrar nesta área.
+          {t("Inicie a API e o Cloudflare Tunnel para entrar nesta área.")}
           </p>
         </div>
       </main>
@@ -106,7 +107,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     <main className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
       <Loader2 className="animate-spin text-primary" size={30} />
       <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-        {status === 'redirecting' ? 'Abrindo login' : 'Verificando login'}
+        {status === 'redirecting' ? t("Abrindo login") : t("Verificando login")}
       </p>
     </main>
   );

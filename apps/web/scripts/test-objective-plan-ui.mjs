@@ -14,13 +14,41 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
 
-function loadModule(relativePath) {
-  const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
-  const compiled = ts.transpileModule(source, {
+// The modules under test now reach for the translation helper through the
+// `@/` alias, and it pulls in a dictionary split across relative imports.
+// Plain CommonJS resolution knows about neither, so both are resolved here.
+// Resolving rather than stubbing keeps the assertions below running against the
+// real lookup, which at the default locale returns the Portuguese source.
+const SRC_ROOT = new URL('../src/', import.meta.url);
+
+function resolveSpecifier(specifier, fromUrl) {
+  const base = specifier.startsWith('@/')
+    ? new URL(specifier.slice(2), SRC_ROOT)
+    : new URL(specifier, fromUrl);
+  for (const suffix of ['', '.ts', '.tsx', '/index.ts', '/index.tsx']) {
+    const candidate = new URL(base.href + suffix);
+    try {
+      return { url: candidate, source: readFileSync(candidate, 'utf8') };
+    } catch (error) {
+      // A directory or a miss both just mean "not this candidate".
+      if (error?.code !== 'ENOENT' && error?.code !== 'EISDIR') throw error;
+    }
+  }
+  return null;
+}
+
+function loadModule(relativePath, fromUrl = import.meta.url) {
+  const resolved = resolveSpecifier(relativePath, fromUrl);
+  if (!resolved) throw new Error(`could not resolve ${relativePath}`);
+  const compiled = ts.transpileModule(resolved.source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
   const module = { exports: {} };
-  new Function('exports', 'module', 'require', compiled)(module.exports, module, require);
+  const scopedRequire = (specifier) =>
+    specifier.startsWith('@/') || specifier.startsWith('.')
+      ? loadModule(specifier, resolved.url)
+      : require(specifier);
+  new Function('exports', 'module', 'require', compiled)(module.exports, module, scopedRequire);
   return module.exports;
 }
 

@@ -112,9 +112,19 @@ def check(path: Path):
     ]
 
 
+# The English dictionaries are keyed by the Portuguese source text, byte for
+# byte — that is what makes the lookup work. Scanning them would report every
+# unaccented string twice: once where it is written, and once in the key that
+# has to copy it. The original is still scanned, which is the one worth fixing.
+LOCALES_DIR = ROOT / "apps" / "web" / "src" / "lib" / "locales"
+
 paths = []
 for root, suffixes in ((ROOT / "apps" / "web" / "src", {".ts", ".tsx"}), (ROOT / "apps" / "api", {".py", ".json"})):
-    paths.extend(path for path in root.rglob("*") if path.is_file() and path.suffix in suffixes)
+    paths.extend(
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix in suffixes and LOCALES_DIR not in path.parents
+    )
 
 violations = [violation for path in paths for violation in check(path)]
 if violations:

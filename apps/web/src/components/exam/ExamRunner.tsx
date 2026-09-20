@@ -7,6 +7,7 @@ import { formatClock, useCountdown } from '@/components/questions/use-countdown'
 import { api, type ExamAttemptQuestion, type ExamAttemptResult, type ExamAttemptStart } from '@/lib/api';
 
 import { ExamResult } from './ExamResult';
+import { t } from '@/lib/i18n';
 
 /**
  * One sitting.
@@ -57,7 +58,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
     try {
       setResult(await api.finishExamAttempt(attempt.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível encerrar o simulado.');
+      setError(err instanceof Error ? err.message : t("Não foi possível encerrar o simulado."));
     } finally {
       setFinishing(false);
     }
@@ -82,7 +83,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
     void api
       .recordExamAnswer(attempt.id, { exam_question_id: question.id, selected_options: next })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Não foi possível salvar esta resposta.');
+        setError(err instanceof Error ? err.message : t("Não foi possível salvar esta resposta."));
       });
   }
 
@@ -106,12 +107,12 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
         <header className="border-b border-slate-200 px-5 pb-4 pt-[calc(1rem_+_env(safe-area-inset-top))] sm:px-7 sm:pt-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-widest text-indigo-600">Simulado</p>
+              <p className="text-xs font-black uppercase tracking-widest text-indigo-600">{t("Simulado")}</p>
               <h2 id="exam-runner-title" className="mt-1 text-xl font-black leading-tight sm:text-2xl">
                 {exam.name}
               </h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
-                Questão {safeIndex + 1} de {total} · {answeredCount} respondidas
+                {t("Questão")} {safeIndex + 1} de {total} · {answeredCount} respondidas
                 {start.resumed && ' · retomado'}
               </p>
             </div>
@@ -136,7 +137,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Sair do simulado sem perder o progresso"
+                aria-label={t("Sair do simulado sem perder o progresso")}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
               >
                 <X size={18} />
@@ -151,7 +152,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
         <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
           <section className="mx-auto max-w-2xl">
             <p className="text-xs font-black uppercase tracking-widest text-indigo-600">
-              {question.response_type === 'multiple' ? 'Escolha todas que se aplicam' : 'Escolha uma'}
+              {question.response_type === 'multiple' ? t("Escolha todas que se aplicam") : t("Escolha uma")}
             </p>
             <h3 className="mt-3 text-2xl font-black leading-tight">{question.question}</h3>
 
@@ -200,7 +201,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
               disabled={safeIndex === 0}
               className="flex min-h-12 items-center justify-center gap-1 rounded-2xl border-2 border-slate-200 px-4 font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             >
-              <ChevronLeft size={18} /> Voltar
+              <ChevronLeft size={18} /> {t("Voltar")}
             </button>
             {safeIndex + 1 < total ? (
               <button
@@ -208,7 +209,7 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
                 onClick={() => setIndex((current) => Math.min(total - 1, current + 1))}
                 className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 font-black text-white hover:bg-indigo-700"
               >
-                Próxima <ChevronRight size={18} />
+                {t("Próxima")} <ChevronRight size={18} />
               </button>
             ) : (
               <button
@@ -218,13 +219,13 @@ export function ExamRunner({ start, onClose }: { start: ExamAttemptStart; onClos
                 className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 font-black text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {finishing ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                Finalizar e ver resultado
+                {t("Finalizar e ver resultado")}
               </button>
             )}
           </div>
           <p className="mt-2 text-center text-xs font-bold text-slate-400">
             {answeredCount < total && `${total - answeredCount} questões ainda sem resposta · `}
-            Sair mantém o progresso e o tempo
+            {t("Sair mantém o progresso e o tempo")}
           </p>
         </footer>
       </div>

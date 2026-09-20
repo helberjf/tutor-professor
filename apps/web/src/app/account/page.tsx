@@ -13,14 +13,15 @@ import { BillingSection } from '@/components/billing-section';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, isStoredActiveChildExplicit, saveActiveChildId } from '@/lib/active-child';
 import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const LANGUAGES = [
-  { value: 'English',  flag: '🇺🇸', label: 'Inglês' },
-  { value: 'French',   flag: '🇫🇷', label: 'Francês' },
-  { value: 'Spanish',  flag: '🇪🇸', label: 'Espanhol' },
-  { value: 'German',   flag: '🇩🇪', label: 'Alemão' },
-  { value: 'Italian',  flag: '🇮🇹', label: 'Italiano' },
-  { value: 'Russian',  flag: '🇷🇺', label: 'Russo' },
+  { value: 'English',  flag: '🇺🇸', label: "Inglês" },
+  { value: 'French',   flag: '🇫🇷', label: "Francês" },
+  { value: 'Spanish',  flag: '🇪🇸', label: "Espanhol" },
+  { value: 'German',   flag: '🇩🇪', label: "Alemão" },
+  { value: 'Italian',  flag: '🇮🇹', label: "Italiano" },
+  { value: 'Russian',  flag: '🇷🇺', label: "Russo" },
 ];
 
 const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fromEntries(
@@ -126,7 +127,7 @@ export default function ParentsPage() {
       setIsLoggedIn(true);
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível carregar as configurações da conta.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar as configurações da conta."));
       if (nextError.status === 401) {
         router.replace('/login?next=/account');
         return;
@@ -165,10 +166,10 @@ export default function ParentsPage() {
         auto_audio: settings.auto_audio,
         target_language: settings.target_language ?? 'English',
       });
-      setMessage('Configurações salvas.');
+      setMessage(t("Configurações salvas."));
       setError(null);
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível salvar as configurações.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível salvar as configurações."));
       setMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -192,7 +193,7 @@ export default function ParentsPage() {
     setAiMessage('');
 
     if (!aiForm.api_key.trim() && !aiSettings?.has_api_key) {
-      setAiMessage('Informe a chave de API.');
+      setAiMessage(t("Informe a chave de API."));
       setAiSaving(false);
       return;
     }
@@ -211,9 +212,9 @@ export default function ParentsPage() {
         model: saved.model,
         base_url: saved.base_url ?? '',
       });
-      setAiMessage('Configuração de IA salva.');
+      setAiMessage(t("Configuração de IA salva."));
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível salvar a IA.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível salvar a IA."));
       setAiMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -227,7 +228,7 @@ export default function ParentsPage() {
     try {
       await api.userLogout();
     } catch (err) {
-      logoutError = err instanceof ApiError ? err : new ApiError('Não foi possível sair.');
+      logoutError = err instanceof ApiError ? err : new ApiError(t("Não foi possível sair."));
     } finally {
       setIsLoggedIn(false);
       clearActiveChildId();
@@ -235,7 +236,7 @@ export default function ParentsPage() {
       setChildren([]);
       setProgressSummaries([]);
       setForm(DEFAULT_FORM);
-      setMessage(logoutError ? 'Sessão local encerrada. Entre novamente para continuar.' : 'Você saiu da conta.');
+      setMessage(logoutError ? t("Sessão local encerrada. Entre novamente para continuar.") : t("Você saiu da conta."));
       setGeneratorMessage('');
       setGeneratedLesson(null);
       setGeneratorTone('idle');
@@ -252,7 +253,7 @@ export default function ParentsPage() {
   async function handleSelectChild(childId: number) {
     saveActiveChildId(childId, { explicit: true });
     setActiveChildId(childId);
-    setMessage('Aluno ativo trocado.');
+    setMessage(t("Aluno ativo trocado."));
     setGeneratorMessage('');
     setGeneratedLesson(null);
     await loadSettings();
@@ -278,7 +279,7 @@ export default function ParentsPage() {
       setMessage(`Novo aluno criado: ${child.name}.`);
       await loadSettings();
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível criar o novo aluno.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível criar o novo aluno."));
       setMessage(nextError.message);
       setError(nextError);
     } finally {
@@ -300,7 +301,7 @@ export default function ParentsPage() {
       setGeneratorTopic('');
       setAiCredits(await api.getMyAICredits().catch(() => aiCredits));
     } catch (err) {
-      const nextError = err instanceof ApiError ? err : new ApiError('Não foi possível gerar novas frases.');
+      const nextError = err instanceof ApiError ? err : new ApiError(t("Não foi possível gerar novas frases."));
       if (nextError.status === 401) {
         router.replace('/login?next=/account');
         return;
@@ -317,10 +318,10 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Abrindo as configurações da conta"
-        message="Verificando sua sessão e carregando o perfil de estudo."
+        title={t("Abrindo as configurações da conta")}
+        message={t("Verificando sua sessão e carregando o perfil de estudo.")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -329,13 +330,13 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="Área da conta indisponível"
-        message="Não foi possível carregar a configuração do aplicativo agora. Tente novamente em instantes."
+        title={t("Área da conta indisponível")}
+        message={t("Não foi possível carregar a configuração do aplicativo agora. Tente novamente em instantes.")}
         primaryAction={
-          <button onClick={() => void loadSettings()} className="app-button bg-primary-dark hover:bg-primary-dark">Tentar de novo</button>
+          <button onClick={() => void loadSettings()} className="app-button bg-primary-dark hover:bg-primary-dark">{t("Tentar de novo")}</button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -344,15 +345,15 @@ export default function ParentsPage() {
     return (
       <StatusCard
         tone="offline"
-        title="A área da conta está offline"
-        message="O sistema não está respondendo agora. Tente novamente em instantes."
+        title={t("A área da conta está offline")}
+        message={t("O sistema não está respondendo agora. Tente novamente em instantes.")}
         primaryAction={
           <button onClick={() => void loadSettings()} className="app-button bg-brand-orange hover:bg-secondary-dark">
-            Tentar de novo
+            {t("Tentar de novo")}
           </button>
         }
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -371,19 +372,19 @@ export default function ParentsPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-2 px-2 text-base font-bold text-primary-dark hover:text-primary md:text-lg">
-            <ArrowLeft size={22} /> Voltar
+            <ArrowLeft size={22} /> {t("Voltar")}
           </Link>
           <button onClick={() => void handleLogout()} className="rounded-full border-2 border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:border-primary hover:text-primary md:px-5 md:py-3 md:text-base">
-            Sair
+            {t("Sair")}
           </button>
         </div>
 
         {/* CTA — Começar Lição */}
         <section className="app-surface mb-6 flex flex-col items-start justify-between gap-5 border-primary/40 p-6 sm:flex-row sm:items-center md:p-8">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-dark">Pronto para estudar?</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">Comece a lição de hoje</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-500">Aluno ativo: <span className="font-black text-slate-700">{children.find((c) => c.id === activeChildId)?.name ?? '—'}</span></p>
+            <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-dark">{t("Pronto para estudar?")}</p>
+            <h2 className="mt-1 text-2xl font-black text-slate-800 md:text-3xl">{t("Comece a lição de hoje")}</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">{t("Aluno ativo:")} <span className="font-black text-slate-700">{children.find((c) => c.id === activeChildId)?.name ?? '—'}</span></p>
           </div>
           <div className="relative w-full shrink-0 sm:w-auto">
             <span className="absolute inset-0 animate-ping rounded-full bg-primary-dark opacity-20" />
@@ -392,7 +393,7 @@ export default function ParentsPage() {
               className="relative inline-flex w-full items-center justify-center gap-3 rounded-full bg-primary-dark px-6 py-4 text-base font-black text-white shadow-[0_12px_30px_rgba(14,165,233,0.40)] transition hover:scale-105 hover:bg-primary-dark sm:w-auto md:px-10 md:py-5 md:text-xl"
             >
               <BookOpen size={22} />
-              Começar lição
+              {t("Começar lição")}
             </Link>
           </div>
         </section>
@@ -401,8 +402,8 @@ export default function ParentsPage() {
           <div className="flex items-center gap-3">
             <BarChart3 className="text-emerald-700" size={28} />
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Acompanhamento</p>
-              <h1 className="text-2xl font-black text-slate-800 md:text-3xl">Progresso por aluno</h1>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Acompanhamento")}</p>
+              <h1 className="text-2xl font-black text-slate-800 md:text-3xl">{t("Progresso por aluno")}</h1>
             </div>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -411,19 +412,19 @@ export default function ParentsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black text-slate-800">{child.name}</h2>
-                    <p className="text-sm font-bold text-slate-400">Nível {progress.current_level} - {child.age_group}</p>
+                    <p className="text-sm font-bold text-slate-400">{t("Nível")} {progress.current_level} - {child.age_group}</p>
                   </div>
                   {child.id === activeChildId ? (
-                    <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black text-primary-dark">Ativo</span>
+                    <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black text-primary-dark">{t("Ativo")}</span>
                   ) : null}
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  <ProgressMetric label="Dias" value={progress.streak_count} />
-                  <ProgressMetric label="Temas" value={progress.themes_completed} />
-                  <ProgressMetric label="Frases" value={progress.vocabulary_learned} />
+                  <ProgressMetric label={t("Dias")} value={progress.streak_count} />
+                  <ProgressMetric label={t("Temas")} value={progress.themes_completed} />
+                  <ProgressMetric label={t("Frases")} value={progress.vocabulary_learned} />
                 </div>
                 <p className="mt-4 text-sm font-semibold text-slate-500">
-                  Última atividade: {formatLastActivity(progress.last_activity)}
+                  {t("Última atividade:")} {formatLastActivity(progress.last_activity)}
                 </p>
                 <Link
                   href="/lesson"
@@ -431,7 +432,7 @@ export default function ParentsPage() {
                   className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 text-sm font-black text-white transition hover:bg-primary-dark"
                 >
                   <BookOpen size={16} />
-                  Começar lição
+                  {t("Começar lição")}
                 </Link>
                 {progress.difficult_words.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -457,31 +458,30 @@ export default function ParentsPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr,0.85fr]">
           <form onSubmit={handleSave} className="app-surface border-primary/40 p-5 md:p-10">
-            <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">Configurações da conta</h1>
+            <h1 className="text-2xl font-black text-slate-800 sm:text-3xl md:text-4xl">{t("Configurações da conta")}</h1>
             <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-              Escolha o nome do estudante, a faixa de idade e o comportamento do áudio. A faixa de idade ajusta o vocabulário e o tom do conteúdo gerado.
+              {t("Escolha o nome do estudante, a faixa de idade e o comportamento do áudio. A faixa de idade ajusta o vocabulário e o tom do conteúdo gerado.")}
             </p>
 
             <div className="mt-8 grid gap-8">
               <section>
                 <div className="flex items-center gap-3">
                   <GraduationCap className="text-primary-dark" size={28} />
-                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Perfil do estudante</h2>
+                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("Perfil do estudante")}</h2>
                 </div>
 
                 {formIsMinor && (
                   <div className="mt-4 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 px-4 py-3">
                     <p className="text-sm font-bold leading-6 text-amber-800">
-                      Este perfil é de um menor de 18 anos: pelos termos de uso, o estudo deve ser
-                      acompanhado por um adulto responsável, que responde pela conta.
+                      {t("Este perfil é de um menor de 18 anos: pelos termos de uso, o estudo deve ser acompanhado por um adulto responsável, que responde pela conta.")}
                     </p>
                   </div>
                 )}
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome do estudante</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Nome do estudante")}</label>
                     <input
-                      aria-label="Nome do estudante"
+                      aria-label={t("Nome do estudante")}
                       type="text"
                       value={form.child_name}
                       onChange={(event) => setForm((current) => ({ ...current, child_name: event.target.value }))}
@@ -490,10 +490,10 @@ export default function ParentsPage() {
                   </div>
                   <div>
                     <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
-                      Data de nascimento
+                      {t("Data de nascimento")}
                     </label>
                     <input
-                      aria-label="Data de nascimento do estudante"
+                      aria-label={t("Data de nascimento do estudante")}
                       type="date"
                       max={new Date().toISOString().slice(0, 10)}
                       value={form.birth_date}
@@ -512,7 +512,7 @@ export default function ParentsPage() {
                     ) : null}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Idioma alvo")}</label>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
                       {LANGUAGES.map((lang) => (
                         <button
@@ -526,7 +526,7 @@ export default function ParentsPage() {
                           }`}
                         >
                           <span className="text-xl">{lang.flag}</span>
-                          {lang.label}
+                          {t(lang.label)}
                         </button>
                       ))}
                     </div>
@@ -537,18 +537,18 @@ export default function ParentsPage() {
               <section>
                 <div className="flex items-center gap-3">
                   <Volume2 className="text-brand-pink" size={28} />
-                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">Voz e áudio</h2>
+                  <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("Voz e áudio")}</h2>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Voz do tutor</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Voz do tutor")}</label>
                     <select
                       value={form.voice_preference}
                       onChange={(event) => setForm((current) => ({ ...current, voice_preference: event.target.value }))}
                       className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
                     >
-                      <option value="af_bella">Bella amigável</option>
-                      <option value="af_sky">Sky suave</option>
+                      <option value="af_bella">{t("Bella amigável")}</option>
+                      <option value="af_sky">{t("Sky suave")}</option>
                       <option value="am_adam">Adam</option>
                     </select>
                   </div>
@@ -559,7 +559,7 @@ export default function ParentsPage() {
                       onChange={(event) => setForm((current) => ({ ...current, auto_audio: event.target.checked }))}
                       className="h-6 w-6 accent-sky-500"
                     />
-                    Tocar áudio do tutor automaticamente
+                    {t("Tocar áudio do tutor automaticamente")}
                   </label>
                 </div>
               </section>
@@ -568,7 +568,7 @@ export default function ParentsPage() {
             {message ? <p className="mt-6 text-sm font-bold text-primary-dark">{message}</p> : null}
             <button type="submit" disabled={saving} className="app-button mt-8 bg-primary-dark hover:bg-primary-dark">
               <Save className="mr-2" size={18} />
-              {saving ? 'Salvando...' : 'Salvar configurações'}
+              {saving ? 'Salvando...' : t("Salvar configurações")}
             </button>
           </form>
 
@@ -576,10 +576,10 @@ export default function ParentsPage() {
             <div className="app-surface border-sky-200 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Users className="text-sky-700" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Alunos</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("Alunos")}</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:text-lg md:leading-8">
-                Crie novos alunos e escolha qual aluno fica ativo neste aparelho agora.
+                {t("Crie novos alunos e escolha qual aluno fica ativo neste aparelho agora.")}
               </p>
 
               <div className="mt-5 space-y-3">
@@ -597,7 +597,7 @@ export default function ParentsPage() {
                         </div>
                         {isActive ? (
                           <span className="rounded-full bg-primary-light px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-primary-dark">
-                            Ativo
+                            {t("Ativo")}
                           </span>
                         ) : (
                           <button
@@ -605,7 +605,7 @@ export default function ParentsPage() {
                             onClick={() => void handleSelectChild(child.id)}
                             className="rounded-full border-2 border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                           >
-                            Ativar
+                            {t("Ativar")}
                           </button>
                         )}
                       </div>
@@ -616,22 +616,22 @@ export default function ParentsPage() {
 
               <form onSubmit={handleCreateChild} className="mt-6 space-y-4">
                 <div>
-                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Nome do novo aluno</label>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Nome do novo aluno")}</label>
                   <input
               aria-label=": Ana"
                     type="text"
                     value={newChildName}
                     onChange={(event) => setNewChildName(event.target.value)}
                     className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
-                    placeholder="Ex.: Ana"
+                    placeholder={t("Ex.: Ana")}
                   />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
-                    Data de nascimento
+                    {t("Data de nascimento")}
                   </label>
                   <input
-                    aria-label="Data de nascimento do novo estudante"
+                    aria-label={t("Data de nascimento do novo estudante")}
                     type="date"
                     max={new Date().toISOString().slice(0, 10)}
                     value={newChildBirthDate}
@@ -641,16 +641,16 @@ export default function ParentsPage() {
                   <p className="mt-2 text-xs font-bold text-slate-500">
                     {newChildBand
                       ? `Conteúdo na faixa ${bandLabel(newChildBand)}`
-                      : 'Define a faixa de idade do conteúdo.'}
+                      : t("Define a faixa de idade do conteúdo.")}
                   </p>
                   {newChildIsMinor && (
                     <p className="mt-1 text-xs font-bold text-amber-700">
-                      Menor de 18 anos: o estudo deve ser acompanhado por um adulto responsável.
+                      {t("Menor de 18 anos: o estudo deve ser acompanhado por um adulto responsável.")}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Idioma alvo</label>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Idioma alvo")}</label>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {LANGUAGES.map((lang) => (
                       <button
@@ -664,7 +664,7 @@ export default function ParentsPage() {
                         }`}
                       >
                         <span className="text-lg">{lang.flag}</span>
-                        {lang.label}
+                        {t(lang.label)}
                       </button>
                     ))}
                   </div>
@@ -675,7 +675,7 @@ export default function ParentsPage() {
                   className="app-button bg-sky-600 hover:bg-sky-700"
                 >
                   <UserPlus className="mr-2" size={18} />
-                  {creatingChild ? 'Criando perfil...' : 'Criar novo perfil'}
+                  {creatingChild ? t("Criando perfil...") : t("Criar novo perfil")}
                 </button>
               </form>
             </div>
@@ -683,7 +683,7 @@ export default function ParentsPage() {
             <div id="ia-da-conta" className="app-surface scroll-mt-24 border-indigo-200 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Bot className="text-indigo-700" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">IA da conta</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("IA da conta")}</h2>
               </div>
 
               {aiCredits?.metered ? (
@@ -697,11 +697,10 @@ export default function ParentsPage() {
                   <p className="text-sm font-black text-slate-700">
                     {aiCredits.credits > 0
                       ? `${aiCredits.credits} créditos de IA restantes`
-                      : 'Seus créditos de IA acabaram'}
+                      : t("Seus créditos de IA acabaram")}
                   </p>
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                    Seu limite é de {aiCredits.daily_limit} por dia. Cada geração concluída usa 1
-                    crédito, inclusive livros. Hoje você já usou {aiCredits.used}.
+                    {t("Seu limite é de")} {aiCredits.daily_limit} {t("por dia. Cada geração concluída usa 1 crédito, inclusive livros. Hoje você já usou")} {aiCredits.used}.
                   </p>
                 </div>
               ) : null}
@@ -709,7 +708,7 @@ export default function ParentsPage() {
               <form onSubmit={handleSaveAISettings} className="mt-5 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Provedor</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Provedor")}</label>
                     <select
                       value={aiForm.provider}
                       onChange={(event) => handleAIProviderChange(event.target.value)}
@@ -723,7 +722,7 @@ export default function ParentsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Modelo</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Modelo")}</label>
                     <input
               aria-label="gemini-3.1-flash-lite"
                       type="text"
@@ -738,28 +737,28 @@ export default function ParentsPage() {
                 <div>
                   <label className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
                     <KeyRound size={14} />
-                    Chave API
+                    {t("Chave API")}
                   </label>
                   <input
-                    aria-label="Chave API"
+                    aria-label={t("Chave API")}
                     type="password"
                     value={aiForm.api_key}
                     onChange={(event) => setAiForm((current) => ({ ...current, api_key: event.target.value }))}
                     className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary"
-                    placeholder={aiSettings?.has_api_key ? 'Preencha para trocar a chave' : 'Cole sua chave'}
+                    placeholder={aiSettings?.has_api_key ? t("Preencha para trocar a chave") : t("Cole sua chave")}
                     autoComplete="off"
                   />
                   {aiSettings?.has_api_key ? (
-                    <p className="mt-2 text-xs font-bold text-slate-500">Chave salva: {aiSettings.api_key_preview ?? '****'}</p>
+                    <p className="mt-2 text-xs font-bold text-slate-500">{t("Chave salva:")} {aiSettings.api_key_preview ?? '****'}</p>
                   ) : (
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      O Gemini padrão já está ativo. Preencha somente se quiser usar sua própria chave.
+                      {t("O Gemini padrão já está ativo. Preencha somente se quiser usar sua própria chave.")}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">URL base opcional</label>
+                  <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("URL base opcional")}</label>
                   <input
               aria-label="https://api.exemplo.com/v1"
                     type="url"
@@ -778,7 +777,7 @@ export default function ParentsPage() {
                   className="app-button bg-indigo-600 hover:bg-indigo-700"
                 >
                   <Save className="mr-2" size={18} />
-                  {aiSaving ? 'Salvando IA...' : 'Salvar IA'}
+                  {aiSaving ? t("Salvando IA...") : t("Salvar IA")}
                 </button>
               </form>
             </div>
@@ -786,39 +785,39 @@ export default function ParentsPage() {
             <div className="app-surface border-primary/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-primary-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Criar nova lição com IA</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("Criar nova lição com IA")}</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Gere o próximo dia com 3 frases novas usando a IA configurada na sua conta.
+                {t("Gere o próximo dia com 3 frases novas usando a IA configurada na sua conta.")}
               </p>
               <div className="mt-5">
-                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Tema opcional</label>
+                <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Tema opcional")}</label>
                 <input
-              aria-label="jogos, comida, escola"
+              aria-label={t("jogos, comida, escola")}
                   type="text"
                   value={generatorTopic}
                   onChange={(event) => setGeneratorTopic(event.target.value)}
                   className="w-full rounded-[1.25rem] border-2 border-slate-200 px-4 py-3.5 text-base outline-none transition focus:border-primary md:py-4 md:text-lg"
-                  placeholder="jogos, comida, escola..."
+                  placeholder={t("jogos, comida, escola...")}
                 />
               </div>
               {showTokenWarning && !generatingLesson ? (
                 <div className="mt-5 rounded-[1.25rem] border-2 border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-black text-amber-800">Esta ação consome tokens da API de IA. Confirmar?</p>
+                  <p className="text-sm font-black text-amber-800">{t("Esta ação consome tokens da API de IA. Confirmar?")}</p>
                   <div className="mt-3 flex gap-3">
                     <button
                       type="button"
                       onClick={() => { setShowTokenWarning(false); void handleGenerateLesson(); }}
                       className="rounded-2xl bg-amber-600 px-5 py-2.5 text-sm font-black text-white transition hover:bg-amber-700"
                     >
-                      Sim, gastar tokens
+                      {t("Sim, gastar tokens")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowTokenWarning(false)}
                       className="rounded-2xl border-2 border-amber-200 bg-white px-5 py-2.5 text-sm font-black text-amber-700 transition hover:border-amber-400"
                     >
-                      Cancelar
+                      {t("Cancelar")}
                     </button>
                   </div>
                 </div>
@@ -829,7 +828,7 @@ export default function ParentsPage() {
                   disabled={generatingLesson}
                   className="app-button mt-6 bg-primary-dark hover:bg-primary-dark"
                 >
-                  {generatingLesson ? 'Criando lição...' : 'Criar nova lição com IA'}
+                  {generatingLesson ? t("Criando lição...") : t("Criar nova lição com IA")}
                 </button>
               )}
               {generatorMessage ? (
@@ -839,12 +838,12 @@ export default function ParentsPage() {
               ) : null}
               {generatedLesson ? (
                 <div className="mt-6 rounded-[1.25rem] bg-slate-50 p-4 md:rounded-[1.5rem] md:p-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Último dia gerado</p>
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Último dia gerado")}</p>
                   <h3 className="mt-2 text-xl font-black text-slate-800 md:text-2xl">{generatedLesson.title}</h3>
                   <div className="mt-4 space-y-3">
                     {generatedLesson.items.map((item, index) => (
                       <div key={`${generatedLesson.id}-${index}`} className="rounded-[1.25rem] bg-white px-4 py-3">
-                        <p className="text-base font-bold uppercase tracking-[0.15em] text-slate-400">Frase {index + 1}</p>
+                        <p className="text-base font-bold uppercase tracking-[0.15em] text-slate-400">{t("Frase")} {index + 1}</p>
                         <p className="mt-1 text-base font-black text-slate-800 md:text-lg">{item.word_en}</p>
                         <p className="text-sm text-slate-600 md:text-base">{item.word_pt}</p>
                       </div>
@@ -855,13 +854,13 @@ export default function ParentsPage() {
                       href={`/lesson?lessonId=${generatedLesson.id}`}
                       className="rounded-full border-2 border-primary/20 bg-white px-5 py-3 text-center text-base font-bold text-primary-dark transition hover:border-primary hover:bg-primary-light"
                     >
-                      Abrir lição criada
+                      {t("Abrir lição criada")}
                     </Link>
                     <Link
                       href={`/quiz?lessonId=${generatedLesson.id}`}
                       className="rounded-full border-2 border-slate-200 bg-white px-5 py-3 text-center text-base font-bold text-slate-600 transition hover:border-primary hover:text-primary"
                     >
-                      Abrir quiz da lição
+                      {t("Abrir quiz da lição")}
                     </Link>
                   </div>
                 </div>
@@ -871,18 +870,18 @@ export default function ParentsPage() {
             <div className="app-surface border-accent/50 p-5 md:p-8">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="text-accent-dark" size={28} />
-                <h2 className="text-xl font-black text-slate-800 md:text-2xl">Nota de segurança</h2>
+                <h2 className="text-xl font-black text-slate-800 md:text-2xl">{t("Nota de segurança")}</h2>
               </div>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                O tutor fica no tema do estudo, com respostas curtas e redirecionamento gentil. Para um perfil de 4 a 12 anos, as regras extras de conteúdo apropriado continuam valendo.
+                {t("O tutor fica no tema do estudo, com respostas curtas e redirecionamento gentil. Para um perfil de 4 a 12 anos, as regras extras de conteúdo apropriado continuam valendo.")}
               </p>
             </div>
 
             <div className="app-surface border-secondary/50 p-5 md:p-8">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">Configuração útil</p>
-              <h2 className="mt-3 text-2xl font-black text-slate-800 md:text-3xl">Ambiente</h2>
+              <p className="text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Configuração útil")}</p>
+              <h2 className="mt-3 text-2xl font-black text-slate-800 md:text-3xl">{t("Ambiente")}</h2>
               <p className="mt-3 text-base leading-7 text-slate-600 md:mt-4 md:text-lg md:leading-8">
-                Login Google usa <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> e <code>GOOGLE_REDIRECT_URI</code>. Cada conta usa sua própria chave de IA salva acima.
+                {t("Login Google usa")} <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code> e <code>GOOGLE_REDIRECT_URI</code>{t(". Cada conta usa sua própria chave de IA salva acima.")}
               </p>
             </div>
           </aside>

@@ -55,7 +55,8 @@ class HomeEntrarTests(unittest.TestCase):
     def test_entrar_appears_only_once(self) -> None:
         home = read(HOME_PAGE)
         # Count rendered labels, not the word in comments or aria text.
-        occurrences = re.findall(r"^\s*Entrar\s*$", home, flags=re.MULTILINE)
+        # O rotulo passa pelo tradutor, entao a linha e {t("Entrar")}.
+        occurrences = re.findall(r'^\s*\{t\("Entrar"\)\}\s*$', home, flags=re.MULTILINE)
         self.assertEqual(
             len(occurrences), 1,
             f"the home page should offer Entrar once, found {len(occurrences)}",

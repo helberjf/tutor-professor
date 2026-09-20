@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpen, CheckCircle2, ChevronRight, Clock } from 'lucide-r
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type LessonSummary } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 export default function LessonHistoryPage() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
@@ -20,7 +21,7 @@ export default function LessonHistoryPage() {
         setLessons(data);
         setError(null);
       } catch (err) {
-        setError(err instanceof ApiError ? err : new ApiError('Não foi possível carregar as lições.'));
+        setError(err instanceof ApiError ? err : new ApiError(t("Não foi possível carregar as lições.")));
       } finally {
         setLoading(false);
       }
@@ -32,10 +33,10 @@ export default function LessonHistoryPage() {
     return (
       <StatusCard
         tone="loading"
-        title="Carregando lições"
-        message="Buscando todas as suas aventuras de inglês..."
+        title={t("Carregando lições")}
+        message={t("Buscando todas as suas aventuras de inglês...")}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -44,10 +45,10 @@ export default function LessonHistoryPage() {
     return (
       <StatusCard
         tone="error"
-        title="Erro ao carregar lições"
+        title={t("Erro ao carregar lições")}
         message={error.message}
         secondaryHref="/"
-        secondaryLabel="Voltar ao início"
+        secondaryLabel={t("Voltar ao início")}
       />
     );
   }
@@ -60,23 +61,23 @@ export default function LessonHistoryPage() {
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 flex items-center gap-4">
           <Link href="/lesson" className="inline-flex items-center gap-2 text-lg font-bold text-primary-dark hover:text-primary">
-            <ArrowLeft size={22} /> Voltar
+            <ArrowLeft size={22} /> {t("Voltar")}
           </Link>
         </div>
 
         <div className="mb-8">
-          <span className="app-tag mb-3">Todas as lições</span>
-          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">Suas aventuras em inglês</h1>
+          <span className="app-tag mb-3">{t("Todas as lições")}</span>
+          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">{t("Suas aventuras em inglês")}</h1>
           <p className="mt-3 text-lg text-slate-600">
-            Escolha uma lição para rever o conteúdo, treinar as frases ou refazer o quiz.
+            {t("Escolha uma lição para rever o conteúdo, treinar as frases ou refazer o quiz.")}
           </p>
         </div>
 
         {lessons.length === 0 && (
           <div className="app-surface border-slate-200 p-10 text-center">
-            <p className="text-xl font-bold text-slate-500">Nenhuma lição encontrada ainda.</p>
+            <p className="text-xl font-bold text-slate-500">{t("Nenhuma lição encontrada ainda.")}</p>
             <Link href="/lesson" className="app-button mt-6 inline-flex bg-primary-dark hover:bg-primary-dark">
-              Comecar agora
+              {t("Começar agora")}
             </Link>
           </div>
         )}
@@ -84,7 +85,7 @@ export default function LessonHistoryPage() {
         {completed.length > 0 && (
           <section className="mb-8">
             <h2 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-700">
-              <CheckCircle2 className="text-accent-dark" size={22} /> Licoes concluidas
+              <CheckCircle2 className="text-accent-dark" size={22} /> {t("Lições concluídas")}
             </h2>
             <ul className="space-y-3">
               {completed.map((lesson) => (
@@ -108,7 +109,7 @@ export default function LessonHistoryPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="rounded-full border-2 border-secondary/40 px-4 py-2 text-sm font-bold text-secondary-dark transition hover:border-secondary hover:bg-secondary-light"
                       >
-                        Quiz
+                        {t("Quiz")}
                       </Link>
                       <ChevronRight className="text-slate-400" size={22} />
                     </div>
@@ -122,7 +123,7 @@ export default function LessonHistoryPage() {
         {pending.length > 0 && (
           <section>
             <h2 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-700">
-              <Clock className="text-primary-dark" size={22} /> Proximas licoes
+              <Clock className="text-primary-dark" size={22} /> {t("Próximas lições")}
             </h2>
             <ul className="space-y-3">
               {pending.map((lesson) => (

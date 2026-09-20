@@ -3,6 +3,7 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { THEME_OPTIONS, type ThemePreference } from '@/lib/theme';
 import { useTheme } from './theme-provider';
+import { t } from '@/lib/i18n';
 
 const ICONS = {
   system: Monitor,
@@ -22,7 +23,7 @@ export function ThemeToggle({ compact = false, className = '' }: ThemeToggleProp
     <div
       className={`theme-toggle inline-grid grid-cols-3 gap-1 rounded-full border-2 border-slate-200 bg-white/85 p-1 shadow-sm backdrop-blur ${className}`}
       role="radiogroup"
-      aria-label="Tema do app"
+      aria-label={t("Tema do app")}
       data-resolved-theme={resolvedTheme}
     >
       {THEME_OPTIONS.map((option) => {

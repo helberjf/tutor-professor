@@ -8,6 +8,7 @@ import { ArrowRight, CheckCircle2, Loader2, PartyPopper, Sparkles, XCircle } fro
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { ApiError, api, type PlacementQuestion } from '@/lib/api';
 import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoDate } from '@/lib/age-band';
+import { t } from '@/lib/i18n';
 
 /**
  * The guided first run: who is studying, which language, and where to start.
@@ -22,12 +23,12 @@ import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoD
  */
 
 const LANGUAGES = [
-  { value: 'English', flag: '🇺🇸', label: 'Inglês' },
-  { value: 'Spanish', flag: '🇪🇸', label: 'Espanhol' },
-  { value: 'French', flag: '🇫🇷', label: 'Francês' },
-  { value: 'German', flag: '🇩🇪', label: 'Alemão' },
-  { value: 'Italian', flag: '🇮🇹', label: 'Italiano' },
-  { value: 'Russian', flag: '🇷🇺', label: 'Russo' },
+  { value: 'English', flag: '🇺🇸', label: "Inglês" },
+  { value: 'Spanish', flag: '🇪🇸', label: "Espanhol" },
+  { value: 'French', flag: '🇫🇷', label: "Francês" },
+  { value: 'German', flag: '🇩🇪', label: "Alemão" },
+  { value: 'Italian', flag: '🇮🇹', label: "Italiano" },
+  { value: 'Russian', flag: '🇷🇺', label: "Russo" },
 ];
 
 type Step = 'profile' | 'language' | 'placement' | 'done';
@@ -118,10 +119,10 @@ export default function OnboardingPage() {
       if (!mountedRef.current) return;
       setError(
         err instanceof ApiError && err.status === 404
-          ? 'O servidor ainda está numa versão anterior e não conhece esta etapa. Você pode seguir para o início e começar a estudar.'
+          ? t("O servidor ainda está numa versão anterior e não conhece esta etapa. Você pode seguir para o início e começar a estudar.")
           : err instanceof ApiError
             ? (err.detail ?? err.message)
-            : 'Não foi possível salvar. Tente novamente.',
+            : t("Não foi possível salvar. Tente novamente."),
       );
     } finally {
       if (mountedRef.current) setSaving(false);
@@ -151,7 +152,7 @@ export default function OnboardingPage() {
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
         <p className="inline-flex items-center gap-2 text-base font-bold text-slate-500">
-          <Loader2 className="animate-spin" size={20} /> Preparando tudo
+          <Loader2 className="animate-spin" size={20} /> {t("Preparando tudo")}
         </p>
       </main>
     );
@@ -164,25 +165,25 @@ export default function OnboardingPage() {
 
         {step === 'profile' && (
           <section className="app-surface mt-4 border-sky-100 p-6 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Passo 1 de 3</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-800">Quem vai estudar?</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Passo 1 de 3")}</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-800">{t("Quem vai estudar?")}</h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              O nome aparece nas telas de estudo e a faixa de idade ajusta o vocabulário e o tom das lições.
+              {t("O nome aparece nas telas de estudo e a faixa de idade ajusta o vocabulário e o tom das lições.")}
             </p>
 
             <label className="mt-6 block">
-              <span className="text-sm font-black text-slate-700">Nome</span>
+              <span className="text-sm font-black text-slate-700">{t("Nome")}</span>
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={80}
-                placeholder="Ex.: Ana"
+                placeholder={t("Ex.: Ana")}
                 className="mt-2 min-h-12 w-full rounded-2xl border-2 border-slate-200 px-4 text-base font-bold text-slate-700 outline-none transition focus:border-primary"
               />
             </label>
 
             <label className="mt-5 block">
-              <span className="text-sm font-black text-slate-700">Data de nascimento</span>
+              <span className="text-sm font-black text-slate-700">{t("Data de nascimento")}</span>
               <input
                 type="date"
                 value={birthDate}
@@ -195,7 +196,7 @@ export default function OnboardingPage() {
               <span className="mt-1.5 block text-xs font-bold text-slate-500">
                 {band
                   ? `${age} anos · conteúdo na faixa ${bandLabel(band)}`
-                  : 'É ela que define a faixa de idade do conteúdo.'}
+                  : t("É ela que define a faixa de idade do conteúdo.")}
               </span>
               {birthProblem && birthDate ? (
                 <span role="alert" className="mt-1 block text-xs font-bold text-rose-600">{birthProblem}</span>
@@ -205,8 +206,7 @@ export default function OnboardingPage() {
             {minor && (
               <div className="mt-4 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm font-bold leading-6 text-amber-800">
-                  Menor de 18 anos: pelos termos de uso, o estudo deve ser acompanhado por um
-                  adulto responsável, que responde pela conta.
+                  {t("Menor de 18 anos: pelos termos de uso, o estudo deve ser acompanhado por um adulto responsável, que responde pela conta.")}
                 </p>
               </div>
             )}
@@ -217,17 +217,17 @@ export default function OnboardingPage() {
               disabled={!name.trim() || Boolean(birthProblem)}
               className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 disabled:opacity-40"
             >
-              Continuar <ArrowRight size={18} />
+              {t("Continuar")} <ArrowRight size={18} />
             </button>
           </section>
         )}
 
         {step === 'language' && (
           <section className="app-surface mt-4 border-sky-100 p-6 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Passo 2 de 3</p>
-            <h1 className="mt-2 text-2xl font-black text-slate-800">Qual idioma vamos estudar?</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Passo 2 de 3")}</p>
+            <h1 className="mt-2 text-2xl font-black text-slate-800">{t("Qual idioma vamos estudar?")}</h1>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              Dá para mudar depois na área da conta.
+              {t("Dá para mudar depois na área da conta.")}
             </p>
 
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
@@ -243,7 +243,7 @@ export default function OnboardingPage() {
                   }`}
                 >
                   <span className="text-xl">{item.flag}</span>
-                  {item.label}
+                  {t(item.label)}
                 </button>
               ))}
             </div>
@@ -268,7 +268,7 @@ export default function OnboardingPage() {
                 className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-700 px-5 text-base font-black text-white transition hover:bg-sky-800 disabled:opacity-40"
               >
                 {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                Fazer o teste de nível
+                {t("Fazer o teste de nível")}
               </button>
               <button
                 type="button"
@@ -276,7 +276,7 @@ export default function OnboardingPage() {
                 onClick={() => void finish([], true)}
                 className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
               >
-                Pular e começar do início
+                {t("Pular e começar do início")}
               </button>
             </div>
             {error && (
@@ -290,13 +290,13 @@ export default function OnboardingPage() {
         {step === 'placement' && questions[questionIndex] && (
           <section className="app-surface mt-4 border-violet-100 p-6 sm:p-8">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-              Passo 3 de 3 · pergunta {questionIndex + 1} de {questions.length}
+              {t("Passo 3 de 3 · pergunta")} {questionIndex + 1} de {questions.length}
             </p>
             <h1 className="mt-2 text-xl font-black leading-snug text-slate-800 sm:text-2xl">
               {questions[questionIndex].question}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              Não tem problema errar: é isso que diz por onde começar.
+              {t("Não tem problema errar: é isso que diz por onde começar.")}
             </p>
 
             <div className="mt-5 grid gap-2.5">
@@ -332,7 +332,7 @@ export default function OnboardingPage() {
               disabled={saving}
               className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-slate-400 transition hover:text-slate-600 disabled:opacity-40"
             >
-              Parar o teste por aqui
+              {t("Parar o teste por aqui")}
             </button>
           </section>
         )}
@@ -340,25 +340,25 @@ export default function OnboardingPage() {
         {step === 'done' && (
           <section className="app-surface mt-4 border-emerald-200 p-6 text-center sm:p-8">
             <PartyPopper size={40} className="mx-auto text-emerald-500" />
-            <h1 className="mt-4 text-2xl font-black text-slate-800">Tudo pronto, {name.trim()}!</h1>
+            <h1 className="mt-4 text-2xl font-black text-slate-800">{t("Tudo pronto,")} {name.trim()}!</h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Começando no nível {placedLevel}{band ? `, com conteúdo na faixa ${bandLabel(band)}` : ''}.
+              {t("Começando no nível")} {placedLevel}{band ? `, com conteúdo na faixa ${bandLabel(band)}` : ''}.
               {levelPinned
-                ? ' O nível ficou fixo nesse ponto; na área da conta dá para voltar ao automático quando quiser.'
-                : ' O nível sobe sozinho conforme as questões vão sendo respondidas.'}
+                ? t("O nível ficou fixo nesse ponto; na área da conta dá para voltar ao automático quando quiser.")
+                : t("O nível sobe sozinho conforme as questões vão sendo respondidas.")}
             </p>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Link
                 href="/session"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-6 text-base font-black text-white transition hover:scale-[1.02]"
               >
-                Começar a estudar <ArrowRight size={18} />
+                {t("Começar a estudar")} <ArrowRight size={18} />
               </Link>
               <Link
                 href="/"
                 className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-slate-200 px-5 text-sm font-black text-slate-600 transition hover:bg-slate-50"
               >
-                Ir para o início
+                {t("Ir para o início")}
               </Link>
             </div>
           </section>

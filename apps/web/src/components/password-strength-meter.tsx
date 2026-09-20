@@ -7,6 +7,7 @@ import {
   passwordRequirements,
   validatePasswordStrength,
 } from '@/lib/password-validation';
+import { t } from '@/lib/i18n';
 
 /**
  * Barra de força + checklist de requisitos, mostrados enquanto a pessoa digita.
@@ -24,7 +25,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
         <div>
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-              Força da senha
+              {t("Força da senha")}
             </span>
             <span className={`text-xs font-black ${getPasswordMeterColor(result)}`}>
               {getPasswordMeterLabel(result)}
@@ -33,7 +34,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
           <div
             className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100"
             role="progressbar"
-            aria-label="Força da senha"
+            aria-label={t("Força da senha")}
             aria-valuenow={result.score}
             aria-valuemin={0}
             aria-valuemax={100}
@@ -48,7 +49,7 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
 
       <div className="rounded-2xl bg-slate-50 p-3">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-          Requisitos da senha
+          {t("Requisitos da senha")}
         </p>
         <ul className="mt-2 grid gap-1 sm:grid-cols-2">
           {requirements.map((requirement) => (
@@ -59,7 +60,10 @@ export function PasswordStrengthMeter({ password }: { password: string }) {
               }`}
             >
               <span aria-hidden="true">{requirement.met ? '✓' : '○'}</span>
-              {requirement.label}
+              {/* The rule text is produced by lib/password-validation.ts, which
+                  stays free of the UI layer, so it arrives here as Portuguese
+                  data and is translated at the point it is drawn. */}
+              {t(requirement.label)}
             </li>
           ))}
         </ul>

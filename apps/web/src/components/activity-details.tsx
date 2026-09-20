@@ -1,4 +1,5 @@
 'use client';
+import { t } from '@/lib/i18n';
 
 interface ActivityDetailsProps {
   details: Record<string, unknown> | null;
@@ -29,7 +30,7 @@ export function ActivityDetails({ details, compact = false }: ActivityDetailsPro
   return (
     <details className={`mt-3 rounded-xl border border-white/80 bg-white/60 ${compact ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
       <summary className="cursor-pointer text-xs font-black text-slate-600">
-        {answers.length > 0 ? `Ver ${answers.length} ${answers.length === 1 ? 'resposta' : 'respostas'}` : 'Ver conteúdo estudado'}
+        {answers.length > 0 ? `Ver ${answers.length} ${answers.length === 1 ? 'resposta' : 'respostas'}` : t("Ver conteúdo estudado")}
       </summary>
       {studiedText && <p className="mt-2 whitespace-pre-wrap text-xs font-medium leading-relaxed text-slate-600">{studiedText}</p>}
       {answers.length > 0 && (
@@ -37,12 +38,12 @@ export function ActivityDetails({ details, compact = false }: ActivityDetailsPro
           {answers.map((answer, index) => {
             const selected = Array.isArray(answer.selected_options)
               ? answer.selected_options.join(', ')
-              : answer.selected_option || 'Sem resposta';
+              : answer.selected_option || t("Sem resposta");
             return (
               <li key={`${answer.question_number ?? index}-${index}`} className="text-xs text-slate-600">
                 <span className="mr-1 font-black">{answer.correct ? '✅' : '❌'}</span>
                 <span className="font-black">{answer.question_number ?? index + 1}.</span>{' '}
-                <span>{answer.question || 'Questão'}</span>
+                <span>{answer.question || t("Questão")}</span>
                 <span className="ml-1 font-semibold text-slate-500">→ {selected}</span>
               </li>
             );

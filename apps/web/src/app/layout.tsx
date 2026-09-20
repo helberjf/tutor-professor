@@ -8,6 +8,9 @@ import { Navbar } from '@/components/navbar';
 import { BottomNav } from '@/components/bottom-nav';
 import { ThemeProvider } from '@/components/theme-provider';
 import { ThemeScript } from '@/components/theme-script';
+import { LocaleProvider } from '@/components/locale-provider';
+import { LocaleScript } from '@/components/locale-script';
+import { SkipLink } from '@/components/skip-link';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tutorprofessor.vercel.app'),
@@ -95,6 +98,8 @@ export default function RootLayout({
   const apiPreconnectOrigin = getApiPreconnectOrigin();
 
   return (
+    /* lang is the server default here; LocaleScript rewrites it before the
+       first paint, from the stored choice or from the system. */
     <html lang="pt-BR" suppressHydrationWarning>
       <body>
         {/* React hoists these into <head> on its own. */}
@@ -104,20 +109,21 @@ export default function RootLayout({
             <link rel="dns-prefetch" href={apiPreconnectOrigin} />
           </>
         ) : null}
-        <a href="#main-content" className="skip-link">
-          Pular para o conteúdo
-        </a>
+        <LocaleScript />
         <ThemeScript />
         <ServiceWorkerRegistrar />
-        <ThemeProvider>
-          <Navbar />
-          <Suspense fallback={<div className="pt-16" />}>
-            <AuthGate>
-              <div id="main-content" className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
-            </AuthGate>
-          </Suspense>
-          <BottomNav />
-        </ThemeProvider>
+        <LocaleProvider>
+          <SkipLink />
+          <ThemeProvider>
+            <Navbar />
+            <Suspense fallback={<div className="pt-16" />}>
+              <AuthGate>
+                <div id="main-content" className="pt-16 pb-[calc(4.5rem_+_env(safe-area-inset-bottom))] md:pb-0">{children}</div>
+              </AuthGate>
+            </Suspense>
+            <BottomNav />
+          </ThemeProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

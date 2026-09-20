@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Loader2, RotateCcw } from 'lucide-react';
 
 import { api, type AccountStatus, type AdminUser, type AIProvider } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 // Mirrors the badge on /admin/accounts so the two lists read the same way.
 const ACCOUNT_STATUS_BADGE: Record<AccountStatus, { label: string; className: string }> = {
-  pending: { label: 'Aguardando aprovação', className: 'bg-amber-50 text-amber-700' },
-  approved: { label: 'Conta aprovada', className: 'bg-emerald-50 text-emerald-700' },
-  rejected: { label: 'Conta recusada', className: 'bg-rose-50 text-rose-700' },
+  pending: { label: "Aguardando aprovação", className: 'bg-amber-50 text-amber-700' },
+  approved: { label: "Conta aprovada", className: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: "Conta recusada", className: 'bg-rose-50 text-rose-700' },
 };
 
 function LoadingRows() {
@@ -52,7 +53,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível carregar usuários.',
+        text: error instanceof Error ? error.message : t("Não foi possível carregar usuários."),
       });
     } finally {
       setLoading(false);
@@ -82,7 +83,7 @@ export function AdminUsersPanel() {
     const form = forms[user.id];
     if (!form) return;
     if (!user.ai_settings.has_api_key && !form.api_key.trim()) {
-      setMessage({ tone: 'error', text: 'Cole a chave de API antes de salvar para este usuário.' });
+      setMessage({ tone: 'error', text: t("Cole a chave de API antes de salvar para este usuário.") });
       return;
     }
 
@@ -112,7 +113,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível salvar a chave de IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível salvar a chave de IA."),
       });
     } finally {
       setSavingUserId(null);
@@ -143,7 +144,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível revogar o acesso a IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível revogar o acesso a IA."),
       });
     } finally {
       setSavingUserId(null);
@@ -183,7 +184,7 @@ export function AdminUsersPanel() {
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof Error ? error.message : 'Não foi possível autorizar o uso da IA.',
+        text: error instanceof Error ? error.message : t("Não foi possível autorizar o uso da IA."),
       });
     } finally {
       setSavingUserId(null);
@@ -198,10 +199,10 @@ export function AdminUsersPanel() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">Usuários</p>
-          <h2 className="text-2xl font-black text-slate-800">Autorizar IA por conta</h2>
+          <p className="text-xs font-black uppercase tracking-wide text-primary-dark">{t("Usuários")}</p>
+          <h2 className="text-2xl font-black text-slate-800">{t("Autorizar IA por conta")}</h2>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            Autorize uma conta criada a usar a chave global do servidor ou salve uma chave própria para ela.
+            {t("Autorize uma conta criada a usar a chave global do servidor ou salve uma chave própria para ela.")}
           </p>
         </div>
         <button
@@ -209,7 +210,7 @@ export function AdminUsersPanel() {
           onClick={() => void loadUsers()}
           className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-black text-slate-600 hover:border-primary hover:text-primary-dark"
         >
-          <RotateCcw size={15} /> Atualizar
+          <RotateCcw size={15} /> {t("Atualizar")}
         </button>
       </div>
 
@@ -241,7 +242,7 @@ export function AdminUsersPanel() {
                 <h3 className="text-lg font-black text-slate-800">{user.first_name} {user.last_name}</h3>
                 <p className="break-all text-sm font-bold text-slate-500">{user.email}</p>
                 <p className="mt-1 text-xs font-bold text-slate-400">
-                  Login: {user.auth_provider} - Criado em {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                  {t("Login:")} {user.auth_provider} {t("- Criado em")} {new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </p>
                 <p className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-black ${ACCOUNT_STATUS_BADGE[user.status].className}`}>
                   {ACCOUNT_STATUS_BADGE[user.status].label}
@@ -252,16 +253,16 @@ export function AdminUsersPanel() {
               }`}>
                 <KeyRound size={13} />
                 {user.ai_settings.use_global_key
-                  ? 'Autorizado pela chave global'
+                  ? t("Autorizado pela chave global")
                   : user.ai_settings.has_api_key
                     ? `Chave ${user.ai_settings.api_key_preview ?? 'salva'}`
-                    : 'Sem autorização'}
+                    : t("Sem autorização")}
               </span>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-black text-slate-700">
-                Provedor
+                {t("Provedor")}
                 <select
                   value={form.provider}
                   onChange={(event) => {
@@ -273,12 +274,12 @@ export function AdminUsersPanel() {
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700"
                 >
                   {providers.map((item) => (
-                    <option key={item.id} value={item.id}>{item.label}</option>
+                    <option key={item.id} value={item.id}>{t(item.label)}</option>
                   ))}
                 </select>
               </label>
               <label className="text-sm font-black text-slate-700">
-                Modelo
+                {t("Modelo")}
                 <input
                   value={form.model}
                   onChange={(event) => updateForm(user.id, 'model', event.target.value)}
@@ -286,21 +287,21 @@ export function AdminUsersPanel() {
                 />
               </label>
               <label className="text-sm font-black text-slate-700 md:col-span-2">
-                Base URL
+                {t("Base URL")}
                 <input
                   value={form.base_url}
                   onChange={(event) => updateForm(user.id, 'base_url', event.target.value)}
-                  placeholder={provider?.requires_base_url ? 'URL obrigatória para este provedor' : 'Opcional'}
+                  placeholder={provider?.requires_base_url ? t("URL obrigatória para este provedor") : 'Opcional'}
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                 />
               </label>
               <label className="text-sm font-black text-slate-700 md:col-span-2">
-                Nova chave API
+                {t("Nova chave API")}
                 <input
                   type="password"
                   value={form.api_key}
                   onChange={(event) => updateForm(user.id, 'api_key', event.target.value)}
-                  placeholder="Cole a nova chave"
+                  placeholder={t("Cole a nova chave")}
                   autoComplete="new-password"
                   className="mt-1 w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-bold text-slate-700"
                 />
@@ -315,7 +316,7 @@ export function AdminUsersPanel() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                Autorizar IA
+                {t("Autorizar IA")}
               </button>
               {user.ai_settings.use_global_key || user.ai_settings.has_api_key ? (
                 <button
@@ -325,7 +326,7 @@ export function AdminUsersPanel() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 px-4 py-2 text-sm font-black text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                  Revogar IA
+                  {t("Revogar IA")}
                 </button>
               ) : null}
               <button
@@ -335,7 +336,7 @@ export function AdminUsersPanel() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-dark px-4 py-2 text-sm font-black text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                {saving ? 'Salvando...' : 'Salvar chave'}
+                {saving ? 'Salvando...' : t("Salvar chave")}
               </button>
             </div>
           </article>
@@ -344,7 +345,7 @@ export function AdminUsersPanel() {
 
       {users.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-slate-200 p-6 text-center text-sm font-bold text-slate-500">
-          Nenhum usuário cadastrado ainda.
+          {t("Nenhum usuário cadastrado ainda.")}
         </p>
       ) : null}
     </div>

@@ -233,10 +233,10 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             "Ver código",
             "Ocultar código",
             "showCode && card.code_example",
-            'aria-label="Buscar cards"',
-            'aria-label="Editar card"',
-            'aria-label="Excluir card"',
-            'aria-label="Fechar formulário do card"',
+            'aria-label={t("Buscar cards")}',
+            'aria-label={t("Editar card")}',
+            'aria-label={t("Excluir card")}',
+            'aria-label={t("Fechar formulário do card")}',
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.flashcard_deck)

@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 
 import { formatClock } from '@/components/questions/use-countdown';
 import type { ExamAttemptResult } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /**
  * The result screen. The percentage is the headline: it is the number that tells
@@ -51,14 +52,14 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
             </p>
             {attempt.duration_seconds !== null && (
               <p className="mt-3 text-sm font-bold text-slate-500">
-                Tempo usado: {formatClock(attempt.duration_seconds)} de {formatClock(exam.duration_minutes * 60)}
+                {t("Tempo usado:")} {formatClock(attempt.duration_seconds)} de {formatClock(exam.duration_minutes * 60)}
               </p>
             )}
           </section>
 
           {showDomains && (
             <section className="mt-8">
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Por assunto</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">{t("Por assunto")}</h3>
               <div className="mt-3 space-y-3">
                 {domains.map(([name, counts]) => {
                   const domainPercent = counts.total > 0 ? Math.round((counts.correct / counts.total) * 100) : 0;
@@ -103,13 +104,13 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
                       <p className="mt-2 font-black text-slate-800">{item.question.question}</p>
                       {item.selected_options.length > 0 ? (
                         <p className="mt-3 text-sm font-bold text-rose-600">
-                          Você marcou: {item.selected_options.join(' · ')}
+                          {t("Você marcou:")} {item.selected_options.join(' · ')}
                         </p>
                       ) : (
-                        <p className="mt-3 text-sm font-bold text-slate-400">Você deixou em branco.</p>
+                        <p className="mt-3 text-sm font-bold text-slate-400">{t("Você deixou em branco.")}</p>
                       )}
                       <p className="mt-1 text-sm font-bold text-emerald-700">
-                        Correta: {item.question.correct_options.join(' · ')}
+                        {t("Correta:")} {item.question.correct_options.join(' · ')}
                       </p>
                       <p className="mt-3 leading-relaxed text-slate-600">{item.question.explanation}</p>
                       {item.question.reference_url && (
@@ -119,7 +120,7 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
                           rel="noreferrer"
                           className="mt-2 inline-block text-sm font-black text-indigo-600 hover:underline"
                         >
-                          Ver documentação
+                          {t("Ver documentação")}
                         </a>
                       )}
                     </article>
@@ -136,7 +137,7 @@ export function ExamResult({ result, onClose }: { result: ExamAttemptResult; onC
             onClick={onClose}
             className="min-h-12 w-full rounded-2xl bg-indigo-600 px-4 font-black text-white hover:bg-indigo-700"
           >
-            Voltar aos simulados
+            {t("Voltar aos simulados")}
           </button>
         </footer>
       </div>

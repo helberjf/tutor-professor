@@ -38,7 +38,9 @@ def main() -> None:
     require("Iniciar estudo" in source, "subject dashboard exposes a prominent study entrypoint")
     require("function SubjectTopicsStudyModal" in source, "subject dashboard study entrypoint opens a dedicated modal")
     require("Abrir dashboard" in source, "overview links each subject to its dashboard")
-    require("title=\"Apagar matéria\"" in source, "overview cards expose subject deletion")
+    # DiverseTab ja usa `t` como variavel de topico, entao o tradutor entra
+    # como `translate`.
+    require("title={translate(\"Apagar matéria\")}" in source, "overview cards expose subject deletion")
     require("Voltar para matérias" in source, "subject dashboard can return to the overview")
     require("await api.saveDiverseDay(selectedDate, { custom_subjects: nextSubjects })" in source, "creating a subject persists it immediately")
     require("Matéria criada com 3 tópicos iniciais da IA." in source, "creating a subject confirms the AI starter topics result")

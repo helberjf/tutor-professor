@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { api, type ProgrammingSubject } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const CONTEXT_PLACEHOLDER = `Instruções extras ou um guia de como a matéria deve ser organizada.
 
@@ -43,7 +44,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
       });
       onCreated(subject);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar matéria.');
+      setError(err instanceof Error ? err.message : t("Erro ao criar matéria."));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-black text-slate-800">Nova Matéria</h2>
+          <h2 className="text-xl font-black text-slate-800">{t("Nova Matéria")}</h2>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100">
             <X size={20} />
           </button>
@@ -69,10 +70,10 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               className="w-16 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3 text-center text-xl outline-none focus:border-primary"
             />
             <input
-              aria-label="Nome da matéria"
+              aria-label={t("Nome da matéria")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Nome da matéria (ex: React)"
+              placeholder={t("Nome da matéria (ex: React)")}
               maxLength={100}
               required
               autoFocus
@@ -80,10 +81,10 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
             />
           </div>
           <input
-              aria-label="Descrição"
+              aria-label={t("Descrição")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Descrição (opcional)"
+            placeholder={t("Descrição (opcional)")}
             maxLength={500}
             className="w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"
           />
@@ -96,9 +97,9 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               className="flex w-full items-center justify-between gap-3"
             >
               <span className="text-left text-sm font-bold text-slate-700">
-                Adicionar contexto para a IA
+                {t("Adicionar contexto para a IA")}
                 <span className="mt-0.5 block text-xs font-medium text-slate-400">
-                  Instruções extras ou um roteiro de tópicos usados ao gerar o conteúdo desta matéria
+                  {t("Instruções extras ou um roteiro de tópicos usados ao gerar o conteúdo desta matéria")}
                 </span>
               </span>
               <span
@@ -123,14 +124,14 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
           {error && <p className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 rounded-2xl border-2 border-slate-200 py-3 font-bold text-slate-600 hover:bg-slate-50">
-              Cancelar
+              {t("Cancelar")}
             </button>
             <button
               type="submit"
               disabled={loading || !name.trim()}
               className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : 'Criar Matéria'}
+              {loading ? <Loader2 size={18} className="animate-spin" /> : t("Criar Matéria")}
             </button>
           </div>
         </form>

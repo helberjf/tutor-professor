@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { CheckCircle2, ChevronRight, Timer, X } from 'lucide-react';
 
 import { formatClock, useCountdown } from './use-countdown';
+import { t } from '@/lib/i18n';
 
 /** Minimal shape a question needs to be practised; ProgrammingQuestion and StudyQuestion both satisfy it. */
 export interface PracticeQuestion {
@@ -83,7 +84,7 @@ export function PracticeQuestionsModal({
     setAttemptError('');
     setAnswers((current) => ({ ...current, [question.id]: option }));
     void onAnswer(question.id, option).catch((err) => {
-      setAttemptError(err instanceof Error ? err.message : 'Não foi possível salvar esta tentativa nas métricas.');
+      setAttemptError(err instanceof Error ? err.message : t("Não foi possível salvar esta tentativa nas métricas."));
     });
   }
 
@@ -146,7 +147,7 @@ export function PracticeQuestionsModal({
               <button
                 type="button"
                 onClick={onClose}
-                aria-label="Fechar questões"
+                aria-label={t("Fechar questões")}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-500 hover:bg-slate-100"
               >
                 <X size={18} />
@@ -167,10 +168,10 @@ export function PracticeQuestionsModal({
                 <CheckCircle2 size={42} />
               </div>
               <h3 className="mt-5 text-2xl font-black text-slate-900">
-                {ranOutOfTime ? 'Tempo esgotado' : 'Sessão concluída'}
+                {ranOutOfTime ? t("Tempo esgotado") : t("Sessão concluída")}
               </h3>
               <p className="mt-2 text-lg font-black text-slate-700">
-                Você acertou {score} de {total}
+                {t("Você acertou")} {score} de {total}
               </p>
               {timed && (
                 <p role="status" className="mt-2 text-sm font-bold text-slate-500">
@@ -180,7 +181,7 @@ export function PracticeQuestionsModal({
                 </p>
               )}
               <p className="mt-2 text-sm font-bold text-slate-500">
-                As próximas questões geradas para este tópico evitam as perguntas já salvas.
+                {t("As próximas questões geradas para este tópico evitam as perguntas já salvas.")}
               </p>
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">
                 <button
@@ -188,20 +189,20 @@ export function PracticeQuestionsModal({
                   onClick={restart}
                   className="rounded-2xl border-2 border-amber-200 bg-white px-5 py-3 text-sm font-black text-amber-800 hover:bg-amber-50"
                 >
-                  Fazer novamente
+                  {t("Fazer novamente")}
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
                   className="rounded-2xl bg-amber-700 px-5 py-3 text-sm font-black text-white hover:bg-amber-800"
                 >
-                  Fechar
+                  {t("Fechar")}
                 </button>
               </div>
             </section>
           ) : (
             <section className="mx-auto max-w-2xl">
-              <p className="text-xs font-black uppercase tracking-widest text-amber-600">Questão {safeIndex + 1}</p>
+              <p className="text-xs font-black uppercase tracking-widest text-amber-600">{t("Questão")} {safeIndex + 1}</p>
               <h3 className="mt-3 text-2xl font-black leading-tight text-slate-900">{question.question}</h3>
               <div className="mt-6 space-y-3">
                 {shuffledOptions.map((option) => {
@@ -228,13 +229,13 @@ export function PracticeQuestionsModal({
               </div>
               {answered && (
                 <div className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold leading-relaxed ${isCorrect ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800'}`}>
-                  {isCorrect ? 'Correto. ' : 'Ainda não. '}
+                  {isCorrect ? 'Correto. ' : t("Ainda não.")}
                   {question.explanation}
                 </div>
               )}
               {attemptError && (
                 <p role="alert" className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
-                  Resposta exibida, mas não entrou nas métricas: {attemptError}
+                  {t("Resposta exibida, mas não entrou nas métricas:")} {attemptError}
                 </p>
               )}
             </section>
@@ -249,7 +250,7 @@ export function PracticeQuestionsModal({
               disabled={!answered}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-3 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-40"
             >
-              {safeIndex + 1 >= total ? 'Ver resultado' : 'Próxima questão'}
+              {safeIndex + 1 >= total ? t("Ver resultado") : t("Próxima questão")}
               {safeIndex + 1 < total && <ChevronRight size={17} />}
             </button>
           </footer>

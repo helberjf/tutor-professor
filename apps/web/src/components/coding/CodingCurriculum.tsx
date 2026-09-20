@@ -8,6 +8,7 @@ import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
+import { t as translate } from '@/lib/i18n';
 
 // Estas quatro trocam a tela inteira pela lista de matérias, uma de cada vez, e
 // são as maiores do módulo — a leitura de um tópico sozinha carrega o realce de
@@ -102,7 +103,7 @@ export function CodingCurriculum({
     try {
       let sheet = await api.getSubjectSummary(subject.id);
       if (sheet.topic_count === 0) {
-        setSummaryError('Esta matéria ainda não tem aulas geradas para resumir.');
+        setSummaryError(translate("Esta matéria ainda não tem aulas geradas para resumir."));
         return;
       }
       // Show what is already written while the missing topics are filled in.
@@ -116,7 +117,7 @@ export function CodingCurriculum({
         try {
           await api.generateTopicSummary(pendingTopic.topic_id, regenerate);
         } catch (err) {
-          failed = err instanceof Error ? err.message : 'Não foi possível resumir um dos tópicos.';
+          failed = err instanceof Error ? err.message : translate("Não foi possível resumir um dos tópicos.");
         }
       }
       if (missing.length > 0) {
@@ -129,7 +130,7 @@ export function CodingCurriculum({
     } catch (err) {
       // Keep any sheet already on screen: a failed run should not throw away
       // the summary the reader is looking at.
-      setSummaryError(err instanceof Error ? err.message : 'Não foi possível gerar o resumo.');
+      setSummaryError(err instanceof Error ? err.message : translate("Não foi possível gerar o resumo."));
     } finally {
       setSummaryProgress('');
       setLoadingSummary(false);
@@ -252,7 +253,7 @@ export function CodingCurriculum({
       }
     } catch {
       if (subjectLoadRequestRef.current !== requestId) return;
-      setError('Erro ao carregar matérias.');
+      setError(translate("Erro ao carregar matérias."));
     } finally {
       if (subjectLoadRequestRef.current === requestId) setLoading(false);
     }
@@ -283,7 +284,7 @@ export function CodingCurriculum({
         );
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar os tópicos desta matéria.');
+      setError(err instanceof Error ? err.message : translate("Erro ao carregar os tópicos desta matéria."));
     } finally {
       setLoadingTopics(false);
     }
@@ -294,7 +295,7 @@ export function CodingCurriculum({
     try {
       const session = await api.getCodingReview(subject.id);
       if (session.total_due === 0) {
-        alert('Nenhum flashcard para revisar agora. Continue estudando e volte mais tarde!');
+        alert(translate("Nenhum flashcard para revisar agora. Continue estudando e volte mais tarde!"));
         return;
       }
       void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
@@ -305,7 +306,7 @@ export function CodingCurriculum({
   }
 
   async function handleDeleteSubject(id: number) {
-    if (!confirm('Remover esta matéria e todos os seus tópicos e flashcards?')) return;
+    if (!confirm(translate("Remover esta matéria e todos os seus tópicos e flashcards?"))) return;
     try {
       await api.deleteCodingSubject(id);
       const nextPage = subjects.length === 1 && subjectPage.page > 1
@@ -314,7 +315,7 @@ export function CodingCurriculum({
       await loadSubjects(nextPage, subjectSort);
       if (view.type !== 'subjects') setView({ type: 'subjects' });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Não foi possível remover a matéria. Tente novamente.');
+      setError(err instanceof Error ? err.message : translate("Não foi possível remover a matéria. Tente novamente."));
       await loadSubjects();
     }
   }
@@ -338,7 +339,7 @@ export function CodingCurriculum({
       setSubjects((current) => current.map((item) => (
         item.id === subject.id ? { ...item, relevance: previousRelevance } : item
       )));
-      setError(err instanceof Error ? err.message : 'Não foi possível atualizar a relevância.');
+      setError(err instanceof Error ? err.message : translate("Não foi possível atualizar a relevância."));
     } finally {
       setUpdatingRelevanceId(null);
     }
@@ -355,7 +356,7 @@ export function CodingCurriculum({
   }
 
   async function handleDeleteTopic(id: number, subject: ProgrammingSubject) {
-    if (!confirm('Remover este tópico e seus flashcards?')) return;
+    if (!confirm(translate("Remover este tópico e seus flashcards?"))) return;
     await api.deleteCodingTopic(id);
     setTopics((prev) => prev.filter((t) => t.id !== id));
     await loadSubjects();
@@ -373,7 +374,7 @@ export function CodingCurriculum({
       setNewTopicId(topic.id);
       await loadSubjects();
     } catch (err: unknown) {
-      setTopicAIError(err instanceof Error ? err.message : 'Erro ao gerar tópico com IA.');
+      setTopicAIError(err instanceof Error ? err.message : translate("Erro ao gerar tópico com IA."));
     } finally {
       setGeneratingTopicAI(false);
     }
@@ -409,19 +410,19 @@ export function CodingCurriculum({
     return (
       <div className="space-y-6">
         <section className="app-surface border-primary/30 p-3 md:p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Programação · Currículo</p>
-          <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">Minhas Matérias</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{translate("Programação · Currículo")}</p>
+          <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">{translate("Minhas Matérias")}</h1>
           <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
             {focusMode === 'flashcards'
-              ? 'Modo flashcards: escolha uma matéria para treinar.'
+              ? translate("Modo flashcards: escolha uma matéria para treinar.")
               : focusMode === 'questions'
-                ? 'Modo questões: escolha um tópico para fazer simulados.'
-                : 'Modo leitura: escolha uma matéria para estudar.'}
+                ? translate("Modo questões: escolha um tópico para fazer simulados.")
+                : translate("Modo leitura: escolha uma matéria para estudar.")}
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3 sm:grid-cols-3">
-            <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label="Matérias" value={subjectPage.total} tone="sky" />
-            <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label="Tópicos estudados" value={subjectPage.studied_count} tone="green" />
-            <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label="Para revisar" value={subjectPage.due_review_count} tone="orange" />
+            <MetricChip icon={<BookOpen size={18} className="sm:h-5 sm:w-5" />} label={translate("Matérias")} value={subjectPage.total} tone="sky" />
+            <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label={translate("Tópicos estudados")} value={subjectPage.studied_count} tone="green" />
+            <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label={translate("Para revisar")} value={subjectPage.due_review_count} tone="orange" />
           </div>
         </section>
 
@@ -435,29 +436,29 @@ export function CodingCurriculum({
             <Trophy size={24} className="text-amber-600" />
           </div>
           <div className="flex-1">
-            <p className="font-black text-slate-800">LeetCode Trainer</p>
-            <p className="text-sm text-slate-500">Métodos e técnicas para entrevistas — explicação, exemplo e resultado, gerados pela IA um a um</p>
+            <p className="font-black text-slate-800">{translate("LeetCode Trainer")}</p>
+            <p className="text-sm text-slate-500">{translate("Métodos e técnicas para entrevistas — explicação, exemplo e resultado, gerados pela IA um a um")}</p>
           </div>
           <Sparkles size={18} className="shrink-0 text-amber-400" />
         </button>
 
         <div className="flex flex-col gap-2 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
           <div>
-            <p className="text-sm font-black text-slate-700">Exibindo até {SUBJECTS_PER_PAGE} matérias</p>
-            <p className="text-xs font-semibold text-slate-500">As próximas são carregadas somente quando você troca de página.</p>
+            <p className="text-sm font-black text-slate-700">{translate("Exibindo até")} {SUBJECTS_PER_PAGE} {translate("matérias")}</p>
+            <p className="text-xs font-semibold text-slate-500">{translate("As próximas são carregadas somente quando você troca de página.")}</p>
           </div>
           <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-slate-600" htmlFor="coding-subject-sort">
-            Ordenar por
+            {translate("Ordenar por")}
             <select
               id="coding-subject-sort"
               value={subjectSort}
               onChange={(event) => handleSubjectSortChange(event.target.value as CodingSubjectSort)}
               className="min-h-11 rounded-xl border-2 border-slate-200 bg-white px-3 font-bold text-slate-700 outline-none focus:border-primary"
             >
-              <option value="last_used">Último uso (padrão)</option>
-              <option value="created_at">Data de criação</option>
-              <option value="alphabetical">Ordem alfabética</option>
-              <option value="relevance">Relevância</option>
+              <option value="last_used">{translate("Último uso (padrão)")}</option>
+              <option value="created_at">{translate("Data de criação")}</option>
+              <option value="alphabetical">{translate("Ordem alfabética")}</option>
+              <option value="relevance">{translate("Relevância")}</option>
             </select>
           </label>
         </div>
@@ -470,7 +471,7 @@ export function CodingCurriculum({
               onClick={() => void loadSubjects(subjectPage.page, subjectSort)}
               className="shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black text-white hover:bg-rose-700"
             >
-              Tentar de novo
+              {translate("Tentar de novo")}
             </button>
           </div>
         )}
@@ -498,7 +499,7 @@ export function CodingCurriculum({
                     </div>
                     <button
                       type="button"
-                      aria-label="Remover matéria"
+                      aria-label={translate("Remover matéria")}
                       onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
                       className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-rose-100 bg-white text-rose-400 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
                     >
@@ -513,7 +514,7 @@ export function CodingCurriculum({
                     className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200/70 bg-amber-100/80 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <span className="text-xs font-black text-amber-800 dark:text-amber-100">Relevância</span>
+                    <span className="text-xs font-black text-amber-800 dark:text-amber-100">{translate("Relevância")}</span>
                     <span className="flex items-center">
                       {Array.from({ length: 5 }, (_, index) => {
                         const level = index + 1;
@@ -566,7 +567,7 @@ export function CodingCurriculum({
                         ) : (
                           <BookOpen size={12} />
                         )}
-                        {focusMode === 'flashcards' ? 'Flashcards' : focusMode === 'questions' ? 'Fazer simulado' : 'Estudar'}
+                        {focusMode === 'flashcards' ? translate("Flashcards") : focusMode === 'questions' ? translate("Fazer simulado") : translate("Estudar")}
                       </button>
                       <button
                         type="button"
@@ -574,7 +575,7 @@ export function CodingCurriculum({
                         onClick={() => handleStartReview(subject)}
                         className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-40"
                       >
-                        {loadingReview ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />} Revisar
+                        {loadingReview ? <Loader2 size={12} className="animate-spin" /> : <Brain size={12} />} {translate("Revisar")}
                       </button>
                     </div>
                     <button
@@ -582,15 +583,15 @@ export function CodingCurriculum({
                       onClick={() => openFlashcardDeck(subject)}
                       className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-violet-200 bg-violet-50 px-3 py-2 text-xs font-black text-violet-700 hover:bg-violet-100"
                     >
-                      <Layers size={12} /> Flashcards
+                      <Layers size={12} /> {translate("Flashcards")}
                     </button>
                   </div>
                 </div>
               ))}
               {subjects.length === 0 && (
                 <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center sm:col-span-2 lg:col-span-3">
-                  <p className="font-black text-slate-600">Nenhuma matéria cadastrada.</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-400">Crie sua primeira matéria para começar.</p>
+                  <p className="font-black text-slate-600">{translate("Nenhuma matéria cadastrada.")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">{translate("Crie sua primeira matéria para começar.")}</p>
                 </div>
               )}
               <button
@@ -599,17 +600,17 @@ export function CodingCurriculum({
                 className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-slate-200 bg-white p-5 text-slate-400 transition hover:border-primary hover:text-primary-dark"
               >
                 <Plus size={28} />
-                <span className="font-black">Nova Matéria</span>
+                <span className="font-black">{translate("Nova Matéria")}</span>
               </button>
             </>
           )}
         </div>
 
         {!loading && subjectPage.total_pages > 1 && (
-          <nav aria-label="Paginação de matérias" className="flex flex-col items-center justify-between gap-3 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:px-4">
+          <nav aria-label={translate("Paginação de matérias")} className="flex flex-col items-center justify-between gap-3 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:px-4">
             <p className="text-sm font-black text-slate-600">
-              Página {subjectPage.page} de {subjectPage.total_pages}
-              <span className="ml-2 font-semibold text-slate-400">· {subjectPage.total} matérias</span>
+              {translate("Página")} {subjectPage.page} de {subjectPage.total_pages}
+              <span className="ml-2 font-semibold text-slate-400">· {subjectPage.total} {translate("matérias")}</span>
             </p>
             <div className="flex w-full gap-2 sm:w-auto">
               <button
@@ -618,7 +619,7 @@ export function CodingCurriculum({
                 onClick={() => handleSubjectPageChange(subjectPage.page - 1)}
                 className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl border-2 border-slate-200 bg-white px-4 text-sm font-black text-slate-600 hover:border-primary/40 hover:text-primary-dark disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
               >
-                <ChevronLeft size={17} /> Anterior
+                <ChevronLeft size={17} /> {translate("Anterior")}
               </button>
               <button
                 type="button"
@@ -626,7 +627,7 @@ export function CodingCurriculum({
                 onClick={() => handleSubjectPageChange(subjectPage.page + 1)}
                 className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-primary-dark px-4 text-sm font-black text-white hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
               >
-                Próxima <ChevronRight size={17} />
+                {translate("Próxima")} <ChevronRight size={17} />
               </button>
             </div>
           </nav>
@@ -654,7 +655,7 @@ export function CodingCurriculum({
       <div className="space-y-6">
         <section className="app-surface border-primary/30 p-6">
           <button type="button" onClick={returnToSubjectList} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
-            <ArrowLeft size={16} /> Todas as matérias
+            <ArrowLeft size={16} /> {translate("Todas as matérias")}
           </button>
           <div className="flex items-center gap-3">
             <span className="text-3xl">{subject.icon_emoji || '📚'}</span>
@@ -664,7 +665,7 @@ export function CodingCurriculum({
             </div>
           </div>
           <div className="mt-3 flex items-center gap-4 text-sm font-semibold text-slate-500">
-            <span>{subject.studied_count}/{subject.topic_count} tópicos estudados</span>
+            <span>{subject.studied_count}/{subject.topic_count} {translate("tópicos estudados")}</span>
             {subject.due_review_count > 0 && (
               <button
                 type="button"
@@ -679,16 +680,16 @@ export function CodingCurriculum({
           </div>
 
           <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-100/70 p-4 dark:border-violet-300/30 dark:bg-violet-400/10">
-            <p className="text-sm font-black text-violet-900 dark:text-violet-100">Resumo da matéria</p>
+            <p className="text-sm font-black text-violet-900 dark:text-violet-100">{translate("Resumo da matéria")}</p>
             <p className="mt-1 text-xs font-bold text-violet-700 dark:text-violet-200">
-              Resume cada tópico e junta tudo em uma folha só. Tópico novo entra sem refazer o resto.
+              {translate("Resume cada tópico e junta tudo em uma folha só. Tópico novo entra sem refazer o resto.")}
             </p>
             <p className="mt-2 rounded-xl border border-violet-200/70 bg-slate-50/90 px-3 py-2 text-xs font-black text-violet-800 dark:border-violet-300/20 dark:bg-slate-950/45 dark:text-violet-100">
               {summaryCreditCost === 0
-                ? 'Nenhum crédito será usado: os resumos já estão prontos.'
+                ? translate("Nenhum crédito será usado: os resumos já estão prontos.")
                 : `Esta ação usará ${summaryCreditCost} ${summaryCreditCost === 1 ? 'crédito' : 'créditos'} de IA.`}
               {aiCredits && !aiCredits.unlimited && summaryCreditCost > 0 && (
-                <span className="ml-1 font-bold text-violet-600 dark:text-violet-200">Você tem {aiCredits.credits} hoje.</span>
+                <span className="ml-1 font-bold text-violet-600 dark:text-violet-200">{translate("Você tem")} {aiCredits.credits} hoje.</span>
               )}
             </p>
             <button
@@ -698,11 +699,11 @@ export function CodingCurriculum({
               className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
             >
               {loadingSummary ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-              {loadingSummary ? summaryProgress || 'Montando o resumo...' : 'Gerar resumo'}
+              {loadingSummary ? summaryProgress || translate("Montando o resumo...") : translate("Gerar resumo")}
             </button>
             {!enoughSummaryCredits && (
               <p role="alert" className="mt-2 text-xs font-bold text-rose-700">
-                Créditos insuficientes para resumir todos os tópicos. Gere por partes ou tente amanhã.
+                {translate("Créditos insuficientes para resumir todos os tópicos. Gere por partes ou tente amanhã.")}
               </p>
             )}
             {summaryError && (
@@ -716,7 +717,7 @@ export function CodingCurriculum({
         {summary && (
           <SummarySheetModal
             subjectName={subject.name}
-            heading="Resumo da matéria"
+            heading={translate("Resumo da matéria")}
             scopeLabel={`${summary.summarized_count} de ${summary.topic_count} tópicos`}
             content={summary.content}
             regenerating={loadingSummary}
@@ -733,7 +734,7 @@ export function CodingCurriculum({
             onClick={() => setShowCreateTopic(true)}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-white px-4 font-black text-slate-500 hover:border-primary hover:text-primary-dark"
           >
-            <Plus size={18} /> Novo tópico
+            <Plus size={18} /> {translate("Novo tópico")}
           </button>
           <button
             type="button"
@@ -742,7 +743,7 @@ export function CodingCurriculum({
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {generatingTopicAI ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            {generatingTopicAI ? 'Gerando tópico...' : 'Gerar tópico por IA'}
+            {generatingTopicAI ? translate("Gerando tópico...") : translate("Gerar tópico por IA")}
           </button>
         </div>
         {topicAIError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{topicAIError}</p>}
@@ -754,7 +755,7 @@ export function CodingCurriculum({
               onClick={() => loadTopics(subject)}
               className="shrink-0 rounded-full bg-rose-600 px-3 py-1 text-xs font-black text-white hover:bg-rose-700"
             >
-              Tentar de novo
+              {translate("Tentar de novo")}
             </button>
           </div>
         )}
@@ -764,8 +765,8 @@ export function CodingCurriculum({
             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-primary" size={28} /></div>
           ) : topics.length === 0 ? (
             <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
-              <p className="font-bold text-slate-500">Nenhum tópico ainda.</p>
-              <p className="mt-1 text-sm text-slate-400">Crie o primeiro tópico do roteiro.</p>
+              <p className="font-bold text-slate-500">{translate("Nenhum tópico ainda.")}</p>
+              <p className="mt-1 text-sm text-slate-400">{translate("Crie o primeiro tópico do roteiro.")}</p>
             </div>
           ) : (
             topics.map((topic, idx) => (
@@ -783,7 +784,7 @@ export function CodingCurriculum({
                   <p className="font-black text-slate-800">
                     {topic.title}
                     {topic.id === newTopicId && (
-                      <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">Novo</span>
+                      <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">{translate("Novo")}</span>
                     )}
                   </p>
                   <p className="text-xs text-slate-400">

@@ -5,40 +5,41 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, BookOpen, Brain, ClipboardList, GraduationCap, Languages, PlayCircle, SpellCheck2 } from 'lucide-react';
 
 import { api, type StudySessionState } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 const studyActions = [
   {
     href: '/lesson',
-    title: 'Lição',
-    description: 'Comece pelas 3 frases por dia em inglês.',
+    title: "Lição",
+    description: "Comece pelas 3 frases por dia em inglês.",
     icon: BookOpen,
     tone: 'text-sky-700 bg-sky-50 border-sky-100',
   },
   {
     href: '/study?tab=english#english-questions',
-    title: 'Questões',
-    description: 'Pratique somente perguntas da lição escolhida.',
+    title: "Questões",
+    description: "Pratique somente perguntas da lição escolhida.",
     icon: ClipboardList,
     tone: 'text-emerald-700 bg-emerald-50 border-emerald-100',
   },
   {
     href: '/study?tab=english#english-grammar',
-    title: 'Gramática',
-    description: 'Treine estruturas das frases de inglês.',
+    title: "Gramática",
+    description: "Treine estruturas das frases de inglês.",
     icon: SpellCheck2,
     tone: 'text-violet-700 bg-violet-50 border-violet-100',
   },
   {
     href: '/review',
-    title: 'Revisão',
-    description: 'Reforce o que precisa voltar hoje.',
+    title: "Revisão",
+    description: "Reforce o que precisa voltar hoje.",
     icon: Brain,
     tone: 'text-amber-700 bg-amber-50 border-amber-100',
   },
   {
     href: '/exams',
-    title: 'Simulado',
-    description: 'Abra uma prova independente quando quiser medir progresso.',
+    title: "Simulado",
+    description: "Abra uma prova independente quando quiser medir progresso.",
     icon: GraduationCap,
     tone: 'text-indigo-700 bg-indigo-50 border-indigo-100',
   },
@@ -79,15 +80,15 @@ export function StudyStartSection() {
     <section className="rounded-[1.6rem] border-2 border-slate-100 bg-white/95 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Iniciar estudo</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-800">Comece pela lição de inglês</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Iniciar estudo")}</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-800">{t("Comece pela lição de inglês")}</h2>
           <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-slate-500">
-            A sugestão para inglês é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.
+            {t("A sugestão para inglês é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.")}
           </p>
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-sm font-black text-slate-600">
           <Languages size={16} />
-          Ingles
+          {t("Inglês")}
         </div>
       </div>
 
@@ -97,10 +98,10 @@ export function StudyStartSection() {
       >
         <span className="inline-flex items-center gap-2 text-base font-black sm:text-lg">
           <PlayCircle size={22} />
-          {hasOpenSession ? 'Continuar de onde parou' : 'Estudar agora'}
+          {hasOpenSession ? t("Continuar de onde parou") : t("Estudar agora")}
         </span>
         <span className="text-xs font-bold uppercase tracking-[0.12em] text-white/85">
-          {hasOpenSession ? `Faltam ${remaining}` : 'Fila do dia'}
+          {hasOpenSession ? `Faltam ${remaining}` : t("Fila do dia")}
         </span>
       </Link>
 
@@ -120,8 +121,8 @@ export function StudyStartSection() {
                 <ArrowRight size={18} className="opacity-70 transition group-hover:translate-x-0.5" />
               </span>
               <span>
-                <span className="block text-base font-black">{action.title}</span>
-                <span className="mt-1 block text-xs font-bold leading-5 opacity-80">{action.description}</span>
+                <span className="block text-base font-black">{t(action.title)}</span>
+                <span className="mt-1 block text-xs font-bold leading-5 opacity-80">{t(action.description)}</span>
               </span>
             </Link>
           );

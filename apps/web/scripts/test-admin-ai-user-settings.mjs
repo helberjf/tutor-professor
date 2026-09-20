@@ -32,7 +32,7 @@ assert.match(adminPage, /type Tab = 'modules' \| 'flashcards' \| 'users' \| 'edi
 assert.match(adminPage, /function UsersTab\(\)/);
 assert.match(adminPage, /api\.adminListUsers\(\)/);
 assert.match(adminPage, /api\.adminSaveUserAISettings/);
-assert.match(adminPage, /placeholder="Cole a nova chave"/);
+assert.match(adminPage, /placeholder=\{t\("Cole a nova chave"\)\}/);
 assert.doesNotMatch(adminPage, /value=\{user\.ai_settings\.api_key/);
 
 console.log('admin AI user settings checks passed.');

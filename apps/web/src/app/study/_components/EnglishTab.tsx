@@ -10,6 +10,7 @@ import type { PomodoroMode } from '@/lib/pomodoro';
 import { formatDateLabel } from '../_lib/study-helpers';
 import { EnglishQuestionsSection } from './EnglishQuestionsSection';
 import { PomodoroWidget } from './shared';
+import { t } from '@/lib/i18n';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENGLISH TAB
@@ -96,8 +97,8 @@ export function EnglishTab({
       <section className="app-surface border-primary/30 p-4 sm:p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Inglês · meta do dia</p>
-            <h1 className="mt-1.5 text-2xl font-black leading-tight text-slate-800 md:text-3xl">3 frases por dia</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Inglês · meta do dia")}</p>
+            <h1 className="mt-1.5 text-2xl font-black leading-tight text-slate-800 md:text-3xl">{t("3 frases por dia")}</h1>
           </div>
           <span
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-black ${
@@ -105,7 +106,7 @@ export function EnglishTab({
             }`}
           >
             {isRegistered ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-            {isRegistered ? 'Registrado' : 'Em aberto'}
+            {isRegistered ? 'Registrado' : t("Em aberto")}
           </span>
         </div>
 
@@ -116,7 +117,7 @@ export function EnglishTab({
             aria-valuenow={goalMet ? phrasesGoal : 0}
             aria-valuemin={0}
             aria-valuemax={phrasesGoal}
-            aria-label="Meta de frases do dia"
+            aria-label={t("Meta de frases do dia")}
           >
             <div className={`h-full rounded-full bg-emerald-400 transition-all duration-500 ${goalMet ? 'w-full' : 'w-0'}`} />
           </div>
@@ -126,10 +127,10 @@ export function EnglishTab({
         </div>
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
           {closedByActivity && !hasStudyText
-            ? 'Meta do dia cumprida estudando. Escrever aqui é opcional.'
+            ? t("Meta do dia cumprida estudando. Escrever aqui é opcional.")
             : goalMet
-              ? 'Meta do dia cumprida. Salve para registrar.'
-              : 'Estude na sessão de hoje ou escreva o que estudou para fechar a meta.'}
+              ? t("Meta do dia cumprida. Salve para registrar.")
+              : t("Estude na sessão de hoje ou escreva o que estudou para fechar a meta.")}
         </p>
 
         {/* The four nested cards became a stat row: same numbers, one card
@@ -139,22 +140,22 @@ export function EnglishTab({
             icon={<Flame size={16} className="text-orange-600" />}
             tint="bg-orange-100"
             value={`${dashboard?.study_streak_count ?? 0}`}
-            label="Dias seguidos"
-            helper={dashboard?.last_study_date ? `Último: ${formatDateLabel(dashboard.last_study_date)}` : 'Comece hoje'}
+            label={t("Dias seguidos")}
+            helper={dashboard?.last_study_date ? `Último: ${formatDateLabel(dashboard.last_study_date)}` : t("Comece hoje")}
           />
           <StatCell
             icon={<ClipboardList size={16} className="text-rose-700" />}
             tint="bg-rose-100"
             value={`${todayDistractionCount}`}
-            label="Distrações"
-            helper="Registradas hoje"
+            label={t("Distrações")}
+            helper={t("Registradas hoje")}
           />
           <StatCell
             icon={<CalendarDays size={16} className="text-sky-700" />}
             tint="bg-sky-100"
             value={formatDateLabel(selectedDate)}
-            label={selectedIsToday ? 'Hoje' : 'Histórico'}
-            helper={selectedIsToday ? 'Dia aberto' : 'Registro anterior'}
+            label={selectedIsToday ? t("Hoje") : 'Histórico'}
+            helper={selectedIsToday ? t("Dia aberto") : t("Registro anterior")}
             compactValue
           />
         </div>
@@ -165,46 +166,46 @@ export function EnglishTab({
         <div className="app-surface border-sky-100 p-5 md:p-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Registro</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Registro")}</p>
               <h2 className="mt-2 text-2xl font-black text-slate-800">{formatDateLabel(selectedDate)}</h2>
             </div>
             {loadingDay ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-500">
-                <Loader2 className="animate-spin" size={16} /> Carregando
+                <Loader2 className="animate-spin" size={16} /> {t("Carregando")}
               </span>
             ) : (
               <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${hasStudyText ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {hasStudyText ? 'Estudo marcado' : 'Planejamento'}
+                {hasStudyText ? t("Estudo marcado") : 'Planejamento'}
               </span>
             )}
           </div>
 
           <div className="mt-6 space-y-5">
             <label className="block">
-              <span className="text-sm font-black text-slate-700">Planejamento para esta data</span>
+              <span className="text-sm font-black text-slate-700">{t("Planejamento para esta data")}</span>
               <textarea value={planText} onChange={(e) => setPlanText(e.target.value)} rows={4} maxLength={2000}
-                placeholder="Ex.: Depois do jantar, revisar 3 frases e ler uma página."
+                placeholder={t("Ex.: Depois do jantar, revisar 3 frases e ler uma página.")}
                 className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
             </label>
 
             <label className="block">
-              <span className="text-sm font-black text-slate-700">O que estudou</span>
+              <span className="text-sm font-black text-slate-700">{t("O que estudou")}</span>
               <textarea value={studiedText} onChange={(e) => setStudiedText(e.target.value)} rows={5} maxLength={3000}
-                placeholder="Ex.: Fiz a lição de greetings, ouvi os áudios e revisei flashcards."
+                placeholder={t("Ex.: Fiz a lição de greetings, ouvi os áudios e revisei flashcards.")}
                 className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
             </label>
 
             <div>
-              <span className="text-sm font-black text-slate-700">Distrações percebidas</span>
+              <span className="text-sm font-black text-slate-700">{t("Distrações percebidas")}</span>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <input
-              aria-label="Celular, video, notificação" value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
+              aria-label={t("Celular, video, notificação")} value={newDistraction} onChange={(e) => setNewDistraction(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistraction(); } }}
-                  maxLength={80} placeholder="Celular, video, notificação..."
+                  maxLength={80} placeholder={t("Celular, video, notificação...")}
                   className="min-h-12 min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 text-base text-slate-700 outline-none transition focus:border-primary" />
                 <button type="button" onClick={addDistraction}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-base font-black text-white transition hover:bg-slate-700">
-                  <Plus size={18} /> Adicionar
+                  <Plus size={18} /> {t("Adicionar")}
                 </button>
               </div>
               {distractions.length > 0 ? (
@@ -220,7 +221,7 @@ export function EnglishTab({
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">Nenhuma distração registrada.</p>
+                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">{t("Nenhuma distração registrada.")}</p>
               )}
             </div>
 
@@ -233,13 +234,13 @@ export function EnglishTab({
 
             {dayLoadFailed && (
               <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-                <p>Não consegui carregar o registro deste dia, então salvar está bloqueado para não apagar o que já estava gravado.</p>
+                <p>{t("Não consegui carregar o registro deste dia, então salvar está bloqueado para não apagar o que já estava gravado.")}</p>
                 <button
                   type="button"
                   onClick={onRetryLoadDay}
                   className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border-2 border-amber-300 px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100"
                 >
-                  <RotateCcw size={14} /> Tentar carregar de novo
+                  <RotateCcw size={14} /> {t("Tentar carregar de novo")}
                 </button>
               </div>
             )}
@@ -247,7 +248,7 @@ export function EnglishTab({
             <button type="button" onClick={onSave} disabled={saving || loadingDay || dayLoadFailed}
               className="app-button w-full bg-primary-dark hover:bg-primary-dark">
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-              Salvar registro
+              {t("Salvar registro")}
             </button>
           </div>
         </div>
@@ -265,14 +266,14 @@ export function EnglishTab({
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700"><BookOpen size={24} /></div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Dica</p>
-                <h2 className="text-xl font-black text-slate-800">Uma coisa por vez</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{t("Dica")}</p>
+                <h2 className="text-xl font-black text-slate-800">{t("Uma coisa por vez")}</h2>
               </div>
             </div>
             <div className="mt-5 space-y-3 text-sm leading-6 text-slate-600">
-              <p>Escreva o plano antes de dormir ou no comeco do dia.</p>
-              <p>Depois do estudo, registre o que realmente fez. Esse campo alimenta os dias seguidos.</p>
-              <p>Use as distrações como observação, sem culpa.</p>
+              <p>{t("Escreva o plano antes de dormir ou no comeco do dia.")}</p>
+              <p>{t("Depois do estudo, registre o que realmente fez. Esse campo alimenta os dias seguidos.")}</p>
+              <p>{t("Use as distrações como observação, sem culpa.")}</p>
             </div>
           </div>
 
@@ -283,11 +284,11 @@ export function EnglishTab({
                 <Sparkles size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">IA</p>
-                <h2 className="text-xl font-black text-slate-800">Criar lição</h2>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">{t("IA")}</p>
+                <h2 className="text-xl font-black text-slate-800">{t("Criar lição")}</h2>
               </div>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">Gere uma nova lição de inglês com inteligência artificial.</p>
+            <p className="mt-4 text-sm leading-6 text-slate-600">{t("Gere uma nova lição de inglês com inteligência artificial.")}</p>
             <button
               type="button"
               onClick={onGenerateLesson}
@@ -295,10 +296,10 @@ export function EnglishTab({
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {generatingLesson ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-              {generatingLesson ? 'Criando lição...' : 'Criar lição com IA'}
+              {generatingLesson ? t("Criando lição...") : t("Criar lição com IA")}
             </button>
             {lessonGenMessage && (
-              <p className={`mt-3 rounded-2xl px-4 py-3 text-sm font-bold ${lessonGenMessage.startsWith('Nova') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+              <p className={`mt-3 rounded-2xl px-4 py-3 text-sm font-bold ${lessonGenMessage.startsWith(t("Nova")) ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                 {lessonGenMessage}
               </p>
             )}
@@ -306,7 +307,7 @@ export function EnglishTab({
 
           {historyDays.length > 0 && (
             <div className="app-surface border-slate-100 p-5 md:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Histórico recente</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Histórico recente")}</p>
               <div className="mt-4 space-y-3">
                 {historyDays.map((item) => (
                   <div key={item.study_date}
@@ -317,7 +318,7 @@ export function EnglishTab({
                         {item.is_study_day ? 'estudou' : 'plano'}
                       </span>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{item.studied_text || item.plan_text || 'Sem anotacoes.'}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{item.studied_text || item.plan_text || t("Sem anotacoes.")}</p>
                   </div>
                 ))}
               </div>

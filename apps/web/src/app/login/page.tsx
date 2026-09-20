@@ -6,6 +6,7 @@ import { useState, Suspense } from 'react';
 import { ArrowLeft, Chrome, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 
 import { ApiError, api } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 /** Where to land after signing in.
  *
@@ -71,10 +72,10 @@ function LoginForm() {
       // do servidor em vez de "senha incorreta" evita a pessoa insistir à toa.
       const message =
         err instanceof ApiError && err.status === 401
-          ? 'E-mail ou senha incorretos.'
+          ? t("E-mail ou senha incorretos.")
           : err instanceof ApiError
-            ? (err.detail ?? 'Não foi possível entrar.')
-            : 'Não foi possível entrar.';
+            ? (err.detail ?? t("Não foi possível entrar."))
+            : t("Não foi possível entrar.");
       setError(message);
       setLockedOut(err instanceof ApiError && err.status === 429);
     } finally {
@@ -91,7 +92,7 @@ function LoginForm() {
       const message =
         err instanceof ApiError
           ? (err.detail ?? err.message)
-          : 'Não foi possível iniciar o login com Google.';
+          : t("Não foi possível iniciar o login com Google.");
       setError(message);
       setGoogleLoading(false);
     }
@@ -109,7 +110,7 @@ function LoginForm() {
           className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-primary-dark"
         >
           <ArrowLeft size={16} />
-          Voltar ao início
+          {t("Voltar ao início")}
         </Link>
       </div>
 
@@ -120,12 +121,12 @@ function LoginForm() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-gradient-to-br from-sky-100 via-amber-50 to-emerald-100 shadow-[0_16px_40px_rgba(14,165,233,0.15)]">
             <ShieldCheck className="text-primary-dark" size={32} />
           </div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">Área restrita</p>
-          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">Entrar na sua conta</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-400">{t("Área restrita")}</p>
+          <h1 className="mt-2 text-3xl font-black text-slate-800 md:text-4xl">{t("Entrar na sua conta")}</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Não tem conta?{' '}
+            {t("Não tem conta?")}{' '}
             <Link href="/register" className="font-bold text-primary hover:underline">
-              Cadastrar
+              {t("Cadastrar")}
             </Link>
           </p>
         </div>
@@ -138,12 +139,12 @@ function LoginForm() {
             className="mb-5 flex w-full items-center justify-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-primary hover:text-primary disabled:opacity-60"
           >
             <Chrome size={18} />
-            {googleLoading ? 'Abrindo Google…' : 'Entrar com Google'}
+            {googleLoading ? t("Abrindo Google…") : t("Entrar com Google")}
           </button>
 
           <div className="mb-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">ou</span>
+            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-300">{t("ou")}</span>
             <div className="h-px flex-1 bg-slate-200" />
           </div>
 
@@ -151,7 +152,7 @@ function LoginForm() {
             {/* Email */}
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
-                E-mail
+                {t("E-mail")}
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -162,7 +163,7 @@ function LoginForm() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
+                  placeholder={t("seu@email.com")}
                   autoComplete="email"
                   disabled={loading}
                   className={inputCls}
@@ -173,7 +174,7 @@ function LoginForm() {
             {/* Password */}
             <div className="space-y-1.5">
               <label htmlFor="password" className="block text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
-                Senha
+                {t("Senha")}
               </label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -184,7 +185,7 @@ function LoginForm() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha"
+                  placeholder={t("Sua senha")}
                   autoComplete="current-password"
                   disabled={loading}
                   className={`${inputCls} pr-11`}
@@ -194,7 +195,7 @@ function LoginForm() {
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition hover:text-slate-600"
                   tabIndex={-1}
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-label={showPassword ? t("Ocultar senha") : t("Mostrar senha")}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -219,12 +220,12 @@ function LoginForm() {
               disabled={loading || lockedOut || !email.trim() || !password}
               className="app-button w-full bg-primary-dark hover:bg-primary-dark"
             >
-              {loading ? 'Entrando…' : 'Entrar'}
+              {loading ? 'Entrando…' : t("Entrar")}
             </button>
 
             <p className="text-center text-sm font-semibold text-slate-500">
               <Link href="/forgot-password" className="font-bold text-primary hover:underline">
-                Esqueci minha senha
+                {t("Esqueci minha senha")}
               </Link>
             </p>
           </form>

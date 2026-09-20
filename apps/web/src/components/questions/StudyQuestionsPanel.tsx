@@ -7,6 +7,7 @@ import { api, type StudyQuestion, type StudyQuestionTarget } from '@/lib/api';
 import { buildPracticeQueue, countPending } from '@/lib/question-queue';
 
 import { PracticeQuestionsModal } from './PracticeQuestionsModal';
+import { t } from '@/lib/i18n';
 
 /** Below this many unanswered questions, the topic is topped up in the background. */
 const PREFETCH_THRESHOLD = 3;
@@ -90,7 +91,7 @@ export function StudyQuestionsPanel({
       setQuestions(loaded);
     } catch {
       if (requestId !== loadRequestRef.current || !mountedRef.current) return;
-      setLoadError('Não foi possível carregar as questões desta lição.');
+      setLoadError(t("Não foi possível carregar as questões desta lição."));
     } finally {
       if (requestId === loadRequestRef.current && mountedRef.current) setLoading(false);
     }
@@ -124,7 +125,7 @@ export function StudyQuestionsPanel({
       setContext('');
     } catch (error) {
       if (!mountedRef.current) return;
-      setActionError(error instanceof Error ? error.message : 'Não foi possível gerar as questões.');
+      setActionError(error instanceof Error ? error.message : t("Não foi possível gerar as questões."));
     } finally {
       if (mountedRef.current) setGenerating(false);
     }
@@ -197,14 +198,14 @@ export function StudyQuestionsPanel({
         <div className="min-w-0">
           <h3 className={`flex items-center gap-2 font-black ${palette.title}`}>
             <ClipboardList size={18} />
-            Modo questões ({countLabel})
+            {t("Modo questões (")}{countLabel})
           </h3>
           <p className={`mt-1 text-xs font-bold ${palette.helper}`}>
             {!hasQuestions
-              ? emptyHint || 'Gere questões de múltipla escolha para fazer o simulado desta lição.'
+              ? emptyHint || t("Gere questões de múltipla escolha para fazer o simulado desta lição.")
               : pendingCount > 0
-                ? `${pendingCount} ${pendingCount === 1 ? 'questão' : 'questões'} para praticar. Começa pelas que você ainda não respondeu ou errou.`
-                : 'Você já acertou todas duas vezes. Gere novas questões ou refaça as antigas.'}
+                ? `${pendingCount} ${pendingCount === 1 ? t("questão") : t("questões")} para praticar. Começa pelas que você ainda não respondeu ou errou.`
+                : t("Você já acertou todas duas vezes. Gere novas questões ou refaça as antigas.")}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -218,7 +219,7 @@ export function StudyQuestionsPanel({
             className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-black text-white disabled:opacity-50 ${palette.primary}`}
           >
             <ClipboardList size={15} />
-            {pendingCount > 0 ? `Praticar o que falta (${pendingCount})` : 'Nada pendente'}
+            {pendingCount > 0 ? `Praticar o que falta (${pendingCount})` : t("Nada pendente")}
           </button>
           {hasQuestions && (
             <button
@@ -231,7 +232,7 @@ export function StudyQuestionsPanel({
               className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${palette.secondary}`}
             >
               <RotateCcw size={15} />
-              Refazer todas
+              {t("Refazer todas")}
             </button>
           )}
           <button
@@ -245,7 +246,7 @@ export function StudyQuestionsPanel({
             className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${palette.secondary}`}
           >
             {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-            Gerar questões
+            {t("Gerar questões")}
           </button>
         </div>
       </div>
@@ -259,7 +260,7 @@ export function StudyQuestionsPanel({
             disabled={loading}
             className="mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
           >
-            Recarregar questões
+            {t("Recarregar questões")}
           </button>
         </div>
       )}
@@ -267,11 +268,11 @@ export function StudyQuestionsPanel({
       {showContextForm && (
         <div className="mt-4 space-y-3 rounded-2xl border-2 border-white bg-white p-4">
           <label className="block">
-            <span className={`text-sm font-black ${palette.title}`}>Foco das novas questões</span>
+            <span className={`text-sm font-black ${palette.title}`}>{t("Foco das novas questões")}</span>
             <textarea
               value={context}
               onChange={(event) => setContext(event.target.value)}
-              placeholder="Ex.: questões estilo prova, cenários práticos, pegadinhas comuns..."
+              placeholder={t("Ex.: questões estilo prova, cenários práticos, pegadinhas comuns...")}
               maxLength={contextMaxLength}
               rows={3}
               className={`mt-2 w-full resize-none rounded-2xl border-2 px-3 py-2 text-sm text-slate-700 outline-none ${palette.field}`}
@@ -288,7 +289,7 @@ export function StudyQuestionsPanel({
               disabled={generating}
               className={`rounded-2xl border-2 bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${palette.secondary}`}
             >
-              Cancelar
+              {t("Cancelar")}
             </button>
             <button
               type="button"
@@ -297,12 +298,12 @@ export function StudyQuestionsPanel({
               className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-black text-white disabled:opacity-50 ${palette.primary}`}
             >
               {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              {generating ? 'Gerando questões...' : 'Criar 5 questões'}
+              {generating ? t("Gerando questões...") : t("Criar 5 questões")}
             </button>
           </div>
           {generationContextPrefix ? (
             <p className={`text-xs font-bold ${palette.helper}`}>
-              Este modo já inclui uma orientação automática. Você ainda pode acrescentar até {contextMaxLength} caracteres.
+              {t("Este modo já inclui uma orientação automática. Você ainda pode acrescentar até")} {contextMaxLength} caracteres.
             </p>
           ) : null}
         </div>

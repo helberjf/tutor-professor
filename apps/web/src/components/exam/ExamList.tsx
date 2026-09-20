@@ -8,6 +8,7 @@ import { api, type ExamAttemptStart, type ExamOverview } from '@/lib/api';
 
 import { ExamRunner } from './ExamRunner';
 import { SubjectExamBuilder } from './SubjectExamBuilder';
+import { t } from '@/lib/i18n';
 
 /** The simulado mode: build one from any subject, sit it, see the percentage at the end. */
 export function ExamList() {
@@ -24,7 +25,7 @@ export function ExamList() {
     try {
       setExams(await api.getExams());
     } catch {
-      setLoadError('Não foi possível carregar os simulados.');
+      setLoadError(t("Não foi possível carregar os simulados."));
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ export function ExamList() {
     try {
       setSession(await api.startExamAttempt(examId));
     } catch (err) {
-      setStartError(err instanceof Error ? err.message : 'Não foi possível começar o simulado.');
+      setStartError(err instanceof Error ? err.message : t("Não foi possível começar o simulado."));
     } finally {
       setStartingId(null);
     }
@@ -109,7 +110,7 @@ function ExamCards({
           onClick={onRetry}
           className="mt-2 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-black text-white hover:bg-rose-700"
         >
-          Tentar de novo
+          {t("Tentar de novo")}
         </button>
       </div>
     );
@@ -118,10 +119,9 @@ function ExamCards({
   if (exams.length === 0) {
     return (
       <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
-        <p className="font-black text-slate-600">Nenhum simulado ainda.</p>
+        <p className="font-black text-slate-600">{t("Nenhum simulado ainda.")}</p>
         <p className="mt-1 text-sm text-slate-400">
-          Escolha uma matéria acima para montar o primeiro. O simulado usa um acervo separado do modo questões, feito
-          para você medir como está indo.
+          {t("Escolha uma matéria acima para montar o primeiro. O simulado usa um acervo separado do modo questões, feito para você medir como está indo.")}
         </p>
       </div>
     );
@@ -156,7 +156,7 @@ function ExamCards({
                 </h3>
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm font-bold text-slate-500">
                   <span className="inline-flex items-center gap-1.5">
-                    <Play size={14} /> {drawn} questões
+                    <Play size={14} /> {drawn} {t("questões")}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <Timer size={14} /> {exam.duration_minutes} min
@@ -170,12 +170,12 @@ function ExamCards({
                 </div>
                 {thin && (
                   <p className="mt-2 text-xs font-bold text-amber-700">
-                    O acervo tem {poolSize} questões, menos que as {exam.question_count} do formato — a prova sai com {drawn}.
+                    {t("O acervo tem")} {poolSize} {t("questões, menos que as")} {exam.question_count} {t("do formato — a prova sai com")} {drawn}.
                   </p>
                 )}
                 {open && (
                   <p className="mt-2 text-xs font-black text-indigo-700">
-                    Simulado em andamento
+                    {t("Simulado em andamento")}
                     {activeLeft !== null && activeLeft > 0
                       ? ` · ${formatClock(activeLeft)} restantes`
                       : ' · o tempo acabou, abra para ver o resultado'}
@@ -191,7 +191,7 @@ function ExamCards({
                 }`}
               >
                 {startingId === exam.id ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />}
-                {open ? 'Continuar simulado' : 'Fazer simulado'}
+                {open ? t("Continuar simulado") : t("Fazer simulado")}
               </button>
             </div>
           </article>

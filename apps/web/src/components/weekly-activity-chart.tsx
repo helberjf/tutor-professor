@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
+import { t } from '@/lib/i18n';
 
 // Utility function to get Portuguese day abbreviation
 const getDayLabel = (date: Date): string => {
@@ -23,17 +24,17 @@ const COLORS_BY_TYPE: Record<string, string> = {
 
 function getTypeLabel(type: string) {
   const labels: Record<string, string> = {
-    lesson: 'Lição',
-    review: 'Revisão',
-    coding: 'Programação',
+    lesson: t("Lição"),
+    review: t("Revisão"),
+    coding: t("Programação"),
     leetcode: 'LeetCode',
-    question: 'Questões',
-    exam: 'Simulados',
-    objective: 'Objetivos',
+    question: t("Questões"),
+    exam: t("Simulados"),
+    objective: t("Objetivos"),
     chat: 'Conversas',
   };
 
-  return labels[type] || type.replace(/_/g, ' ');
+  return t(labels[type] || type.replace(/_/g, ' '));
 }
 
 interface ActivityBar {
@@ -77,7 +78,7 @@ export function WeeklyActivityChart() {
         if (err instanceof ApiError) {
           setError(`Erro: ${err.message}`);
         } else {
-          setError('Erro ao carregar dados');
+          setError(t("Erro ao carregar dados"));
         }
       } finally {
         setLoading(false);
@@ -121,8 +122,8 @@ export function WeeklyActivityChart() {
     <div className="rounded-xl border-2 border-slate-200 bg-white p-6">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-black text-slate-800">Atividades da Semana</h2>
-        <p className="text-sm text-slate-600">Últimos 7 dias</p>
+        <h2 className="text-2xl font-black text-slate-800">{t("Atividades da Semana")}</h2>
+        <p className="text-sm text-slate-600">{t("Últimos 7 dias")}</p>
       </div>
 
       {/* Chart */}
