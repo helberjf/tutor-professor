@@ -1573,6 +1573,13 @@ def count_child_answered_questions(session: Session, child_id: int) -> tuple[int
       - lição mini-activity and revisão  -> ReviewItem attempt counters
       - quiz                             -> QuizAttempt
       - simulado                         -> finished ExamAttempt
+      - modo questões (idioma/diversas)  -> StudyQuestion attempt counters
+      - modo questões (programação)      -> ProgrammingQuestion attempt counters
+
+    The last two used to be missing, which made one guided session move the
+    level for some of its cards and not for others: the review cards counted and
+    the question cards did not, even though the child answered both the same
+    way. Every surface counts here now, exactly as the ladder above promises.
     """
     answered = 0
     correct = 0
@@ -1603,6 +1610,18 @@ def count_child_answered_questions(session: Session, child_id: int) -> tuple[int
     for attempt in exam_attempts:
         answered += attempt.question_count or 0
         correct += attempt.correct_count or 0
+
+    # The two question banks keep their own counters per row, so a sum is enough
+    # and there is no need to pull every question the child has ever seen.
+    for model in (StudyQuestion, ProgrammingQuestion):
+        attempts, hits = session.exec(
+            select(
+                func.coalesce(func.sum(model.attempt_count), 0),
+                func.coalesce(func.sum(model.correct_count), 0),
+            ).where(model.child_id == child_id)
+        ).one()
+        answered += int(attempts or 0)
+        correct += int(hits or 0)
 
     return answered, correct
 
@@ -1995,6 +2014,61 @@ def update_streak(child: ChildProfile, now: datetime) -> None:
     child.last_activity = now
 
 
+# The topic statuses worth a line in the day's log, and how to say them. Going
+# back to "not_started" is a correction, not study, so it is absent here.
+TOPIC_STATUS_PROGRESS_LABELS = {
+    "studied": "Tópico estudado",
+    "mastered": "Tópico dominado",
+}
+
+# Which objective area each kind of activity credits. Studying is supposed to
+# move the objectives on its own, and this is the single table that says how.
+# "study" (the written day note) and "objective" itself are absent on purpose:
+# the first is not tied to any area, and the second would credit the very
+# milestone it reports.
+ACTIVITY_TYPE_TO_OBJECTIVE_AREA = {
+    "lesson": "language",
+    "quiz": "language",
+    "review": "language",
+    "exam": "exam",
+    "diverse": "diverse",
+    "chat": "language",
+    "coding": "coding",
+    "coding_review": "coding",
+    "flashcard": "coding",
+    "leetcode": "coding",
+    "coding_topic": "coding",
+}
+
+
+def objective_area_for_activity(activity_type: str, result_details: dict | None) -> str | None:
+    """The objective area one logged activity counts towards, if any."""
+
+    if activity_type == "question":
+        # A question carries the area it came from, because the same endpoint
+        # serves idiomas, matérias gerais and programação.
+        details = result_details if isinstance(result_details, dict) else {}
+        raw_area = str(details.get("area") or "").strip()
+        if raw_area == "coding":
+            return "coding"
+        return STUDY_QUESTION_AREA_TO_OBJECTIVE.get(raw_area)
+    return ACTIVITY_TYPE_TO_OBJECTIVE_AREA.get(activity_type)
+
+
+def has_activity_on(session: Session, *, child_id: int, activity_type: str, day: date) -> bool:
+    """Whether one kind of activity is already recorded for that day."""
+
+    return session.exec(
+        select(DailyActivity.id)
+        .where(
+            DailyActivity.child_id == child_id,
+            DailyActivity.activity_type == activity_type,
+            DailyActivity.activity_date == day,
+        )
+        .limit(1)
+    ).first() is not None
+
+
 def add_daily_activity(
     session: Session,
     *,
@@ -2018,6 +2092,15 @@ def add_daily_activity(
         duration_seconds=duration_seconds,
     )
     session.add(activity)
+
+    # Every study event passes through here, so this is the one place that has
+    # to know that studying advances the objectives. Doing it at each of the
+    # fourteen call sites would mean the next one added forgets.
+    credit_objective_area(
+        session,
+        child_id=child_id,
+        area=objective_area_for_activity(activity_type, result_details),
+    )
     return activity
 
 
@@ -2843,25 +2926,37 @@ def count_activities_by_date(
     *,
     child_id: int,
     dates: Iterable[date],
+    coding_enabled: bool = True,
 ) -> dict[date, int]:
-    """How many activities each of `dates` holds, in one query.
+    """How many *visible* activities each of `dates` holds, in one query.
 
     The study day needs this to close itself: a child who answered a queue has
     studied whether or not anybody wrote a line about it.
+
+    Activities the account cannot see are not counted, because the alternative
+    is a day the dashboard calls empty and the study day calls closed — the two
+    numbers come from the same rows and have to agree on which rows those are.
     """
 
     wanted = list({value for value in dates if value is not None})
     if not wanted:
         return {}
     rows = session.exec(
-        select(DailyActivity.activity_date, func.count(DailyActivity.id))
-        .where(
+        select(
+            DailyActivity.activity_date,
+            DailyActivity.activity_type,
+            DailyActivity.result_details,
+        ).where(
             DailyActivity.child_id == child_id,
             DailyActivity.activity_date.in_(wanted),
         )
-        .group_by(DailyActivity.activity_date)
     ).all()
-    return {row[0]: int(row[1] or 0) for row in rows}
+    counts: dict[date, int] = {}
+    for activity_date, activity_type, result_details in rows:
+        if normalized_activity_type(activity_type, result_details, coding_enabled=coding_enabled) is None:
+            continue
+        counts[activity_date] = counts.get(activity_date, 0) + 1
+    return counts
 
 
 def build_study_day_schema(
@@ -2942,8 +3037,17 @@ def build_question_subject_metrics(session: Session, child_id: int) -> list[Ques
     return metrics
 
 
-def compute_study_streak(session: Session, child_id: int) -> tuple[int, date | None]:
-    """Consecutive days studied, counting days closed by doing rather than writing."""
+def compute_study_streak(
+    session: Session,
+    child_id: int,
+    *,
+    coding_enabled: bool = True,
+) -> tuple[int, date | None]:
+    """Consecutive days studied, counting days closed by doing rather than writing.
+
+    A day held up only by activities the account cannot see does not count: the
+    streak has to be explainable by the same feed the learner is looking at.
+    """
 
     records = session.exec(
         select(StudyDay)
@@ -2956,11 +3060,15 @@ def compute_study_streak(session: Session, child_id: int) -> tuple[int, date | N
         if (record.studied_text or "").strip() or record.auto_completed_at is not None
     }
     studied.update(
-        session.exec(
-            select(DailyActivity.activity_date)
-            .where(DailyActivity.child_id == child_id)
-            .distinct()
+        activity_date
+        for activity_date, activity_type, result_details in session.exec(
+            select(
+                DailyActivity.activity_date,
+                DailyActivity.activity_type,
+                DailyActivity.result_details,
+            ).where(DailyActivity.child_id == child_id)
         ).all()
+        if normalized_activity_type(activity_type, result_details, coding_enabled=coding_enabled) is not None
     )
     study_dates = sorted(studied, reverse=True)
     if not study_dates:
@@ -2998,11 +3106,15 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
         .order_by(StudyDay.study_date.desc())
         .limit(30)
     ).all()
-    streak_count, last_study_date = compute_study_streak(session=session, child_id=child_id)
+    coding_enabled = account_has_coding_enabled(request, session)
+    streak_count, last_study_date = compute_study_streak(
+        session=session, child_id=child_id, coding_enabled=coding_enabled
+    )
     activity_counts = count_activities_by_date(
         session,
         child_id=child_id,
         dates=[today, *(record.study_date for record in recent_records)],
+        coding_enabled=coding_enabled,
     )
 
     return StudyDashboardSchema(
@@ -3033,7 +3145,12 @@ def get_study_day(
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
     record = get_study_day_record(session=session, child_id=child_id, target_date=study_date)
-    activity_counts = count_activities_by_date(session, child_id=child_id, dates=[study_date])
+    activity_counts = count_activities_by_date(
+        session,
+        child_id=child_id,
+        dates=[study_date],
+        coding_enabled=account_has_coding_enabled(request, session),
+    )
     return build_study_day_schema(
         record, study_date, activity_count=activity_counts.get(study_date, 0)
     )
@@ -3089,7 +3206,12 @@ def upsert_study_day(
     session.add(record)
     session.commit()
     session.refresh(record)
-    activity_counts = count_activities_by_date(session, child_id=child_id, dates=[record.study_date])
+    activity_counts = count_activities_by_date(
+        session,
+        child_id=child_id,
+        dates=[record.study_date],
+        coding_enabled=account_has_coding_enabled(request, session),
+    )
     return build_study_day_schema(
         record, record.study_date, activity_count=activity_counts.get(record.study_date, 0)
     )
@@ -5510,6 +5632,22 @@ async def chat_with_tutor(
         history=payload.history,
         session=session,
     )
+
+    # Talking to the tutor is practice, and it used to leave the day's log
+    # empty. One line a day rather than one per message: a conversation is a
+    # single study block, and a row per turn would bury everything else in it.
+    today = activity_today()
+    if not has_activity_on(session, child_id=child.id or 0, activity_type="chat", day=today):
+        add_daily_activity(
+            session,
+            child_id=child.id or 0,
+            activity_type="chat",
+            activity_title="Conversa com o tutor",
+            activity_date=today,
+            result_details={"subject_name": child.target_language},
+        )
+        session.commit()
+
     audio_url = None
     if child.auto_audio:
         audio_file = await tts_service.generate_speech(
@@ -6881,6 +7019,7 @@ def update_coding_topic(
         topic.title = payload.title.strip()
     if payload.order_index is not None:
         topic.order_index = payload.order_index
+    previous_status = topic.status
     if payload.status is not None:
         if payload.status not in VALID_TOPIC_STATUSES:
             raise HTTPException(status_code=422, detail="Status inválido. Use: not_started, studied, mastered.")
@@ -6891,6 +7030,29 @@ def update_coding_topic(
         topic.ai_content = payload.ai_content
     topic.updated_at = datetime.utcnow()
     session.add(topic)
+
+    # Saying "já estudei isto" is a deliberate act of studying, and it used to
+    # leave no trace at all: the day's log and the heatmap stayed empty for it.
+    # Only forward moves are logged, so correcting a status back does not write
+    # a second event.
+    if topic.status != previous_status and topic.status in TOPIC_STATUS_PROGRESS_LABELS:
+        add_daily_activity(
+            session,
+            child_id=child.id or 0,
+            activity_type="coding_topic",
+            activity_title=(
+                f"{TOPIC_STATUS_PROGRESS_LABELS[topic.status]}: {topic.title}"
+            ),
+            activity_id=topic.id,
+            result_details={
+                "subject_id": subject.id,
+                "subject_name": subject.name,
+                "topic_id": topic.id,
+                "topic_name": topic.title,
+                "status": topic.status,
+                "previous_status": previous_status,
+            },
+        )
     session.commit()
     session.refresh(topic)
     return _programming_topic_schema(session, topic)
@@ -10551,24 +10713,43 @@ FEYNMAN_ACTIVITY_TYPES = {
     "question": "question",
     "review": "review",
     "exam": "exam",
+    # Practising with the tutor. Logged once a day, so this is a study block
+    # like the others rather than a row per message.
+    "chat": "chat",
     # Reaching an objective is a milestone, not a study block: it carries no
     # duration, but the day it happened belongs in the feed.
     "objective": "objective",
 }
-CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard"}
+CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard", "coding_topic"}
 
 
-def activity_view_type(activity: DailyActivity, *, coding_enabled: bool) -> str | None:
-    """Project a stored event into the small set of dashboard categories."""
+def normalized_activity_type(
+    activity_type: str,
+    result_details: object,
+    *,
+    coding_enabled: bool,
+) -> str | None:
+    """Project one stored event into the small set of dashboard categories.
 
-    activity_type = activity.activity_type
-    details = activity.result_details if isinstance(activity.result_details, dict) else {}
+    Takes the two raw columns rather than the row so the streak and the study
+    day can apply the same visibility rule without loading whole objects.
+    """
+
+    details = result_details if isinstance(result_details, dict) else {}
     is_coding_question = activity_type == "question" and details.get("area") == "coding"
     if activity_type == "leetcode":
         return "leetcode" if coding_enabled else None
     if activity_type in CODING_ACTIVITY_TYPES or is_coding_question:
         return "coding" if coding_enabled else None
     return FEYNMAN_ACTIVITY_TYPES.get(activity_type)
+
+
+def activity_view_type(activity: DailyActivity, *, coding_enabled: bool) -> str | None:
+    return normalized_activity_type(
+        activity.activity_type,
+        activity.result_details,
+        coding_enabled=coding_enabled,
+    )
 
 
 def activity_view_title(activity: DailyActivity) -> str:
@@ -10666,6 +10847,7 @@ def build_daily_activity_summary(
     *,
     coding_enabled: bool = False,
     include_activities: bool = True,
+    pomodoro_count: int = 0,
 ) -> DailyActivitySummarySchema:
     visible_activities: list[DailyActivitySchema] = []
     visible_raw_activities: list[DailyActivity] = []
@@ -10703,6 +10885,7 @@ def build_daily_activity_summary(
         average_score=(sum(scored_values) / len(scored_values)) if scored_values else None,
         first_activity_at=visible_activities[0].created_at if visible_activities else None,
         last_activity_at=visible_activities[-1].created_at if visible_activities else None,
+        pomodoro_count=pomodoro_count,
         **activity_metrics,
     )
 
@@ -10805,12 +10988,22 @@ def get_week_activities(
 @app.get("/api/activity/month", response_model=list[DailyActivitySummarySchema])
 def get_month_activities(
     request: Request,
+    end_date: date | None = Query(
+        default=None,
+        description="Last day of the 30-day window. Defaults to today; earlier dates walk the history back.",
+    ),
     child_id: int = Depends(get_child_id_from_session),
     session: Session = Depends(get_session),
 ) -> list[DailyActivitySummarySchema]:
-    """Return one complete activity summary for each of the last 30 local days."""
+    """Return one complete activity summary for each of 30 local days.
 
-    today = activity_today()
+    The window ends today unless the caller asks for an earlier day, which is
+    what lets the history be walked back a month at a time instead of stopping
+    dead 30 days ago. A future end date is clamped to today: there is nothing
+    to report for a day that has not happened.
+    """
+
+    today = min(end_date or activity_today(), activity_today())
     start_date = today - timedelta(days=29)
     activities = session.exec(
         select(DailyActivity)
@@ -10824,6 +11017,16 @@ def get_month_activities(
     by_date: dict[date, list[DailyActivity]] = {}
     for activity in activities:
         by_date.setdefault(activity.activity_date, []).append(activity)
+    pomodoros_by_date = {
+        study_date: int(count or 0)
+        for study_date, count in session.exec(
+            select(StudyDay.study_date, StudyDay.pomodoro_count).where(
+                StudyDay.child_id == child_id,
+                StudyDay.study_date >= start_date,
+                StudyDay.study_date <= today,
+            )
+        ).all()
+    }
     coding_enabled = account_has_coding_enabled(request, session)
     return [
         build_daily_activity_summary(
@@ -10831,6 +11034,7 @@ def get_month_activities(
             by_date.get(current_date, []),
             coding_enabled=coding_enabled,
             include_activities=False,
+            pomodoro_count=pomodoros_by_date.get(current_date, 0),
         )
         for current_date in (start_date + timedelta(days=offset) for offset in range(30))
     ]
@@ -10990,6 +11194,95 @@ def sync_objective_achievement(
         )
     elif not reached and objective.achieved_at is not None:
         objective.achieved_at = None
+
+
+# Which objective area each kind of study credits. `free` is deliberately
+# absent: an item the learner wrote as "ler o capítulo 3" has no event in the
+# app that could stand for it, and guessing would check off the wrong line.
+STUDY_QUESTION_AREA_TO_OBJECTIVE = {"english": "language", "diverse": "diverse"}
+AUTO_CREDITABLE_OBJECTIVE_AREAS = {"language", "coding", "diverse", "exam"}
+
+
+def credit_objective_area(
+    session: Session,
+    *,
+    child_id: int,
+    area: str | None,
+) -> ObjectiveItem | None:
+    """Check off the next open item of ``area``, so studying moves the goal.
+
+    The learner still writes the checklist; this only decides *when* its next
+    line is done. Two rules keep the percentage honest:
+
+    * one item per area per day. Any finer and a single quiz would tick off a
+      whole objective in one sitting — twenty answers are one study block, not
+      twenty milestones. Any coarser and the list would never move on its own,
+      which is the complaint this answers.
+    * always the first item still open, in the order the learner arranged, so
+      the objective advances down the list instead of sideways.
+
+    Returns the item it credited, or None when nothing was owed today.
+    """
+
+    if area not in AUTO_CREDITABLE_OBJECTIVE_AREAS:
+        return None
+
+    today = activity_today()
+    # Only the newest few matter: the question is whether *any* item of this
+    # area was already credited today, not how many ever were.
+    recently_credited = session.exec(
+        select(ObjectiveItem)
+        .where(
+            ObjectiveItem.child_id == child_id,
+            ObjectiveItem.area == area,
+            ObjectiveItem.auto_completed == True,  # noqa: E712 - SQL, not Python
+            ObjectiveItem.completed_at != None,  # noqa: E711 - SQL, not Python
+        )
+        .order_by(ObjectiveItem.completed_at.desc())
+        .limit(5)
+    ).all()
+    if any(activity_date_for(item.completed_at) == today for item in recently_credited):
+        return None
+
+    hidden_plans = archived_plan_ids(session, child_id)
+    objectives = [
+        objective
+        for objective in sorted_objectives(
+            session.exec(
+                select(Objective).where(
+                    Objective.child_id == child_id,
+                    Objective.status == OBJECTIVE_ACTIVE,
+                )
+            ).all()
+        )
+        if objective.plan_id not in hidden_plans
+    ]
+    if not objectives:
+        return None
+
+    for objective in objectives:
+        pending = [
+            item
+            for item in objective_items_for(session, objective.id or 0)
+            if item.area == area and not item.done
+        ]
+        if not pending:
+            continue
+
+        item = pending[0]
+        item.done = True
+        item.completed_at = datetime.utcnow()
+        item.auto_completed = True
+        objective.updated_at = item.completed_at
+        session.add(item)
+        session.add(objective)
+        session.flush()
+        sync_objective_achievement(
+            session, objective, objective_items_for(session, objective.id or 0)
+        )
+        return item
+
+    return None
 
 
 def require_owned_objective(session: Session, *, objective_id: int, child_id: int) -> Objective:
@@ -11275,6 +11568,9 @@ def update_objective_item(
     if payload.done is not None and payload.done != item.done:
         item.done = payload.done
         item.completed_at = datetime.utcnow() if payload.done else None
+        # Touching the checkbox by hand makes it the learner's call either way,
+        # so the "concluído estudando" badge stops applying.
+        item.auto_completed = False
     session.add(item)
     objective.updated_at = datetime.utcnow()
     session.add(objective)
@@ -11432,7 +11728,9 @@ def learner_snapshot_for(
     modules = resolve_modules(user.enabled_modules if user else None)
     child_id = child.id or 0
 
-    streak, last_study_date = compute_study_streak(session, child_id)
+    streak, last_study_date = compute_study_streak(
+        session, child_id, coding_enabled=modules["coding"]
+    )
     since = activity_today() - timedelta(days=29)
     recent = session.exec(
         select(DailyActivity).where(

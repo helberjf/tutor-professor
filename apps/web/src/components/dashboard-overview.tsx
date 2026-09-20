@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BookOpen, ClipboardList, Clock, Flame, Timer } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, ClipboardList, Clock, Flame, Timer } from 'lucide-react';
 import { api, type ActivityPeriod, type ActivityPeriodSummary, type DailyActivitySummarySchema, type StudyDashboard, type StudyDay } from '@/lib/api';
 
 function getLocalDateValue(date = new Date()) {
@@ -28,12 +28,22 @@ export function DashboardOverview({
   const [activityPeriod, setActivityPeriod] = useState<ActivityPeriod>('year');
   const [periodSummary, setPeriodSummary] = useState<ActivityPeriodSummary | null>(null);
   const [periodLoading, setPeriodLoading] = useState(true);
+  // How many 30-day windows back the calendars below are showing. Zero is the
+  // window ending today; the history used to stop dead at that edge.
+  const [windowOffset, setWindowOffset] = useState(0);
+
+  const windowEndDate = useMemo(() => {
+    if (windowOffset === 0) return null;
+    const end = new Date();
+    end.setDate(end.getDate() - windowOffset * 30);
+    return getLocalDateValue(end);
+  }, [windowOffset]);
 
   useEffect(() => {
     let cancelled = false;
     const loadMonth = async () => {
       try {
-        const data = await api.getActivityMonth();
+        const data = await api.getActivityMonth(windowEndDate ?? undefined);
         if (!cancelled) setActivityMonth(data);
       } catch {
         // Keep the existing StudyDay fallback if the activity feed is offline.
@@ -50,7 +60,7 @@ export function DashboardOverview({
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, []);
+  }, [windowEndDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +106,9 @@ export function DashboardOverview({
       const backend = backendMap.get(key);
       const activity = activityMap.get(key);
       const localCount = pomodoroState.completedByDate[key] ?? 0;
-      const backendCount = backend?.pomodoro_count ?? 0;
+      // The study-day rows the dashboard ships only cover the most recent
+      // window, so older days take their count from the activity feed instead.
+      const backendCount = Math.max(backend?.pomodoro_count ?? 0, activity?.pomodoro_count ?? 0);
       const activityCount = activity?.total_activities ?? 0;
       result.push({
         date: key,
@@ -112,14 +124,29 @@ export function DashboardOverview({
   const maxPomodoros = useMemo(() => Math.max(1, ...allDays.map((d) => d.pomodoroCount)), [allDays]);
   const totalPomodoros = useMemo(() => allDays.reduce((sum, day) => sum + day.pomodoroCount, 0), [allDays]);
   const studyDays = useMemo(() => allDays.filter((day) => day.isStudyDay).length, [allDays]);
-  const pomodoroToday = allDays[allDays.length - 1]?.pomodoroCount ?? 0;
   const totalActivityDuration = useMemo(() => allDays.reduce((sum, day) => sum + day.activityDuration, 0), [allDays]);
-  const activityToday = allDays[allDays.length - 1]?.activityCount ?? 0;
+  // Today's numbers come from the server's own view of today, so that browsing
+  // back through the calendars below never relabels an older day as "hoje".
+  const pomodoroToday = dashboard?.today.pomodoro_count ?? 0;
+  const activityToday = dashboard?.today.activity_count ?? 0;
   const thisWeekActivities = useMemo(() => allDays.slice(-7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const previousWeekActivities = useMemo(() => allDays.slice(-14, -7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const weeklyDelta = thisWeekActivities - previousWeekActivities;
   const questionMetrics = dashboard?.question_metrics ?? [];
-  const periodLabels: Record<ActivityPeriod, string> = { day: 'Hoje', month: 'Este mês', year: 'Este ano', all: 'Todo o período' };
+  const windowStart = allDays[0]?.date ?? null;
+  const windowEnd = allDays[allDays.length - 1]?.date ?? null;
+  // "30 dias" and "mês" are two different spans, and saying both on one screen
+  // was the confusing part. The calendars below always say which 30 days they
+  // are, and the selector below says which calendar month it means.
+  const windowLabel = windowOffset === 0
+    ? 'últimos 30 dias'
+    : `${formatDateLabel(windowStart)} até ${formatDateLabel(windowEnd)}`;
+  const periodLabels: Record<ActivityPeriod, string> = {
+    day: 'Hoje',
+    month: 'Mês atual',
+    year: 'Ano atual',
+    all: 'Todo o período',
+  };
   const currentPeriodLabel = periodLabels[activityPeriod];
   const periodDateLabel = periodSummary?.start_date
     ? `${formatDateLabel(periodSummary.start_date)} até ${formatDateLabel(periodSummary.end_date)}`
@@ -130,9 +157,9 @@ export function DashboardOverview({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
         <SummaryCard icon={<Flame size={22} />} value={`${dashboard?.study_streak_count ?? 0}`} label="Sequência (dias)" tone="amber" />
         <SummaryCard icon={<Timer size={22} />} value={`${pomodoroToday}`} label="Pomodoros hoje" tone="sky" />
-        <SummaryCard icon={<Timer size={22} />} value={`${totalPomodoros}`} label="Pomodoros (30 dias)" tone="violet" />
-        <SummaryCard icon={<BookOpen size={22} />} value={`${studyDays}`} label="Dias ativos (30 dias)" tone="emerald" />
-        <SummaryCard icon={<Clock size={22} />} value={formatDurationCompact(totalActivityDuration)} label={`Tempo registrado · ${activityToday} hoje`} tone="sky" />
+        <SummaryCard icon={<Timer size={22} />} value={`${totalPomodoros}`} label={`Pomodoros · ${windowLabel}`} tone="violet" />
+        <SummaryCard icon={<BookOpen size={22} />} value={`${studyDays}`} label={`Dias ativos · ${windowLabel}`} tone="emerald" />
+        <SummaryCard icon={<Clock size={22} />} value={formatDurationCompact(totalActivityDuration)} label={`Tempo registrado · ${activityToday} atividades hoje`} tone="sky" />
         <SummaryCard icon={<ClipboardList size={22} />} value={periodLoading ? '…' : `${periodSummary?.questions_answered ?? 0}`} label={`Questões · ${currentPeriodLabel.toLowerCase()}`} tone="amber" />
       </div>
 
@@ -188,7 +215,7 @@ export function DashboardOverview({
       <div className="flex flex-col gap-2 rounded-[1.4rem] border-2 border-sky-100 bg-sky-100/70 p-4 dark:border-sky-300/30 dark:bg-sky-400/10 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600 dark:text-sky-100">Comparativo semanal</p>
-          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-100">{thisWeekActivities} atividades nos últimos 7 dias · {previousWeekActivities} nos 7 dias anteriores</p>
+          <p className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-100">{thisWeekActivities} atividades nos 7 últimos dias da janela · {previousWeekActivities} nos 7 anteriores</p>
         </div>
         <span className={`w-fit rounded-full px-3 py-1 text-sm font-black ${weeklyDelta >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-100' : 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-100'}`}>
           {previousWeekActivities === 0 ? 'Primeira semana' : `${weeklyDelta >= 0 ? '+' : ''}${weeklyDelta} eventos`}
@@ -244,8 +271,38 @@ export function DashboardOverview({
         )}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/90 px-4 py-3">
+        <p className="mr-auto text-sm font-black text-slate-700">
+          Janela de 30 dias · <span className="font-bold text-slate-500">{formatDateLabel(windowStart)} até {formatDateLabel(windowEnd)}</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => setWindowOffset((current) => current + 1)}
+          className="inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-slate-200 px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+        >
+          <ChevronLeft size={16} /> 30 dias antes
+        </button>
+        <button
+          type="button"
+          onClick={() => setWindowOffset((current) => Math.max(0, current - 1))}
+          disabled={windowOffset === 0}
+          className="inline-flex min-h-11 items-center gap-1 rounded-xl border-2 border-slate-200 px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          30 dias depois <ChevronRight size={16} />
+        </button>
+        {windowOffset === 0 ? null : (
+          <button
+            type="button"
+            onClick={() => setWindowOffset(0)}
+            className="inline-flex min-h-11 items-center rounded-xl border-2 border-slate-200 px-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+          >
+            Voltar para hoje
+          </button>
+        )}
+      </div>
+
       <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">
-        <p className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Pomodoros — últimos 30 dias</p>
+        <p className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Pomodoros — {windowLabel}</p>
         <div className="flex items-end gap-[3px]" style={{ height: '72px' }}>
           {allDays.map((day) => (
             <div
@@ -267,7 +324,7 @@ export function DashboardOverview({
       </div>
 
       <div className="rounded-[1.4rem] border-2 border-slate-100 bg-white/90 p-5">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Atividade — últimos 30 dias</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Atividade — {windowLabel}</p>
         <div className="flex flex-wrap gap-1.5">
           {allDays.map((day) => (
             <div

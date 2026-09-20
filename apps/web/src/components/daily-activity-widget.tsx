@@ -22,6 +22,8 @@ const ACTIVITY_COLORS: Record<string, string> = {
   leetcode: 'bg-amber-50',
   question: 'bg-amber-50',
   exam: 'bg-indigo-50',
+  objective: 'bg-sky-50',
+  chat: 'bg-teal-50',
 };
 
 function getActivityLabel(type: string) {
@@ -32,6 +34,8 @@ function getActivityLabel(type: string) {
     leetcode: 'LeetCode',
     question: 'Questões',
     exam: 'Simulados',
+    objective: 'Objetivos',
+    chat: 'Conversas',
   };
 
   return labels[type] || type.replace(/_/g, ' ');

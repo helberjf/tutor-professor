@@ -4,7 +4,7 @@ import {
   resolveApiBaseUrl,
   resolveApiBaseUrlAfterOfflineFailure,
 } from '@/lib/api-config';
-import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
+import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, isStoredActiveChildExplicit, saveActiveChildId } from '@/lib/active-child';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Autenticação por token (resolve o login em celular/iPhone)
@@ -247,6 +247,7 @@ async function syncPreferredChild(apiBaseUrl: string) {
     ]);
     const preferredChildId = choosePreferredActiveChildId({
       storedActiveChildId: getStoredActiveChildId(),
+      storedChoiceIsExplicit: isStoredActiveChildExplicit(),
       children,
       progressSummaries,
       fallbackChildId: children[0]?.id ?? null,
@@ -526,6 +527,8 @@ export interface DailyActivitySummarySchema {
   subjects_studied: number;
   subject_names: string[];
   topic_names: string[];
+  /** Pomodoros of that day, so older calendars can draw them too. */
+  pomodoro_count: number;
 }
 
 export type ActivityPeriod = 'day' | 'month' | 'year' | 'all';
@@ -1697,6 +1700,8 @@ export interface ObjectiveItem {
   weight: number;
   done: boolean;
   completed_at: string | null;
+  /** True when studying checked this off rather than the learner. */
+  auto_completed: boolean;
   order_index: number;
   created_at: string;
 }
@@ -2450,8 +2455,12 @@ export const api = {
     fetchAPI<DailyActivitySummarySchema>(`/api/activity/day/${date}`),
   getWeekActivities: () =>
     fetchAPI<DailyActivitySummarySchema[]>('/api/activity/week'),
-  getActivityMonth: () =>
-    fetchAPI<DailyActivitySummarySchema[]>('/api/activity/month'),
+  // `endDate` walks the 30-day window back through the history; omitting it
+  // ends the window today.
+  getActivityMonth: (endDate?: string) =>
+    fetchAPI<DailyActivitySummarySchema[]>(
+      endDate ? `/api/activity/month?end_date=${endDate}` : '/api/activity/month',
+    ),
   getActivitySummary: (period: ActivityPeriod = 'year') =>
     fetchAPI<ActivityPeriodSummary>(`/api/activity/summary?period=${period}`),
 };

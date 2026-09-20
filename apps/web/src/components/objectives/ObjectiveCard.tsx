@@ -207,6 +207,13 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
                       peso {item.weight}
                     </span>
                   ) : null}
+                  {/* A box that ticks itself is only reassuring while it is
+                      clear who ticked it. Unchecking it hands it back. */}
+                  {item.auto_completed ? (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.68rem] font-black text-emerald-700">
+                      concluído estudando
+                    </span>
+                  ) : null}
                 </div>
               </div>
 

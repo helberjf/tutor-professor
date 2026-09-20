@@ -17,6 +17,8 @@ const COLORS_BY_TYPE: Record<string, string> = {
   leetcode: 'bg-amber-700',
   question: 'bg-amber-700',
   exam: 'bg-indigo-500',
+  objective: 'bg-sky-600',
+  chat: 'bg-teal-500',
 };
 
 function getTypeLabel(type: string) {
@@ -27,6 +29,8 @@ function getTypeLabel(type: string) {
     leetcode: 'LeetCode',
     question: 'Questões',
     exam: 'Simulados',
+    objective: 'Objetivos',
+    chat: 'Conversas',
   };
 
   return labels[type] || type.replace(/_/g, ' ');

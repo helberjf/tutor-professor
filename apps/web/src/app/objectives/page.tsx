@@ -53,8 +53,9 @@ export default function ObjectivesPage() {
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-            Crie um objetivo, vá adicionando o que precisa estudar para alcançá-lo e marque cada item
-            conforme terminar. A porcentagem de alcance acompanha exatamente essa lista.
+            Crie um objetivo e vá adicionando o que precisa estudar para alcançá-lo. Cada dia que você
+            estuda uma área conclui o próximo item dela — os marcados assim aparecem como “concluído
+            estudando”, e desmarcar devolve o item para você. Itens da área “Livre” continuam só no manual.
           </p>
         </section>
 

@@ -226,9 +226,9 @@ export function ObjectivesBoard() {
               </span>
               <h2 className="mt-4 text-lg font-black text-slate-800">Defina seu primeiro objetivo</h2>
               <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
-                Escreva aonde quer chegar e liste o que precisa estudar para isso. A cada item concluído a
-                porcentagem de alcance sobe. Sem saber por onde começar? Crie um plano: ele ordena as
-                prioridades para você.
+                Escreva aonde quer chegar e liste o que precisa estudar para isso. Cada dia de estudo
+                conclui o próximo item da área correspondente, e você pode marcar o que quiser à mão.
+                Sem saber por onde começar? Crie um plano: ele ordena as prioridades para você.
               </p>
               <div className="mx-auto mt-5 flex flex-col justify-center gap-2 sm:flex-row">
                 {canPlan ? (

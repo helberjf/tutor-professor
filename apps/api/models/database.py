@@ -795,5 +795,9 @@ class ObjectiveItem(SQLModel, table=True):
     weight: int = Field(default=1)
     done: bool = Field(default=False)
     completed_at: Optional[datetime] = Field(default=None)
+    # True when studying checked this off instead of the learner. Kept so the
+    # list can say which lines it filled in on its own — a checkbox that moves
+    # by itself is only reassuring while it is clear why it moved.
+    auto_completed: bool = Field(default=False)
     order_index: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)

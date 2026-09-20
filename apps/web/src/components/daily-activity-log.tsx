@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, BookOpen, CheckCircle2, Clock, Code2, Loader2, HelpCircle, Target, X } from 'lucide-react';
+import { AlertCircle, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock, Code2, Loader2, HelpCircle, MessageCircle, Target, X } from 'lucide-react';
 import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
 import { StatusCard } from './status-card';
 import { ActivityDetails } from './activity-details';
@@ -33,6 +33,7 @@ const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   question: <HelpCircle className="text-amber-500" size={20} />,
   exam: <CheckCircle2 className="text-indigo-500" size={20} />,
   objective: <Target className="text-sky-600" size={20} />,
+  chat: <MessageCircle className="text-teal-500" size={20} />,
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -43,6 +44,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   question: 'Questão',
   exam: 'Simulado',
   objective: 'Objetivo',
+  chat: 'Conversa',
 };
 
 const ACTIVITY_COLORS: Record<string, string> = {
@@ -53,6 +55,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   question: 'bg-amber-50 border-amber-200',
   exam: 'bg-indigo-50 border-indigo-200',
   objective: 'bg-sky-50 border-sky-200',
+  chat: 'bg-teal-50 border-teal-200',
 };
 
 interface DailyActivityLogProps {
@@ -73,11 +76,34 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
   // dateProp defaults to undefined when the caller omits it; deriving `new Date()`
   // via useMemo (instead of a default parameter) keeps a stable reference across
   // re-renders so the fetch effect below doesn't re-run on every render.
-  const date = useMemo(() => dateProp ?? new Date(), [dateProp]);
+  const initialDate = useMemo(() => dateProp ?? new Date(), [dateProp]);
+  // Every day has been recorded since the feed existed, and the API already
+  // serves any of them. Holding the day here is what finally lets somebody read
+  // what they did last Tuesday instead of only what they did today.
+  const [date, setDate] = useState<Date>(initialDate);
   const [activities, setActivities] = useState<DailyActivitySummarySchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setDate(initialDate);
+  }, [initialDate]);
+
+  const todayKey = formatDate(new Date(), 'yyyy-MM-dd');
+  const dateKey = formatDate(date, 'yyyy-MM-dd');
+  const isToday = dateKey === todayKey;
+
+  const shiftDay = (days: number) => {
+    setDate((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + days);
+      // Tomorrow has nothing to show and no way back other than this button, so
+      // the walk simply stops at today.
+      return formatDate(next, 'yyyy-MM-dd') > todayKey ? current : next;
+    });
+    setSelectedFilters(new Set());
+  };
 
   useEffect(() => {
     const fetchActivities = async () => {
@@ -86,8 +112,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
         setError(null);
 
         // Use endpoint para hoje ou para uma data específica
-        const isToday = formatDate(date, 'yyyy-MM-dd') === formatDate(new Date(), 'yyyy-MM-dd');
-        const data = isToday
+        const data = formatDate(date, 'yyyy-MM-dd') === formatDate(new Date(), 'yyyy-MM-dd')
           ? await api.getTodayActivities()
           : await api.getDayActivities(formatDate(date, 'yyyy-MM-dd'));
 
@@ -106,52 +131,102 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
     fetchActivities();
   }, [date]);
 
+  const dateLabel = getPortugueseDateLabel(date);
+
+  // The day picker stays mounted through loading, errors and empty days: it is
+  // the only way back out of a day with nothing in it.
+  const dayNavigation = (
+    <div className="mb-6">
+      <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+        <Clock size={16} />
+        <span>{dateLabel}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mr-auto text-2xl font-black text-slate-800">
+          {isToday ? 'Atividades do Dia' : 'Atividades do dia escolhido'}
+        </h2>
+        <button
+          type="button"
+          onClick={() => shiftDay(-1)}
+          aria-label="Dia anterior"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 transition hover:bg-slate-50"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <input
+          type="date"
+          value={dateKey}
+          max={todayKey}
+          onChange={(event) => {
+            const [year, month, day] = event.target.value.split('-').map(Number);
+            if (!year || !month || !day) return;
+            setDate(new Date(year, month - 1, day));
+            setSelectedFilters(new Set());
+          }}
+          aria-label="Escolher o dia"
+          className="h-11 rounded-lg border-2 border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-primary"
+        />
+        <button
+          type="button"
+          onClick={() => shiftDay(1)}
+          disabled={isToday}
+          aria-label="Próximo dia"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 transition hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <ChevronRight size={18} />
+        </button>
+        {isToday ? null : (
+          <button
+            type="button"
+            onClick={() => {
+              setDate(new Date());
+              setSelectedFilters(new Set());
+            }}
+            className="h-11 rounded-lg border-2 border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+          >
+            Hoje
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const frame = (children: React.ReactNode) => (
+    <div className="w-full max-w-2xl rounded-2xl border-2 border-primary bg-white p-6">
+      {dayNavigation}
+      {children}
+    </div>
+  );
+
   if (loading) {
-    return (
+    return frame(
       <div className="flex items-center justify-center py-12">
         <Loader2 className="animate-spin text-primary" size={32} />
-      </div>
+      </div>,
     );
   }
 
   if (error) {
-    return (
-      <StatusCard
-        title="Erro ao carregar"
-        message={error}
-        tone="error"
-      />
-    );
+    return frame(<StatusCard title="Erro ao carregar" message={error} tone="error" />);
   }
 
   if (!activities || activities.total_activities === 0) {
-    return (
+    return frame(
       <StatusCard
         title="Nenhuma atividade"
-        message={`Nenhuma atividade registrada para ${getPortugueseDateLabel(date)}`}
+        message={`Nenhuma atividade registrada para ${dateLabel}`}
         tone="empty"
-      />
+      />,
     );
   }
-
-  const dateLabel = getPortugueseDateLabel(date);
 
   // Filtrar atividades
   const filteredActivities = selectedFilters.size === 0
     ? activities.activities
     : activities.activities.filter((activity) => selectedFilters.has(activity.activity_type));
 
-  return (
-    <div className="w-full max-w-2xl rounded-2xl border-2 border-primary bg-white p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="mb-2 flex items-center gap-2 text-sm text-slate-600">
-          <Clock size={16} />
-          <span>{dateLabel}</span>
-        </div>
-        <h2 className="text-2xl font-black text-slate-800">Atividades do Dia</h2>
-      </div>
-
+  return frame(
+    <>
       {/* Summary Stats */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
@@ -262,7 +337,7 @@ export function DailyActivityLog({ date: dateProp, showFilters = true }: DailyAc
           </div>
         ))}
       </div>
-    </div>
+    </>,
   );
 }
 

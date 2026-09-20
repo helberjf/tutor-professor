@@ -10,7 +10,7 @@ import { AccountModulesSection } from '@/components/account-modules-section';
 import { AccountSecuritySection } from '@/components/account-security-section';
 import { AccountDataSection } from '@/components/account-data-section';
 import { BillingSection } from '@/components/billing-section';
-import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, saveActiveChildId } from '@/lib/active-child';
+import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, isStoredActiveChildExplicit, saveActiveChildId } from '@/lib/active-child';
 import { ageFromIsoDate, bandFromIsoDate, bandLabel, birthDateError, isMinorIsoDate } from '@/lib/age-band';
 import { ApiError, api, type AICredits, type AIProvider, type ChildProfile, type ChildProgressSummary, type Lesson, type UserAISettings } from '@/lib/api';
 
@@ -103,6 +103,7 @@ export default function ParentsPage() {
       });
       const preferredActiveChildId = choosePreferredActiveChildId({
         storedActiveChildId: getStoredActiveChildId(),
+        storedChoiceIsExplicit: isStoredActiveChildExplicit(),
         children: childList,
         progressSummaries: progressList,
         fallbackChildId: settings.id,
@@ -249,7 +250,7 @@ export default function ParentsPage() {
   }
 
   async function handleSelectChild(childId: number) {
-    saveActiveChildId(childId);
+    saveActiveChildId(childId, { explicit: true });
     setActiveChildId(childId);
     setMessage('Aluno ativo trocado.');
     setGeneratorMessage('');
@@ -269,7 +270,7 @@ export default function ParentsPage() {
         auto_audio: form.auto_audio,
         target_language: newChildTargetLanguage,
       });
-      saveActiveChildId(child.id);
+      saveActiveChildId(child.id, { explicit: true });
       setActiveChildId(child.id);
       setNewChildName('');
       setNewChildBirthDate('');
@@ -426,7 +427,7 @@ export default function ParentsPage() {
                 </p>
                 <Link
                   href="/lesson"
-                  onClick={() => { if (child.id !== activeChildId) { saveActiveChildId(child.id); setActiveChildId(child.id); } }}
+                  onClick={() => { if (child.id !== activeChildId) { saveActiveChildId(child.id, { explicit: true }); setActiveChildId(child.id); } }}
                   className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 text-sm font-black text-white transition hover:bg-primary-dark"
                 >
                   <BookOpen size={16} />
