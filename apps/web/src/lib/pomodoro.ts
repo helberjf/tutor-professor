@@ -62,7 +62,11 @@ export function resolvePomodoroState(state: PomodoroState, now = Date.now()): Po
 
   const remainingSeconds = Math.ceil((state.endsAt - now) / 1000);
   if (remainingSeconds > 0) {
-    return { ...state, seconds: remainingSeconds };
+    // Devolver o mesmo objeto quando o segundo não virou faz o React parar aí.
+    // O relógio é conferido no tique, ao voltar o foco e ao reabrir a aba, e a
+    // página de estudos inteira redesenhava a cada uma dessas conferências —
+    // inclusive nas que não mudavam nada no mostrador.
+    return remainingSeconds === state.seconds ? state : { ...state, seconds: remainingSeconds };
   }
 
   const nextMode: PomodoroMode = state.mode === 'focus' ? 'break' : 'focus';

@@ -1,15 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Plus, Sparkles, Target } from 'lucide-react';
 
 import { api, ApiError, type Objective, type StudyPlan } from '@/lib/api';
-import { CreateObjectiveModal } from './CreateObjectiveModal';
-import { CreatePlanWizard } from './CreatePlanWizard';
 import { ObjectiveCard } from './ObjectiveCard';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { PlanPanel } from './PlanPanel';
+
+// Dois diálogos que só existem depois de um clique. Estaticamente importados,
+// o assistente de plano inteiro descia junto com a lista de objetivos.
+const CreateObjectiveModal = dynamic(
+  () => import('./CreateObjectiveModal').then((m) => m.CreateObjectiveModal),
+  { ssr: false },
+);
+const CreatePlanWizard = dynamic(
+  () => import('./CreatePlanWizard').then((m) => m.CreatePlanWizard),
+  { ssr: false },
+);
 
 /** Active objectives first, then archived, each keeping the backend's order. */
 function sortObjectives(objectives: Objective[]) {

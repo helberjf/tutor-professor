@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { ApiError, api, type UserProfile } from '@/lib/api';
+import { ApiError, api, isSessionRejection, subscribeToUserProfileRevalidation } from '@/lib/api';
+import type { UserProfile } from '@/lib/api';
 
 export type AuthState =
   | { status: 'loading' }
@@ -17,6 +18,22 @@ export function useRequireAuth(): AuthState {
 
   useEffect(() => {
     let cancelled = false;
+
+    // getUserMe pode responder com o perfil da última visita e conferir em
+    // paralelo. Quando essa conferência recusa a sessão, é por aqui que a tela
+    // fica sabendo — sem isso, ela continuaria desenhada enquanto todas as
+    // chamadas de dados voltassem 401.
+    const unsubscribe = subscribeToUserProfileRevalidation(({ profile, error }) => {
+      if (cancelled) return;
+      if (profile) {
+        setState({ status: 'authenticated', user: profile });
+        return;
+      }
+      if (!isSessionRejection(error)) return;
+      setState({ status: 'unauthenticated' });
+      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+    });
+
     api
       .getUserMe()
       .then((user) => {
@@ -32,8 +49,10 @@ export function useRequireAuth(): AuthState {
         setState({ status: 'unauthenticated' });
         router.push(`/login?next=${encodeURIComponent(pathname)}`);
       });
+
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [pathname, router]);
 
