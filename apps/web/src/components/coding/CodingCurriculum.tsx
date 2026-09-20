@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, Loader2, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
 import { api, type AICredits, type CodingReviewCard, type CodingSubjectSort, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingSubjectPage, type ProgrammingTopic } from '@/lib/api';
@@ -7,10 +8,32 @@ import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
-import { TopicView } from './TopicView';
-import { ReviewSession } from './ReviewSession';
-import { LeetCodeTrainer } from './LeetCodeTrainer';
-import { FlashcardDeck } from './FlashcardDeck';
+
+// Estas quatro trocam a tela inteira pela lista de matérias, uma de cada vez, e
+// são as maiores do módulo — a leitura de um tópico sozinha carrega o realce de
+// sintaxe e o modal de questões. Vinham todas juntas só para mostrar a lista.
+const viewFallback = () => (
+  <div className="flex min-h-[50vh] items-center justify-center">
+    <Loader2 className="animate-spin text-primary" size={28} />
+  </div>
+);
+
+const TopicView = dynamic(() => import('./TopicView').then((m) => m.TopicView), {
+  ssr: false,
+  loading: viewFallback,
+});
+const ReviewSession = dynamic(() => import('./ReviewSession').then((m) => m.ReviewSession), {
+  ssr: false,
+  loading: viewFallback,
+});
+const LeetCodeTrainer = dynamic(() => import('./LeetCodeTrainer').then((m) => m.LeetCodeTrainer), {
+  ssr: false,
+  loading: viewFallback,
+});
+const FlashcardDeck = dynamic(() => import('./FlashcardDeck').then((m) => m.FlashcardDeck), {
+  ssr: false,
+  loading: viewFallback,
+});
 
 type View =
   | { type: 'subjects' }

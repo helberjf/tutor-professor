@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Loader2, WifiOff } from 'lucide-react';
 
-import { ApiError, api, type UserProfile } from '@/lib/api';
+import { ApiError, api, isSessionRejection, subscribeToUserProfileRevalidation, type UserProfile } from '@/lib/api';
 import { AccountReviewNotice } from '@/components/account-review-notice';
 import { isPrivateAppPath } from '@/lib/private-routes';
 
@@ -33,13 +33,35 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
     let cancelled = false;
     setStatus('checking');
+
+    const applyProfile = (profile: UserProfile) => {
+      setUser(profile);
+      setStatus(profile.status === 'approved' ? 'allowed' : 'awaiting_review');
+    };
+    const sendToLogin = () => {
+      setStatus('redirecting');
+      router.replace(`/login?next=${encodeURIComponent(currentPath)}`);
+    };
+
+    // getUserMe responde com o perfil da última visita quando existe um, e a
+    // conferência corre em paralelo. É esta inscrição que fecha o portão de novo
+    // se ela vier dizendo que a sessão acabou.
+    const unsubscribe = subscribeToUserProfileRevalidation(({ profile, error }) => {
+      if (cancelled) return;
+      if (profile) {
+        applyProfile(profile);
+        return;
+      }
+      if (!isSessionRejection(error)) return;
+      sendToLogin();
+    });
+
     // The first pass reuses the shared /api/auth/me cache; a manual recheck from
     // the waiting screen must bypass it to notice a fresh approval.
     (recheckCount === 0 ? api.getUserMe() : api.refreshUserMe())
       .then((profile) => {
         if (cancelled) return;
-        setUser(profile);
-        setStatus(profile.status === 'approved' ? 'allowed' : 'awaiting_review');
+        applyProfile(profile);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -47,12 +69,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
           setStatus('server_missing');
           return;
         }
-        setStatus('redirecting');
-        router.replace(`/login?next=${encodeURIComponent(currentPath)}`);
+        sendToLogin();
       });
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [currentPath, recheckCount, requiresAuth, router]);
 

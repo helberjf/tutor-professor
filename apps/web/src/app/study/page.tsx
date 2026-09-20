@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -53,8 +54,6 @@ import {
   slugifySubjectName,
   updateDiverseQuestionById,
 } from './_lib/study-helpers';
-import { CodingTab } from './_components/CodingTab';
-import { DiverseTab, OtherSubjectsPicker } from './_components/DiverseTab';
 import { EnglishTab } from './_components/EnglishTab';
 import { DashboardTab, MetricCard, PomodoroWidget, TabButton } from './_components/shared';
 import type {
@@ -65,6 +64,33 @@ import type {
   StudyRating,
   StudyTab,
 } from './_lib/study-helpers';
+
+// Uma aba de cada vez aparece, mas as três vinham no mesmo pacote: abrir
+// "Estudos" baixava o currículo de programação inteiro — flashcards, treinador
+// de exercícios, realce de sintaxe — para quem só queria a aba de inglês, que é
+// a que abre por padrão. Cada uma passa a chegar quando for escolhida.
+//
+// Sem SSR de propósito: nada aqui é desenhado antes de o login responder, então
+// pré-renderizar as abas no servidor não adiantaria nada e só devolveria o peso
+// ao pacote inicial.
+const tabFallback = () => (
+  <div className="flex min-h-[40vh] items-center justify-center">
+    <Loader2 className="animate-spin text-primary" size={28} />
+  </div>
+);
+
+const CodingTab = dynamic(() => import('./_components/CodingTab').then((m) => m.CodingTab), {
+  ssr: false,
+  loading: tabFallback,
+});
+const DiverseTab = dynamic(() => import('./_components/DiverseTab').then((m) => m.DiverseTab), {
+  ssr: false,
+  loading: tabFallback,
+});
+const OtherSubjectsPicker = dynamic(
+  () => import('./_components/DiverseTab').then((m) => m.OtherSubjectsPicker),
+  { ssr: false },
+);
 
 export default function StudyPage() {
   const authState = useRequireAuth();

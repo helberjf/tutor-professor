@@ -48,8 +48,150 @@ function clearSessionToken() {
 const USER_ME_CACHE_MS = 30_000;
 let userMeCache: { at: number; promise: Promise<UserProfile> } | null = null;
 
+// That cache lives in module memory, so a reload starts empty and every screen
+// waited a full round trip on /api/auth/me before it could even ask for its own
+// data — the profile gates the render, and the render is what fires the fetches.
+// Keeping the last answer on disk lets the screen start from it and ask again at
+// the same time, instead of one after the other. It is never authorization: the
+// backend still refuses every call without a valid session, and a revalidation
+// that comes back "not you" reaches the gate through the subscription below.
+const USER_ME_SNAPSHOT_STORAGE_KEY = 'english-kids-tutor.user-profile.v1';
+const USER_ME_SNAPSHOT_MS = 24 * 60 * 60_000;
+const USER_PROFILE_CHANGE_EVENT = 'english-kids-tutor:user-profile';
+
+interface UserMeSnapshot {
+  at: number;
+  /** Ties the snapshot to the session that produced it, so a new login never reads the old profile. */
+  session: string;
+  profile: UserProfile;
+}
+
+export interface UserProfileRevalidation {
+  profile: UserProfile | null;
+  error: unknown;
+}
+
+/**
+ * Se o erro de uma conferência em segundo plano significa "esta sessão acabou".
+ *
+ * Só isso fecha uma tela que já estava aberta. Uma queda de rede ou um 500 do
+ * backend não são resposta sobre quem a pessoa é, e mandar para o login por
+ * causa deles tiraria do ar uma sessão perfeitamente válida.
+ */
+export function isSessionRejection(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
+let lastUserProfileRevalidation: UserProfileRevalidation | null = null;
+
+/** Short, non-reversible: it only has to change when the token changes. */
+function fingerprintSession(token: string | null) {
+  const value = token || 'cookie';
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return String(hash);
+}
+
+function readUserMeSnapshot(): UserProfile | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const rawValue = window.localStorage.getItem(USER_ME_SNAPSHOT_STORAGE_KEY);
+    if (!rawValue) return null;
+
+    const snapshot = JSON.parse(rawValue) as UserMeSnapshot;
+    if (snapshot.session !== fingerprintSession(USE_TOKEN_AUTH ? getSessionToken() : null)) return null;
+    if (!snapshot.profile || Date.now() - snapshot.at > USER_ME_SNAPSHOT_MS) return null;
+
+    return snapshot.profile;
+  } catch {
+    return null;
+  }
+}
+
+function writeUserMeSnapshot(profile: UserProfile) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const snapshot: UserMeSnapshot = {
+      at: Date.now(),
+      session: fingerprintSession(USE_TOKEN_AUTH ? getSessionToken() : null),
+      profile,
+    };
+    window.localStorage.setItem(USER_ME_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* modo privado sem storage: o app só perde o adiantamento */
+  }
+}
+
+function clearUserMeSnapshot() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.removeItem(USER_ME_SNAPSHOT_STORAGE_KEY);
+  } catch {
+    /* idem */
+  }
+}
+
+function publishUserProfileRevalidation(result: UserProfileRevalidation) {
+  lastUserProfileRevalidation = result;
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(USER_PROFILE_CHANGE_EVENT));
+}
+
+/**
+ * Avisa quando a conferência em segundo plano do perfil termina.
+ *
+ * É por aqui que uma sessão que caiu chega às telas que já tinham sido
+ * desenhadas a partir do perfil guardado.
+ */
+export function subscribeToUserProfileRevalidation(
+  listener: (result: UserProfileRevalidation) => void,
+) {
+  if (typeof window === 'undefined') return () => undefined;
+
+  const notify = () => {
+    if (lastUserProfileRevalidation) listener(lastUserProfileRevalidation);
+  };
+
+  window.addEventListener(USER_PROFILE_CHANGE_EVENT, notify);
+  return () => window.removeEventListener(USER_PROFILE_CHANGE_EVENT, notify);
+}
+
+let userMeRevalidation: Promise<UserProfile | null> | null = null;
+
+function revalidateUserMeInBackground() {
+  if (userMeRevalidation) return userMeRevalidation;
+
+  userMeRevalidation = fetchAPI<UserProfile>('/api/auth/me')
+    .then((profile) => {
+      writeUserMeSnapshot(profile);
+      userMeCache = { at: Date.now(), promise: Promise.resolve(profile) };
+      publishUserProfileRevalidation({ profile, error: null });
+      return profile;
+    })
+    .catch((error: unknown) => {
+      // Uma sessão recusada não pode continuar valendo pela cópia guardada.
+      if (isSessionRejection(error)) {
+        invalidateUserMeCache();
+      }
+      publishUserProfileRevalidation({ profile: null, error });
+      return null;
+    })
+    .finally(() => {
+      userMeRevalidation = null;
+    });
+
+  return userMeRevalidation;
+}
+
 function invalidateUserMeCache() {
   userMeCache = null;
+  lastUserProfileRevalidation = null;
+  clearUserMeSnapshot();
 }
 
 function shouldSyncPreferredChild(endpoint: string, options: RequestInit) {
@@ -1459,7 +1601,19 @@ export async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): 
     });
   }
   if (shouldSyncPreferredChild(endpoint, options)) {
-    await syncPreferredChild(apiBaseUrl);
+    // Without a child chosen there is no X-Child-ID to send, so the answer would
+    // come back for whichever child the backend picks: that first sync has to
+    // finish first. Once one is stored the header is already right, and
+    // re-deciding the preference ahead of the request only spends two round
+    // trips before anything at all can appear on the screen — so from then on it
+    // runs alongside the request instead of in front of it.
+    if (getStoredActiveChildId() === null) {
+      await syncPreferredChild(apiBaseUrl);
+    } else {
+      void syncPreferredChild(apiBaseUrl).catch(() => {
+        /* a revalidação em segundo plano não pode derrubar a chamada real */
+      });
+    }
   }
 
   let response: Response;
@@ -1885,11 +2039,25 @@ export const api = {
   getUserMe: () => {
     const now = Date.now();
     if (userMeCache && now - userMeCache.at < USER_ME_CACHE_MS) return userMeCache.promise;
+
+    // O perfil da última visita responde na hora e a conferência sai junto, para
+    // a tela poder buscar os dados dela em vez de esperar a vez. Quem escuta
+    // subscribeToUserProfileRevalidation recebe o resultado quando ele chegar.
+    const snapshot = readUserMeSnapshot();
+    if (snapshot) {
+      const promise = Promise.resolve(snapshot);
+      userMeCache = { at: now, promise };
+      void revalidateUserMeInBackground();
+      return promise;
+    }
+
     const promise = fetchAPI<UserProfile>('/api/auth/me');
     userMeCache = { at: now, promise };
-    // A rejected profile must not be cached, or a transient blip locks the user out
-    // for the whole TTL.
-    promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
+    promise.then(writeUserMeSnapshot).catch(() => {
+      // A rejected profile must not be cached, or a transient blip locks the user out
+      // for the whole TTL.
+      if (userMeCache?.promise === promise) invalidateUserMeCache();
+    });
     return promise;
   },
   // Skips the short /api/auth/me cache: used by the "aguardando aprovação"
@@ -1898,7 +2066,9 @@ export const api = {
     invalidateUserMeCache();
     const promise = fetchAPI<UserProfile>('/api/auth/me');
     userMeCache = { at: Date.now(), promise };
-    promise.catch(() => { if (userMeCache?.promise === promise) invalidateUserMeCache(); });
+    promise.then(writeUserMeSnapshot).catch(() => {
+      if (userMeCache?.promise === promise) invalidateUserMeCache();
+    });
     return promise;
   },
   forgotPassword: (email: string) =>

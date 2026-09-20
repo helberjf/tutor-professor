@@ -24,9 +24,14 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
 
+    // Both answers are needed before anything can render, and neither depends on
+    // the other — asking in sequence just stacked two round trips onto a screen
+    // that has not drawn a single pixel yet.
+    const adminCheck = api.adminCheck().catch(() => ({ is_admin: false, email: '' }));
+
     api.getUserMe()
       .then(async () => {
-        const adminResult = await api.adminCheck().catch(() => ({ is_admin: false, email: '' }));
+        const adminResult = await adminCheck;
         if (cancelled) return;
         if (adminResult.is_admin) {
           router.replace('/admin');

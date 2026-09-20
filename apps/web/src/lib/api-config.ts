@@ -216,6 +216,23 @@ export async function resolveApiBaseUrl() {
       return getPreferredConfiguredConnection().baseUrl || getDefaultApiBaseUrl();
     }
 
+    // The runtime config only decides the address when nothing outranks it. A
+    // saved URL and a build-time one both do (see getPreferredConfiguredConnection),
+    // and waiting for it anyway put /api/runtime-backend — a serverless function
+    // that itself calls Vercel KV and raw.githubusercontent.com, uncached — in
+    // front of the first request of every page load, only to arrive at the
+    // address we already had. The pages that actually show the connection
+    // (/ and /connect) refresh it themselves.
+    //
+    // A 'global' answer is deliberately not treated the same: that one IS the
+    // runtime config, read from a previous visit, and the tunnel it names may
+    // have rotated since. A stale address there would fail the first POST —
+    // login — with no retry, because only GETs get the offline fallback.
+    const configuredConnection = getPreferredConfiguredConnection();
+    if (configuredConnection.source === 'saved' || configuredConnection.source === 'default') {
+      return configuredConnection.baseUrl;
+    }
+
     const runtimeConfig = await refreshRuntimeBackendConfig();
     return getPreferredConfiguredConnection(runtimeConfig).baseUrl || getDefaultApiBaseUrl();
   }
