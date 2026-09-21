@@ -126,17 +126,27 @@ assert.match(provider, /key=\{locale\}/, 'a language change must re-render the t
 // whatever language happened to be active. Labels therefore live in constants
 // as plain source text, and the screen translates them as it draws them.
 {
-  const { execSync } = require('node:child_process');
-  const srcDir = new URL('../src/', import.meta.url).pathname.replace(/^\//, '');
-  const files = execSync(`find "${srcDir}" -name "*.tsx" -o -name "*.ts"`, { encoding: 'utf8' })
-    .split('\n').map((f) => f.trim()).filter(Boolean)
-    .filter((f) => !f.includes('/lib/locales/') && !f.endsWith('/lib/i18n.ts'));
+  // Walked with fs rather than shelled out to `find`: a URL pathname is
+  // "/C:/..." on Windows and "/home/..." elsewhere, and every trick for turning
+  // one into a path breaks the other. This needs no path string at all.
+  const { readdirSync } = require('node:fs');
+  const collect = (dir, found = []) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const child = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, dir);
+      if (entry.isDirectory()) collect(child, found);
+      else if (/\.tsx?$/.test(entry.name)) found.push(child);
+    }
+    return found;
+  };
+  const files = collect(new URL('../src/', import.meta.url))
+    .filter((url) => !url.href.includes('/lib/locales/') && !url.href.endsWith('/lib/i18n.ts'));
 
   const offenders = [];
   for (const file of files) {
+    const name = file.href.split('/src/')[1];
     const text = readFileSync(file, 'utf8');
-    const src = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true,
-      file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const src = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true,
+      name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const visit = (node, insideFunction) => {
       const entersFunction = ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node)
         || ts.isArrowFunction(node) || ts.isMethodDeclaration(node)
@@ -144,7 +154,7 @@ assert.match(provider, /key=\{locale\}/, 'a language change must re-render the t
       if (!insideFunction && ts.isCallExpression(node) && ts.isIdentifier(node.expression)
         && ['t', 'tf', 'translate'].includes(node.expression.text)) {
         const line = src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1;
-        offenders.push(`${file.split('/src/')[1]}:${line}  ${node.getText(src).slice(0, 60)}`);
+        offenders.push(`${name}:${line}  ${node.getText(src).slice(0, 60)}`);
       }
       ts.forEachChild(node, (child) => visit(child, insideFunction || entersFunction));
     };
