@@ -454,6 +454,7 @@ export interface OnboardingState {
   child_name: string;
   birth_date: string | null;
   target_language: string;
+  base_language: string;
   placement_available: boolean;
 }
 
@@ -749,6 +750,8 @@ export interface ParentSettingsUpdatePayload {
   voice_preference?: string;
   auto_audio?: boolean;
   target_language?: string;
+  /** Language lessons are explained in. */
+  base_language?: string;
 }
 
 export interface GenerateLessonPayload {
@@ -763,6 +766,8 @@ export interface CreateChildPayload {
   voice_preference?: string;
   auto_audio?: boolean;
   target_language?: string;
+  /** Language lessons are explained in. */
+  base_language?: string;
 }
 
 export interface GenerateLessonResponse {
@@ -928,6 +933,8 @@ export interface UserRegisterPayload {
   /** ISO date of birth: it decides the age band and whether a minor is studying. */
   birth_date?: string | null;
   target_language?: string;
+  /** Language lessons are explained in — chosen at signup, not guessed from the device locale. */
+  base_language?: string;
   ai_provider?: string;
   ai_api_key?: string;
   ai_model?: string;
@@ -2060,6 +2067,7 @@ export const api = {
     age_group?: string;
     birth_date?: string | null;
     target_language: string;
+    base_language?: string;
     correct_levels: number[];
     skipped_placement?: boolean;
   }) =>
