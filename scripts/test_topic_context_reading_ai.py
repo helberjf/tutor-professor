@@ -64,7 +64,7 @@ class TopicCreationContextTests(unittest.TestCase):
         for expected in (
             "topicContext",
             "Contexto para a IA",
-            "placeholder={t(\"Ex.:",
+            "t(\"Ex.:",
             "maxLength={1000}",
             "generateAI &&",
             "context: topicContext.trim()",
@@ -229,7 +229,7 @@ class ReadingDeepeningFrontendTests(unittest.TestCase):
             "Aprofundar com IA",
             "deepeningQuestion",
             "deepeningAnswer",
-            "api.deepenCodingReadingStep",
+            "curriculum.deepenCodingReadingStep",
             "Copiar para Notion",
             "navigator.clipboard.writeText(deepeningAnswer)",
             "setDeepeningAnswer('')",

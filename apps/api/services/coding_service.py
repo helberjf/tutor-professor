@@ -426,6 +426,116 @@ Rules:
 - code_example uses the programming language of the subject
 {previous_context}"""
 
+# "Outras matérias" (français, direito penal, uma certificação) are studied the
+# same way as programming, but a lesson about the passé composé has no code to
+# copy into every flashcard. These variants keep the same JSON contract and
+# only drop the code requirements.
+GENERAL_TRACK = "general"
+PROGRAMMING_TRACK = "programming"
+CURRICULUM_TRACKS = (PROGRAMMING_TRACK, GENERAL_TRACK)
+
+_GENERAL_SYSTEM_TEXT = (
+    "You are an expert teacher who prepares students for exams. "
+    "Return ONLY valid JSON with no markdown fences, no commentary, and no extra keys. "
+    "The JSON must match the schema exactly."
+)
+
+_GENERAL_TOPIC_PROMPT_TEMPLATE = """\
+Create educational content for one topic of a study subject.
+
+Subject: {subject_name}
+Topic request: {topic_request}
+
+Return a JSON object with exactly this schema:
+{{
+  "title": "string (concise topic title)",
+  "sections": [
+    {{ "title": "string", "body": "string (markdown-style text OK)", "code_example": "string or null (a short literal example shown apart)" }}
+  ],
+  "quiz": [
+    {{
+      "id": 1,
+      "question": "string",
+      "options": ["complete answer text", "complete answer text", "complete answer text", "complete answer text"],
+      "correct_option": "exact text of the correct option",
+      "explanation": "string"
+    }}
+  ],
+  "flashcards": [
+    {{ "front": "string (question, max 120 chars)", "back": "string (explanation, max 400 chars)", "code_example": "string or null" }}
+  ]
+}}
+
+Rules:
+- When no explicit topic title is supplied, choose the next topic in a logical study order for this subject: fundamentals first, each topic building on the previous ones
+- When an explicit topic title is supplied, return that exact title
+- sections: 3 to 5 items (introduction, key concepts, examples, how it is applied or tested, common mistakes)
+- code_example is optional: use it only for a short literal example that reads better apart (a sentence in the language being studied, a formula, a legal provision); otherwise null. Never write programming code unless the subject is about programming
+- quiz: exactly 5 questions with 4 options each
+- Quiz options must be complete answer texts, never only labels such as "A", "B", "C", or "D"
+- Quiz correct_option must be the exact complete answer text, never only the option letter
+- flashcards: exactly 5 flashcards covering key concepts taught in the sections
+- Every flashcard front must be phrased as a question ending with "?"
+- Prefer understanding, application, comparisons, and common mistakes over bare definitions
+- All explanatory text in Portuguese (Brazil); when the subject is a foreign language, examples stay in that language with a Portuguese translation
+{previous_context}"""
+
+_GENERAL_ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE = """\
+Create exactly five additional flashcards for the saved lesson below.
+
+Subject: {subject_name}
+Topic: {topic_title}
+
+Saved lesson content:
+{ai_content}
+
+Existing flashcard fronts (do not repeat or paraphrase these):
+{existing_fronts}
+
+User instructions:
+{user_context}
+
+Return a JSON object with exactly this schema:
+{{
+  "flashcards": [
+    {{ "front": "string", "back": "string", "code_example": "string or null" }}
+  ]
+}}
+
+Rules:
+- Return exactly 5 flashcards
+- Every front must be phrased as a question ending with "?"
+- Test concepts taught in the saved lesson, not unrelated material
+- code_example is optional: a short literal example from the lesson, or null
+- Prioritize understanding, application, comparisons, and common mistakes over definitions
+- All explanatory text must be in Portuguese (Brazil)
+"""
+
+_SUBJECT_SUGGESTION_PROMPT_TEMPLATE = """\
+Suggest the NEXT subject this student should study.
+
+Area: {area}
+Subjects the student already has, oldest first, with progress:
+{existing_subjects}
+
+Extra wish from the student:
+{user_context}
+
+Return a JSON object with exactly this schema:
+{{
+  "name": "string (short subject name, max 60 chars)",
+  "description": "string (one sentence on what it covers, max 200 chars)",
+  "icon_emoji": "string (one emoji)",
+  "reason": "string (one sentence on why it comes next in the study order, max 240 chars)"
+}}
+
+Rules:
+- Follow a logical study order: when the list is empty, suggest the most fundamental starting subject for the area; otherwise the natural next step after what is there
+- Never repeat or rename a subject already in the list
+- {area_rule}
+- All text in Portuguese (Brazil), except proper names
+"""
+
 _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE = """\
 Create exactly five additional flashcards for the saved programming lesson below.
 
@@ -458,7 +568,7 @@ Rules:
 """
 
 _ADDITIONAL_QUESTIONS_PROMPT_TEMPLATE = """\
-Create exactly five additional multiple-choice questions for the saved programming topic below.
+Create exactly five additional multiple-choice questions for the saved {topic_kind} below.
 
 Subject: {subject_name}
 Topic: {topic_title}
@@ -496,7 +606,7 @@ Rules:
 """
 
 _READING_DEEPEN_PROMPT_TEMPLATE = """\
-Você vai aprofundar uma etapa de leitura de uma aula de programação.
+Você vai aprofundar uma etapa de leitura de {lesson_kind}.
 
 Matéria: {subject_name}
 Tópico: {topic_title}
@@ -514,8 +624,8 @@ Regras:
 - Comece com um título curto em Markdown
 - Ensine os conceitos importantes da etapa de forma resumida e objetiva
 - Apresente exemplos de cada conceito
-- Use blocos de código quando houver código ou quando um exemplo técnico ajudar
-- Foque em prova, entrevista técnica, raciocínio, trade-offs e armadilhas comuns
+- {example_rule}
+- {focus_rule}
 - Responda diretamente a dúvida do usuário quando ela existir
 - Não salve nada, não mencione banco de dados, e não adicione comentários fora do Markdown
 
@@ -676,9 +786,13 @@ def validate_programming_question_batch(
 
 
 def validate_initial_topic_content(
-    value: object, *, require_title: bool = False
+    value: object, *, require_title: bool = False, require_code: bool = True
 ) -> TopicAIContentSchema:
-    """Validate the strict, single-response lesson contract used for new AI topics."""
+    """Validate the strict, single-response lesson contract used for new AI topics.
+
+    ``require_code`` is off for general subjects: their flashcards may carry a
+    short example, but a lesson on French grammar has no code to point at.
+    """
     try:
         if isinstance(value, TopicAIContentSchema):
             content = value
@@ -735,17 +849,18 @@ def validate_initial_topic_content(
         known_fronts.add(normalized_front)
 
         stored_code = str(flashcard.code_example or "").strip()
-        code = _normalized_code(stored_code)
-        if len(code) < 4 or not any(character.isalnum() for character in code):
-            raise ValueError("Every AI flashcard must include a meaningful code example")
-        if not any(stored_code in lesson_code for lesson_code in section_codes):
-            raise ValueError("Every AI flashcard code example must come from the lesson sections")
+        if require_code:
+            code = _normalized_code(stored_code)
+            if len(code) < 4 or not any(character.isalnum() for character in code):
+                raise ValueError("Every AI flashcard must include a meaningful code example")
+            if not any(stored_code in lesson_code for lesson_code in section_codes):
+                raise ValueError("Every AI flashcard code example must come from the lesson sections")
 
         # Persist exactly the values whose length, question form, uniqueness, and
         # lesson relationship were validated above.
         flashcard.front = front
         flashcard.back = back
-        flashcard.code_example = stored_code
+        flashcard.code_example = stored_code or None
 
     return content
 
@@ -775,10 +890,16 @@ def validate_additional_topic_flashcards(
     *,
     existing_fronts: list[str],
     ai_content: dict,
+    require_code: bool = True,
 ) -> list[ValidatedCard]:
     """Validate interview form and exact linkage to code in the saved lesson."""
 
     validated = validate_card_batch(raw_cards, existing_fronts)
+    if not require_code:
+        for card in validated:
+            if not card.front.endswith("?"):
+                raise ValueError("Every generated flashcard must be phrased as a question")
+        return validated
     lesson_codes = [
         str(section.get("code_example") or "").strip()
         for section in ai_content.get("sections", [])
@@ -816,6 +937,7 @@ def _build_additional_flashcards_prompt(
     ai_content: dict,
     existing_fronts: list[str],
     user_context: str,
+    track: str = PROGRAMMING_TRACK,
 ) -> str:
     compact_lesson = json.dumps(
         _compact_additional_lesson(ai_content), ensure_ascii=False, indent=2
@@ -824,7 +946,12 @@ def _build_additional_flashcards_prompt(
         " ".join(str(front).split())[:160]
         for front in existing_fronts[-MAX_EXISTING_FLASHCARD_FRONTS:]
     ]
-    prompt = _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE.format(
+    template = (
+        _GENERAL_ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE
+        if track == GENERAL_TRACK
+        else _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE
+    )
+    prompt = template.format(
         subject_name=" ".join(str(subject_name).split())[:200],
         topic_title=" ".join(str(topic_title).split())[:300],
         ai_content=compact_lesson,
@@ -843,6 +970,7 @@ def _build_additional_questions_prompt(
     ai_content: dict,
     existing_questions: list[str],
     user_context: str,
+    track: str = PROGRAMMING_TRACK,
 ) -> str:
     compact_lesson = json.dumps(
         _compact_additional_lesson(ai_content), ensure_ascii=False, indent=2
@@ -852,6 +980,7 @@ def _build_additional_questions_prompt(
         for question in existing_questions[-MAX_EXISTING_QUESTION_PROMPTS:]
     ]
     prompt = _ADDITIONAL_QUESTIONS_PROMPT_TEMPLATE.format(
+        topic_kind="study topic" if track == GENERAL_TRACK else "programming topic",
         subject_name=" ".join(str(subject_name).split())[:200],
         topic_title=" ".join(str(topic_title).split())[:300],
         ai_content=compact_lesson,
@@ -870,7 +999,9 @@ def generate_topic_ai_content(
     ai_config: AIProviderConfig,
     previous_context: str = "",
     user_context: str = "",
+    track: str = PROGRAMMING_TRACK,
 ) -> TopicAIContentSchema:
+    general = track == GENERAL_TRACK
     requested_title = " ".join(str(topic_title or "").split())
     needs_suggested_title = not requested_title
     topic_request = (
@@ -893,13 +1024,13 @@ def generate_topic_ai_content(
             "- Use these instructions to choose examples, depth, emphasis, and explanation style\n"
             "- Keep the lesson focused on the topic title and subject\n"
         )
-    prompt = _TOPIC_PROMPT_TEMPLATE.format(
+    prompt = (_GENERAL_TOPIC_PROMPT_TEMPLATE if general else _TOPIC_PROMPT_TEMPLATE).format(
         subject_name=subject_name,
         topic_request=topic_request,
         previous_context=context_block,
     )
     raw = _phrase_service.generate_json_text(
-        system_text=_SYSTEM_TEXT,
+        system_text=_GENERAL_SYSTEM_TEXT if general else _SYSTEM_TEXT,
         prompt=prompt,
         temperature=0.7,
         ai_config=ai_config,
@@ -909,7 +1040,9 @@ def generate_topic_ai_content(
     except json.JSONDecodeError as exc:
         raise RuntimeError("IA retornou JSON inválido para o conteúdo do tópico.") from exc
     try:
-        return validate_initial_topic_content(data, require_title=needs_suggested_title)
+        return validate_initial_topic_content(
+            data, require_title=needs_suggested_title, require_code=not general
+        )
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
@@ -922,6 +1055,7 @@ def generate_additional_topic_flashcards(
     existing_fronts: list[str],
     user_context: str,
     ai_config: AIProviderConfig,
+    track: str = PROGRAMMING_TRACK,
 ) -> list[dict]:
     prompt = _build_additional_flashcards_prompt(
         subject_name=subject_name,
@@ -929,9 +1063,10 @@ def generate_additional_topic_flashcards(
         ai_content=ai_content,
         existing_fronts=existing_fronts,
         user_context=user_context,
+        track=track,
     )
     raw = _phrase_service.generate_json_text(
-        system_text=_SYSTEM_TEXT,
+        system_text=_GENERAL_SYSTEM_TEXT if track == GENERAL_TRACK else _SYSTEM_TEXT,
         prompt=prompt,
         temperature=0.6,
         ai_config=ai_config,
@@ -954,6 +1089,7 @@ def generate_additional_topic_questions(
     existing_questions: list[str],
     user_context: str,
     ai_config: AIProviderConfig,
+    track: str = PROGRAMMING_TRACK,
 ) -> list[dict]:
     prompt = _build_additional_questions_prompt(
         subject_name=subject_name,
@@ -961,9 +1097,10 @@ def generate_additional_topic_questions(
         ai_content=ai_content,
         existing_questions=existing_questions,
         user_context=user_context,
+        track=track,
     )
     raw = _phrase_service.generate_json_text(
-        system_text=_SYSTEM_TEXT,
+        system_text=_GENERAL_SYSTEM_TEXT if track == GENERAL_TRACK else _SYSTEM_TEXT,
         prompt=prompt,
         temperature=0.6,
         ai_config=ai_config,
@@ -985,9 +1122,22 @@ def deepen_coding_reading_step(
     step_payload: dict,
     user_question: str,
     ai_config: AIProviderConfig,
+    track: str = PROGRAMMING_TRACK,
 ) -> str:
+    general = track == GENERAL_TRACK
     compact_step = json.dumps(step_payload, ensure_ascii=False, indent=2)[:12_000]
     prompt = _READING_DEEPEN_PROMPT_TEMPLATE.format(
+        lesson_kind="uma aula" if general else "uma aula de programação",
+        example_rule=(
+            "Use exemplos concretos; blocos de código só se a matéria for sobre código"
+            if general
+            else "Use blocos de código quando houver código ou quando um exemplo técnico ajudar"
+        ),
+        focus_rule=(
+            "Foque em prova, compreensão, aplicação prática e armadilhas comuns"
+            if general
+            else "Foque em prova, entrevista técnica, raciocínio, trade-offs e armadilhas comuns"
+        ),
         subject_name=" ".join(str(subject_name).split())[:200],
         topic_title=" ".join(str(topic_title).split())[:300],
         step_payload=compact_step,
@@ -1002,8 +1152,8 @@ def deepen_coding_reading_step(
 
     raw = _phrase_service.generate_json_text(
         system_text=(
-            "You are an expert programming educator. Return ONLY valid JSON "
-            "with a single key named content."
+            ("You are an expert teacher. " if general else "You are an expert programming educator. ")
+            + "Return ONLY valid JSON with a single key named content."
         ),
         prompt=prompt,
         temperature=0.45,
@@ -1160,6 +1310,65 @@ def build_topic_history_context(topics: list, exclude_topic_id: int | None = Non
     else:
         lines.append(f'- The previous topic was "{last.title}"')
     return "\n".join(lines)
+
+
+def suggest_next_subject(
+    *,
+    track: str,
+    existing_subjects: list[dict],
+    user_context: str,
+    ai_config: AIProviderConfig,
+) -> dict:
+    """The next subject to add, chosen to follow a logical study order.
+
+    ``existing_subjects`` is oldest first, each with ``name`` and a progress
+    line, so the model can tell what was already covered and how far along it is.
+    """
+    general = track == GENERAL_TRACK
+    lines = [
+        f"- {' '.join(str(item.get('name') or '').split())[:100]}: {item.get('progress') or 'sem progresso'}"
+        for item in existing_subjects[-40:]
+        if str(item.get("name") or "").strip()
+    ]
+    prompt = _SUBJECT_SUGGESTION_PROMPT_TEMPLATE.format(
+        area=(
+            "general studies (languages, law, sciences, certifications, any school or exam subject)"
+            if general
+            else "programming and software engineering"
+        ),
+        existing_subjects="\n".join(lines) or "(none yet)",
+        user_context=sanitize_context(user_context) or "No additional wish.",
+        area_rule=(
+            "Stay in the same field as the existing subjects when there are any "
+            "(e.g. after French basics, the next French stage); do not suggest programming subjects"
+            if general
+            else "Suggest a programming subject (language, framework, tool, computer science topic or certification)"
+        ),
+    )
+    raw = _phrase_service.generate_json_text(
+        system_text=_GENERAL_SYSTEM_TEXT if general else _SYSTEM_TEXT,
+        prompt=prompt,
+        temperature=0.6,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON inválido para a sugestão de matéria.") from exc
+    if not isinstance(data, dict):
+        raise RuntimeError("IA não retornou uma sugestão de matéria.")
+    name = " ".join(str(data.get("name") or "").split())[:60]
+    if not name:
+        raise RuntimeError("IA não sugeriu um nome de matéria.")
+    known = {" ".join(str(item.get("name") or "").split()).casefold() for item in existing_subjects}
+    if name.casefold() in known:
+        raise RuntimeError("A IA sugeriu uma matéria que você já tem. Tente de novo.")
+    return {
+        "name": name,
+        "description": " ".join(str(data.get("description") or "").split())[:200],
+        "icon_emoji": str(data.get("icon_emoji") or "").strip()[:10] or None,
+        "reason": " ".join(str(data.get("reason") or "").split())[:240],
+    }
 
 
 # ── LeetCode trainer ──────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const api = read('../src/lib/api.ts');
 assert.match(api, /getExamSources: \(\) => fetchAPI<ExamSource\[\]>\('\/api\/exams\/sources'\)/);
 assert.match(api, /createExamFromSubject:[\s\S]*?'\/api\/exams\/from-subject'/);
-assert.match(api, /export type ExamSourceArea = 'coding' \| 'diverse' \| 'english';/, 'every study area can feed a simulado');
+assert.match(api, /export type ExamSourceArea = 'coding' \| 'general' \| 'diverse' \| 'english';/, 'every study area can feed a simulado');
 
 const builder = read('../src/components/exam/SubjectExamBuilder.tsx');
 for (const label of ['Inglês', 'Matérias', 'Programação']) {

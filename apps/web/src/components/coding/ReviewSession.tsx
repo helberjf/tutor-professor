@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { CheckCircle2, ChevronRight, HelpCircle, Loader2, X, XCircle } from 'lucide-react';
-import { api, type CodingReviewCard, type ReviewRating } from '@/lib/api';
+import { type CodingReviewCard, type ReviewRating } from '@/lib/api';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { t } from '@/lib/i18n';
+import { useCurriculumApi } from './curriculum-context';
 
 interface Props {
   subjectName: string;
@@ -21,6 +22,7 @@ interface CardState {
 }
 
 export function ReviewSession({ subjectName, cards, onClose }: Props) {
+  const curriculum = useCurriculumApi();
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('flip');
   const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, rating: null })));
@@ -50,7 +52,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
   async function handleAnswer(rating: ReviewRating) {
     setSubmitting(true);
     try {
-      await api.submitCodingReviewAttempt({ review_item_id: card.review_item_id, rating });
+      await curriculum.submitCodingReviewAttempt({ review_item_id: card.review_item_id, rating });
     } finally {
       setSubmitting(false);
     }

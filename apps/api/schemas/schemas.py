@@ -725,6 +725,8 @@ class ProgrammingSubjectSchema(FromAttributesModel):
     icon_emoji: Optional[str] = None
     relevance: int = 3
     last_used_at: Optional[datetime] = None
+    # "programming" or "general" — which list the subject belongs to.
+    track: str = "programming"
     created_at: datetime
     topic_count: int = 0
     studied_count: int = 0
@@ -747,6 +749,19 @@ class CreateProgrammingSubjectSchema(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     context: Optional[str] = Field(default=None, max_length=2000)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
+
+
+class SuggestSubjectRequestSchema(BaseModel):
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
+class SuggestedSubjectSchema(BaseModel):
+    """What the AI proposes as the next subject; nothing is saved until the reader confirms."""
+
+    name: str
+    description: str = ""
+    icon_emoji: Optional[str] = None
+    reason: str = ""
 
 
 class UpdateProgrammingSubjectSchema(BaseModel):
@@ -938,7 +953,7 @@ class CreateExamSchema(BaseModel):
     domains: List[ExamDomainSchema] = Field(default_factory=list, max_length=12)
 
 
-ExamSourceArea = Literal["coding", "diverse", "english"]
+ExamSourceArea = Literal["coding", "general", "diverse", "english"]
 
 
 class ExamSourceSchema(BaseModel):

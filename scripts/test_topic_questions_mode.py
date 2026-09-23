@@ -212,9 +212,9 @@ def test_frontend_contract() -> None:
         "getTopicQuestions",
         "generateCodingTopicQuestions",
         "submitCodingTopicQuestionAttempt",
-        "/api/coding/topics/${topicId}/questions",
-        "/api/coding/topics/${topicId}/questions/generate",
-        "/api/coding/questions/${questionId}/attempt",
+        "${base}/topics/${topicId}/questions",
+        "${base}/topics/${topicId}/questions/generate",
+        "${base}/questions/${questionId}/attempt",
     ):
         require_in(expected, api_source, f"missing API client question contract: {expected}")
 
@@ -224,8 +224,8 @@ def test_frontend_contract() -> None:
         "PracticeQuestionsModal",
         "questionPracticeOpen",
         "handleGenerateMoreQuestions",
-        "api.getTopicQuestions(topicId)",
-        "api.generateCodingTopicQuestions(topic.id",
+        "curriculum.getTopicQuestions(topicId)",
+        "curriculum.generateCodingTopicQuestions(topic.id",
         "submitCodingTopicQuestionAttempt",
         "Questões criadas não se repetem neste tópico.",
     ):

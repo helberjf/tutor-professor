@@ -134,8 +134,8 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             "selectedTopicId",
             "maxLength={1000}",
             "Serão criadas 5 questões",
-            "api.getCodingTopics(subjectId)",
-            "api.generateAdditionalCodingFlashcards(selectedTopicId, context)",
+            "curriculum.getCodingTopics(subjectId)",
+            "curriculum.generateAdditionalCodingFlashcards(selectedTopicId, context)",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.flashcard_deck)
@@ -149,7 +149,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         handler_start = self.flashcard_deck.index("async function generateWithAi()")
         handler_end = self.flashcard_deck.index("return (", handler_start)
         handler = self.flashcard_deck[handler_start:handler_end]
-        self.assertIn("await api.generateAdditionalCodingFlashcards(selectedTopicId, context)", handler)
+        self.assertIn("await curriculum.generateAdditionalCodingFlashcards(selectedTopicId, context)", handler)
         self.assertIn("await onReload()", handler)
         self.assertIn("onChanged?.()", handler)
         self.assertIn("setCreatingWithAi(false)", handler)
@@ -163,7 +163,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         handler_end = self.flashcard_deck.index("return (", handler_start)
         handler = self.flashcard_deck[handler_start:handler_end]
         endpoint = handler.index(
-            "await api.generateAdditionalCodingFlashcards(selectedTopicId, context)"
+            "await curriculum.generateAdditionalCodingFlashcards(selectedTopicId, context)"
         )
         success_path = handler[endpoint:handler.index("catch", endpoint)]
         self.assertIn("if (overviewReloaded) onChanged?.()", success_path)
@@ -209,7 +209,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         overview_start = self.flashcard_deck.index("async function loadOverview(")
         overview_end = self.flashcard_deck.index("async function retryTopics(", overview_start)
         overview_loader = self.flashcard_deck[overview_start:overview_end]
-        self.assertIn("await api.getDeckOverview(subjectId)", overview_loader)
+        self.assertIn("await curriculum.getDeckOverview(subjectId)", overview_loader)
         self.assertNotIn("getCodingTopics", overview_loader)
         self.assertNotIn("Promise.all", overview_loader)
         self.assertNotIn("Promise.allSettled", overview_loader)
@@ -221,7 +221,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         self.assertIn("generationLockRef", handler)
         guard = handler.index("if (generationLockRef.current) return")
         acquire = handler.index("generationLockRef.current = true")
-        endpoint = handler.index("await api.generateAdditionalCodingFlashcards")
+        endpoint = handler.index("await curriculum.generateAdditionalCodingFlashcards")
         release = handler.index("generationLockRef.current = false", endpoint)
         self.assertLess(guard, acquire)
         self.assertLess(acquire, endpoint)
@@ -244,7 +244,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
     def test_api_client_exposes_additional_flashcard_generation(self):
         self.assertIn("generateAdditionalCodingFlashcards", self.api_source)
         self.assertIn(
-            "`/api/coding/topics/${topicId}/flashcards/generate`",
+            "`${base}/topics/${topicId}/flashcards/generate`",
             self.api_source,
         )
         self.assertIn("body: JSON.stringify({ context: context?.trim() || null })", self.api_source)
@@ -267,7 +267,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
         self.assertIn("appendGeneratedFlashcards", self.topic_view)
         self.assertIn("syncTopicFlashcardCount", self.topic_view)
         self.assertIn(
-            "api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext)",
+            "curriculum.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext)",
             self.topic_view,
         )
         self.assertIn(
@@ -341,7 +341,7 @@ class ProgrammingAIFlashcardFrontendTests(unittest.TestCase):
             handler.index("setTopic(updated)"),
         )
         self.assertIn("await loadTopicFlashcards(topic.id)", handler)
-        self.assertNotIn("api.getTopicFlashcards", handler)
+        self.assertNotIn("curriculum.getTopicFlashcards", handler)
         self.assertNotIn("setFlashcards([])", handler)
         self.assertNotIn("contentWasRegenerated", handler)
 

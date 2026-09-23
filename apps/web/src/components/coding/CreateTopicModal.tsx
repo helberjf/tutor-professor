@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { Loader2, Sparkles, X } from 'lucide-react';
-import { api, type ProgrammingTopic } from '@/lib/api';
+import { type ProgrammingTopic } from '@/lib/api';
 import { t } from '@/lib/i18n';
+import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 interface Props {
   subjectId: number;
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: Props) {
+  const curriculum = useCurriculumApi();
+  const general = useCurriculumTrack() === 'general';
   const [title, setTitle] = useState('');
   const [generateAI, setGenerateAI] = useState(false);
   const [topicContext, setTopicContext] = useState('');
@@ -25,7 +28,7 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
     setLoading(true);
     setError('');
     try {
-      const topic = await api.createCodingTopic(subjectId, {
+      const topic = await curriculum.createCodingTopic(subjectId, {
         title: title.trim(),
         order_index: topicCount,
         generate_ai: generateAI,
@@ -80,7 +83,9 @@ export function CreateTopicModal({ subjectId, topicCount, onClose, onCreated }: 
               <textarea
                 value={topicContext}
                 onChange={(event) => setTopicContext(event.target.value)}
-                placeholder={t("Ex.: foco em entrevista técnica, prova AWS, exemplos com Step Functions...")}
+                placeholder={general
+                  ? t("Ex.: foco na prova, nível intermediário, mais exemplos práticos...")
+                  : t("Ex.: foco em entrevista técnica, prova AWS, exemplos com Step Functions...")}
                 maxLength={1000}
                 rows={3}
                 className="mt-2 w-full resize-none rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-400"

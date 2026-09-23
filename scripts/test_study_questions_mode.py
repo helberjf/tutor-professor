@@ -17,7 +17,7 @@ WEB_API = WEB / "lib" / "api.ts"
 PRACTICE_MODAL = WEB / "components" / "questions" / "PracticeQuestionsModal.tsx"
 QUESTIONS_PANEL = WEB / "components" / "questions" / "StudyQuestionsPanel.tsx"
 TOPIC_VIEW = WEB / "components" / "coding" / "TopicView.tsx"
-DIVERSE_TAB = WEB / "app" / "study" / "_components" / "DiverseTab.tsx"
+STUDY_PAGE = WEB / "app" / "study" / "page.tsx"
 ENGLISH_TAB = WEB / "app" / "study" / "_components" / "EnglishTab.tsx"
 ENGLISH_QUESTIONS = WEB / "app" / "study" / "_components" / "EnglishQuestionsSection.tsx"
 
@@ -237,9 +237,13 @@ def test_frontend_contract() -> None:
     ):
         require(expected in panel, f"study questions panel missing: {expected}")
 
-    diverse = read(DIVERSE_TAB)
-    require("StudyQuestionsPanel" in diverse, "diverse subjects must offer the simulado")
-    require("area: 'diverse'" in diverse, "diverse panel must target the diverse area")
+    # "Outras matérias" are studied on the curriculum screens, so they get the
+    # same question mode as programming (TopicView above) on their own list.
+    study_page = read(STUDY_PAGE)
+    require(
+        "track={activeTab === 'coding' ? 'programming' : 'general'}" in study_page,
+        "other subjects must open the curriculum on the general list",
+    )
 
     english_tab = read(ENGLISH_TAB)
     require("EnglishQuestionsSection" in english_tab, "the English tab must offer the simulado")

@@ -11,7 +11,7 @@ const lessonPage = readFileSync(resolve(root, 'src/app/lesson/page.tsx'), 'utf8'
 const studyPage = [
   'src/app/study/page.tsx',
   'src/app/study/_components/CodingTab.tsx',
-  'src/app/study/_components/DiverseTab.tsx',
+  'src/app/study/_components/OtherSubjectsPicker.tsx',
   'src/app/study/_components/EnglishTab.tsx',
   'src/app/study/_components/EnglishQuestionsSection.tsx',
   'src/app/study/_components/shared.tsx',

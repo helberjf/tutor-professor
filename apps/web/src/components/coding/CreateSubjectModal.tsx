@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Loader2, X } from 'lucide-react';
-import { api, type ProgrammingSubject } from '@/lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, Sparkles, X } from 'lucide-react';
+import { type ProgrammingSubject } from '@/lib/api';
 import { t } from '@/lib/i18n';
+import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 const CONTEXT_PLACEHOLDER = `Instruções extras ou um guia de como a matéria deve ser organizada.
 
@@ -16,12 +17,27 @@ Ex (React):
 
 Ou só instruções: foco no exame AWS SAA-C03, estilo de prova, nível avançado.`;
 
+const GENERAL_CONTEXT_PLACEHOLDER = `Instruções extras ou um guia de como a matéria deve ser organizada.
+
+Ex (Francês):
+1. Pronúncia e saudações
+2. Artigos e gênero
+3. Presente dos verbos
+...
+15. Subjuntivo
+
+Ou só instruções: foco na prova DELF B1, nível intermediário.`;
+
 interface Props {
   onClose: () => void;
   onCreated: (subject: ProgrammingSubject) => void;
+  /** Opened from "Sugerir matéria por IA": ask for a proposal right away. */
+  autoSuggest?: boolean;
 }
 
-export function CreateSubjectModal({ onClose, onCreated }: Props) {
+export function CreateSubjectModal({ onClose, onCreated, autoSuggest = false }: Props) {
+  const curriculum = useCurriculumApi();
+  const general = useCurriculumTrack() === 'general';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [contextEnabled, setContextEnabled] = useState(false);
@@ -29,6 +45,35 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
   const [emoji, setEmoji] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionReason, setSuggestionReason] = useState('');
+  const autoSuggestedRef = useRef(false);
+
+  // The AI only proposes: the fields are filled for the reader to keep, edit
+  // or discard, and nothing is created until "Criar Matéria".
+  async function suggestSubject() {
+    setSuggesting(true);
+    setError('');
+    try {
+      const suggestion = await curriculum.suggestSubject();
+      setName(suggestion.name);
+      setDescription(suggestion.description);
+      setEmoji(suggestion.icon_emoji ?? '');
+      setSuggestionReason(suggestion.reason);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t("Não foi possível sugerir uma matéria agora."));
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!autoSuggest || autoSuggestedRef.current) return;
+    autoSuggestedRef.current = true;
+    void suggestSubject();
+  // Runs once when the modal opens from the suggestion button.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSuggest]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,7 +81,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
     setLoading(true);
     setError('');
     try {
-      const subject = await api.createCodingSubject({
+      const subject = await curriculum.createCodingSubject({
         name: name.trim(),
         description: description.trim() || undefined,
         context: contextEnabled ? context.trim() || undefined : undefined,
@@ -60,12 +105,31 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <button
+            type="button"
+            onClick={() => void suggestSubject()}
+            disabled={suggesting || loading}
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-200 bg-violet-50 px-4 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+          >
+            {suggesting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {suggesting
+              ? t("Pensando na próxima matéria...")
+              : suggestionReason
+                ? t("Sugerir outra matéria")
+                : t("Sugerir matéria por IA?")}
+          </button>
+          {suggestionReason && (
+            <p className="rounded-2xl bg-violet-50 px-4 py-3 text-xs font-bold text-violet-800 dark:bg-violet-400/10 dark:text-violet-100">
+              <span className="block text-[11px] font-black uppercase tracking-wide text-violet-500">{t("Por que esta agora")}</span>
+              {suggestionReason}
+            </p>
+          )}
           <div className="flex gap-3">
             <input
-              aria-label="⚛️"
+              aria-label={general ? '📘' : '⚛️'}
               value={emoji}
               onChange={(e) => setEmoji(e.target.value)}
-              placeholder="⚛️"
+              placeholder={general ? '📘' : '⚛️'}
               maxLength={2}
               className="w-16 rounded-2xl border-2 border-slate-200 bg-white px-3 py-3 text-center text-xl outline-none focus:border-primary"
             />
@@ -73,7 +137,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               aria-label={t("Nome da matéria")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t("Nome da matéria (ex: React)")}
+              placeholder={general ? t("Nome da matéria (ex: Francês)") : t("Nome da matéria (ex: React)")}
               maxLength={100}
               required
               autoFocus
@@ -114,7 +178,7 @@ export function CreateSubjectModal({ onClose, onCreated }: Props) {
               <textarea
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                placeholder={CONTEXT_PLACEHOLDER}
+                placeholder={general ? GENERAL_CONTEXT_PLACEHOLDER : CONTEXT_PLACEHOLDER}
                 maxLength={2000}
                 rows={7}
                 className="mt-3 w-full resize-y rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 outline-none focus:border-primary"

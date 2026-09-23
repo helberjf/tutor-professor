@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { api, type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
+import { type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
 import { speakWithBrowserVoice } from '@/lib/browser-speech';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
 import { DeepeningMarkdown } from './DeepeningMarkdown';
@@ -10,6 +10,7 @@ import { SummarySheetModal } from './SummarySheetModal';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
 import { t } from '@/lib/i18n';
+import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 interface Props {
   topic: ProgrammingTopic;
@@ -149,6 +150,8 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
 }
 
 export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated }: Props) {
+  const curriculum = useCurriculumApi();
+  const general = useCurriculumTrack() === 'general';
   const [topic, setTopic] = useState(initialTopic);
   const [flashcards, setFlashcards] = useState<ProgrammingFlashcard[]>([]);
   const [loadingFc, setLoadingFc] = useState(true);
@@ -220,7 +223,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     setRegeneratingSummary(regenerate);
     setSummaryError('');
     try {
-      setSummary(await api.generateTopicSummary(topic.id, regenerate));
+      setSummary(await curriculum.generateTopicSummary(topic.id, regenerate));
       setSummaryOpen(true);
     } catch (err) {
       // Keep any sheet already on screen: a failed re-run should not throw away
@@ -235,7 +238,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   async function handleSaveTopicSummary(content: string) {
     setSummaryError('');
     try {
-      setSummary(await api.saveTopicSummary(topic.id, content));
+      setSummary(await curriculum.saveTopicSummary(topic.id, content));
     } catch (err) {
       setSummaryError(err instanceof Error ? err.message : t("Não foi possível salvar o resumo."));
     }
@@ -263,7 +266,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     setFlashcardsLoadError('');
     setLoadedFlashcardTopicId(null);
     try {
-      const loadedFlashcards = await api.getTopicFlashcards(topicId);
+      const loadedFlashcards = await curriculum.getTopicFlashcards(topicId);
       if (requestId !== flashcardLoadRequestId.current) return false;
       setFlashcards(loadedFlashcards);
       setLoadedFlashcardTopicId(topicId);
@@ -275,7 +278,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     } finally {
       if (requestId === flashcardLoadRequestId.current) setLoadingFc(false);
     }
-  }, []);
+  }, [curriculum]);
 
   const loadTopicQuestions = useCallback(async (topicId: number): Promise<boolean> => {
     const requestId = ++questionLoadRequestId.current;
@@ -283,7 +286,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     setQuestionLoadError('');
     setLoadedQuestionTopicId(null);
     try {
-      const loadedQuestions = await api.getTopicQuestions(topicId);
+      const loadedQuestions = await curriculum.getTopicQuestions(topicId);
       if (requestId !== questionLoadRequestId.current) return false;
       setQuestions(loadedQuestions);
       setLoadedQuestionTopicId(topicId);
@@ -295,7 +298,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     } finally {
       if (requestId === questionLoadRequestId.current) setLoadingQuestions(false);
     }
-  }, []);
+  }, [curriculum]);
 
   useEffect(() => {
     void loadTopicFlashcards(topic.id);
@@ -346,8 +349,8 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       const contextText = context?.trim();
       const updated = contextText
-        ? await api.generateCodingTopicContent(topic.id, { context: contextText })
-        : await api.generateCodingTopicContent(topic.id);
+        ? await curriculum.generateCodingTopicContent(topic.id, { context: contextText })
+        : await curriculum.generateCodingTopicContent(topic.id);
       setTopic(updated);
       onTopicUpdated(updated);
       await loadTopicFlashcards(topic.id);
@@ -365,7 +368,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   async function handleSaveNotes() {
     setSavingNotes(true);
     try {
-      const updated = await api.updateCodingTopic(topic.id, { notes });
+      const updated = await curriculum.updateCodingTopic(topic.id, { notes });
       setTopic(updated);
       onTopicUpdated(updated);
     } finally {
@@ -374,7 +377,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   }
 
   async function handleSetStatus(status: 'studied' | 'mastered') {
-    const updated = await api.updateCodingTopic(topic.id, { status });
+    const updated = await curriculum.updateCodingTopic(topic.id, { status });
     setTopic(updated);
     onTopicUpdated(updated);
   }
@@ -385,7 +388,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
     setAddingFc(true);
     try {
-      const fc = await api.createTopicFlashcard(topic.id, {
+      const fc = await curriculum.createTopicFlashcard(topic.id, {
         front: addFcFront.trim(),
         back: addFcBack.trim(),
         code_example: addFcCode.trim() || undefined,
@@ -408,7 +411,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     setAdditionalFlashcardError('');
     setAdditionalFlashcardSuccess('');
     try {
-      const created = await api.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext);
+      const created = await curriculum.generateAdditionalCodingFlashcards(topic.id, additionalFlashcardContext);
       setFlashcards((current) => appendGeneratedFlashcards(current, created));
       setAdditionalFlashcardSuccess(t("5 novas questões foram criadas com IA."));
       setShowAdditionalFlashcardForm(false);
@@ -428,7 +431,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     setQuestionGenerationError('');
     setQuestionGenerationSuccess('');
     try {
-      const created = await api.generateCodingTopicQuestions(topic.id, { context: questionGenerationContext });
+      const created = await curriculum.generateCodingTopicQuestions(topic.id, { context: questionGenerationContext });
       setQuestions((current) => [...current, ...created]);
       setQuestionGenerationSuccess(t("5 novas questões foram criadas. Questões criadas não se repetem neste tópico."));
       setShowQuestionGenerationForm(false);
@@ -441,7 +444,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   }
 
   async function handleQuestionAttempt(questionId: number, selectedOption: string): Promise<ProgrammingQuestionAttemptResult> {
-    const result = await api.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
+    const result = await curriculum.submitCodingTopicQuestionAttempt(questionId, { selected_option: selectedOption });
     setQuestions((current) =>
       current.map((item) =>
         item.id === questionId
@@ -501,7 +504,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     try {
       const created: ProgrammingFlashcard[] = [];
       for (const draft of drafts) {
-        created.push(await api.createTopicFlashcard(topic.id, draft));
+        created.push(await curriculum.createTopicFlashcard(topic.id, draft));
       }
       setFlashcards((prev) => [...prev, ...created]);
       setImportFcText('');
@@ -517,7 +520,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   async function handleDeleteFlashcard(id: number) {
     if (generating || generatingAdditionalFlashcards || generatingQuestions) return;
     if (loadingFc || loadedFlashcardTopicId !== topic.id) return;
-    await api.deleteCodingFlashcard(id);
+    await curriculum.deleteCodingFlashcard(id);
     setFlashcards((prev) => prev.filter((fc) => fc.id !== id));
   }
 
@@ -648,7 +651,9 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             <textarea
               value={regenerateContext}
               onChange={(event) => setRegenerateContext(event.target.value)}
-              placeholder={t("Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns...")}
+              placeholder={general
+                ? t("Ex.: explique mais devagar, traga mais exemplos, foque no que cai na prova...")
+                : t("Ex.: foque em exemplos de entrevista, explique mais devagar, use TypeScript, traga armadilhas comuns...")}
               maxLength={1000}
               rows={3}
               className="mt-2 w-full resize-none rounded-2xl border-2 border-violet-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-violet-500"
@@ -945,7 +950,9 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <textarea
                 value={additionalFlashcardContext}
                 onChange={(event) => setAdditionalFlashcardContext(event.target.value)}
-                placeholder={t("Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns...")}
+                placeholder={general
+                  ? t("Ex.: foque em aplicação prática, pegadinhas de prova ou comparações...")
+                  : t("Ex.: foque em debugging, entrevistas técnicas ou armadilhas comuns...")}
                 maxLength={1000}
                 rows={3}
                 disabled={loadingFc || loadedFlashcardTopicId !== topic.id || generating || generatingAdditionalFlashcards}
@@ -1008,7 +1015,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             <input
               aria-label={t("Frente (conceito / pergunta)")} value={addFcFront} onChange={(e) => setAddFcFront(e.target.value)} placeholder={t("Frente (conceito / pergunta)")} maxLength={500} required className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-primary" />
             <textarea value={addFcBack} onChange={(e) => setAddFcBack(e.target.value)} placeholder={t("Verso (resposta / explicação)")} maxLength={2000} required rows={3} className="w-full resize-none rounded-xl border-2 border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary" />
-            <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder={t("Exemplo de código (opcional)")} maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
+            <textarea value={addFcCode} onChange={(e) => setAddFcCode(e.target.value)} placeholder={general ? t("Exemplo (opcional)") : t("Exemplo de código (opcional)")} maxLength={3000} rows={2} className="w-full resize-none rounded-xl border-2 border-slate-900 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100 outline-none focus:border-violet-400" />
             <button type="submit" disabled={loadingFc || loadedFlashcardTopicId !== topic.id || addingFc || generating || generatingAdditionalFlashcards || !addFcFront.trim() || !addFcBack.trim()} className="min-h-11 flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2 font-black text-white hover:bg-primary-dark disabled:opacity-50">
               {addingFc ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {t("Adicionar Flashcard")}
             </button>
@@ -1119,6 +1126,7 @@ function ReadingStudyModal({
   onClose: () => void;
   onFinish: () => void;
 }) {
+  const curriculum = useCurriculumApi();
   const [speaking, setSpeaking] = useState(false);
   const [speechError, setSpeechError] = useState('');
   const [showDeepening, setShowDeepening] = useState(false);
@@ -1202,7 +1210,7 @@ function ReadingStudyModal({
     setDeepeningAnswer('');
     setDeepeningCopied(false);
     try {
-      const response = await api.deepenCodingReadingStep(topicId, buildDeepeningPayload(step, deepeningQuestion));
+      const response = await curriculum.deepenCodingReadingStep(topicId, buildDeepeningPayload(step, deepeningQuestion));
       setDeepeningAnswer(response.content);
     } catch (err) {
       setDeepeningError(err instanceof Error ? err.message : t("Não foi possível aprofundar este assunto."));

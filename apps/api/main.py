@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import case, func, inspect, text, update
@@ -177,6 +178,8 @@ from schemas.schemas import (
     ProgrammingSubjectPageSchema,
     QuestionSubjectMetricsSchema,
     ProgrammingSubjectSchema,
+    SuggestSubjectRequestSchema,
+    SuggestedSubjectSchema,
     ProgrammingTopicSchema,
     DiverseLessonBlockSchema,
     TopicAIContentSchema,
@@ -266,6 +269,8 @@ from services.study_question_service import (
     validate_study_question_batch,
 )
 from services.coding_service import (
+    GENERAL_TRACK,
+    PROGRAMMING_TRACK,
     apply_deck_attempt,
     build_coding_review_cards,
     build_deck_queue,
@@ -287,6 +292,7 @@ from services.coding_service import (
     reset_daily_counters,
     seed_coding_review_item,
     subject_topics_with_lessons,
+    suggest_next_subject,
     summarize_topic_essentials,
     validate_additional_topic_flashcards,
     validate_initial_topic_content,
@@ -653,6 +659,9 @@ app = FastAPI(title="Tutor and Professor API", version="1.0.0")
 MODULE_ROUTE_PREFIXES: tuple[tuple[str, str], ...] = (
     ("/api/coding/", "coding"),
     ("/api/study/coding/", "coding"),
+    # The general subjects reuse the curriculum handlers under their own prefix,
+    # so an account without programming still studies its other subjects.
+    ("/api/general/", "diverse"),
     ("/api/study/diverse", "diverse"),
     ("/api/books", "books"),
     ("/api/exams", "exams"),
@@ -3655,7 +3664,7 @@ def _coding_resume(
     mode = str(context.get("mode") or "reading")
     if mode not in {"reading", "flashcards", "questions"}:
         mode = "reading"
-    base_pairs = [("tab", "coding"), ("mode", mode), ("subject_id", subject.id or 0)]
+    base_pairs = [("tab", curriculum_study_tab(subject)), ("mode", mode), ("subject_id", subject.id or 0)]
     subject_context = {"subject_id": subject.id or 0, "mode": mode}
 
     if kind == "coding_flashcards" or mode == "flashcards":
@@ -3690,7 +3699,7 @@ def _coding_resume(
         resolved_kind = "coding_questions" if kind == "coding_questions" else "coding_topic"
         resolved_mode = "questions" if resolved_kind == "coding_questions" else "reading"
         pairs = [
-            ("tab", "coding"),
+            ("tab", curriculum_study_tab(subject)),
             ("mode", resolved_mode),
             ("subject_id", subject.id or 0),
             ("topic_id", topic.id or 0),
@@ -6496,6 +6505,34 @@ def _persist_programming_questions(
     return created
 
 
+# The same curriculum endpoints serve two lists. Programming lives under
+# /api/coding/ (the coding module); "Outras matérias" reaches the very same
+# handlers under /api/general/ (the diverse module) — see the route copy at the
+# end of this file. The prefix a request came in on says which list it means.
+GENERAL_CURRICULUM_PREFIX = "/api/general/"
+
+
+def request_curriculum_track(request: Request) -> str:
+    if request.url.path.startswith(GENERAL_CURRICULUM_PREFIX):
+        return GENERAL_TRACK
+    return PROGRAMMING_TRACK
+
+
+def subject_track(subject: ProgrammingSubject | None) -> str:
+    if subject is not None and subject.track == GENERAL_TRACK:
+        return GENERAL_TRACK
+    return PROGRAMMING_TRACK
+
+
+def curriculum_activity_type(subject: ProgrammingSubject | None, programming_type: str) -> str:
+    """Studying a general subject counts for "Outras matérias", not for programming."""
+    return "diverse" if subject_track(subject) == GENERAL_TRACK else programming_type
+
+
+def curriculum_study_tab(subject: ProgrammingSubject | None) -> str:
+    return "diverse" if subject_track(subject) == GENERAL_TRACK else "coding"
+
+
 CODING_SUBJECT_PAGE_SIZE = 10
 CodingSubjectSort = Literal["last_used", "created_at", "alphabetical", "relevance"]
 
@@ -6574,6 +6611,7 @@ def _coding_subject_schema(
         icon_emoji=subject.icon_emoji,
         relevance=subject.relevance,
         last_used_at=subject.last_used_at,
+        track=subject_track(subject),
         created_at=subject.created_at,
         topic_count=topic_count,
         studied_count=studied_count,
@@ -6594,7 +6632,9 @@ def _coding_subject_schemas(
     ]
 
 
-def _coding_subject_totals(session: Session, child_id: int) -> tuple[int, int, int]:
+def _coding_subject_totals(
+    session: Session, child_id: int, track: str = PROGRAMMING_TRACK
+) -> tuple[int, int, int]:
     topic_count, studied_count = session.exec(
         select(
             func.count(ProgrammingTopic.id),
@@ -6613,7 +6653,7 @@ def _coding_subject_totals(session: Session, child_id: int) -> tuple[int, int, i
             ProgrammingSubject,
             ProgrammingSubject.id == ProgrammingTopic.subject_id,
         )
-        .where(ProgrammingSubject.child_id == child_id)
+        .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
     ).one()
     due_review_count = session.exec(
         select(func.count(CodingReviewItem.id))
@@ -6622,18 +6662,29 @@ def _coding_subject_totals(session: Session, child_id: int) -> tuple[int, int, i
             ProgrammingFlashcard,
             ProgrammingFlashcard.id == CodingReviewItem.flashcard_id,
         )
+        .join(
+            ProgrammingSubject,
+            ProgrammingSubject.id == ProgrammingFlashcard.subject_id,
+        )
         .where(
             CodingReviewItem.child_id == child_id,
             CodingReviewItem.next_review <= datetime.utcnow(),
             ProgrammingFlashcard.child_id == child_id,
+            ProgrammingSubject.track == track,
         )
     ).one()
     return int(topic_count or 0), int(studied_count or 0), int(due_review_count or 0)
 
 
-def _ensure_coding_subjects(session: Session, child_id: int) -> None:
+def _ensure_coding_subjects(session: Session, child_id: int, track: str = PROGRAMMING_TRACK) -> None:
+    # Only the programming list has a legacy per-date shape to rebuild from.
+    if track != PROGRAMMING_TRACK:
+        return
     existing = session.exec(
-        select(ProgrammingSubject.id).where(ProgrammingSubject.child_id == child_id).limit(1)
+        select(ProgrammingSubject.id).where(
+            ProgrammingSubject.child_id == child_id,
+            ProgrammingSubject.track == PROGRAMMING_TRACK,
+        ).limit(1)
     ).first()
     if existing is None:
         _materialize_legacy_coding_curriculum(session, child_id)
@@ -6644,10 +6695,11 @@ def list_coding_subjects(request: Request, session: Session = Depends(get_sessio
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
-    _ensure_coding_subjects(session, child_id)
+    track = request_curriculum_track(request)
+    _ensure_coding_subjects(session, child_id, track)
     subjects = session.exec(
         select(ProgrammingSubject)
-        .where(ProgrammingSubject.child_id == child_id)
+        .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
         .order_by(ProgrammingSubject.id)
     ).all()
     return _coding_subject_schemas(session, child_id, list(subjects))
@@ -6663,12 +6715,14 @@ def page_coding_subjects(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
-    _ensure_coding_subjects(session, child_id)
+    track = request_curriculum_track(request)
+    _ensure_coding_subjects(session, child_id, track)
 
     total = int(
         session.exec(
             select(func.count(ProgrammingSubject.id)).where(
-                ProgrammingSubject.child_id == child_id
+                ProgrammingSubject.child_id == child_id,
+                ProgrammingSubject.track == track,
             )
         ).one()
         or 0
@@ -6676,7 +6730,10 @@ def page_coding_subjects(
     total_pages = max(1, (total + CODING_SUBJECT_PAGE_SIZE - 1) // CODING_SUBJECT_PAGE_SIZE)
     page = min(page, total_pages)
 
-    query = select(ProgrammingSubject).where(ProgrammingSubject.child_id == child_id)
+    query = select(ProgrammingSubject).where(
+        ProgrammingSubject.child_id == child_id,
+        ProgrammingSubject.track == track,
+    )
     if sort == "alphabetical":
         query = query.order_by(func.lower(ProgrammingSubject.name), ProgrammingSubject.id)
     elif sort == "created_at":
@@ -6699,7 +6756,7 @@ def page_coding_subjects(
     subjects = session.exec(
         query.offset((page - 1) * CODING_SUBJECT_PAGE_SIZE).limit(CODING_SUBJECT_PAGE_SIZE)
     ).all()
-    topic_count, studied_count, due_review_count = _coding_subject_totals(session, child_id)
+    topic_count, studied_count, due_review_count = _coding_subject_totals(session, child_id, track)
     return ProgrammingSubjectPageSchema(
         items=_coding_subject_schemas(session, child_id, list(subjects)),
         page=page,
@@ -6721,7 +6778,13 @@ def get_coding_subject(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     subject = session.get(ProgrammingSubject, subject_id)
-    if subject is None or subject.child_id != child.id:
+    # A deep link opens a subject by id; it must not pull one list's subject
+    # into the other list's screen.
+    if (
+        subject is None
+        or subject.child_id != child.id
+        or subject_track(subject) != request_curriculum_track(request)
+    ):
         raise HTTPException(status_code=404, detail="Matéria não encontrada.")
     metrics = _coding_subject_metrics(session, child.id or 0, [subject_id])
     return _coding_subject_schema(subject, metrics.get(subject_id, (0, 0, 0)))
@@ -6741,6 +6804,7 @@ def create_coding_subject(
         description=(payload.description or "").strip() or None,
         context=(payload.context or "").strip() or None,
         icon_emoji=(payload.icon_emoji or "").strip() or None,
+        track=request_curriculum_track(request),
         created_at=datetime.utcnow(),
     )
     session.add(subject)
@@ -6750,11 +6814,64 @@ def create_coding_subject(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         relevance=subject.relevance, last_used_at=subject.last_used_at,
+        track=subject_track(subject),
         created_at=subject.created_at,
         topic_count=0,
         studied_count=0,
         due_review_count=0,
     )
+
+
+@app.post("/api/coding/subjects/suggest", response_model=SuggestedSubjectSchema)
+def suggest_coding_subject(
+    request: Request,
+    payload: SuggestSubjectRequestSchema | None = None,
+    session: Session = Depends(get_session),
+) -> SuggestedSubjectSchema:
+    """Propose the next subject in a logical study order. Nothing is saved.
+
+    The reader sees the proposal in the "Nova matéria" form and decides; the AI
+    only looks at what is already on this list and how far each subject went.
+    """
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    track = request_curriculum_track(request)
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+    subjects = list(
+        session.exec(
+            select(ProgrammingSubject)
+            .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
+            .order_by(ProgrammingSubject.created_at, ProgrammingSubject.id)
+        ).all()
+    )
+    metrics = _coding_subject_metrics(session, child_id, [subject.id or 0 for subject in subjects])
+    existing = []
+    for subject in subjects:
+        topic_count, studied_count, _ = metrics.get(subject.id or 0, (0, 0, 0))
+        existing.append(
+            {
+                "name": subject.name,
+                "progress": f"{studied_count} de {topic_count} tópicos estudados",
+            }
+        )
+    user_context = sanitize_context(payload.context if payload else "")
+    session.rollback()
+    try:
+        suggestion = suggest_next_subject(
+            track=track,
+            existing_subjects=existing,
+            user_context=user_context,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return SuggestedSubjectSchema(**suggestion)
 
 
 @app.put("/api/coding/subjects/{subject_id}", response_model=ProgrammingSubjectSchema)
@@ -6787,6 +6904,7 @@ def update_coding_subject(
         id=subject.id or 0, child_id=subject.child_id, name=subject.name,
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         relevance=subject.relevance, last_used_at=subject.last_used_at,
+        track=subject_track(subject),
         created_at=subject.created_at,
         topic_count=len(topics),
         studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
@@ -6907,8 +7025,13 @@ def generate_coding_subject_topic(
                 or "- No topics exist yet; choose the first fundamental topic for this subject"
             ),
             user_context=subject.context or "",
+            track=subject_track(subject),
         )
-        content = validate_initial_topic_content(content, require_title=True)
+        content = validate_initial_topic_content(
+            content,
+            require_title=True,
+            require_code=subject_track(subject) == PROGRAMMING_TRACK,
+        )
         title = content.title or ""
         existing_normalized = {topic.title.casefold().strip() for topic in existing_topics}
         if title.casefold() in existing_normalized:
@@ -6992,8 +7115,12 @@ def create_coding_topic(
                     ai_config=ai_config,
                     previous_context=build_topic_history_context(existing_topics),
                     user_context=context_text,
+                    track=subject_track(subject),
                 )
-                content = validate_initial_topic_content(content)
+                content = validate_initial_topic_content(
+                    content,
+                    require_code=subject_track(subject) == PROGRAMMING_TRACK,
+                )
             except (RuntimeError, ValueError) as exc:
                 session.rollback()
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -7079,7 +7206,7 @@ def update_coding_topic(
         add_daily_activity(
             session,
             child_id=child.id or 0,
-            activity_type="coding_topic",
+            activity_type=curriculum_activity_type(subject, "coding_topic"),
             activity_title=(
                 f"{TOPIC_STATUS_PROGRESS_LABELS[topic.status]}: {topic.title}"
             ),
@@ -7123,6 +7250,7 @@ def deepen_coding_topic_reading(
     step_payload = payload.model_dump(exclude_none=True)
     user_question = sanitize_context(payload.user_question)
     subject_name = subject.name
+    track = subject_track(subject)
     topic_title = topic.title
 
     # The deepening answer is intentionally ephemeral: close any read
@@ -7135,6 +7263,7 @@ def deepen_coding_topic_reading(
             step_payload=step_payload,
             user_question=user_question,
             ai_config=ai_config,
+            track=track,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -7535,9 +7664,10 @@ def _exam_source_records(
 ) -> tuple[str, int | None, list[dict]]:
     """The subject's multiple-choice questions in the exam shape, topic as domain."""
 
-    if payload.area == "coding":
+    if payload.area in ("coding", "general"):
         subject = session.get(ProgrammingSubject, payload.subject_id) if payload.subject_id else None
-        if subject is None or subject.child_id != child.id:
+        expected_track = GENERAL_TRACK if payload.area == "general" else PROGRAMMING_TRACK
+        if subject is None or subject.child_id != child.id or subject_track(subject) != expected_track:
             raise HTTPException(status_code=404, detail="Matéria não encontrada.")
         topic_titles = {
             topic.id: topic.title
@@ -7614,15 +7744,22 @@ def list_exam_sources(
             .order_by(StudyQuestion.subject_name)
         ).all()
         counted.extend((area, None, name, count) for name, count in rows)
+    curriculum_areas = [("general", GENERAL_TRACK)]
     if account_has_coding_enabled(request, session):
+        curriculum_areas.append(("coding", PROGRAMMING_TRACK))
+    for area, track in curriculum_areas:
         rows = session.exec(
             select(ProgrammingSubject.id, ProgrammingSubject.name, func.count(ProgrammingQuestion.id))
             .join(ProgrammingQuestion, ProgrammingQuestion.subject_id == ProgrammingSubject.id)
-            .where(ProgrammingSubject.child_id == child_id, ProgrammingQuestion.child_id == child_id)
+            .where(
+                ProgrammingSubject.child_id == child_id,
+                ProgrammingSubject.track == track,
+                ProgrammingQuestion.child_id == child_id,
+            )
             .group_by(ProgrammingSubject.id, ProgrammingSubject.name)
             .order_by(ProgrammingSubject.name)
         ).all()
-        counted.extend(("coding", subject_id, name, count) for subject_id, name, count in rows)
+        counted.extend((area, subject_id, name, count) for subject_id, name, count in rows)
 
     sources: list[ExamSourceSchema] = []
     for area, subject_id, name, count in counted:
@@ -8038,7 +8175,7 @@ def submit_topic_question_attempt(
         activity_id=question.id,
         result_score=100.0 if correct else 0.0,
         result_details={
-            "area": "coding",
+            "area": "diverse" if subject_track(subject) == GENERAL_TRACK else "coding",
             "subject_id": subject.id,
             "subject_name": subject.name,
             "topic_id": question.topic_id,
@@ -8094,6 +8231,7 @@ def generate_topic_questions(
     child_id = child.id or 0
     subject_id = subject.id or 0
     subject_name = subject.name
+    track = subject_track(subject)
     topic_title = topic.title
     ai_content = _topic_question_generation_content(topic)
 
@@ -8106,6 +8244,7 @@ def generate_topic_questions(
             existing_questions=existing_prompts,
             user_context=user_context,
             ai_config=ai_config,
+            track=track,
         )
         validate_programming_question_batch(
             raw_questions,
@@ -8768,8 +8907,12 @@ def generate_coding_topic_content(
             ai_config=ai_config,
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
             user_context=context_text,
+            track=subject_track(subject),
         )
-        content = validate_initial_topic_content(content)
+        content = validate_initial_topic_content(
+            content,
+            require_code=subject_track(subject) == PROGRAMMING_TRACK,
+        )
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     topic.ai_content = content.model_dump(exclude_none=True)
@@ -8856,6 +8999,7 @@ def generate_additional_coding_flashcards(
     child_id = child.id or 0
     subject_id = subject.id or 0
     subject_name = subject.name
+    track = subject_track(subject)
     topic_title = topic.title
 
     # Do not keep a database transaction open during the external AI call.
@@ -8868,11 +9012,13 @@ def generate_additional_coding_flashcards(
             existing_fronts=existing_fronts,
             user_context=user_context,
             ai_config=ai_config,
+            track=track,
         )
         validate_additional_topic_flashcards(
             raw_flashcards,
             existing_fronts=existing_fronts,
             ai_content=ai_content,
+            require_code=track == PROGRAMMING_TRACK,
         )
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -8901,6 +9047,7 @@ def generate_additional_coding_flashcards(
                 raw_flashcards,
                 existing_fronts=current_fronts,
                 ai_content=current_ai_content,
+                require_code=track == PROGRAMMING_TRACK,
             )
 
             now = datetime.utcnow()
@@ -9024,7 +9171,22 @@ def get_coding_review(
 ) -> CodingReviewSessionSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    cards = build_coding_review_cards(session, child.id or 0, subject_id=subject_id, limit=limit)
+    if subject_id is not None:
+        cards = build_coding_review_cards(session, child.id or 0, subject_id=subject_id, limit=limit)
+    else:
+        track_subject_ids = set(
+            session.exec(
+                select(ProgrammingSubject.id).where(
+                    ProgrammingSubject.child_id == child.id,
+                    ProgrammingSubject.track == request_curriculum_track(request),
+                )
+            ).all()
+        )
+        cards = [
+            card
+            for card in build_coding_review_cards(session, child.id or 0, limit=10_000)
+            if card.subject_id in track_subject_ids
+        ][:limit]
     return CodingReviewSessionSchema(total_due=len(cards), items=cards)
 
 
@@ -9055,8 +9217,11 @@ def submit_coding_review_attempt(
     add_daily_activity(
         session,
         child_id=child.id or 0,
-        activity_type="coding_review",
-        activity_title=f"Revisão de programação: {flashcard.front if flashcard else 'card'}",
+        activity_type=curriculum_activity_type(subject, "coding_review"),
+        activity_title=(
+            f"Revisão de {subject.name if subject_track(subject) == GENERAL_TRACK else 'programação'}: "
+            f"{flashcard.front if flashcard else 'card'}"
+        ),
         activity_id=item.id,
         result_score=review_rating_score(resolved_rating, payload.correct),
         result_details={
@@ -9246,7 +9411,7 @@ def submit_deck_attempt(
     add_daily_activity(
         session,
         child_id=child.id or 0,
-        activity_type="flashcard",
+        activity_type=curriculum_activity_type(subject, "flashcard"),
         activity_title=f"Flashcard: {fc.front}",
         activity_id=fc.id,
         result_score=deck_rating_score(payload.rating),
@@ -13087,6 +13252,34 @@ def admin_delete_flashcard(
         raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
     session.delete(card)
     session.commit()
+
+
+def _mount_general_curriculum_routes() -> None:
+    """Serve every curriculum route again under /api/general/ for "Outras matérias".
+
+    The handlers are the same objects, so reading, flashcards, questions and
+    summaries behave identically for both lists; each handler reads the prefix
+    (request_curriculum_track) where the list matters. The LeetCode trainer is
+    programming-only and is not copied.
+    """
+    coding_prefix = "/api/coding/"
+    for route in list(app.routes):
+        if not isinstance(route, APIRoute) or not route.path.startswith(coding_prefix):
+            continue
+        if route.path.startswith(f"{coding_prefix}leetcode"):
+            continue
+        app.add_api_route(
+            GENERAL_CURRICULUM_PREFIX + route.path[len(coding_prefix):],
+            route.endpoint,
+            methods=sorted(route.methods or []),
+            response_model=route.response_model,
+            status_code=route.status_code,
+            name=f"general_{route.name}",
+            include_in_schema=False,
+        )
+
+
+_mount_general_curriculum_routes()
 
 
 if __name__ == "__main__":

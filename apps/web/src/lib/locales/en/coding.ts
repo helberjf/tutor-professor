@@ -2,6 +2,25 @@
 export const CODING_EN: Record<string, string> = {
   // Curriculum
   'Programação · Currículo': 'Programming · Curriculum',
+  'Outras matérias · Currículo': 'Other subjects · Curriculum',
+  'Abrir lista': 'Open list',
+  'Matérias gerais': 'General subjects',
+  'Matérias (antigas)': 'Subjects (old)',
+  'Sugerir matéria por IA?': 'Suggest a subject with AI?',
+  'Sugerir outra matéria': 'Suggest another subject',
+  'Pensando na próxima matéria...': 'Thinking about the next subject...',
+  'Por que esta agora': 'Why this one now',
+  'Não foi possível sugerir uma matéria agora.': 'Could not suggest a subject right now.',
+  'Nome da matéria (ex: Francês)': 'Subject name (e.g. French)',
+  'Ex.: foco na prova, nível intermediário, mais exemplos práticos...':
+    'E.g. exam focus, intermediate level, more practical examples...',
+  'Ex.: explique mais devagar, traga mais exemplos, foque no que cai na prova...':
+    'E.g. explain more slowly, add more examples, focus on what the exam asks...',
+  'Ex.: foque em aplicação prática, pegadinhas de prova ou comparações...':
+    'E.g. focus on practical use, exam traps or comparisons...',
+  'Exemplo (opcional)': 'Example (optional)',
+  'Ver exemplo': 'Show example',
+  'Ocultar exemplo': 'Hide example',
   'Minhas Matérias': 'My subjects',
   'Nova Matéria': 'New subject',
   'Novo Tópico': 'New topic',
