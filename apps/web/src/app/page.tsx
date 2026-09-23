@@ -338,7 +338,7 @@ export default function HomePage() {
             href={cardHref('/diverse')}
             emoji="🧩"
             icon={<Layers size={28} />}
-            title={t("Outras matérias")}
+            title={t("Outras disciplinas")}
             description={t("Crie aulas com IA")}
             bg="bg-indigo-50"
             border="border-indigo-200"

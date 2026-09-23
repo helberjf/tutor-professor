@@ -2,14 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, Loader2, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, ListOrdered, Loader2, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
 import { api, type AICredits, type CodingReviewCard, type CodingSubjectSort, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingSubjectPage, type ProgrammingTopic } from '@/lib/api';
 import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
 import { t as translate } from '@/lib/i18n';
-import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
+import { useCurriculumApi, useCurriculumDisciplineName, useCurriculumTrack } from './curriculum-context';
 
 // Estas quatro trocam a tela inteira pela lista de matérias, uma de cada vez, e
 // são as maiores do módulo — a leitura de um tópico sozinha carrega o realce de
@@ -67,6 +67,8 @@ interface CodingCurriculumProps {
   initialTopicId?: number | null;
 }
 
+const COURSE_LESSON_COUNTS = [5, 8, 10, 12];
+
 export function CodingCurriculum({
   focusMode = 'reading',
   initialSubjectId = null,
@@ -76,6 +78,7 @@ export function CodingCurriculum({
   // "Outras matérias" use these same screens; only the LeetCode trainer and a
   // few words are programming's own.
   const general = useCurriculumTrack() === 'general';
+  const disciplineName = useCurriculumDisciplineName();
   const [view, setView] = useState<View>({ type: 'subjects' });
   const [subjects, setSubjects] = useState<ProgrammingSubject[]>([]);
   const [subjectPage, setSubjectPage] = useState<ProgrammingSubjectPage>(EMPTY_SUBJECT_PAGE);
@@ -84,6 +87,12 @@ export function CodingCurriculum({
   const [loading, setLoading] = useState(true);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [showCreateSubject, setShowCreateSubject] = useState<false | 'blank' | 'suggest'>(false);
+  // "Montar curso com IA": the next lessons of the subject in study order.
+  const [showCourseOutline, setShowCourseOutline] = useState(false);
+  const [courseLessonCount, setCourseLessonCount] = useState(8);
+  const [courseContext, setCourseContext] = useState('');
+  const [generatingCourse, setGeneratingCourse] = useState(false);
+  const [courseError, setCourseError] = useState('');
   const [showCreateTopic, setShowCreateTopic] = useState(false);
   const [loadingReview, setLoadingReview] = useState(false);
   const [generatingTopicAI, setGeneratingTopicAI] = useState(false);
@@ -385,6 +394,27 @@ export function CodingCurriculum({
     }
   }
 
+  async function handleGenerateCourse(subject: ProgrammingSubject) {
+    setGeneratingCourse(true);
+    setCourseError('');
+    setNewTopicId(null);
+    try {
+      const created = await curriculum.generateCourseOutline(subject.id, {
+        count: courseLessonCount,
+        context: courseContext,
+      });
+      setTopics((prev) => [...prev, ...created]);
+      setNewTopicId(created[0]?.id ?? null);
+      setShowCourseOutline(false);
+      setCourseContext('');
+      await loadSubjects();
+    } catch (err: unknown) {
+      setCourseError(err instanceof Error ? err.message : translate("Não foi possível montar o curso com IA."));
+    } finally {
+      setGeneratingCourse(false);
+    }
+  }
+
   // ── Subjects view ────────────────────────────────────────────────────────
   function openSubject(subject: ProgrammingSubject) {
     if (focusMode === 'flashcards') {
@@ -416,7 +446,7 @@ export function CodingCurriculum({
       <div className="space-y-6">
         <section className="app-surface border-primary/30 p-3 md:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-            {general ? translate("Outras matérias · Currículo") : translate("Programação · Currículo")}
+            {general ? `${translate("Disciplina")} · ${disciplineName}` : translate("Programação · Currículo")}
           </p>
           <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">{translate("Minhas Matérias")}</h1>
           <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
@@ -600,7 +630,9 @@ export function CodingCurriculum({
               {subjects.length === 0 && (
                 <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center sm:col-span-2 lg:col-span-3">
                   <p className="font-black text-slate-600">{translate("Nenhuma matéria cadastrada.")}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-400">{translate("Crie sua primeira matéria para começar.")}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-400">{general
+                      ? translate("Crie a primeira matéria desta disciplina (ex.: Gramática) e monte o curso dela.")
+                      : translate("Crie sua primeira matéria para começar.")}</p>
                 </div>
               )}
               <div className="grid min-h-40 gap-3">
@@ -655,9 +687,10 @@ export function CodingCurriculum({
           <CreateSubjectModal
             autoSuggest={showCreateSubject === 'suggest'}
             onClose={() => setShowCreateSubject(false)}
-            onCreated={() => {
+            onCreated={(created) => {
               setShowCreateSubject(false);
-              void loadSubjects(1, subjectSort);
+              // A new subject starts empty: open it so the course can be built.
+              openSubject(created);
             }}
           />
         )}
@@ -748,7 +781,7 @@ export function CodingCurriculum({
           />
         )}
 
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setShowCreateTopic(true)}
@@ -765,7 +798,68 @@ export function CodingCurriculum({
             {generatingTopicAI ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             {generatingTopicAI ? translate("Gerando tópico...") : translate("Gerar tópico por IA")}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowCourseOutline((open) => !open)}
+            aria-expanded={showCourseOutline}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-violet-300 bg-violet-50 px-4 font-black text-violet-700 transition hover:bg-violet-100 dark:border-violet-300/40 dark:bg-violet-400/10 dark:text-violet-100"
+          >
+            <ListOrdered size={18} /> {translate("Montar curso com IA")}
+          </button>
         </div>
+        {showCourseOutline && (
+          <section className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-4 dark:border-violet-300/30 dark:bg-violet-400/10">
+            <p className="text-sm font-black text-violet-900 dark:text-violet-100">{translate("Montar curso com IA")}</p>
+            <p className="mt-1 text-xs font-bold text-violet-700 dark:text-violet-200">
+              {topics.length === 0
+                ? translate("A IA monta as aulas em ordem, do básico ao avançado. Cada aula é escrita quando você abrir.")
+                : translate("A IA continua o curso a partir das aulas que já existem. Cada aula é escrita quando você abrir.")}
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="flex min-h-11 items-center gap-2 text-sm font-bold text-violet-900 dark:text-violet-100" htmlFor="course-lesson-count">
+                {translate("Aulas")}
+                <select
+                  id="course-lesson-count"
+                  value={courseLessonCount}
+                  onChange={(event) => setCourseLessonCount(Number(event.target.value))}
+                  className="min-h-11 rounded-xl border-2 border-violet-200 bg-white px-3 font-bold text-slate-700 outline-none focus:border-violet-500"
+                >
+                  {COURSE_LESSON_COUNTS.map((count) => (
+                    <option key={count} value={count}>{count}</option>
+                  ))}
+                </select>
+              </label>
+              <input
+                aria-label={translate("Foco do curso (opcional)")}
+                value={courseContext}
+                onChange={(event) => setCourseContext(event.target.value)}
+                maxLength={1000}
+                placeholder={translate("Foco do curso (opcional): ex. prova DELF B1, conversação...")}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border-2 border-violet-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-violet-500"
+              />
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCourseOutline(false)}
+                disabled={generatingCourse}
+                className="min-h-11 flex-1 rounded-2xl border-2 border-violet-200 bg-white px-4 text-sm font-black text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              >
+                {translate("Cancelar")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleGenerateCourse(subject)}
+                disabled={generatingCourse}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {generatingCourse ? <Loader2 size={16} className="animate-spin" /> : <ListOrdered size={16} />}
+                {generatingCourse ? translate("Montando o curso...") : translate("Montar curso")}
+              </button>
+            </div>
+            {courseError && <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{courseError}</p>}
+          </section>
+        )}
         {topicAIError && <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{topicAIError}</p>}
         {error && (
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
@@ -787,6 +881,15 @@ export function CodingCurriculum({
             <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white px-6 py-12 text-center">
               <p className="font-bold text-slate-500">{translate("Nenhum tópico ainda.")}</p>
               <p className="mt-1 text-sm text-slate-400">{translate("Crie o primeiro tópico do roteiro.")}</p>
+              {!showCourseOutline && (
+                <button
+                  type="button"
+                  onClick={() => setShowCourseOutline(true)}
+                  className="mx-auto mt-4 flex min-h-11 items-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white hover:bg-violet-700"
+                >
+                  <ListOrdered size={16} /> {translate("Montar curso com IA")}
+                </button>
+              )}
             </div>
           ) : (
             topics.map((topic, idx) => (

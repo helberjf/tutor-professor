@@ -19,10 +19,10 @@ Ou só instruções: foco no exame AWS SAA-C03, estilo de prova, nível avançad
 
 const GENERAL_CONTEXT_PLACEHOLDER = `Instruções extras ou um guia de como a matéria deve ser organizada.
 
-Ex (Francês):
-1. Pronúncia e saudações
-2. Artigos e gênero
-3. Presente dos verbos
+Ex (Gramática, na disciplina Francês):
+1. Artigos e gênero
+2. Presente dos verbos
+3. Passé composé
 ...
 15. Subjuntivo
 
@@ -137,7 +137,7 @@ export function CreateSubjectModal({ onClose, onCreated, autoSuggest = false }: 
               aria-label={t("Nome da matéria")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={general ? t("Nome da matéria (ex: Francês)") : t("Nome da matéria (ex: React)")}
+              placeholder={general ? t("Nome da matéria (ex: Gramática)") : t("Nome da matéria (ex: React)")}
               maxLength={100}
               required
               autoFocus

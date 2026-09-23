@@ -731,6 +731,8 @@ class ProgrammingSubjectSchema(FromAttributesModel):
     last_used_at: Optional[datetime] = None
     # "programming" or "general" — which list the subject belongs to.
     track: str = "programming"
+    # The discipline (Francês, Direito...) of a general subject.
+    discipline_id: Optional[int] = None
     created_at: datetime
     topic_count: int = 0
     studied_count: int = 0
@@ -752,6 +754,27 @@ class CreateProgrammingSubjectSchema(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     description: Optional[str] = Field(default=None, max_length=500)
     context: Optional[str] = Field(default=None, max_length=2000)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+
+
+class StudyDisciplineSchema(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    icon_emoji: Optional[str] = None
+    subject_count: int = 0
+    created_at: datetime
+
+
+class CreateStudyDisciplineSchema(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+
+
+class UpdateStudyDisciplineSchema(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
 
 
@@ -794,6 +817,13 @@ class CreateProgrammingTopicSchema(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     order_index: Optional[int] = None
     generate_ai: bool = False
+    context: Optional[str] = Field(default=None, max_length=1000)
+
+
+class GenerateCourseOutlineSchema(BaseModel):
+    """How many lessons the course outline should add, and any wish about it."""
+
+    count: int = Field(default=8, ge=3, le=15)
     context: Optional[str] = Field(default=None, max_length=1000)
 
 

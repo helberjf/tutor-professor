@@ -106,7 +106,7 @@ assert.match(studyPage, /get\('date'\)/, 'a deep link should restore its study d
 // list it came from, so a programming id never lands in the general list.
 assert.match(
   studyPage,
-  /curriculumResumeTarget\.tab === activeTab \? curriculumResumeTarget\.subjectId : null/,
+  /curriculumRequest\.tab === activeTab\s+&& \(activeTab === 'coding' \|\| curriculumRequest\.disciplineId === activeDiscipline\?\.id\)\s+\? curriculumRequest\.subjectId/,
   'a subject deep link applies only to the tab it names',
 );
 

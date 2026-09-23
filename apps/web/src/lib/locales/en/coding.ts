@@ -2,16 +2,49 @@
 export const CODING_EN: Record<string, string> = {
   // Curriculum
   'Programação · Currículo': 'Programming · Curriculum',
-  'Outras matérias · Currículo': 'Other subjects · Curriculum',
-  'Abrir lista': 'Open list',
-  'Matérias gerais': 'General subjects',
+  'Outras disciplinas': 'Other disciplines',
+  'Outras Disciplinas': 'Other disciplines',
+  'Disciplinas': 'Disciplines',
+  'Disciplina': 'Discipline',
+  'Abrir lista de disciplinas': 'Open the discipline list',
+  'Escolha uma disciplina': 'Pick a discipline',
+  'Nenhuma disciplina ainda': 'No disciplines yet',
+  'Nova disciplina': 'New discipline',
+  'Criar disciplina': 'Create discipline',
+  'Criar nova disciplina': 'Create a new discipline',
+  'Excluir disciplina': 'Delete discipline',
+  'Excluir a disciplina e todas as matérias, tópicos e flashcards dela?':
+    'Delete the discipline and all its subjects, topics and flashcards?',
+  'Não foi possível excluir a disciplina.': 'Could not delete the discipline.',
+  'Não foi possível criar a disciplina.': 'Could not create the discipline.',
+  'Nome da disciplina': 'Discipline name',
+  'Emoji da disciplina': 'Discipline emoji',
+  'Nome da disciplina (ex: Francês)': 'Discipline name (e.g. French)',
+  'Crie sua primeira disciplina': 'Create your first discipline',
+  'Uma disciplina, como Francês ou Direito, reúne matérias; cada matéria vira um curso com aulas, flashcards, questões e simulado.':
+    'A discipline, such as French or Law, holds subjects; each subject becomes a course with lessons, flashcards, questions and a mock exam.',
+  'Uma disciplina reúne matérias, como Programação reúne Python e React. Depois de criar, adicione as matérias dela.':
+    'A discipline holds subjects, the way Programming holds Python and React. Once it exists, add its subjects.',
+  'Crie a primeira matéria desta disciplina (ex.: Gramática) e monte o curso dela.':
+    'Create the first subject of this discipline (e.g. Grammar) and build its course.',
+  'Nome da matéria (ex: Gramática)': 'Subject name (e.g. Grammar)',
+  'Montar curso com IA': 'Build the course with AI',
+  'Montar curso': 'Build course',
+  'Montando o curso...': 'Building the course...',
+  'Aulas': 'Lessons',
+  'Foco do curso (opcional)': 'Course focus (optional)',
+  'Foco do curso (opcional): ex. prova DELF B1, conversação...': 'Course focus (optional): e.g. DELF B1 exam, conversation...',
+  'A IA monta as aulas em ordem, do básico ao avançado. Cada aula é escrita quando você abrir.':
+    'The AI lays out the lessons in order, from basics to advanced. Each lesson is written when you open it.',
+  'A IA continua o curso a partir das aulas que já existem. Cada aula é escrita quando você abrir.':
+    'The AI continues the course from the lessons already there. Each lesson is written when you open it.',
+  'Não foi possível montar o curso com IA.': 'Could not build the course with AI.',
   'Matérias (antigas)': 'Subjects (old)',
   'Sugerir matéria por IA?': 'Suggest a subject with AI?',
   'Sugerir outra matéria': 'Suggest another subject',
   'Pensando na próxima matéria...': 'Thinking about the next subject...',
   'Por que esta agora': 'Why this one now',
   'Não foi possível sugerir uma matéria agora.': 'Could not suggest a subject right now.',
-  'Nome da matéria (ex: Francês)': 'Subject name (e.g. French)',
   'Ex.: foco na prova, nível intermediário, mais exemplos práticos...':
     'E.g. exam focus, intermediate level, more practical examples...',
   'Ex.: explique mais devagar, traga mais exemplos, foque no que cai na prova...':

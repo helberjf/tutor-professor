@@ -467,7 +467,7 @@ Return a JSON object with exactly this schema:
 }}
 
 Rules:
-- When no explicit topic title is supplied, choose the next topic in a logical study order for this subject: fundamentals first, each topic building on the previous ones
+- The topics of a subject form a course: when no explicit topic title is supplied, choose the next lesson of that course in a logical study order, fundamentals first, each lesson building on the previous ones
 - When an explicit topic title is supplied, return that exact title
 - sections: 3 to 5 items (introduction, key concepts, examples, how it is applied or tested, common mistakes)
 - code_example is optional: use it only for a short literal example that reads better apart (a sentence in the language being studied, a formula, a legal provision); otherwise null. Never write programming code unless the subject is about programming
@@ -534,6 +534,31 @@ Rules:
 - Never repeat or rename a subject already in the list
 - {area_rule}
 - All text in Portuguese (Brazil), except proper names
+"""
+
+_COURSE_OUTLINE_PROMPT_TEMPLATE = """\
+Plan the next lessons of a course.
+
+Subject: {subject_name}
+Student notes about the subject: {subject_context}
+Lessons the course already has, in order:
+{existing_topics}
+
+Extra wish for these lessons:
+{user_context}
+
+Return a JSON object with exactly this schema:
+{{
+  "topics": ["string (lesson title, max 120 chars)"]
+}}
+
+Rules:
+- Return exactly {count} lesson titles, in the order they should be studied
+- Continue from the lessons already in the course; when there are none, start from the very fundamentals
+- Each lesson builds on the previous ones, like the syllabus of a good course
+- Each title names one focused lesson (not a whole module) and never repeats or rephrases an existing lesson
+- {area_rule}
+- Titles in Portuguese (Brazil), except proper names and terms of the subject itself
 """
 
 _ADDITIONAL_FLASHCARDS_PROMPT_TEMPLATE = """\
@@ -1318,6 +1343,7 @@ def suggest_next_subject(
     existing_subjects: list[dict],
     user_context: str,
     ai_config: AIProviderConfig,
+    discipline_name: str = "",
 ) -> dict:
     """The next subject to add, chosen to follow a logical study order.
 
@@ -1325,6 +1351,7 @@ def suggest_next_subject(
     line, so the model can tell what was already covered and how far along it is.
     """
     general = track == GENERAL_TRACK
+    discipline = " ".join(str(discipline_name or "").split())[:100]
     lines = [
         f"- {' '.join(str(item.get('name') or '').split())[:100]}: {item.get('progress') or 'sem progresso'}"
         for item in existing_subjects[-40:]
@@ -1332,14 +1359,19 @@ def suggest_next_subject(
     ]
     prompt = _SUBJECT_SUGGESTION_PROMPT_TEMPLATE.format(
         area=(
-            "general studies (languages, law, sciences, certifications, any school or exam subject)"
+            f"the discipline {discipline}: suggest one subject (a part of it to study as a course)"
+            if general and discipline
+            else "general studies (languages, law, sciences, certifications, any school or exam subject)"
             if general
             else "programming and software engineering"
         ),
         existing_subjects="\n".join(lines) or "(none yet)",
         user_context=sanitize_context(user_context) or "No additional wish.",
         area_rule=(
-            "Stay in the same field as the existing subjects when there are any "
+            f"The subject must belong to {discipline} (e.g. for French: grammar, conversation, "
+            "listening, writing, an exam level); never suggest something outside it"
+            if general and discipline
+            else "Stay in the same field as the existing subjects when there are any "
             "(e.g. after French basics, the next French stage); do not suggest programming subjects"
             if general
             else "Suggest a programming subject (language, framework, tool, computer science topic or certification)"
@@ -1369,6 +1401,67 @@ def suggest_next_subject(
         "icon_emoji": str(data.get("icon_emoji") or "").strip()[:10] or None,
         "reason": " ".join(str(data.get("reason") or "").split())[:240],
     }
+
+
+def suggest_course_outline(
+    *,
+    subject_name: str,
+    subject_context: str,
+    existing_titles: list[str],
+    count: int,
+    user_context: str,
+    track: str,
+    ai_config: AIProviderConfig,
+) -> list[str]:
+    """The next ``count`` lesson titles of a subject, in study order.
+
+    Only titles: each lesson is written when the student opens it, so planning a
+    whole course costs one generation instead of one per lesson.
+    """
+    general = track == GENERAL_TRACK
+    lines = [
+        f"{index}. {' '.join(str(title).split())[:160]}"
+        for index, title in enumerate(existing_titles[-60:], 1)
+    ]
+    prompt = _COURSE_OUTLINE_PROMPT_TEMPLATE.format(
+        subject_name=" ".join(str(subject_name).split())[:200],
+        subject_context=sanitize_context(subject_context) or "none",
+        existing_topics="\n".join(lines) or "(no lessons yet)",
+        user_context=sanitize_context(user_context) or "No additional wish.",
+        count=count,
+        area_rule=(
+            "Teach the subject itself; never turn it into a programming course"
+            if general
+            else "Keep it a programming course: concepts, practice and the tools of the subject"
+        ),
+    )
+    raw = _phrase_service.generate_json_text(
+        system_text=_GENERAL_SYSTEM_TEXT if general else _SYSTEM_TEXT,
+        prompt=prompt,
+        temperature=0.5,
+        ai_config=ai_config,
+    )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("IA retornou JSON inválido para o roteiro do curso.") from exc
+    raw_topics = data.get("topics") if isinstance(data, dict) else None
+    if not isinstance(raw_topics, list):
+        raise RuntimeError("IA não retornou o roteiro do curso.")
+    seen = {normalize_front(title) for title in existing_titles}
+    titles: list[str] = []
+    for raw_title in raw_topics:
+        title = " ".join(str(raw_title or "").split())[:200]
+        key = normalize_front(title)
+        if not title or not key or key in seen:
+            continue
+        seen.add(key)
+        titles.append(title)
+        if len(titles) == count:
+            break
+    if not titles:
+        raise RuntimeError("A IA não sugeriu nenhuma aula nova. Tente de novo.")
+    return titles
 
 
 # ── LeetCode trainer ──────────────────────────────────────────────────────────

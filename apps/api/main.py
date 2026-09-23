@@ -64,7 +64,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyDiscipline, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -178,6 +178,10 @@ from schemas.schemas import (
     ProgrammingSubjectPageSchema,
     QuestionSubjectMetricsSchema,
     ProgrammingSubjectSchema,
+    CreateStudyDisciplineSchema,
+    StudyDisciplineSchema,
+    UpdateStudyDisciplineSchema,
+    GenerateCourseOutlineSchema,
     SuggestSubjectRequestSchema,
     SuggestedSubjectSchema,
     ProgrammingTopicSchema,
@@ -292,6 +296,7 @@ from services.coding_service import (
     reset_daily_counters,
     seed_coding_review_item,
     subject_topics_with_lessons,
+    suggest_course_outline,
     suggest_next_subject,
     summarize_topic_essentials,
     validate_additional_topic_flashcards,
@@ -3625,6 +3630,8 @@ def _coding_resume(
     if mode not in {"reading", "flashcards", "questions"}:
         mode = "reading"
     base_pairs = [("tab", curriculum_study_tab(subject)), ("mode", mode), ("subject_id", subject.id or 0)]
+    if subject.discipline_id:
+        base_pairs.append(("discipline_id", subject.discipline_id))
     subject_context = {"subject_id": subject.id or 0, "mode": mode}
 
     if kind == "coding_flashcards" or mode == "flashcards":
@@ -3664,6 +3671,8 @@ def _coding_resume(
             ("subject_id", subject.id or 0),
             ("topic_id", topic.id or 0),
         ]
+        if subject.discipline_id:
+            pairs.append(("discipline_id", subject.discipline_id))
         resolved_context = {
             "subject_id": subject.id or 0,
             "topic_id": topic.id or 0,
@@ -6496,6 +6505,53 @@ def curriculum_study_tab(subject: ProgrammingSubject | None) -> str:
     return "diverse" if subject_track(subject) == GENERAL_TRACK else "coding"
 
 
+def request_discipline_id(request: Request, session: Session, child_id: int) -> int | None:
+    """The discipline a general-list request is scoped to, checked against the child.
+
+    Programming is a discipline of its own and never carries one. A general
+    request without ``discipline_id`` reaches the subjects that have none, which
+    only a database that skipped migration 0035 still holds.
+    """
+    if request_curriculum_track(request) != GENERAL_TRACK:
+        return None
+    raw = request.query_params.get("discipline_id")
+    if raw in (None, ""):
+        return None
+    try:
+        discipline_id = int(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Disciplina inválida.") from exc
+    discipline = session.get(StudyDiscipline, discipline_id)
+    if discipline is None or discipline.child_id != child_id:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
+    return discipline_id
+
+
+def curriculum_scope(track: str, discipline_id: int | None):
+    """The WHERE clauses that pick one list of subjects: programming or one discipline."""
+    clauses = [ProgrammingSubject.track == track]
+    if track == GENERAL_TRACK:
+        clauses.append(
+            ProgrammingSubject.discipline_id == discipline_id
+            if discipline_id is not None
+            else ProgrammingSubject.discipline_id.is_(None)
+        )
+    return clauses
+
+
+def curriculum_ai_subject_name(session: Session, subject: ProgrammingSubject) -> str:
+    """How a subject is named to the AI: "Francês: Gramática", not just "Gramática".
+
+    A general subject is one part of its discipline; without the discipline the
+    model cannot tell French grammar from Portuguese grammar.
+    """
+    if subject_track(subject) == GENERAL_TRACK and subject.discipline_id:
+        discipline = session.get(StudyDiscipline, subject.discipline_id)
+        if discipline is not None and discipline.name.casefold() != subject.name.casefold():
+            return f"{discipline.name}: {subject.name}"
+    return subject.name
+
+
 CODING_SUBJECT_PAGE_SIZE = 10
 CodingSubjectSort = Literal["last_used", "created_at", "alphabetical", "relevance"]
 
@@ -6575,6 +6631,7 @@ def _coding_subject_schema(
         relevance=subject.relevance,
         last_used_at=subject.last_used_at,
         track=subject_track(subject),
+        discipline_id=subject.discipline_id,
         created_at=subject.created_at,
         topic_count=topic_count,
         studied_count=studied_count,
@@ -6596,7 +6653,7 @@ def _coding_subject_schemas(
 
 
 def _coding_subject_totals(
-    session: Session, child_id: int, track: str = PROGRAMMING_TRACK
+    session: Session, child_id: int, track: str = PROGRAMMING_TRACK, discipline_id: int | None = None
 ) -> tuple[int, int, int]:
     topic_count, studied_count = session.exec(
         select(
@@ -6616,7 +6673,7 @@ def _coding_subject_totals(
             ProgrammingSubject,
             ProgrammingSubject.id == ProgrammingTopic.subject_id,
         )
-        .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
+        .where(ProgrammingSubject.child_id == child_id, *curriculum_scope(track, discipline_id))
     ).one()
     due_review_count = session.exec(
         select(func.count(CodingReviewItem.id))
@@ -6633,7 +6690,7 @@ def _coding_subject_totals(
             CodingReviewItem.child_id == child_id,
             CodingReviewItem.next_review <= datetime.utcnow(),
             ProgrammingFlashcard.child_id == child_id,
-            ProgrammingSubject.track == track,
+            *curriculum_scope(track, discipline_id),
         )
     ).one()
     return int(topic_count or 0), int(studied_count or 0), int(due_review_count or 0)
@@ -6653,16 +6710,126 @@ def _ensure_coding_subjects(session: Session, child_id: int, track: str = PROGRA
         _materialize_legacy_coding_curriculum(session, child_id)
 
 
+# ── Disciplines of "Outras disciplinas" ───────────────────────────────────────
+
+
+def _discipline_schema(session: Session, discipline: StudyDiscipline) -> StudyDisciplineSchema:
+    subject_count = int(
+        session.exec(
+            select(func.count(ProgrammingSubject.id)).where(ProgrammingSubject.discipline_id == discipline.id)
+        ).one()
+        or 0
+    )
+    return StudyDisciplineSchema(
+        id=discipline.id or 0,
+        name=discipline.name,
+        description=discipline.description,
+        icon_emoji=discipline.icon_emoji,
+        subject_count=subject_count,
+        created_at=discipline.created_at,
+    )
+
+
+def _owned_discipline(session: Session, discipline_id: int, child_id: int) -> StudyDiscipline:
+    discipline = session.get(StudyDiscipline, discipline_id)
+    if discipline is None or discipline.child_id != child_id:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
+    return discipline
+
+
+@app.get("/api/general/disciplines", response_model=list[StudyDisciplineSchema])
+def list_study_disciplines(request: Request, session: Session = Depends(get_session)) -> list[StudyDisciplineSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    disciplines = session.exec(
+        select(StudyDiscipline)
+        .where(StudyDiscipline.child_id == child.id)
+        .order_by(func.lower(StudyDiscipline.name), StudyDiscipline.id)
+    ).all()
+    return [_discipline_schema(session, discipline) for discipline in disciplines]
+
+
+@app.post("/api/general/disciplines", response_model=StudyDisciplineSchema, status_code=201)
+def create_study_discipline(
+    payload: CreateStudyDisciplineSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyDisciplineSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    name = " ".join(payload.name.split())
+    duplicate = session.exec(
+        select(StudyDiscipline.id).where(
+            StudyDiscipline.child_id == child.id,
+            func.lower(StudyDiscipline.name) == name.lower(),
+        )
+    ).first()
+    if duplicate is not None:
+        raise HTTPException(status_code=409, detail="Você já tem uma disciplina com esse nome.")
+    discipline = StudyDiscipline(
+        child_id=child.id or 0,
+        name=name,
+        description=(payload.description or "").strip() or None,
+        icon_emoji=(payload.icon_emoji or "").strip() or None,
+    )
+    session.add(discipline)
+    session.commit()
+    session.refresh(discipline)
+    return _discipline_schema(session, discipline)
+
+
+@app.put("/api/general/disciplines/{discipline_id}", response_model=StudyDisciplineSchema)
+def update_study_discipline(
+    discipline_id: int,
+    payload: UpdateStudyDisciplineSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyDisciplineSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    discipline = _owned_discipline(session, discipline_id, child.id or 0)
+    if payload.name is not None:
+        discipline.name = " ".join(payload.name.split())
+    if payload.description is not None:
+        discipline.description = payload.description.strip() or None
+    if payload.icon_emoji is not None:
+        discipline.icon_emoji = payload.icon_emoji.strip() or None
+    session.add(discipline)
+    session.commit()
+    session.refresh(discipline)
+    return _discipline_schema(session, discipline)
+
+
+@app.delete("/api/general/disciplines/{discipline_id}", status_code=204)
+def delete_study_discipline(
+    discipline_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> None:
+    """Remove a discipline with every subject in it, like removing each subject."""
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    discipline = _owned_discipline(session, discipline_id, child.id or 0)
+    for subject in session.exec(
+        select(ProgrammingSubject).where(ProgrammingSubject.discipline_id == discipline.id)
+    ).all():
+        _delete_subject_tree(session, subject)
+    session.flush()
+    session.delete(discipline)
+    session.commit()
+
+
 @app.get("/api/coding/subjects", response_model=list[ProgrammingSubjectSchema])
 def list_coding_subjects(request: Request, session: Session = Depends(get_session)) -> list[ProgrammingSubjectSchema]:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
     track = request_curriculum_track(request)
+    discipline_id = request_discipline_id(request, session, child_id)
     _ensure_coding_subjects(session, child_id, track)
     subjects = session.exec(
         select(ProgrammingSubject)
-        .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
+        .where(ProgrammingSubject.child_id == child_id, *curriculum_scope(track, discipline_id))
         .order_by(ProgrammingSubject.id)
     ).all()
     return _coding_subject_schemas(session, child_id, list(subjects))
@@ -6679,13 +6846,14 @@ def page_coding_subjects(
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
     track = request_curriculum_track(request)
+    discipline_id = request_discipline_id(request, session, child_id)
     _ensure_coding_subjects(session, child_id, track)
 
     total = int(
         session.exec(
             select(func.count(ProgrammingSubject.id)).where(
                 ProgrammingSubject.child_id == child_id,
-                ProgrammingSubject.track == track,
+                *curriculum_scope(track, discipline_id),
             )
         ).one()
         or 0
@@ -6695,7 +6863,7 @@ def page_coding_subjects(
 
     query = select(ProgrammingSubject).where(
         ProgrammingSubject.child_id == child_id,
-        ProgrammingSubject.track == track,
+        *curriculum_scope(track, discipline_id),
     )
     if sort == "alphabetical":
         query = query.order_by(func.lower(ProgrammingSubject.name), ProgrammingSubject.id)
@@ -6719,7 +6887,7 @@ def page_coding_subjects(
     subjects = session.exec(
         query.offset((page - 1) * CODING_SUBJECT_PAGE_SIZE).limit(CODING_SUBJECT_PAGE_SIZE)
     ).all()
-    topic_count, studied_count, due_review_count = _coding_subject_totals(session, child_id, track)
+    topic_count, studied_count, due_review_count = _coding_subject_totals(session, child_id, track, discipline_id)
     return ProgrammingSubjectPageSchema(
         items=_coding_subject_schemas(session, child_id, list(subjects)),
         page=page,
@@ -6761,8 +6929,10 @@ def create_coding_subject(
 ) -> ProgrammingSubjectSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
+    discipline_id = request_discipline_id(request, session, child.id or 0)
     subject = ProgrammingSubject(
         child_id=child.id or 0,
+        discipline_id=discipline_id,
         name=payload.name.strip(),
         description=(payload.description or "").strip() or None,
         context=(payload.context or "").strip() or None,
@@ -6778,6 +6948,7 @@ def create_coding_subject(
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         relevance=subject.relevance, last_used_at=subject.last_used_at,
         track=subject_track(subject),
+        discipline_id=subject.discipline_id,
         created_at=subject.created_at,
         topic_count=0,
         studied_count=0,
@@ -6800,6 +6971,9 @@ def suggest_coding_subject(
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
     track = request_curriculum_track(request)
+    discipline_id = request_discipline_id(request, session, child_id)
+    discipline = session.get(StudyDiscipline, discipline_id) if discipline_id else None
+    discipline_name = discipline.name if discipline else ""
     ai_config = _get_user_ai_config(user_session, session)
     if ai_config is None:
         raise HTTPException(
@@ -6809,7 +6983,7 @@ def suggest_coding_subject(
     subjects = list(
         session.exec(
             select(ProgrammingSubject)
-            .where(ProgrammingSubject.child_id == child_id, ProgrammingSubject.track == track)
+            .where(ProgrammingSubject.child_id == child_id, *curriculum_scope(track, discipline_id))
             .order_by(ProgrammingSubject.created_at, ProgrammingSubject.id)
         ).all()
     )
@@ -6831,6 +7005,7 @@ def suggest_coding_subject(
             existing_subjects=existing,
             user_context=user_context,
             ai_config=ai_config,
+            discipline_name=discipline_name,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -6868,6 +7043,7 @@ def update_coding_subject(
         description=subject.description, context=subject.context, icon_emoji=subject.icon_emoji,
         relevance=subject.relevance, last_used_at=subject.last_used_at,
         track=subject_track(subject),
+        discipline_id=subject.discipline_id,
         created_at=subject.created_at,
         topic_count=len(topics),
         studied_count=sum(1 for t in topics if t.status in ("studied", "mastered")),
@@ -6905,6 +7081,13 @@ def delete_coding_subject(
     subject = session.get(ProgrammingSubject, subject_id)
     if subject is None or subject.child_id != child.id:
         raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    _delete_subject_tree(session, subject)
+    session.commit()
+
+
+def _delete_subject_tree(session: Session, subject: ProgrammingSubject) -> None:
+    """Remove a subject with its topics, questions, flashcards and their review state."""
+    subject_id = subject.id
     topics = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all()
     for topic in topics:
         questions = session.exec(select(ProgrammingQuestion).where(ProgrammingQuestion.topic_id == topic.id)).all()
@@ -6916,8 +7099,9 @@ def delete_coding_subject(
                 session.delete(ri)
             session.delete(fc)
         session.delete(topic)
+    for config in session.exec(select(CodingDeckConfig).where(CodingDeckConfig.subject_id == subject_id)).all():
+        session.delete(config)
     session.delete(subject)
-    session.commit()
 
 
 @app.get("/api/coding/subjects/{subject_id}/topics", response_model=list[ProgrammingTopicSchema])
@@ -6980,7 +7164,7 @@ def generate_coding_subject_topic(
     history_context = build_topic_history_context(existing_topics)
     try:
         content = generate_topic_ai_content(
-            subject_name=subject.name,
+            subject_name=curriculum_ai_subject_name(session, subject),
             topic_title="",
             ai_config=ai_config,
             previous_context=(
@@ -7040,6 +7224,84 @@ def generate_coding_subject_topic(
     return _programming_topic_schema(session, topic)
 
 
+@app.post(
+    "/api/coding/subjects/{subject_id}/topics/generate-outline",
+    response_model=list[ProgrammingTopicSchema],
+    status_code=201,
+)
+def generate_coding_course_outline(
+    subject_id: int,
+    request: Request,
+    payload: GenerateCourseOutlineSchema | None = None,
+    session: Session = Depends(get_session),
+) -> list[ProgrammingTopicSchema]:
+    """Add the next lessons of the subject as a course, in study order.
+
+    One AI call plans the titles; each lesson's content is written later, when
+    the student opens it, so a ten-lesson course does not cost ten generations
+    up front and the later lessons can build on what was actually studied.
+    """
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    subject = session.get(ProgrammingSubject, subject_id)
+    if subject is None or subject.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+    payload = payload or GenerateCourseOutlineSchema()
+    existing_topics = sorted(
+        session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all(),
+        key=lambda item: item.order_index,
+    )
+    subject_name = curriculum_ai_subject_name(session, subject)
+    subject_context = subject.context or ""
+    track = subject_track(subject)
+    existing_titles = [topic.title for topic in existing_topics]
+
+    # Close the read transaction before the external provider call.
+    session.rollback()
+    try:
+        titles = suggest_course_outline(
+            subject_name=subject_name,
+            subject_context=subject_context,
+            existing_titles=existing_titles,
+            count=payload.count,
+            user_context=payload.context or "",
+            track=track,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    current = session.exec(select(ProgrammingTopic).where(ProgrammingTopic.subject_id == subject_id)).all()
+    next_index = max((topic.order_index for topic in current), default=-1) + 1
+    known = {topic.title.casefold().strip() for topic in current}
+    now = datetime.utcnow()
+    created: list[ProgrammingTopic] = []
+    for title in titles:
+        if title.casefold().strip() in known:
+            continue
+        topic = ProgrammingTopic(
+            subject_id=subject_id,
+            title=title,
+            order_index=next_index,
+            status="not_started",
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(topic)
+        created.append(topic)
+        next_index += 1
+    session.commit()
+    for topic in created:
+        session.refresh(topic)
+    return [_programming_topic_schema(session, topic) for topic in created]
+
+
 @app.post("/api/coding/subjects/{subject_id}/topics", response_model=ProgrammingTopicSchema, status_code=201)
 def create_coding_topic(
     subject_id: int,
@@ -7073,7 +7335,7 @@ def create_coding_topic(
                     if part
                 )
                 content = generate_topic_ai_content(
-                    subject_name=subject.name,
+                    subject_name=curriculum_ai_subject_name(session, subject),
                     topic_title=payload.title.strip(),
                     ai_config=ai_config,
                     previous_context=build_topic_history_context(existing_topics),
@@ -7212,7 +7474,7 @@ def deepen_coding_topic_reading(
 
     step_payload = payload.model_dump(exclude_none=True)
     user_question = sanitize_context(payload.user_question)
-    subject_name = subject.name
+    subject_name = curriculum_ai_subject_name(session, subject)
     track = subject_track(subject)
     topic_title = topic.title
 
@@ -7282,7 +7544,7 @@ def summarize_coding_topic(
             status_code=422,
             detail="Este tópico ainda não tem aula gerada para resumir.",
         )
-    subject_name = subject.name if subject else ""
+    subject_name = curriculum_ai_subject_name(session, subject) if subject else ""
     subject_context = (subject.context if subject else "") or ""
     topic_title = topic.title
 
@@ -8193,7 +8455,7 @@ def generate_topic_questions(
     user_context = sanitize_context(payload.context)
     child_id = child.id or 0
     subject_id = subject.id or 0
-    subject_name = subject.name
+    subject_name = curriculum_ai_subject_name(session, subject)
     track = subject_track(subject)
     topic_title = topic.title
     ai_content = _topic_question_generation_content(topic)
@@ -8865,7 +9127,7 @@ def generate_coding_topic_content(
         )
         previous_topics = [t for t in sibling_topics if t.order_index < topic.order_index]
         content = generate_topic_ai_content(
-            subject_name=subject.name,
+            subject_name=curriculum_ai_subject_name(session, subject),
             topic_title=topic.title,
             ai_config=ai_config,
             previous_context=build_topic_history_context(previous_topics, exclude_topic_id=topic.id),
@@ -8961,7 +9223,7 @@ def generate_additional_coding_flashcards(
     user_context = sanitize_context(payload.context)
     child_id = child.id or 0
     subject_id = subject.id or 0
-    subject_name = subject.name
+    subject_name = curriculum_ai_subject_name(session, subject)
     track = subject_track(subject)
     topic_title = topic.title
 
@@ -9141,7 +9403,10 @@ def get_coding_review(
             session.exec(
                 select(ProgrammingSubject.id).where(
                     ProgrammingSubject.child_id == child.id,
-                    ProgrammingSubject.track == request_curriculum_track(request),
+                    *curriculum_scope(
+                        request_curriculum_track(request),
+                        request_discipline_id(request, session, child.id or 0),
+                    ),
                 )
             ).all()
         )
