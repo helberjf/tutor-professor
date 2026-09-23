@@ -398,6 +398,11 @@ class ProgrammingSubject(SQLModel, table=True):
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
     relevance: int = Field(default=3, ge=1, le=5, index=True)
     last_used_at: Optional[datetime] = Field(default=None, index=True)
+    # Which shelf the subject sits on: "programming" (the coding module) or
+    # "general" (Outras matérias). Both are studied the same way — reading,
+    # flashcards, questions, simulado — so they share these tables and differ
+    # only in which list shows them and how the AI writes their lessons.
+    track: str = Field(default="programming", max_length=20, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

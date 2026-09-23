@@ -14,9 +14,6 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
-STUDY_DIR = ROOT / "apps" / "web" / "src" / "app" / "study"
-WEB_PAGE = STUDY_DIR / "page.tsx"
-WEB_API = ROOT / "apps" / "web" / "src" / "lib" / "api.ts"
 TMP_DIR = Path(tempfile.mkdtemp(prefix="diverse-initial-generation-"))
 DB_PATH = TMP_DIR / "test.sqlite"
 
@@ -81,26 +78,10 @@ class DiverseInitialSourceTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.main = (API / "main.py").read_text(encoding="utf-8")
         cls.schemas = (API / "schemas" / "schemas.py").read_text(encoding="utf-8")
-        cls.page = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in [WEB_PAGE, *sorted(STUDY_DIR.glob("_components/*.tsx")), *sorted(STUDY_DIR.glob("_lib/*.ts"))]
-    )
-        cls.web_api = WEB_API.read_text(encoding="utf-8")
 
-    def test_lesson_mode_is_explicit_and_uses_one_response_before_preview_install(self) -> None:
-        self.assertIn("generation_mode", self.schemas)
-        lesson = self.page.split("async function generateDiverseLesson", 1)[1].split("\n  function ", 1)[0]
-        self.assertIn("generation_mode: 'lesson'", lesson)
-        self.assertIn("count: AI_FLASHCARD_COUNT", lesson)
-        self.assertEqual(lesson.count("api.generateStudyFlashcards"), 1)
-        self.assertLess(lesson.index("await api.generateStudyFlashcards"), lesson.index("setPendingLessonDraft"))
-        self.assertIn("topics.length !== AI_FLASHCARD_COUNT", lesson)
-
-    def test_code_example_flows_from_response_into_canonical_topic(self) -> None:
-        self.assertIn("code_example?: string | null", self.web_api)
-        converter = self.page.split("function flashcardsToTopics", 1)[1].split("\n  async function", 1)[0]
-        self.assertIn("code_example: f.code_example ?? null", converter)
-
+    # The study page no longer drives these endpoints — "Outras matérias" moved to
+    # the curriculum (scripts/test_general_subject_track.py) — but the endpoints
+    # stay for older clients, so their prompt bounds are still pinned here.
     def test_prompts_are_bounded_and_additional_context_is_capped(self) -> None:
         initial = self.main.split("def generate_diverse_flashcards", 1)[1].split("\n\n# ", 1)[0]
         additional = self.main.split("def generate_diverse_questions", 1)[1].split("\n\n_LEVEL_LABELS", 1)[0]
@@ -111,8 +92,6 @@ class DiverseInitialSourceTests(unittest.TestCase):
         self.assertIn("prompt = prompt[:40_000]", additional)
         self.assertEqual(additional.count("validate_generated_question_batch("), 2)
         self.assertNotIn("validate_card_batch(", additional)
-        avoid_builder = self.page.split("function getDiverseAvoidTopics", 1)[1].split("\n}", 1)[0]
-        self.assertIn(".slice(-100)", avoid_builder)
 
 
 def transport() -> httpx.ASGITransport:

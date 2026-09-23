@@ -22,7 +22,7 @@ const read = (file) => readFileSync(resolve(root, file), 'utf8');
 // ── 1. Text inputs that flex must be allowed to shrink ───────────────────────
 const inputFiles = [
   'src/app/study/page.tsx',
-  'src/app/study/_components/DiverseTab.tsx',
+  'src/app/study/_components/OtherSubjectsPicker.tsx',
   'src/app/study/_components/EnglishTab.tsx',
   'src/components/coding/CodingCurriculum.tsx',
   'src/components/coding/TopicView.tsx',

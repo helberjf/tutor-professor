@@ -9,6 +9,7 @@ import { CreateSubjectModal } from './CreateSubjectModal';
 import { CreateTopicModal } from './CreateTopicModal';
 import { SummarySheetModal } from './SummarySheetModal';
 import { t as translate } from '@/lib/i18n';
+import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 // Estas quatro trocam a tela inteira pela lista de matérias, uma de cada vez, e
 // são as maiores do módulo — a leitura de um tópico sozinha carrega o realce de
@@ -71,6 +72,10 @@ export function CodingCurriculum({
   initialSubjectId = null,
   initialTopicId = null,
 }: CodingCurriculumProps) {
+  const curriculum = useCurriculumApi();
+  // "Outras matérias" use these same screens; only the LeetCode trainer and a
+  // few words are programming's own.
+  const general = useCurriculumTrack() === 'general';
   const [view, setView] = useState<View>({ type: 'subjects' });
   const [subjects, setSubjects] = useState<ProgrammingSubject[]>([]);
   const [subjectPage, setSubjectPage] = useState<ProgrammingSubjectPage>(EMPTY_SUBJECT_PAGE);
@@ -78,7 +83,7 @@ export function CodingCurriculum({
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTopics, setLoadingTopics] = useState(false);
-  const [showCreateSubject, setShowCreateSubject] = useState(false);
+  const [showCreateSubject, setShowCreateSubject] = useState<false | 'blank' | 'suggest'>(false);
   const [showCreateTopic, setShowCreateTopic] = useState(false);
   const [loadingReview, setLoadingReview] = useState(false);
   const [generatingTopicAI, setGeneratingTopicAI] = useState(false);
@@ -101,7 +106,7 @@ export function CodingCurriculum({
     setLoadingSummary(true);
     setSummaryError('');
     try {
-      let sheet = await api.getSubjectSummary(subject.id);
+      let sheet = await curriculum.getSubjectSummary(subject.id);
       if (sheet.topic_count === 0) {
         setSummaryError(translate("Esta matéria ainda não tem aulas geradas para resumir."));
         return;
@@ -115,13 +120,13 @@ export function CodingCurriculum({
       for (const [index, pendingTopic] of missing.entries()) {
         setSummaryProgress(`Resumindo ${index + 1} de ${missing.length}: ${pendingTopic.title}`);
         try {
-          await api.generateTopicSummary(pendingTopic.topic_id, regenerate);
+          await curriculum.generateTopicSummary(pendingTopic.topic_id, regenerate);
         } catch (err) {
           failed = err instanceof Error ? err.message : translate("Não foi possível resumir um dos tópicos.");
         }
       }
       if (missing.length > 0) {
-        sheet = await api.getSubjectSummary(subject.id);
+        sheet = await curriculum.getSubjectSummary(subject.id);
         setSummary(sheet);
         setAiCredits(await api.getMyAICredits());
         loadTopics(subject);
@@ -221,13 +226,13 @@ export function CodingCurriculum({
     try {
       const shouldRestore = restoreDeepLink && !initialRestoreDoneRef.current;
       const fetchedSubject = shouldRestore && initialSubjectId
-        ? await api.getCodingSubject(initialSubjectId).catch(() => null)
+        ? await curriculum.getCodingSubject(initialSubjectId).catch(() => null)
         : null;
       if (subjectLoadRequestRef.current !== requestId) return;
       if (fetchedSubject) {
         initialRestoreDoneRef.current = true;
         if (focusMode === 'flashcards') {
-          void api.markCodingSubjectUsed(fetchedSubject.id).catch(() => undefined);
+          void curriculum.markCodingSubjectUsed(fetchedSubject.id).catch(() => undefined);
           setView({ type: 'deck', subject: fetchedSubject });
         } else {
           void loadTopics(fetchedSubject, initialTopicId);
@@ -235,7 +240,7 @@ export function CodingCurriculum({
         return;
       }
 
-      const loadedPage = await api.getCodingSubjectPage(requestedPage, requestedSort);
+      const loadedPage = await curriculum.getCodingSubjectPage(requestedPage, requestedSort);
       if (subjectLoadRequestRef.current !== requestId) return;
       setSubjects(loadedPage.items);
       setSubjectPage(loadedPage);
@@ -244,7 +249,7 @@ export function CodingCurriculum({
         const requestedSubject = loadedPage.items.find((subject) => subject.id === initialSubjectId);
         if (requestedSubject) {
           if (focusMode === 'flashcards') {
-            void api.markCodingSubjectUsed(requestedSubject.id).catch(() => undefined);
+            void curriculum.markCodingSubjectUsed(requestedSubject.id).catch(() => undefined);
             setView({ type: 'deck', subject: requestedSubject });
           } else {
             void loadTopics(requestedSubject, initialTopicId);
@@ -267,13 +272,13 @@ export function CodingCurriculum({
       subject_id: subject.id,
       mode: focusMode,
     });
-    void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
+    void curriculum.markCodingSubjectUsed(subject.id).catch(() => undefined);
     // Navega imediatamente para a matéria; os tópicos carregam na própria tela.
     setTopics([]);
     setView({ type: 'topics', subject });
     void api.getMyAICredits().then(setAiCredits).catch(() => undefined);
     try {
-      const loadedTopics = await api.getCodingTopics(subject.id);
+      const loadedTopics = await curriculum.getCodingTopics(subject.id);
       setTopics(loadedTopics);
       const requestedTopic = loadedTopics.find((topic) => topic.id === requestedTopicId);
       if (requestedTopic) {
@@ -293,12 +298,12 @@ export function CodingCurriculum({
   async function handleStartReview(subject: ProgrammingSubject) {
     setLoadingReview(true);
     try {
-      const session = await api.getCodingReview(subject.id);
+      const session = await curriculum.getCodingReview(subject.id);
       if (session.total_due === 0) {
         alert(translate("Nenhum flashcard para revisar agora. Continue estudando e volte mais tarde!"));
         return;
       }
-      void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
+      void curriculum.markCodingSubjectUsed(subject.id).catch(() => undefined);
       setView({ type: 'review', subject, cards: session.items });
     } finally {
       setLoadingReview(false);
@@ -308,7 +313,7 @@ export function CodingCurriculum({
   async function handleDeleteSubject(id: number) {
     if (!confirm(translate("Remover esta matéria e todos os seus tópicos e flashcards?"))) return;
     try {
-      await api.deleteCodingSubject(id);
+      await curriculum.deleteCodingSubject(id);
       const nextPage = subjects.length === 1 && subjectPage.page > 1
         ? subjectPage.page - 1
         : subjectPage.page;
@@ -328,7 +333,7 @@ export function CodingCurriculum({
       item.id === subject.id ? { ...item, relevance } : item
     )));
     try {
-      const updated = await api.updateCodingSubject(subject.id, { relevance });
+      const updated = await curriculum.updateCodingSubject(subject.id, { relevance });
       setSubjects((current) => current.map((item) => (
         item.id === subject.id ? updated : item
       )));
@@ -357,7 +362,7 @@ export function CodingCurriculum({
 
   async function handleDeleteTopic(id: number, subject: ProgrammingSubject) {
     if (!confirm(translate("Remover este tópico e seus flashcards?"))) return;
-    await api.deleteCodingTopic(id);
+    await curriculum.deleteCodingTopic(id);
     setTopics((prev) => prev.filter((t) => t.id !== id));
     await loadSubjects();
     if (view.type === 'topic') setView({ type: 'topics', subject });
@@ -368,7 +373,7 @@ export function CodingCurriculum({
     setTopicAIError('');
     setNewTopicId(null);
     try {
-      const topic = await api.generateCodingTopic(subject.id);
+      const topic = await curriculum.generateCodingTopic(subject.id);
       // Topico novo entra minimizado no fim da lista (nao abre sozinho)
       setTopics((prev) => [...prev, topic]);
       setNewTopicId(topic.id);
@@ -383,7 +388,7 @@ export function CodingCurriculum({
   // ── Subjects view ────────────────────────────────────────────────────────
   function openSubject(subject: ProgrammingSubject) {
     if (focusMode === 'flashcards') {
-      void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
+      void curriculum.markCodingSubjectUsed(subject.id).catch(() => undefined);
       setView({ type: 'deck', subject });
       return;
     }
@@ -392,7 +397,7 @@ export function CodingCurriculum({
   }
 
   function openFlashcardDeck(subject: ProgrammingSubject) {
-    void api.markCodingSubjectUsed(subject.id).catch(() => undefined);
+    void curriculum.markCodingSubjectUsed(subject.id).catch(() => undefined);
     setView({ type: 'deck', subject });
   }
 
@@ -410,7 +415,9 @@ export function CodingCurriculum({
     return (
       <div className="space-y-6">
         <section className="app-surface border-primary/30 p-3 md:p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{translate("Programação · Currículo")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+            {general ? translate("Outras matérias · Currículo") : translate("Programação · Currículo")}
+          </p>
           <h1 className="mt-1 text-2xl font-black text-slate-800 md:mt-2 md:text-3xl">{translate("Minhas Matérias")}</h1>
           <p className="mt-1 text-xs font-bold text-slate-500 md:mt-2 md:text-sm">
             {focusMode === 'flashcards'
@@ -426,21 +433,23 @@ export function CodingCurriculum({
           </div>
         </section>
 
-        {/* LeetCode trainer entry */}
-        <button
-          type="button"
-          onClick={() => setView({ type: 'leetcode' })}
-          className="leetcode-trainer-card flex w-full items-center gap-4 rounded-3xl border-2 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
-        >
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
-            <Trophy size={24} className="text-amber-600" />
-          </div>
-          <div className="flex-1">
-            <p className="font-black text-slate-800">{translate("LeetCode Trainer")}</p>
-            <p className="text-sm text-slate-500">{translate("Métodos e técnicas para entrevistas — explicação, exemplo e resultado, gerados pela IA um a um")}</p>
-          </div>
-          <Sparkles size={18} className="shrink-0 text-amber-400" />
-        </button>
+        {/* LeetCode trainer entry — programming only */}
+        {!general && (
+          <button
+            type="button"
+            onClick={() => setView({ type: 'leetcode' })}
+            className="leetcode-trainer-card flex w-full items-center gap-4 rounded-3xl border-2 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100">
+              <Trophy size={24} className="text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-slate-800">{translate("LeetCode Trainer")}</p>
+              <p className="text-sm text-slate-500">{translate("Métodos e técnicas para entrevistas — explicação, exemplo e resultado, gerados pela IA um a um")}</p>
+            </div>
+            <Sparkles size={18} className="shrink-0 text-amber-400" />
+          </button>
+        )}
 
         <div className="flex flex-col gap-2 rounded-2xl border-2 border-slate-100 bg-white/85 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
           <div>
@@ -594,14 +603,24 @@ export function CodingCurriculum({
                   <p className="mt-1 text-sm font-semibold text-slate-400">{translate("Crie sua primeira matéria para começar.")}</p>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => setShowCreateSubject(true)}
-                className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-slate-200 bg-white p-5 text-slate-400 transition hover:border-primary hover:text-primary-dark"
-              >
-                <Plus size={28} />
-                <span className="font-black">{translate("Nova Matéria")}</span>
-              </button>
+              <div className="grid min-h-40 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSubject('blank')}
+                  className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-200 bg-white p-4 text-slate-400 transition hover:border-primary hover:text-primary-dark"
+                >
+                  <Plus size={24} />
+                  <span className="font-black">{translate("Nova Matéria")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateSubject('suggest')}
+                  className="flex min-h-14 items-center justify-center gap-2 rounded-3xl border-2 border-violet-200 bg-violet-50 px-4 py-3 text-sm font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-100"
+                >
+                  <Sparkles size={18} />
+                  {translate("Sugerir matéria por IA?")}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -634,6 +653,7 @@ export function CodingCurriculum({
         )}
         {showCreateSubject && (
           <CreateSubjectModal
+            autoSuggest={showCreateSubject === 'suggest'}
             onClose={() => setShowCreateSubject(false)}
             onCreated={() => {
               setShowCreateSubject(false);

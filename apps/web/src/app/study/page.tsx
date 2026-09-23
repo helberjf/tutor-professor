@@ -2,21 +2,15 @@
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import {
-  ArrowLeft, BarChart2, Bell, BookOpen, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Copy,
-  Flame, Layers, Loader2, Pause, Pencil, Play, Plus, RotateCcw, Save, Sparkles, Timer, Trash2, X, Zap,
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, BarChart2, BookOpen, CalendarDays, ChevronRight, Layers, Loader2 } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type CatalogSubject, type CodingDay, type CodingTopic, type DiverseDay, type DiverseLessonBlock, type DiverseSubject, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { appendTopicToSubjectById, clearDraftForRemovedSubject, findItemIndexById, generateAndSynchronizeDiverseQuestions, isUncertainDiverseGenerationError, reconcileStudyQueueByTopicIds, removeDiverseSubjectById, resolveDiverseGenerationTarget, resolveItemsByIds, updateItemById, updateSubjectById } from '@/lib/diverse-question-state';
+import { ApiError, api, type StudyDashboard } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useModules } from '@/hooks/use-modules';
 import {
   createInitialPomodoroState,
-  formatTimer,
   getTodaysPomodoroCount,
   parseStoredPomodoroState,
   pausePomodoro,
@@ -27,49 +21,17 @@ import {
   type PomodoroMode,
 } from '@/lib/pomodoro';
 
-import {
-  AI_FLASHCARD_COUNT,
-  RATING_META,
-  RATING_WEIGHT,
-  SUBJECT_META,
-  SUBJECT_ORDER,
-  buildEmptyDay,
-  buildLessonTitle,
-  buildStudyOrder,
-  createLocalLessonId,
-  createLocalQuestionId,
-  createLocalSubjectId,
-  filterFreshDiverseTopics,
-  formatDateBadge,
-  formatDateLabel,
-  getDiverseAvoidTopics,
-  getDiverseSubjectLessons,
-  getDiverseSubjectSlug,
-  getDiverseSubjectTopics,
-  getLocalDateValue,
-  getPomodoroCompletionMessage,
-  getTopicReviewPriority,
-  normalizeDiverseTopicText,
-  resolveDiverseLessonTopics,
-  slugifySubjectName,
-  updateDiverseQuestionById,
-} from './_lib/study-helpers';
+import { getLocalDateValue, getPomodoroCompletionMessage } from './_lib/study-helpers';
 import { EnglishTab } from './_components/EnglishTab';
-import { DashboardTab, MetricCard, PomodoroWidget, TabButton } from './_components/shared';
-import type {
-  CodingMode,
-  DiverseAIAction,
-  InlineStudyState,
-  PendingLessonDraft,
-  StudyRating,
-  StudyTab,
-} from './_lib/study-helpers';
+import { OtherSubjectsPicker } from './_components/OtherSubjectsPicker';
+import { DashboardTab, TabButton } from './_components/shared';
+import type { CodingMode, StudyTab } from './_lib/study-helpers';
 import { t as translate } from '@/lib/i18n';
 
 // Uma aba de cada vez aparece, mas as três vinham no mesmo pacote: abrir
-// "Estudos" baixava o currículo de programação inteiro — flashcards, treinador
-// de exercícios, realce de sintaxe — para quem só queria a aba de inglês, que é
-// a que abre por padrão. Cada uma passa a chegar quando for escolhida.
+// "Estudos" baixava o currículo inteiro — flashcards, treinador de exercícios,
+// realce de sintaxe — para quem só queria a aba de inglês, que é a que abre por
+// padrão. O currículo passa a chegar quando for escolhido.
 //
 // Sem SSR de propósito: nada aqui é desenhado antes de o login responder, então
 // pré-renderizar as abas no servidor não adiantaria nada e só devolveria o peso
@@ -80,36 +42,26 @@ const tabFallback = () => (
   </div>
 );
 
+// "Outras matérias" and "Programação" are the same study screen — reading,
+// flashcards, questions and simulado — on two different lists.
 const CodingTab = dynamic(() => import('./_components/CodingTab').then((m) => m.CodingTab), {
   ssr: false,
   loading: tabFallback,
 });
-const DiverseTab = dynamic(() => import('./_components/DiverseTab').then((m) => m.DiverseTab), {
-  ssr: false,
-  loading: tabFallback,
-});
-const OtherSubjectsPicker = dynamic(
-  () => import('./_components/DiverseTab').then((m) => m.OtherSubjectsPicker),
-  { ssr: false },
-);
 
 export default function StudyPage() {
   const authState = useRequireAuth();
 
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
   const [codingMode, setCodingMode] = useState<CodingMode>('reading');
-  const [codingResumeTarget, setCodingResumeTarget] = useState<{
+  // A deep link names one subject/topic of one list; it only applies there.
+  const [curriculumResumeTarget, setCurriculumResumeTarget] = useState<{
+    tab: StudyTab | null;
     subjectId: number | null;
     topicId: number | null;
-  }>({ subjectId: null, topicId: null });
-  const [diverseResumeTarget, setDiverseResumeTarget] = useState<{
-    subjectId: string | null;
-    lessonId: string | null;
-  }>({ subjectId: null, lessonId: null });
+  }>({ tab: null, subjectId: null, topicId: null });
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
-  const selectedDateRef = useRef(selectedDate);
   const requestedStudyDateRef = useRef<string | null>(null);
-  const diverseResumeAppliedRef = useRef(false);
 
   // ── English tab state ───────────────────────────────────────────────────────
   const [dashboard, setDashboard] = useState<StudyDashboard | null>(null);
@@ -127,37 +79,8 @@ export default function StudyPage() {
   const [error, setError] = useState<ApiError | null>(null);
   const [savedMessage, setSavedMessage] = useState('');
 
-  // ── Diverse tab state ───────────────────────────────────────────────────────
-  const [diverseDay, setDiverseDay] = useState<DiverseDay | null>(null);
-  const diverseDayRef = useRef<DiverseDay | null>(null);
-  const [loadingDiverse, setLoadingDiverse] = useState(false);
-  const [savingDiverse, setSavingDiverse] = useState(false);
-  const [diverseSaved, setDiverseSaved] = useState('');
-  const [diverseError, setDiverseError] = useState('');
-  const [newSubjectName, setNewSubjectName] = useState('');
-  const [catalog, setCatalog] = useState<CatalogSubject[]>([]);
-  // The catalog never changes per date, so fetch it once instead of on every tab visit.
-  const catalogLoadedRef = useRef(false);
-  const [generatingAI, setGeneratingAI] = useState(false);
-  const [aiAction, setAiAction] = useState<DiverseAIAction | null>(null);
-  const [lastAIAction, setLastAIAction] = useState<DiverseAIAction | null>(null);
-  const [aiError, setAiError] = useState('');
-  const [selectedDiverseSubjectSlug, setSelectedDiverseSubjectSlug] = useState<string | null>(null);
   const [generatingLesson, setGeneratingLesson] = useState(false);
   const [lessonGenMessage, setLessonGenMessage] = useState('');
-  const [pendingDiverseSave, setPendingDiverseSave] = useState(false);
-  const [pendingLessonDraft, setPendingLessonDraft] = useState<PendingLessonDraft | null>(null);
-  const [generatingDiverseQuestions, setGeneratingDiverseQuestions] = useState(false);
-  const diverseMutationLockRef = useRef(false);
-  const diverseQuestionGenerationLockRef = useRef(false);
-
-  // ── Coding tab state ────────────────────────────────────────────────────────
-  const [codingDay, setCodingDay] = useState<CodingDay | null>(null);
-  const [loadingCoding, setLoadingCoding] = useState(false);
-  const [savingCoding, setSavingCoding] = useState(false);
-  const [codingSaved, setCodingSaved] = useState('');
-  const [codingError, setCodingError] = useState('');
-  const [editingSubject, setEditingSubject] = useState<string | null>(null);
 
   // ── Pomodoro state (shared) ─────────────────────────────────────────────────
   const [pomodoroState, setPomodoroState] = useState(createInitialPomodoroState);
@@ -175,14 +98,21 @@ export default function StudyPage() {
     const tab = params.get('tab');
     const requestedMode = params.get('mode');
     const requestedDate = params.get('date');
-    const requestedLessonId = params.get('lesson_id');
-    const requestedDiverseSubjectId = tab === 'diverse' ? params.get('subject_id') : null;
     const requestedSubjectId = Number(params.get('subject_id'));
     const requestedTopicId = Number(params.get('topic_id'));
     if (requestedMode === 'reading' || requestedMode === 'flashcards' || requestedMode === 'questions') {
       setCodingMode(requestedMode);
     }
-    setCodingResumeTarget({
+    // Any tab other than the fixed ones is an old link to a subject of
+    // "Outras matérias", which now lives in that tab's list.
+    const resolvedTab: StudyTab | null =
+      tab === 'english' || tab === 'coding' || tab === 'diverse' || tab === 'dashboard'
+        ? tab
+        : tab
+          ? 'diverse'
+          : null;
+    setCurriculumResumeTarget({
+      tab: resolvedTab,
       subjectId: Number.isInteger(requestedSubjectId) && requestedSubjectId > 0 ? requestedSubjectId : null,
       topicId: Number.isInteger(requestedTopicId) && requestedTopicId > 0 ? requestedTopicId : null,
     });
@@ -190,18 +120,7 @@ export default function StudyPage() {
       requestedStudyDateRef.current = requestedDate;
       setSelectedDate(requestedDate);
     }
-    setDiverseResumeTarget({
-      subjectId: requestedDiverseSubjectId || null,
-      lessonId: requestedLessonId || null,
-    });
-    if (tab === 'english' || tab === 'coding' || tab === 'diverse' || tab === 'dashboard') {
-      setActiveTab(tab);
-      setSelectedDiverseSubjectSlug(null);
-    } else if (tab) {
-      setActiveTab('diverse');
-      // Keep a single "Outras matérias" entrypoint; subjects are selected via dropdown.
-      setSelectedDiverseSubjectSlug(null);
-    }
+    if (resolvedTab) setActiveTab(resolvedTab);
   }, []);
 
   useEffect(() => {
@@ -223,17 +142,8 @@ export default function StudyPage() {
   useEffect(() => {
     if (loadingModules || codingEnabled || activeTab !== 'coding') return;
     setActiveTab('diverse');
-    setSelectedDiverseSubjectSlug(null);
     setStudyUrlTab('diverse');
   }, [loadingModules, codingEnabled, activeTab]);
-
-  useEffect(() => {
-    diverseDayRef.current = diverseDay;
-  }, [diverseDay]);
-
-  useEffect(() => {
-    selectedDateRef.current = selectedDate;
-  }, [selectedDate]);
 
   function setStudyUrlTab(slug: string | null) {
     if (typeof window === 'undefined') return;
@@ -254,19 +164,11 @@ export default function StudyPage() {
       return;
     }
     setActiveTab(tab);
-    setSelectedDiverseSubjectSlug(null);
     setStudyUrlTab(tab === 'english' ? null : tab);
-  }
-
-  function selectDiverseSubjectTab(slug: string) {
-    setActiveTab('diverse');
-    setSelectedDiverseSubjectSlug(slug);
-    setStudyUrlTab(slug);
   }
 
   function selectDiverseOverview() {
     setActiveTab('diverse');
-    setSelectedDiverseSubjectSlug(null);
     setStudyUrlTab('diverse');
   }
 
@@ -334,75 +236,6 @@ export default function StudyPage() {
       .finally(() => { if (!cancelled) setLoadingDay(false); });
     return () => { cancelled = true; };
   }, [authState.status, activeTab, selectedDate, dayReloadNonce]);
-
-  // ── Load Diverse day ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (authState.status !== 'authenticated' || !selectedDate) return;
-    // Needed by the diverse tab and by the subject picker shown on the coding tab.
-    if (activeTab !== 'diverse' && activeTab !== 'coding') return;
-    let cancelled = false;
-    setLoadingDiverse(true);
-    setDiverseSaved('');
-    api.getDiverseDay(selectedDate)
-      .then((data) => { if (!cancelled) setDiverseDay(data); })
-      .catch(() => { if (!cancelled) setDiverseDay(null); })
-      .finally(() => { if (!cancelled) setLoadingDiverse(false); });
-    return () => { cancelled = true; };
-  }, [authState.status, activeTab, selectedDate]);
-
-  useEffect(() => {
-    if (activeTab !== 'diverse' || !selectedDiverseSubjectSlug || !diverseDay) return;
-    const exists = diverseDay.custom_subjects.some(
-      (subject, index, subjects) => getDiverseSubjectSlug(subject, index, subjects) === selectedDiverseSubjectSlug
-    );
-    if (!exists) {
-      setSelectedDiverseSubjectSlug(null);
-      setStudyUrlTab('diverse');
-    }
-  }, [activeTab, diverseDay, selectedDiverseSubjectSlug]);
-
-  useEffect(() => {
-    if (
-      activeTab !== 'diverse'
-      || !diverseDay
-      || !diverseResumeTarget.subjectId
-      || diverseResumeAppliedRef.current
-    ) return;
-    diverseResumeAppliedRef.current = true;
-    const index = diverseDay.custom_subjects.findIndex(
-      (subject) => subject.id === diverseResumeTarget.subjectId,
-    );
-    if (index < 0) return;
-    setSelectedDiverseSubjectSlug(
-      getDiverseSubjectSlug(
-        diverseDay.custom_subjects[index],
-        index,
-        diverseDay.custom_subjects,
-      ),
-    );
-  }, [activeTab, diverseDay, diverseResumeTarget.subjectId]);
-
-  // ── Load Diverse catalog ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (authState.status !== 'authenticated' || activeTab !== 'diverse') return;
-    if (catalogLoadedRef.current) return;
-    catalogLoadedRef.current = true;
-    api.getDiverseCatalog().then(setCatalog).catch(() => { catalogLoadedRef.current = false; });
-  }, [authState.status, activeTab]);
-
-  // ── Load Coding day ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (authState.status !== 'authenticated' || !selectedDate) return;
-    if (activeTab !== 'coding') return;
-    let cancelled = false;
-    setLoadingCoding(true);
-    setCodingSaved('');
-    api.getCodingDay(selectedDate)
-      .then((data) => { if (!cancelled) setCodingDay(data); })
-      .catch(() => { if (!cancelled) setCodingDay(null); })
-      .finally(() => { if (!cancelled) setLoadingCoding(false); });
-    return () => { cancelled = true; };
-  }, [authState.status, activeTab, selectedDate]);
 
   // ── Notification permission ─────────────────────────────────────────────────
   useEffect(() => {
@@ -528,573 +361,6 @@ export default function StudyPage() {
     } finally { setSaving(false); }
   }
 
-  function toggleTopic(subject: string, index: number) {
-    if (!codingDay) return;
-    const topics = (codingDay.subjects[subject] ?? []).map((t, i) =>
-      i === index ? { ...t, done: !t.done } : t
-    );
-    setCodingDay({ ...codingDay, subjects: { ...codingDay.subjects, [subject]: topics } });
-  }
-
-  function updateTopicText(subject: string, index: number, value: string) {
-    if (!codingDay) return;
-    const topics = (codingDay.subjects[subject] ?? []).map((t, i) =>
-      i === index ? { ...t, topic: value } : t
-    );
-    setCodingDay({ ...codingDay, subjects: { ...codingDay.subjects, [subject]: topics } });
-  }
-
-  async function saveCodingDay() {
-    if (!codingDay) return;
-    setSavingCoding(true); setCodingSaved(''); setCodingError('');
-    try {
-      const saved = await api.saveCodingDay(selectedDate, { subjects: codingDay.subjects });
-      setCodingDay(saved);
-      setCodingSaved(translate("Progresso de programação salvo."));
-    } catch {
-      setCodingError(translate("Não foi possível salvar o progresso."));
-    } finally { setSavingCoding(false); }
-  }
-
-  async function addDiverseSubject() {
-    if (diverseMutationLockRef.current) return;
-    const name = newSubjectName.trim();
-    const initialTopicCount = 3;
-    if (!name) {
-      setDiverseError(translate("Digite o nome da matéria para criar."));
-      return;
-    }
-    const subjects = diverseDay?.custom_subjects ?? [];
-    if (subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
-      setDiverseError(translate("Essa matéria já existe para esta data."));
-      return;
-    }
-    setDiverseError('');
-    setDiverseSaved('');
-    setAiError('');
-    setGeneratingAI(true);
-    setAiAction('create-subject');
-    setLastAIAction('create-subject');
-
-    diverseMutationLockRef.current = true;
-    setSavingDiverse(true);
-    try {
-      const result = await api.generateStudyFlashcards({
-        subject: name,
-        count: initialTopicCount,
-      });
-      const initialTopics = flashcardsToTopics(result.flashcards).slice(0, initialTopicCount);
-      if (initialTopics.length !== initialTopicCount) {
-        setDiverseError(translate("A IA não retornou 3 tópicos iniciais para essa matéria. Tente novamente."));
-        return;
-      }
-      const newSubject: DiverseSubject = { id: createLocalSubjectId(), name, topics: initialTopics, lessons: [] };
-      const nextSubjects = [...subjects, newSubject];
-      const newDay: DiverseDay = {
-        id: diverseDay?.id ?? null,
-        study_date: selectedDate,
-        custom_subjects: nextSubjects,
-        created_at: diverseDay?.created_at ?? null,
-        updated_at: diverseDay?.updated_at ?? null,
-      };
-      const newSubjectSlug = getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects);
-      setDiverseDay(newDay);
-      setNewSubjectName('');
-      selectDiverseSubjectTab(newSubjectSlug);
-      const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: nextSubjects });
-      setDiverseDay(saved);
-      setDiverseSaved(translate("Matéria criada com 3 tópicos iniciais da IA."));
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : translate("Não foi possível criar a matéria com 3 tópicos iniciais da IA.");
-      setDiverseError(message);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setSavingDiverse(false);
-      setGeneratingAI(false);
-      setAiAction(null);
-    }
-  }
-
-  async function importDiverseStudy(subject: DiverseSubject): Promise<boolean> {
-    if (diverseMutationLockRef.current) throw new Error(translate("Aguarde a operação atual terminar."));
-    const importDate = selectedDate;
-
-    diverseMutationLockRef.current = true;
-    setSavingDiverse(true);
-    setDiverseError('');
-    setDiverseSaved('');
-    try {
-      const saved = await api.importDiverseSubject(importDate, subject);
-      if (selectedDateRef.current === importDate) {
-        diverseDayRef.current = saved;
-        setDiverseDay(saved);
-        setDiverseSaved(translate("Estudo importado e salvo."));
-        return true;
-      }
-      return false;
-    } catch (caught) {
-      const message = caught instanceof ApiError ? caught.message : translate("Não foi possível importar e salvar o estudo.");
-      if (selectedDateRef.current !== importDate) return false;
-      setDiverseError(message);
-      throw new Error(message);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setSavingDiverse(false);
-    }
-  }
-
-  function addDiverseTopicsBulk(subjectIndex: number, newTopics: CodingTopic[]) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay || newTopics.length === 0) return;
-    const canonicalTopics = newTopics.map((topic) => ({
-      ...topic,
-      id: topic.id || createLocalQuestionId(),
-    }));
-    const subjects = diverseDay.custom_subjects.map((s, si) =>
-      si === subjectIndex ? { ...s, topics: [...s.topics, ...canonicalTopics] } : s
-    );
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function applyTopicRating(topic: CodingTopic, rating: StudyRating): CodingTopic {
-    return {
-      ...topic,
-      last_rating: rating,
-      review_count: (topic.review_count ?? 0) + 1,
-      last_reviewed: new Date().toISOString(),
-      done: rating === 'unknown' ? topic.done : true,
-    };
-  }
-
-  function rateDiverseTopic(subjectIndex: number, topicIndex: number, rating: StudyRating) {
-    if (diverseMutationLockRef.current) return;
-    setDiverseDay((current) => {
-      if (!current) return current;
-      const subjects = current.custom_subjects.map((s, si) =>
-        si === subjectIndex
-          ? { ...s, topics: s.topics.map((t, ti) => (ti === topicIndex ? applyTopicRating(t, rating) : t)) }
-          : s
-      );
-      return { ...current, custom_subjects: subjects };
-    });
-  }
-
-  function rateDiverseLessonTopic(subjectIndex: number, topicId: string, rating: StudyRating) {
-    if (diverseMutationLockRef.current) return;
-    setDiverseDay((current) => {
-      if (!current) return current;
-      const subjects = current.custom_subjects.map((s, si) => {
-        if (si !== subjectIndex) return s;
-        return updateDiverseQuestionById(s, topicId, (topic) => applyTopicRating(topic, rating));
-      });
-      return { ...current, custom_subjects: subjects };
-    });
-  }
-
-  // After a study session finishes, persist ratings so spaced repetition survives reloads.
-  function requestDiverseAutoSave() {
-    if (diverseMutationLockRef.current) return;
-    setPendingDiverseSave(true);
-  }
-
-  function updateDiverseTopicAnswer(subjectIndex: number, topicIndex: number, value: string) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((s, si) =>
-      si === subjectIndex
-        ? { ...s, topics: s.topics.map((t, ti) => ti === topicIndex ? { ...t, answer: value } : t) }
-        : s
-    );
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  async function removeDiverseSubject(subjectId: string) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const index = findItemIndexById(diverseDay.custom_subjects, subjectId);
-    if (index < 0) return;
-    const removedSubject = diverseDay.custom_subjects[index];
-    const removedSlug = getDiverseSubjectSlug(removedSubject, index, diverseDay.custom_subjects);
-    const subjects = removeDiverseSubjectById(diverseDay.custom_subjects, subjectId);
-    const nextDay = { ...diverseDay, custom_subjects: subjects };
-    diverseDayRef.current = nextDay;
-    setDiverseDay(nextDay);
-    setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, removedSubject.id));
-    if (selectedDiverseSubjectSlug === removedSlug) selectDiverseOverview();
-
-    diverseMutationLockRef.current = true;
-    setSavingDiverse(true);
-    setDiverseError('');
-    setDiverseSaved('');
-    try {
-      const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: subjects });
-      diverseDayRef.current = saved;
-      setDiverseDay(saved);
-      setDiverseSaved(translate("Matéria removida com sucesso."));
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : translate("Não foi possível apagar a matéria agora.");
-      setDiverseError(message);
-      diverseDayRef.current = diverseDay;
-      setDiverseDay(diverseDay);
-      if (selectedDiverseSubjectSlug === removedSlug) selectDiverseSubjectTab(removedSlug);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setSavingDiverse(false);
-    }
-  }
-
-  function toggleDiverseTopic(subjectIndex: number, topicIndex: number) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((s, si) =>
-      si === subjectIndex
-        ? { ...s, topics: s.topics.map((t, ti) => ti === topicIndex ? { ...t, done: !t.done } : t) }
-        : s
-    );
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function updateDiverseTopicText(subjectIndex: number, topicIndex: number, value: string) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((s, si) =>
-      si === subjectIndex
-        ? { ...s, topics: s.topics.map((t, ti) => ti === topicIndex ? { ...t, topic: value } : t) }
-        : s
-    );
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function updateDiverseLessonBlock(
-    subjectIndex: number,
-    lessonIndex: number,
-    updater: (lesson: DiverseLessonBlock) => DiverseLessonBlock
-  ) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((s, si) => {
-      if (si !== subjectIndex) return s;
-      const lessons = getDiverseSubjectLessons(s).map((lesson, li) => li === lessonIndex ? updater(lesson) : lesson);
-      return { ...s, lessons };
-    });
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function updateDiverseLessonQuestion(
-    subjectIndex: number,
-    topicId: string,
-    updater: (topic: CodingTopic) => CodingTopic,
-  ) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((subject, index) => {
-      if (index !== subjectIndex) return subject;
-      return updateDiverseQuestionById(subject, topicId, updater);
-    });
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function updateDiverseLessonTitle(subjectIndex: number, lessonIndex: number, value: string) {
-    updateDiverseLessonBlock(subjectIndex, lessonIndex, (lesson) => ({ ...lesson, title: value }));
-  }
-
-  function removeDiverseLessonBlock(subjectIndex: number, lessonIndex: number) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subjects = diverseDay.custom_subjects.map((s, si) => {
-      if (si !== subjectIndex) return s;
-      const lessons = getDiverseSubjectLessons(s).filter((_, li) => li !== lessonIndex);
-      return { ...s, lessons };
-    });
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-  }
-
-  function toggleDiverseLessonTopic(subjectIndex: number, topicId: string) {
-    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, done: !topic.done }));
-  }
-
-  function updateDiverseLessonTopicText(subjectIndex: number, topicId: string, value: string) {
-    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, topic: value }));
-  }
-
-  function updateDiverseLessonTopicAnswer(subjectIndex: number, topicId: string, value: string) {
-    updateDiverseLessonQuestion(subjectIndex, topicId, (topic) => ({ ...topic, answer: value }));
-  }
-
-  function updateDiverseSubjectName(subjectIndex: number, value: string) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const previousSlug = getDiverseSubjectSlug(diverseDay.custom_subjects[subjectIndex], subjectIndex, diverseDay.custom_subjects);
-    const subjects = diverseDay.custom_subjects.map((s, si) => si === subjectIndex ? { ...s, name: value } : s);
-    setDiverseDay({ ...diverseDay, custom_subjects: subjects });
-    if (selectedDiverseSubjectSlug === previousSlug) {
-      selectDiverseSubjectTab(getDiverseSubjectSlug(subjects[subjectIndex], subjectIndex, subjects));
-    }
-  }
-
-  function flashcardsToTopics(flashcards: { topic: string; answer: string; code_example?: string | null }[]): CodingTopic[] {
-    return flashcards.map((f) => ({
-      id: createLocalQuestionId(),
-      topic: f.topic,
-      done: false,
-      answer: f.answer,
-      code_example: f.code_example ?? null,
-    }));
-  }
-
-  async function generateAIFlashcards(inlineApiKey?: string, suggestSubject = false) {
-    const name = newSubjectName.trim();
-    if (!name && !suggestSubject) return;
-    if (diverseMutationLockRef.current) return;
-    diverseMutationLockRef.current = true;
-    setGeneratingAI(true);
-    const action: DiverseAIAction = suggestSubject ? 'suggest-subject' : 'create-subject';
-    setAiAction(action);
-    setLastAIAction(action);
-    setAiError('');
-    try {
-      const payload = {
-        subject: name,
-        count: AI_FLASHCARD_COUNT,
-        ...(suggestSubject ? { suggest_subject: true } : {}),
-        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
-      };
-      const result = await api.generateStudyFlashcards(payload);
-      const subjects = diverseDay?.custom_subjects ?? [];
-      if (subjects.some((s) => s.name.toLowerCase() === result.subject.toLowerCase())) {
-        setAiError(translate("Já existe uma matéria com esse nome. Renomeie-a antes de gerar nova."));
-        return;
-      }
-      const newTopics = flashcardsToTopics(result.flashcards);
-      const newSubject: DiverseSubject = { id: createLocalSubjectId(), name: result.subject, topics: newTopics, lessons: [] };
-      const nextSubjects = [...subjects, newSubject];
-      const newDay: DiverseDay = {
-        id: diverseDay?.id ?? null,
-        study_date: selectedDate,
-        custom_subjects: nextSubjects,
-        created_at: diverseDay?.created_at ?? null,
-        updated_at: diverseDay?.updated_at ?? null,
-      };
-      setDiverseDay(newDay);
-      setNewSubjectName('');
-      selectDiverseSubjectTab(getDiverseSubjectSlug(newSubject, nextSubjects.length - 1, nextSubjects));
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : translate("Não foi possível criar aula com IA.");
-      setAiError(msg);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setGeneratingAI(false);
-      setAiAction(null);
-    }
-  }
-
-  async function generateDiverseTopic(subjectId: string, inlineApiKey?: string) {
-    const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
-    if (!subject?.name.trim()) return;
-    if (subject.topics.length >= 50) {
-      setAiError(translate("Limite de 50 tópicos gerais atingido. Crie uma nova lição em bloco para continuar."));
-      return;
-    }
-    if (diverseMutationLockRef.current) return;
-    diverseMutationLockRef.current = true;
-    setGeneratingAI(true);
-    setAiAction('topic');
-    setLastAIAction('topic');
-    setAiError('');
-    setDiverseSaved('');
-    try {
-      const avoidTopics = getDiverseAvoidTopics(subject);
-      const result = await api.generateStudyFlashcards({
-        subject: subject.name,
-        count: 1,
-        generation_mode: 'topic',
-        avoid_topics: avoidTopics,
-        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
-      });
-      const newTopic = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
-      if (!newTopic) {
-        setAiError(translate("A IA sugeriu um tópico repetido. Tente novamente para avancar para outro assunto."));
-        return;
-      }
-      const currentDay = diverseDayRef.current;
-      const currentSubjects = currentDay?.custom_subjects ?? [];
-      if (!currentDay || findItemIndexById(currentSubjects, subject.id) < 0) {
-        setAiError(translate("A matéria foi removida antes de concluir a sugestão. Nenhum tópico foi adicionado."));
-        return;
-      }
-      const subjects = appendTopicToSubjectById(currentSubjects, subject.id, newTopic);
-      const nextDay = { ...currentDay, custom_subjects: subjects };
-      diverseDayRef.current = nextDay;
-      setDiverseDay(nextDay);
-      setDiverseSaved(translate("Tópico sugerido pela IA. Salve a matéria para guardar."));
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : translate("Não foi possível sugerir tópico com IA.");
-      setAiError(msg);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setGeneratingAI(false);
-      setAiAction(null);
-    }
-  }
-
-  async function regenerateDiverseTopicWithAI(
-    subjectIndex: number,
-    topicIndex: number,
-    context?: string,
-    inlineApiKey?: string,
-  ) {
-    if (diverseMutationLockRef.current) return;
-    if (!diverseDay) return;
-    const subject = diverseDay.custom_subjects[subjectIndex];
-    const currentTopic = subject?.topics?.[topicIndex];
-    if (!subject || !currentTopic || !subject.name.trim()) return;
-
-    diverseMutationLockRef.current = true;
-    setGeneratingAI(true);
-    setAiAction('topic');
-    setLastAIAction('topic');
-    setAiError('');
-    setDiverseSaved('');
-    try {
-      const currentTopicKey = normalizeDiverseTopicText(currentTopic.topic);
-      const avoidTopics = getDiverseAvoidTopics(subject).filter((topicName) => normalizeDiverseTopicText(topicName) !== currentTopicKey);
-      const result = await api.generateStudyFlashcards({
-        subject: subject.name,
-        count: 1,
-        generation_mode: 'topic',
-        avoid_topics: avoidTopics,
-        ...(context?.trim() ? { context: context.trim() } : {}),
-        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
-      });
-      const replacement = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics)[0];
-      if (!replacement) {
-        setAiError(translate("A IA não conseguiu gerar um tópico novo para substituir este item. Tente novamente."));
-        return;
-      }
-
-      setDiverseDay((current) => {
-        if (!current) return current;
-        const subjects = current.custom_subjects.map((candidate, si) => {
-          if (si !== subjectIndex) return candidate;
-          const topics = candidate.topics.map((topic, ti) => {
-            if (ti !== topicIndex) return topic;
-            return {
-              ...topic,
-              topic: replacement.topic,
-              answer: replacement.answer,
-              code_example: replacement.code_example ?? null,
-              done: false,
-            };
-          });
-          return { ...candidate, topics };
-        });
-        const nextDay = { ...current, custom_subjects: subjects };
-        diverseDayRef.current = nextDay;
-        return nextDay;
-      });
-      setDiverseSaved(translate("Tópico regenerado com IA. Salve a matéria para guardar."));
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : translate("Não foi possível regenerar este tópico com IA.");
-      setAiError(msg);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setGeneratingAI(false);
-      setAiAction(null);
-    }
-  }
-
-  async function generateDiverseLesson(subjectId: string, inlineApiKey?: string, context?: string) {
-    const subject = diverseDay?.custom_subjects.find((candidate) => candidate.id === subjectId);
-    if (!subject?.name.trim()) return;
-    if (getDiverseSubjectLessons(subject).length >= 30) {
-      setAiError(translate("Limite de 30 blocos de lição atingido para esta matéria."));
-      return;
-    }
-    if (diverseMutationLockRef.current) return;
-    diverseMutationLockRef.current = true;
-    setGeneratingAI(true);
-    setAiAction('lesson');
-    setLastAIAction('lesson');
-    setAiError('');
-    setDiverseSaved('');
-    try {
-      const avoidTopics = getDiverseAvoidTopics(subject);
-      const result = await api.generateStudyFlashcards({
-        subject: subject.name,
-        count: AI_FLASHCARD_COUNT,
-        generation_mode: 'lesson',
-        avoid_topics: avoidTopics,
-        ...(context?.trim() ? { context: context.trim() } : {}),
-        ...(inlineApiKey ? { api_key: inlineApiKey } : {}),
-      });
-      const topics = filterFreshDiverseTopics(flashcardsToTopics(result.flashcards), avoidTopics);
-      if (topics.length !== AI_FLASHCARD_COUNT) {
-        setAiError(translate("A IA precisa gerar exatamente 5 questões novas para criar a lição. Nenhum preview foi salvo."));
-        return;
-      }
-      const lesson: DiverseLessonBlock = {
-        id: createLocalLessonId(),
-        title: buildLessonTitle(subject, topics),
-        created_at: new Date().toISOString(),
-        topic_ids: topics.map((topic) => topic.id),
-      };
-      const currentSubjects = diverseDayRef.current?.custom_subjects ?? [];
-      const currentSubjectIndex = findItemIndexById(currentSubjects, subject.id);
-      if (currentSubjectIndex < 0) {
-        setPendingLessonDraft((draft) => clearDraftForRemovedSubject(draft, subject.id));
-        setAiError(translate("A matéria foi removida antes de concluir o preview. Gere novamente em outra matéria."));
-        return;
-      }
-      setPendingLessonDraft({ subjectId: subject.id, lesson, topics });
-      setDiverseSaved(translate("Preview da lição criado. Revise antes de salvar."));
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : translate("Não foi possível criar lição com IA.");
-      setAiError(msg);
-    } finally {
-      diverseMutationLockRef.current = false;
-      setGeneratingAI(false);
-      setAiAction(null);
-    }
-  }
-
-  function savePendingLessonDraft() {
-    if (diverseMutationLockRef.current) return;
-    if (!pendingLessonDraft) return;
-    const { subjectId, lesson, topics } = pendingLessonDraft;
-    const latestSubjects = diverseDayRef.current?.custom_subjects ?? [];
-    if (findItemIndexById(latestSubjects, subjectId) < 0) {
-      setPendingLessonDraft(null);
-      setDiverseSaved('');
-      setAiError(translate("A matéria deste preview não existe mais. O preview foi descartado."));
-      return;
-    }
-    setDiverseDay((current) => {
-      if (!current) return current;
-      const currentSubjectIndex = findItemIndexById(current.custom_subjects, subjectId);
-      if (currentSubjectIndex < 0) return current;
-      const subject = current.custom_subjects[currentSubjectIndex];
-      const nextTopics = filterFreshDiverseTopics(topics, getDiverseAvoidTopics(subject));
-      const canonicalLesson = { ...lesson, topic_ids: nextTopics.map((topic) => topic.id) };
-      const subjects = updateSubjectById(
-        current.custom_subjects,
-        subjectId,
-        (currentSubject) => ({
-          ...currentSubject,
-          topics: [...currentSubject.topics, ...nextTopics],
-          lessons: [...getDiverseSubjectLessons(currentSubject), canonicalLesson],
-        }),
-      );
-      return { ...current, custom_subjects: subjects };
-    });
-    setPendingLessonDraft(null);
-    setDiverseSaved(translate("Lição adicionada em bloco e tópicos incluídos na matéria. Salve para guardar."));
-  }
-
-  function discardPendingLessonDraft() {
-    setPendingLessonDraft(null);
-    setDiverseSaved('');
-  }
-
   async function generateNewLesson() {
     setGeneratingLesson(true); setLessonGenMessage('');
     try {
@@ -1104,118 +370,6 @@ export default function StudyPage() {
       setLessonGenMessage(err instanceof ApiError ? err.message : translate("Não foi possível criar a lição."));
     } finally { setGeneratingLesson(false); }
   }
-
-  async function generateMoreDiverseQuestions(subjectId: string, lessonId: string, context?: string) {
-    if (diverseQuestionGenerationLockRef.current || diverseMutationLockRef.current) {
-      throw new Error(translate("Outra alteração desta matéria ainda está em andamento. Aguarde e tente novamente."));
-    }
-
-    const currentDay = diverseDayRef.current;
-    if (!currentDay || !resolveDiverseGenerationTarget(currentDay, subjectId, lessonId)) {
-      throw new Error(translate("A matéria ou lição selecionada não existe mais. Atualize a seleção e tente novamente."));
-    }
-
-    const generationDate = selectedDate;
-    diverseQuestionGenerationLockRef.current = true;
-    diverseMutationLockRef.current = true;
-    setGeneratingDiverseQuestions(true);
-    setDiverseSaved('');
-    setDiverseError('');
-
-    try {
-      // Persist every local edit before asking the server to append canonical questions.
-      const saved = await api.saveDiverseDay(generationDate, {
-        custom_subjects: currentDay.custom_subjects,
-      });
-      if (selectedDateRef.current === generationDate) {
-        diverseDayRef.current = saved;
-        setDiverseDay(saved);
-      }
-
-      // Resolve the backend index only from the saved response, never from a captured array index.
-      const target = resolveDiverseGenerationTarget(saved, subjectId, lessonId);
-      if (!target) {
-        throw new Error(translate("A matéria ou lição foi removida durante a atualização. Nenhuma questão foi criada."));
-      }
-
-      const outcome = await generateAndSynchronizeDiverseQuestions({
-        savedDay: saved,
-        subjectId,
-        lessonId,
-        generate: () => api.generateDiverseQuestions({
-          study_date: generationDate,
-          subject_index: target.subjectIndex,
-          lesson_id: lessonId,
-          ...(context?.trim() ? { context: context.trim() } : {}),
-        }),
-        installConfirmed: (confirmedDay) => {
-          if (selectedDateRef.current !== generationDate) return;
-          diverseDayRef.current = confirmedDay;
-          setDiverseDay(confirmedDay);
-        },
-        refresh: () => api.getDiverseDay(generationDate),
-      });
-      const successMessage = outcome.synchronized
-        ? '5 novas questões foram adicionadas à lição.'
-        : translate("5 novas questões foram criadas. A sincronização final falhou; recarregue a página se necessário.");
-      if (selectedDateRef.current === generationDate) {
-        diverseDayRef.current = outcome.day;
-        setDiverseDay(outcome.day);
-        setDiverseSaved(successMessage);
-      }
-      return successMessage;
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        const fresh = await api.getDiverseDay(generationDate);
-        if (selectedDateRef.current === generationDate) {
-          diverseDayRef.current = fresh;
-          setDiverseDay(fresh);
-        }
-        throw new Error(translate("A matéria mudou em outra operação. Os dados foram atualizados; revise e tente novamente."));
-      }
-      throw err;
-    } finally {
-      diverseQuestionGenerationLockRef.current = false;
-      diverseMutationLockRef.current = false;
-      setGeneratingDiverseQuestions(false);
-    }
-  }
-
-  async function saveDiverseDay() {
-    if (!diverseDay) return;
-    if (diverseMutationLockRef.current) return;
-    diverseMutationLockRef.current = true;
-    setSavingDiverse(true); setDiverseSaved(''); setDiverseError('');
-    try {
-      const saved = await api.saveDiverseDay(selectedDate, { custom_subjects: diverseDay.custom_subjects });
-      setDiverseDay(saved);
-      setDiverseSaved(translate("Aprendizado diverso salvo."));
-    } catch {
-      setDiverseError(translate("Não foi possível salvar."));
-    } finally {
-      diverseMutationLockRef.current = false;
-      setSavingDiverse(false);
-    }
-  }
-
-  // Persist study ratings once after the state has settled (avoids saving stale data).
-  useEffect(() => {
-    if (!pendingDiverseSave) return;
-    setPendingDiverseSave(false);
-    void saveDiverseDay();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingDiverseSave]);
-
-  const codingDoneCount = useMemo(() => {
-    if (!codingDay) return 0;
-    return Object.values(codingDay.subjects).flat().filter((t) => t.done).length;
-  }, [codingDay]);
-
-  const codingTotalCount = useMemo(() => {
-    if (!codingDay) return 0;
-    return Object.values(codingDay.subjects).flat().length;
-  }, [codingDay]);
-  const selectedOtherMatterValue = activeTab === 'coding' ? '__coding__' : selectedDiverseSubjectSlug ?? '';
 
   // ── Auth guards ─────────────────────────────────────────────────────────────
   if (authState.status === 'loading' || authState.status === 'unauthenticated') {
@@ -1241,7 +395,7 @@ export default function StudyPage() {
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-10">
-      <div className={`mx-auto ${activeTab === 'coding' ? 'max-w-7xl' : 'max-w-5xl'}`}>
+      <div className={`mx-auto ${activeTab === 'coding' || activeTab === 'diverse' ? 'max-w-7xl' : 'max-w-5xl'}`}>
 
         {/* Top bar */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1257,8 +411,7 @@ export default function StudyPage() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                disabled={savingDiverse}
-                className="w-[8.5rem] bg-transparent text-xs font-black text-slate-700 outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-[8.5rem] bg-transparent text-xs font-black text-slate-700 outline-none"
               />
             </label>
           </div>
@@ -1277,14 +430,11 @@ export default function StudyPage() {
           />
         </div>
 
-        {(activeTab === 'diverse' || activeTab === 'coding') && (
+        {(activeTab === 'diverse' || activeTab === 'coding') && codingEnabled && (
           <OtherSubjectsPicker
-            subjects={diverseDay?.custom_subjects ?? []}
-            selectedValue={selectedOtherMatterValue}
-            onSelectOverview={selectDiverseOverview}
+            selectedValue={activeTab === 'coding' ? 'coding' : 'general'}
+            onSelectGeneral={selectDiverseOverview}
             onSelectCoding={() => selectStudyTab('coding')}
-            onSelectSubjectTab={selectDiverseSubjectTab}
-            codingEnabled={codingEnabled}
           />
         )}
 
@@ -1333,53 +483,14 @@ export default function StudyPage() {
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
-        ) : activeTab === 'diverse' ? (
-          <DiverseTab
-            selectedDate={selectedDate}
-            diverseDay={diverseDay}
-            catalog={catalog}
-            loadingDiverse={loadingDiverse}
-            savingDiverse={savingDiverse}
-            diverseSaved={diverseSaved}
-            diverseError={diverseError}
-            newSubjectName={newSubjectName}
-            setNewSubjectName={setNewSubjectName}
-            onAddSubject={addDiverseSubject}
-            onImportStudy={importDiverseStudy}
-            onGenerateAI={(key) => void generateAIFlashcards(key)}
-            generatingAI={generatingAI}
-            aiAction={aiAction}
-            lastAIAction={lastAIAction}
-            aiError={aiError}
-            selectedSubjectSlug={selectedDiverseSubjectSlug}
-            initialLessonId={diverseResumeTarget.lessonId}
-            onSelectSubjectTab={selectDiverseSubjectTab}
-            onSelectOverview={selectDiverseOverview}
-            onSelectCoding={() => selectStudyTab('coding')}
-            codingEnabled={codingEnabled}
-            onRemoveSubject={removeDiverseSubject}
-            onToggleTopic={toggleDiverseTopic}
-            onUpdateTopicText={updateDiverseTopicText}
-            onUpdateTopicAnswer={updateDiverseTopicAnswer}
-            onUpdateSubjectName={updateDiverseSubjectName}
-            onGenerateTopicAI={(subjectId, key) => void generateDiverseTopic(subjectId, key)}
-            onRegenerateTopicAI={(subjectIndex, topicIndex, context, key) => void regenerateDiverseTopicWithAI(subjectIndex, topicIndex, context, key)}
-            onGenerateLessonAI={(subjectId, key, context) => void generateDiverseLesson(subjectId, key, context)}
-            onGenerateMoreQuestions={generateMoreDiverseQuestions}
-            generatingDiverseQuestions={generatingDiverseQuestions}
-            pendingLessonDraft={pendingLessonDraft}
-            onSaveLessonDraft={savePendingLessonDraft}
-            onDiscardLessonDraft={discardPendingLessonDraft}
-            onBulkAddTopics={(si, topics) => addDiverseTopicsBulk(si, topics)}
-            onRateTopic={rateDiverseTopic}
-            onRateLessonTopic={rateDiverseLessonTopic}
-            onSessionComplete={requestDiverseAutoSave}
-            onRemoveLesson={removeDiverseLessonBlock}
-            onToggleLessonTopic={toggleDiverseLessonTopic}
-            onUpdateLessonTitle={updateDiverseLessonTitle}
-            onUpdateLessonTopicText={updateDiverseLessonTopicText}
-            onUpdateLessonTopicAnswer={updateDiverseLessonTopicAnswer}
-            onSave={() => void saveDiverseDay()}
+        ) : activeTab === 'diverse' || activeTab === 'coding' ? (
+          <CodingTab
+            key={activeTab}
+            track={activeTab === 'coding' ? 'programming' : 'general'}
+            codingMode={codingMode}
+            setCodingMode={setCodingMode}
+            initialSubjectId={curriculumResumeTarget.tab === activeTab ? curriculumResumeTarget.subjectId : null}
+            initialTopicId={curriculumResumeTarget.tab === activeTab ? curriculumResumeTarget.topicId : null}
             pomodoroMode={pomodoroState.mode}
             pomodoroSeconds={pomodoroState.seconds}
             pomodoroRunning={pomodoroState.running}
@@ -1392,36 +503,7 @@ export default function StudyPage() {
           />
         ) : activeTab === 'dashboard' ? (
           <DashboardTab dashboard={dashboard} pomodoroState={pomodoroState} />
-        ) : (
-          <CodingTab
-            selectedDate={selectedDate}
-            codingDay={codingDay}
-            loadingCoding={loadingCoding}
-            savingCoding={savingCoding}
-            codingSaved={codingSaved}
-            codingError={codingError}
-            codingDoneCount={codingDoneCount}
-            codingTotalCount={codingTotalCount}
-            editingSubject={editingSubject}
-            setEditingSubject={setEditingSubject}
-            codingMode={codingMode}
-            setCodingMode={setCodingMode}
-            initialSubjectId={codingResumeTarget.subjectId}
-            initialTopicId={codingResumeTarget.topicId}
-            onToggleTopic={toggleTopic}
-            onUpdateTopicText={updateTopicText}
-            onSave={() => void saveCodingDay()}
-            pomodoroMode={pomodoroState.mode}
-            pomodoroSeconds={pomodoroState.seconds}
-            pomodoroRunning={pomodoroState.running}
-            todayPomodoroCount={todayPomodoroCount}
-            notificationPermission={notificationPermission}
-            pomodoroMessage={pomodoroMessage}
-            onTogglePomodoro={togglePomodoro}
-            onSwitchPomodoro={switchPomodoro}
-            onRequestNotifications={() => void requestNotifications()}
-          />
-        )}
+        ) : null}
       </div>
 
     </main>

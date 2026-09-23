@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 // The study page was split into modules; read the whole feature.
 const studyDir = new URL('../src/app/study/', import.meta.url);
-const studyFiles = ['page.tsx', '_components/CodingTab.tsx', '_components/DiverseTab.tsx', '_components/EnglishTab.tsx', '_components/shared.tsx', '_lib/study-helpers.ts'];
+const studyFiles = ['page.tsx', '_components/CodingTab.tsx', '_components/OtherSubjectsPicker.tsx', '_components/EnglishTab.tsx', '_components/shared.tsx', '_lib/study-helpers.ts'];
 const studyPage = (
   await Promise.all(studyFiles.map((file) => readFile(new URL(file, studyDir), 'utf8')))
 ).join('\n');
@@ -22,8 +22,8 @@ assert.match(
 );
 assert.match(
   studyPage,
-  /activeTab === 'coding' \? 'max-w-7xl' : 'max-w-5xl'/,
-  'the coding tab needs a wider desktop container while preserving the compact width for other study tabs',
+  /activeTab === 'coding' \|\| activeTab === 'diverse' \? 'max-w-7xl' : 'max-w-5xl'/,
+  'the curriculum tabs need a wider desktop container while preserving the compact width for other study tabs',
 );
 assert.match(
   deck,

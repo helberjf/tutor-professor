@@ -1111,10 +1111,20 @@ export interface ProgrammingSubject {
   icon_emoji: string | null;
   relevance: number;
   last_used_at: string | null;
+  /** Which list the subject belongs to: programming or "Outras matérias". */
+  track?: 'programming' | 'general';
   created_at: string;
   topic_count: number;
   studied_count: number;
   due_review_count: number;
+}
+
+/** The AI's proposal for the next subject. Nothing is saved until it is created. */
+export interface SuggestedSubject {
+  name: string;
+  description: string;
+  icon_emoji: string | null;
+  reason: string;
 }
 
 export type CodingSubjectSort = 'last_used' | 'created_at' | 'alphabetical' | 'relevance';
@@ -1307,7 +1317,7 @@ export interface ExamAttemptResult {
 }
 
 /** Where a simulado's questions can come from: any subject that already has some. */
-export type ExamSourceArea = 'coding' | 'diverse' | 'english';
+export type ExamSourceArea = 'coding' | 'general' | 'diverse' | 'english';
 
 export interface ExamSource {
   area: ExamSourceArea;
@@ -1869,6 +1879,117 @@ export interface PlanContext {
   last_form: PlanForm | null;
 }
 
+/**
+ * The curriculum calls — subjects, topics, lessons, flashcards, questions,
+ * review and summaries. Programming and "Outras matérias" are studied the same
+ * way and answer on the same handlers, only under different prefixes:
+ * `/api/coding` (programming module) and `/api/general` (other subjects).
+ */
+export type CurriculumTrack = 'programming' | 'general';
+
+export function curriculumBase(track: CurriculumTrack): string {
+  return track === 'general' ? '/api/general' : '/api/coding';
+}
+
+export function createCurriculumApi(base: string) {
+  return {
+    getCodingSubjects: () =>
+      fetchAPI<ProgrammingSubject[]>(`${base}/subjects`),
+    getCodingSubjectPage: (page = 1, sort: CodingSubjectSort = 'last_used') =>
+      fetchAPI<ProgrammingSubjectPage>(`${base}/subjects/page?page=${page}&sort=${sort}`),
+    getCodingSubject: (id: number) =>
+      fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}`),
+    markCodingSubjectUsed: (id: number) =>
+      fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}/use`, { method: 'POST' }),
+    createCodingSubject: (payload: { name: string; description?: string; context?: string; icon_emoji?: string }) =>
+      fetchAPI<ProgrammingSubject>(`${base}/subjects`, { method: 'POST', body: JSON.stringify(payload) }),
+    updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string; relevance?: number }) =>
+      fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    deleteCodingSubject: (id: number) =>
+      fetchAPI<void>(`${base}/subjects/${id}`, { method: 'DELETE' }),
+    getCodingTopics: (subjectId: number) =>
+      fetchAPI<ProgrammingTopic[]>(`${base}/subjects/${subjectId}/topics`),
+    createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean; context?: string }) =>
+      fetchAPI<ProgrammingTopic>(`${base}/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
+    generateCodingTopic: (subjectId: number) =>
+      fetchAPI<ProgrammingTopic>(`${base}/subjects/${subjectId}/topics/generate`, { method: 'POST' }),
+    updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object }) =>
+      fetchAPI<ProgrammingTopic>(`${base}/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    deleteCodingTopic: (id: number) =>
+      fetchAPI<void>(`${base}/topics/${id}`, { method: 'DELETE' }),
+    generateCodingTopicContent: (id: number, payload?: { context?: string }) => {
+      const contextText = payload?.context?.trim();
+      return fetchAPI<ProgrammingTopic>(`${base}/topics/${id}/generate`, {
+        method: 'POST',
+        ...(contextText ? { body: JSON.stringify({ context: contextText }) } : {}),
+      });
+    },
+    deepenCodingReadingStep: (topicId: number, payload: DeepenCodingReadingPayload) =>
+      fetchAPI<DeepenCodingReadingResponse>(`${base}/topics/${topicId}/reading/deepen`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    getTopicFlashcards: (topicId: number) =>
+      fetchAPI<ProgrammingFlashcard[]>(`${base}/topics/${topicId}/flashcards`),
+    generateAdditionalCodingFlashcards: (topicId: number, context?: string) =>
+      fetchAPI<ProgrammingFlashcard[]>(`${base}/topics/${topicId}/flashcards/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ context: context?.trim() || null }),
+      }),
+    getTopicQuestions: (topicId: number) =>
+      fetchAPI<ProgrammingQuestion[]>(`${base}/topics/${topicId}/questions`),
+    /** The exam-focused sheet of one topic. Reuses the stored one unless regenerating. */
+    generateTopicSummary: (topicId: number, regenerate = false) =>
+      fetchAPI<TopicSummary>(`${base}/topics/${topicId}/summary?regenerate=${regenerate}`, {
+        method: 'POST',
+      }),
+    saveTopicSummary: (topicId: number, content: string) =>
+      fetchAPI<TopicSummary>(`${base}/topics/${topicId}/summary`, {
+        method: 'PUT',
+        body: JSON.stringify({ content }),
+      }),
+    /** The topic sheets joined in study order, plus the topics still missing one. */
+    getSubjectSummary: (subjectId: number) =>
+      fetchAPI<CodingSubjectSummary>(`${base}/subjects/${subjectId}/summary`),
+    generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
+      fetchAPI<ProgrammingQuestion[]>(`${base}/topics/${topicId}/questions/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ context: payload.context?.trim() || null }),
+      }),
+    submitCodingTopicQuestionAttempt: (questionId: number, payload: { selected_option: string }) =>
+      fetchAPI<ProgrammingQuestionAttemptResult>(`${base}/questions/${questionId}/attempt`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
+      fetchAPI<ProgrammingFlashcard>(`${base}/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),
+    updateCodingFlashcard: (id: number, payload: { front?: string; back?: string; code_example?: string }) =>
+      fetchAPI<ProgrammingFlashcard>(`${base}/flashcards/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    deleteCodingFlashcard: (id: number) =>
+      fetchAPI<void>(`${base}/flashcards/${id}`, { method: 'DELETE' }),
+    getCodingReview: (subjectId?: number, limit = 20) =>
+      fetchAPI<CodingReviewSession>(`${base}/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
+    submitCodingReviewAttempt: (payload: { review_item_id: number; rating: ReviewRating }) =>
+      fetchAPI<CodingReviewAttemptResult>(`${base}/review/attempt`, { method: 'POST', body: JSON.stringify(payload) }),
+    getDeckOverview: (subjectId: number) =>
+      fetchAPI<DeckOverview>(`${base}/subjects/${subjectId}/deck`),
+    updateDeckConfig: (subjectId: number, payload: Partial<DeckConfig>) =>
+      fetchAPI<DeckConfig>(`${base}/subjects/${subjectId}/deck/config`, { method: 'PUT', body: JSON.stringify(payload) }),
+    getDeckStudy: (subjectId: number, limit = 50) =>
+      fetchAPI<DeckStudySession>(`${base}/subjects/${subjectId}/deck/study?limit=${limit}`),
+    submitDeckAttempt: (payload: { review_item_id: number; rating: DeckRating }) =>
+      fetchAPI<DeckAttemptResult>(`${base}/deck/attempt`, { method: 'POST', body: JSON.stringify(payload) }),
+    createDeckCard: (subjectId: number, payload: { front: string; back: string; code_example?: string; topic_id?: number }) =>
+      fetchAPI<ProgrammingFlashcard>(`${base}/subjects/${subjectId}/deck/cards`, { method: 'POST', body: JSON.stringify(payload) }),
+    /** Proposes the next subject for this list, in a logical study order. Saves nothing. */
+    suggestSubject: (payload: { context?: string } = {}) =>
+      fetchAPI<SuggestedSubject>(`${base}/subjects/suggest`, { method: 'POST', body: JSON.stringify(payload) }),
+  };
+}
+
+export type CurriculumApi = ReturnType<typeof createCurriculumApi>;
+
+
 export const api = {
   request: fetchAPI,
   getNextLesson: () => fetchAPI<Lesson>('/api/lesson/next'),
@@ -2261,65 +2382,8 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
-  // Coding Curriculum
-  getCodingSubjects: () =>
-    fetchAPI<ProgrammingSubject[]>('/api/coding/subjects'),
-  getCodingSubjectPage: (page = 1, sort: CodingSubjectSort = 'last_used') =>
-    fetchAPI<ProgrammingSubjectPage>(`/api/coding/subjects/page?page=${page}&sort=${sort}`),
-  getCodingSubject: (id: number) =>
-    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`),
-  markCodingSubjectUsed: (id: number) =>
-    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}/use`, { method: 'POST' }),
-  createCodingSubject: (payload: { name: string; description?: string; context?: string; icon_emoji?: string }) =>
-    fetchAPI<ProgrammingSubject>('/api/coding/subjects', { method: 'POST', body: JSON.stringify(payload) }),
-  updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string; relevance?: number }) =>
-    fetchAPI<ProgrammingSubject>(`/api/coding/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteCodingSubject: (id: number) =>
-    fetchAPI<void>(`/api/coding/subjects/${id}`, { method: 'DELETE' }),
-  getCodingTopics: (subjectId: number) =>
-    fetchAPI<ProgrammingTopic[]>(`/api/coding/subjects/${subjectId}/topics`),
-  createCodingTopic: (subjectId: number, payload: { title: string; order_index?: number; generate_ai?: boolean; context?: string }) =>
-    fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
-  generateCodingTopic: (subjectId: number) =>
-    fetchAPI<ProgrammingTopic>(`/api/coding/subjects/${subjectId}/topics/generate`, { method: 'POST' }),
-  updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object }) =>
-    fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteCodingTopic: (id: number) =>
-    fetchAPI<void>(`/api/coding/topics/${id}`, { method: 'DELETE' }),
-  generateCodingTopicContent: (id: number, payload?: { context?: string }) => {
-    const contextText = payload?.context?.trim();
-    return fetchAPI<ProgrammingTopic>(`/api/coding/topics/${id}/generate`, {
-      method: 'POST',
-      ...(contextText ? { body: JSON.stringify({ context: contextText }) } : {}),
-    });
-  },
-  deepenCodingReadingStep: (topicId: number, payload: DeepenCodingReadingPayload) =>
-    fetchAPI<DeepenCodingReadingResponse>(`/api/coding/topics/${topicId}/reading/deepen`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  getTopicFlashcards: (topicId: number) =>
-    fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards`),
-  generateAdditionalCodingFlashcards: (topicId: number, context?: string) =>
-    fetchAPI<ProgrammingFlashcard[]>(`/api/coding/topics/${topicId}/flashcards/generate`, {
-      method: 'POST',
-      body: JSON.stringify({ context: context?.trim() || null }),
-    }),
-  getTopicQuestions: (topicId: number) =>
-    fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions`),
-  /** The exam-focused sheet of one topic. Reuses the stored one unless regenerating. */
-  generateTopicSummary: (topicId: number, regenerate = false) =>
-    fetchAPI<TopicSummary>(`/api/coding/topics/${topicId}/summary?regenerate=${regenerate}`, {
-      method: 'POST',
-    }),
-  saveTopicSummary: (topicId: number, content: string) =>
-    fetchAPI<TopicSummary>(`/api/coding/topics/${topicId}/summary`, {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    }),
-  /** The topic sheets joined in study order, plus the topics still missing one. */
-  getSubjectSummary: (subjectId: number) =>
-    fetchAPI<CodingSubjectSummary>(`/api/coding/subjects/${subjectId}/summary`),
+  // Programming curriculum; "Outras matérias" use createCurriculumApi('/api/general').
+  ...createCurriculumApi('/api/coding'),
   getExams: () => fetchAPI<ExamOverview[]>('/api/exams'),
   getExamSources: () => fetchAPI<ExamSource[]>('/api/exams/sources'),
   /** Creates the subject's simulado, or adds its new questions to the existing one. */
@@ -2353,16 +2417,6 @@ export const api = {
   finishExamAttempt: (attemptId: number) =>
     fetchAPI<ExamAttemptResult>(`/api/exams/attempts/${attemptId}/finish`, { method: 'POST' }),
   getExamAttempts: (examId: number) => fetchAPI<ExamAttempt[]>(`/api/exams/${examId}/attempts`),
-  generateCodingTopicQuestions: (topicId: number, payload: GenerateProgrammingQuestionsPayload = {}) =>
-    fetchAPI<ProgrammingQuestion[]>(`/api/coding/topics/${topicId}/questions/generate`, {
-      method: 'POST',
-      body: JSON.stringify({ context: payload.context?.trim() || null }),
-    }),
-  submitCodingTopicQuestionAttempt: (questionId: number, payload: { selected_option: string }) =>
-    fetchAPI<ProgrammingQuestionAttemptResult>(`/api/coding/questions/${questionId}/attempt`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
   getStudyQuestions: (target: StudyQuestionTarget) =>
     fetchAPI<StudyQuestion[]>(
       `/api/study/questions?area=${encodeURIComponent(target.area)}` +
@@ -2391,28 +2445,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  createTopicFlashcard: (topicId: number, payload: { front: string; back: string; code_example?: string }) =>
-    fetchAPI<ProgrammingFlashcard>(`/api/coding/topics/${topicId}/flashcards`, { method: 'POST', body: JSON.stringify(payload) }),
-  updateCodingFlashcard: (id: number, payload: { front?: string; back?: string; code_example?: string }) =>
-    fetchAPI<ProgrammingFlashcard>(`/api/coding/flashcards/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteCodingFlashcard: (id: number) =>
-    fetchAPI<void>(`/api/coding/flashcards/${id}`, { method: 'DELETE' }),
-  getCodingReview: (subjectId?: number, limit = 20) =>
-    fetchAPI<CodingReviewSession>(`/api/coding/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
-  submitCodingReviewAttempt: (payload: { review_item_id: number; rating: ReviewRating }) =>
-    fetchAPI<CodingReviewAttemptResult>('/api/coding/review/attempt', { method: 'POST', body: JSON.stringify(payload) }),
-  // Flashcard deck (Anki-style FSRS)
-  getDeckOverview: (subjectId: number) =>
-    fetchAPI<DeckOverview>(`/api/coding/subjects/${subjectId}/deck`),
-  updateDeckConfig: (subjectId: number, payload: Partial<DeckConfig>) =>
-    fetchAPI<DeckConfig>(`/api/coding/subjects/${subjectId}/deck/config`, { method: 'PUT', body: JSON.stringify(payload) }),
-  getDeckStudy: (subjectId: number, limit = 50) =>
-    fetchAPI<DeckStudySession>(`/api/coding/subjects/${subjectId}/deck/study?limit=${limit}`),
-  submitDeckAttempt: (payload: { review_item_id: number; rating: DeckRating }) =>
-    fetchAPI<DeckAttemptResult>('/api/coding/deck/attempt', { method: 'POST', body: JSON.stringify(payload) }),
-  createDeckCard: (subjectId: number, payload: { front: string; back: string; code_example?: string; topic_id?: number }) =>
-    fetchAPI<ProgrammingFlashcard>(`/api/coding/subjects/${subjectId}/deck/cards`, { method: 'POST', body: JSON.stringify(payload) }),
-  // LeetCode trainer
+  // LeetCode trainer (programming only)
   getLeetCodeMethods: () =>
     fetchAPI<LeetCodeMethod[]>('/api/coding/leetcode'),
   generateLeetCodeMethod: (payload: { hint?: string; language?: string }) =>

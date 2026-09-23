@@ -19,7 +19,6 @@ const codingCurriculum = read('src/components/coding/CodingCurriculum.tsx');
 const sessionPage = read('src/app/session/page.tsx');
 const lessonPage = read('src/app/lesson/page.tsx');
 const reviewPage = read('src/app/review/page.tsx');
-const diverseTab = read('src/app/study/_components/DiverseTab.tsx');
 
 assert.match(apiClient, /export interface StudyResume\s*{/, 'the API client needs a resume result type');
 assert.match(apiClient, /getStudyResume:/, 'the API client needs to read the server bookmark');
@@ -102,15 +101,13 @@ for (const kind of ['coding_subject', 'coding_topic', 'coding_questions', 'codin
 assert.match(sessionPage, /kind: 'guided_session'/, 'a loaded guided session should become resumable');
 assert.match(lessonPage, /kind: 'language_lesson'/, 'a loaded language lesson should become resumable');
 assert.match(reviewPage, /kind: 'language_review'/, 'a non-empty review should become resumable');
-assert.match(studyPage, /get\('date'\)/, 'a diverse deep link should restore its study date');
-assert.match(studyPage, /get\('lesson_id'\)/, 'a diverse deep link should restore its lesson');
-assert.match(diverseTab, /initialLessonId/, 'the diverse dashboard should receive the requested lesson');
+assert.match(studyPage, /get\('date'\)/, 'a deep link should restore its study date');
+// "Outras matérias" use the curriculum too; a subject link only opens in the
+// list it came from, so a programming id never lands in the general list.
 assert.match(
-  diverseTab,
-  /const selectedSubjectId = selectedSubject\?\.subject\.id \?\? null/,
-  'diverse resume writes should depend on a stable subject identity, not the edited object',
+  studyPage,
+  /curriculumResumeTarget\.tab === activeTab \? curriculumResumeTarget\.subjectId : null/,
+  'a subject deep link applies only to the tab it names',
 );
-assert.match(diverseTab, /kind: 'diverse_subject'/, 'opening a diverse subject should be remembered');
-assert.match(diverseTab, /kind: 'diverse_lesson'/, 'expanding a diverse lesson should be remembered');
 
 console.log('cross-device study resume tests passed');

@@ -314,6 +314,7 @@ def validate_exam_question_batch(
 # Stored in Exam.code, which is how a subject's simulado is found again.
 EXAM_SOURCE_AREA_LABELS = {
     "coding": "Programação",
+    "general": "Matérias",
     "diverse": "Matérias",
     "english": "Inglês",
 }

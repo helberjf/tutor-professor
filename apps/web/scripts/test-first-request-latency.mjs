@@ -206,7 +206,7 @@ assert.match(
 // 5. Uma aba de cada vez aparece; só a dela precisa descer.
 // ─────────────────────────────────────────────────────────────────────────────
 const studyPage = read('../src/app/study/page.tsx');
-for (const tab of ['CodingTab', 'DiverseTab']) {
+for (const tab of ['CodingTab']) {
   assert.match(
     studyPage,
     new RegExp(`const ${tab} = dynamic\\(`),

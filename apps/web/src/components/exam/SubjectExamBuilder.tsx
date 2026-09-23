@@ -8,17 +8,18 @@ import { t } from '@/lib/i18n';
 
 const AREA_LABELS: Record<ExamSourceArea, string> = {
   english: "Inglês",
-  diverse: "Matérias",
+  general: "Matérias",
+  diverse: "Matérias (antigas)",
   coding: "Programação",
 };
 
-const AREA_ORDER: ExamSourceArea[] = ['english', 'diverse', 'coding'];
+const AREA_ORDER: ExamSourceArea[] = ['english', 'general', 'diverse', 'coding'];
 
 const QUESTION_COUNTS = [10, 20, 30, 50];
 
-/** Programming subjects are identified by id; the other areas only have a name. */
+/** Curriculum subjects (programming and general) are identified by id; the other areas only have a name. */
 export function examSourceKey(source: ExamSource): string {
-  return source.area === 'coding' ? `coding:${source.subject_id}` : `${source.area}:${source.subject_name}`;
+  return source.subject_id != null ? `${source.area}:${source.subject_id}` : `${source.area}:${source.subject_name}`;
 }
 
 /** Turns any subject that already has questions into a simulado, or refreshes it. */

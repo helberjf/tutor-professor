@@ -12,6 +12,7 @@ import {
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { compareAnswer, suggestRating, type AnswerComparison } from './typed-answer';
 import { t } from '@/lib/i18n';
+import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 interface Props {
   subjectId: number;
@@ -51,6 +52,7 @@ const STATE_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onChanged }: Props) {
+  const curriculum = useCurriculumApi();
   const [tab, setTab] = useState<Tab>('study');
   const [overview, setOverview] = useState<DeckOverview | null>(null);
   const [topics, setTopics] = useState<ProgrammingTopic[]>([]);
@@ -68,7 +70,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
     if (deckMountedRef.current && showLoading) setLoading(true);
     if (deckMountedRef.current) setOverviewError('');
     try {
-      const nextOverview = await api.getDeckOverview(subjectId);
+      const nextOverview = await curriculum.getDeckOverview(subjectId);
       if (requestId !== overviewLoadRequestRef.current) return false;
       if (deckMountedRef.current) setOverview(nextOverview);
       return true;
@@ -89,7 +91,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
       setTopicsError('');
     }
     try {
-      const nextTopics = await api.getCodingTopics(subjectId);
+      const nextTopics = await curriculum.getCodingTopics(subjectId);
       if (requestId !== topicsLoadRequestRef.current) return false;
       if (deckMountedRef.current) setTopics(nextTopics);
       return true;
@@ -188,6 +190,7 @@ export function FlashcardDeck({ subjectId, subjectName, subjectIcon, onBack, onC
 // ── Study tab ────────────────────────────────────────────────────────────────
 
 function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { subjectId: number; subjectName: string; stats?: DeckStats; onFinished: () => void; onLogged: () => void }) {
+  const curriculum = useCurriculumApi();
   const [queue, setQueue] = useState<DeckStudyCard[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -235,7 +238,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
   async function start() {
     setLoading(true);
     try {
-      const session = await api.getDeckStudy(subjectId);
+      const session = await curriculum.getDeckStudy(subjectId);
       setQueue(session.items);
       setIndex(0);
       setRevealed(false);
@@ -269,7 +272,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
     const card = queue[index];
     setSubmitting(true);
     try {
-      await api.submitDeckAttempt({ review_item_id: card.review_item_id, rating });
+      await curriculum.submitDeckAttempt({ review_item_id: card.review_item_id, rating });
     } finally {
       setSubmitting(false);
     }
@@ -561,6 +564,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
   onReload: () => Promise<boolean>;
   onChanged?: () => void;
 }) {
+  const curriculum = useCurriculumApi();
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const [creatingWithAi, setCreatingWithAi] = useState(false);
@@ -597,7 +601,7 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
       setGeneratingWithAi(true);
       setAiError('');
       setAiSuccess('');
-      await api.generateAdditionalCodingFlashcards(selectedTopicId, context);
+      await curriculum.generateAdditionalCodingFlashcards(selectedTopicId, context);
       void retryTopics();
       const overviewReloaded = await onReload();
       if (overviewReloaded) onChanged?.();
@@ -774,6 +778,8 @@ function CardsTab({ subjectId, subjectName, overview, topics, topicsError, topic
 }
 
 function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subjectName: string; onReload: () => void; locked: boolean }) {
+  const curriculum = useCurriculumApi();
+  const general = useCurriculumTrack() === 'general';
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showCode, setShowCode] = useState(false);
@@ -784,7 +790,7 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
     if (!confirm(t("Remover este card?"))) return;
     setBusy(true);
     try {
-      await api.deleteCodingFlashcard(card.flashcard_id);
+      await curriculum.deleteCodingFlashcard(card.flashcard_id);
       onReload();
     } finally {
       setBusy(false);
@@ -814,7 +820,9 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
             aria-expanded={showCode}
             className="mt-2 text-xs font-black text-primary hover:underline"
           >
-            {showCode ? t("Ocultar código") : t("Ver código")}
+            {general
+              ? (showCode ? t("Ocultar exemplo") : t("Ver exemplo"))
+              : (showCode ? t("Ocultar código") : t("Ver código"))}
           </button>
         )}
         {showCode && card.code_example && (
@@ -840,6 +848,8 @@ function CardRow({ card, subjectName, onReload, locked }: { card: DeckCard; subj
 }
 
 function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: { subjectId?: number; initial?: DeckCard; disabled?: boolean; onCancel: () => void; onSaved: () => void }) {
+  const curriculum = useCurriculumApi();
+  const general = useCurriculumTrack() === 'general';
   const [front, setFront] = useState(initial?.front ?? '');
   const [back, setBack] = useState(initial?.back ?? '');
   const [code, setCode] = useState(initial?.code_example ?? '');
@@ -853,9 +863,9 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
     setErr('');
     try {
       if (initial) {
-        await api.updateCodingFlashcard(initial.flashcard_id, { front, back, code_example: code });
+        await curriculum.updateCodingFlashcard(initial.flashcard_id, { front, back, code_example: code });
       } else if (subjectId != null) {
-        await api.createDeckCard(subjectId, { front, back, code_example: code });
+        await curriculum.createDeckCard(subjectId, { front, back, code_example: code });
       }
       onSaved();
     } catch {
@@ -874,7 +884,7 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
       <input
               aria-label={t("Frente (pergunta / conceito)")} value={front} onChange={(e) => setFront(e.target.value)} disabled={disabled || busy} placeholder={t("Frente (pergunta / conceito)")} className="min-h-11 w-full rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       <textarea value={back} onChange={(e) => setBack(e.target.value)} disabled={disabled || busy} placeholder={t("Verso (resposta / explicação)")} rows={3} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
-      <textarea value={code} onChange={(e) => setCode(e.target.value)} disabled={disabled || busy} placeholder={t("Exemplo de código (opcional)")} rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
+      <textarea value={code} onChange={(e) => setCode(e.target.value)} disabled={disabled || busy} placeholder={general ? t("Exemplo (opcional)") : t("Exemplo de código (opcional)")} rows={2} className="w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-primary disabled:opacity-50" />
       {err && <p className="text-xs font-bold text-rose-600">{err}</p>}
       <button type="button" onClick={save} disabled={busy || disabled} className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-dark py-2.5 font-black text-white hover:bg-primary-dark disabled:opacity-50">
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {t("Salvar")}
@@ -886,6 +896,7 @@ function CardForm({ subjectId, initial, disabled = false, onCancel, onSaved }: {
 // ── Options tab (deck config) ────────────────────────────────────────────────
 
 function OptionsTab({ subjectId, config, onSaved }: { subjectId: number; config?: DeckConfig; onSaved: () => void }) {
+  const curriculum = useCurriculumApi();
   const [form, setForm] = useState<DeckConfig | null>(config ?? null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
@@ -903,7 +914,7 @@ function OptionsTab({ subjectId, config, onSaved }: { subjectId: number; config?
     setBusy(true);
     setMsg('');
     try {
-      await api.updateDeckConfig(subjectId, {
+      await curriculum.updateDeckConfig(subjectId, {
         ...form,
         desired_retention: Math.min(0.99, Math.max(0.7, form.desired_retention)),
       });

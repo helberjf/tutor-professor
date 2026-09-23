@@ -6,12 +6,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "apps/api/main.py").read_text(encoding="utf-8")
 schemas = (ROOT / "apps/api/schemas/schemas.py").read_text(encoding="utf-8")
-study_dir = ROOT / "apps/web/src/app/study"
-# The study page was split into modules; read the whole feature.
-page = "\n".join(
-    path.read_text(encoding="utf-8")
-    for path in [study_dir / "page.tsx", *sorted(study_dir.glob("_components/*.tsx")), *sorted(study_dir.glob("_lib/*.ts"))]
-)
 api = (ROOT / "apps/web/src/lib/api.ts").read_text(encoding="utf-8")
 
 assert "class GenerateDiverseQuestionsSchema" in schemas
@@ -83,76 +77,6 @@ assert "subject_index: number" in client
 assert "lesson_id: string" in client
 assert "context?: string" in client
 
-assert "async function generateMoreDiverseQuestions(subjectId: string, lessonId: string, context?: string)" in page
-generation = page.split("async function generateMoreDiverseQuestions", 1)[1].split("\n  function ", 1)[0]
-assert generation.index("api.saveDiverseDay") < generation.index("api.generateDiverseQuestions")
-assert generation.index("resolveDiverseGenerationTarget(saved, subjectId, lessonId)") < generation.index(
-    "api.generateDiverseQuestions"
-)
-assert "study_date: generationDate" in generation
-assert "subject_index: target.subjectIndex" in generation
-assert "lesson_id: lessonId" in generation
-assert "generateAndSynchronizeDiverseQuestions" in generation
-assert "const outcome = await generateAndSynchronizeDiverseQuestions" in generation
-assert "generate: () => api.generateDiverseQuestions" in generation
-assert "installConfirmed:" in generation
-assert "refresh: () => api.getDiverseDay(generationDate)" in generation
-assert "diverseDayRef.current = outcome.day" in generation
-assert "setDiverseDay(outcome.day)" in generation
-assert "outcome.synchronized" in generation
-assert "recarregue a página se necessário" in generation
-assert "err instanceof ApiError && err.status === 409" in generation
-assert generation.index("} catch (err) {") > generation.index(
-    "const outcome = await generateAndSynchronizeDiverseQuestions"
-), "save and generation conflicts must share the same refetch recovery"
-assert "diverseQuestionGenerationLockRef" in page
-assert "diverseMutationLockRef" in page
-for mutation_name in (
-    "addDiverseSubject",
-    "addDiverseTopicsBulk",
-    "rateDiverseTopic",
-    "rateDiverseLessonTopic",
-    "updateDiverseTopicAnswer",
-    "removeDiverseSubject",
-    "toggleDiverseTopic",
-    "updateDiverseTopicText",
-    "updateDiverseLessonBlock",
-    "updateDiverseLessonQuestion",
-    "removeDiverseLessonBlock",
-    "updateDiverseSubjectName",
-):
-    mutation = page.split(f"function {mutation_name}", 1)[1].split("\n  function ", 1)[0]
-    assert "diverseMutationLockRef.current" in mutation, f"{mutation_name} must be blocked during generation"
-
-# One selector-based form serves Lista/Revisar and one implicit form serves a lesson's Visualizar view.
-assert page.count("Criar mais questões") >= 2
-assert "fixedQuestionGenerationLesson" in page
-assert "questionGenerationLessons" in page
-assert "activeTab !== 'view'" in page
-assert "activeTab === 'view'" in page
-assert 'value={lesson.id}' in page
-assert "diverseQuestionContext" in page
-assert "isUncertainDiverseGenerationError(err)" in page
-assert "A criação pode ter sido concluída. Recarregue a página antes de tentar novamente." in page
-generation_form = page.split("async function handleGenerate()", 1)[1].split("\n  if (!open)", 1)[0]
-generation_error = generation_form.split("} catch (err) {", 1)[1].split("} finally {", 1)[0]
-assert "setDiverseQuestionContext('');" not in generation_error
-assert generation_form.index("setDiverseQuestionContext('');") < generation_form.index("} catch (err) {")
-assert "maxLength={1000}" in page
-assert "Serão criadas 5 questões" in page
-assert 'role="alert"' in page
-assert "savingDiverse || loadingDiverse || generatingDiverseQuestions" in page
-assert "savingDiverse || loadingDiverse || questionGenerationBusy" in page
-
-# Mounted review sessions reconcile only when canonical topic IDs change.
-assert "reconcileStudyQueueByTopicIds" in page
-assert "const topicIdSignature = JSON.stringify(subject.topics.map((topic) => topic.id))" in page
-assert "previousStudyTopicIdsRef" in page
-reconcile_effect = page.split("// Reconcile the mounted review queue by canonical IDs.", 1)[1].split(
-    "  const doneCount", 1
-)[0]
-assert "JSON.parse(topicIdSignature)" in reconcile_effect
-assert "reconcileStudyQueueByTopicIds(current, previousTopicIds, nextTopicIds)" in reconcile_effect
-assert "previousStudyTopicIdsRef.current = nextTopicIds" in reconcile_effect
-assert "}, [topicIdSignature]);" in reconcile_effect
-assert "subject.topics" not in reconcile_effect
+# The study page no longer drives this endpoint: "Outras matérias" moved to the
+# curriculum (scripts/test_general_subject_track.py). The route stays for older
+# clients, so its server-side contract above is still pinned.

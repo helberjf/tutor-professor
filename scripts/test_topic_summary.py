@@ -404,8 +404,8 @@ class SummaryFrontendTests(unittest.TestCase):
         source = read(CODING_CURRICULUM)
         for expected in (
             "Resumo da matéria",
-            "api.getSubjectSummary",
-            "api.generateTopicSummary",
+            "curriculum.getSubjectSummary",
+            "curriculum.generateTopicSummary",
             "sheet.pending",
             "Resumindo ${index + 1} de ${missing.length}",
             "SummarySheetModal",
@@ -421,8 +421,8 @@ class SummaryFrontendTests(unittest.TestCase):
         source = read(TOPIC_VIEW)
         for expected in (
             "Resumo do tópico",
-            "api.generateTopicSummary",
-            "api.saveTopicSummary",
+            "curriculum.generateTopicSummary",
+            "curriculum.saveTopicSummary",
             "SummarySheetModal",
         ):
             with self.subTest(expected=expected):
