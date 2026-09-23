@@ -389,6 +389,22 @@ class TopicStatus(str, PyEnum):
     mastered = "mastered"
 
 
+class StudyDiscipline(SQLModel, table=True):
+    """A discipline of "Outras disciplinas" — Francês, Direito — that holds subjects.
+
+    Programming is the built-in discipline: its subjects have no row here. Every
+    other discipline groups its subjects (Gramática, Conversação...) the same way
+    programming groups Python or DVA-C02, and each subject holds its topics.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    icon_emoji: Optional[str] = Field(default=None, max_length=10)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class ProgrammingSubject(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     child_id: int = Field(foreign_key="childprofile.id", index=True)
@@ -403,6 +419,8 @@ class ProgrammingSubject(SQLModel, table=True):
     # flashcards, questions, simulado — so they share these tables and differ
     # only in which list shows them and how the AI writes their lessons.
     track: str = Field(default="programming", max_length=20, index=True)
+    # The discipline a general subject belongs to; empty for programming.
+    discipline_id: Optional[int] = Field(default=None, foreign_key="studydiscipline.id", index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

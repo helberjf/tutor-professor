@@ -1118,12 +1118,24 @@ export interface ProgrammingSubject {
   icon_emoji: string | null;
   relevance: number;
   last_used_at: string | null;
-  /** Which list the subject belongs to: programming or "Outras matérias". */
+  /** Which list the subject belongs to: programming or "Outras disciplinas". */
   track?: 'programming' | 'general';
+  /** The discipline (Francês, Direito...) of a general subject. */
+  discipline_id?: number | null;
   created_at: string;
   topic_count: number;
   studied_count: number;
   due_review_count: number;
+}
+
+/** A discipline of "Outras disciplinas": holds subjects the way programming does. */
+export interface StudyDiscipline {
+  id: number;
+  name: string;
+  description: string | null;
+  icon_emoji: string | null;
+  subject_count: number;
+  created_at: string;
 }
 
 /** The AI's proposal for the next subject. Nothing is saved until it is created. */
@@ -1890,7 +1902,9 @@ export interface PlanContext {
  * The curriculum calls — subjects, topics, lessons, flashcards, questions,
  * review and summaries. Programming and "Outras matérias" are studied the same
  * way and answer on the same handlers, only under different prefixes:
- * `/api/coding` (programming module) and `/api/general` (other subjects).
+ * `/api/coding` (programming module) and `/api/general` (other disciplines).
+ * A general list is one discipline — Francês, Direito — so its calls carry the
+ * discipline id; programming is a discipline of its own and never does.
  */
 export type CurriculumTrack = 'programming' | 'general';
 
@@ -1898,18 +1912,22 @@ export function curriculumBase(track: CurriculumTrack): string {
   return track === 'general' ? '/api/general' : '/api/coding';
 }
 
-export function createCurriculumApi(base: string) {
+export function createCurriculumApi(base: string, disciplineId: number | null = null) {
+  // Only the calls that pick or add to a list need the discipline; a subject,
+  // topic or card is already reached by its own id.
+  const scoped = (path: string) =>
+    disciplineId ? `${path}${path.includes('?') ? '&' : '?'}discipline_id=${disciplineId}` : path;
   return {
     getCodingSubjects: () =>
-      fetchAPI<ProgrammingSubject[]>(`${base}/subjects`),
+      fetchAPI<ProgrammingSubject[]>(scoped(`${base}/subjects`)),
     getCodingSubjectPage: (page = 1, sort: CodingSubjectSort = 'last_used') =>
-      fetchAPI<ProgrammingSubjectPage>(`${base}/subjects/page?page=${page}&sort=${sort}`),
+      fetchAPI<ProgrammingSubjectPage>(scoped(`${base}/subjects/page?page=${page}&sort=${sort}`)),
     getCodingSubject: (id: number) =>
       fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}`),
     markCodingSubjectUsed: (id: number) =>
       fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}/use`, { method: 'POST' }),
     createCodingSubject: (payload: { name: string; description?: string; context?: string; icon_emoji?: string }) =>
-      fetchAPI<ProgrammingSubject>(`${base}/subjects`, { method: 'POST', body: JSON.stringify(payload) }),
+      fetchAPI<ProgrammingSubject>(scoped(`${base}/subjects`), { method: 'POST', body: JSON.stringify(payload) }),
     updateCodingSubject: (id: number, payload: { name?: string; description?: string; context?: string; icon_emoji?: string; relevance?: number }) =>
       fetchAPI<ProgrammingSubject>(`${base}/subjects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     deleteCodingSubject: (id: number) =>
@@ -1975,7 +1993,9 @@ export function createCurriculumApi(base: string) {
     deleteCodingFlashcard: (id: number) =>
       fetchAPI<void>(`${base}/flashcards/${id}`, { method: 'DELETE' }),
     getCodingReview: (subjectId?: number, limit = 20) =>
-      fetchAPI<CodingReviewSession>(`${base}/review?limit=${limit}${subjectId ? `&subject_id=${subjectId}` : ''}`),
+      fetchAPI<CodingReviewSession>(
+        subjectId ? `${base}/review?limit=${limit}&subject_id=${subjectId}` : scoped(`${base}/review?limit=${limit}`),
+      ),
     submitCodingReviewAttempt: (payload: { review_item_id: number; rating: ReviewRating }) =>
       fetchAPI<CodingReviewAttemptResult>(`${base}/review/attempt`, { method: 'POST', body: JSON.stringify(payload) }),
     getDeckOverview: (subjectId: number) =>
@@ -1988,9 +2008,15 @@ export function createCurriculumApi(base: string) {
       fetchAPI<DeckAttemptResult>(`${base}/deck/attempt`, { method: 'POST', body: JSON.stringify(payload) }),
     createDeckCard: (subjectId: number, payload: { front: string; back: string; code_example?: string; topic_id?: number }) =>
       fetchAPI<ProgrammingFlashcard>(`${base}/subjects/${subjectId}/deck/cards`, { method: 'POST', body: JSON.stringify(payload) }),
+    /** Adds the next lessons of the subject as a course, in study order; content comes when each is opened. */
+    generateCourseOutline: (subjectId: number, payload: { count?: number; context?: string } = {}) =>
+      fetchAPI<ProgrammingTopic[]>(`${base}/subjects/${subjectId}/topics/generate-outline`, {
+        method: 'POST',
+        body: JSON.stringify({ count: payload.count, context: payload.context?.trim() || null }),
+      }),
     /** Proposes the next subject for this list, in a logical study order. Saves nothing. */
     suggestSubject: (payload: { context?: string } = {}) =>
-      fetchAPI<SuggestedSubject>(`${base}/subjects/suggest`, { method: 'POST', body: JSON.stringify(payload) }),
+      fetchAPI<SuggestedSubject>(scoped(`${base}/subjects/suggest`), { method: 'POST', body: JSON.stringify(payload) }),
   };
 }
 
@@ -2453,6 +2479,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  // Disciplines of "Outras disciplinas" (programming is the built-in one)
+  getStudyDisciplines: () => fetchAPI<StudyDiscipline[]>('/api/general/disciplines'),
+  createStudyDiscipline: (payload: { name: string; description?: string; icon_emoji?: string }) =>
+    fetchAPI<StudyDiscipline>('/api/general/disciplines', { method: 'POST', body: JSON.stringify(payload) }),
+  updateStudyDiscipline: (id: number, payload: { name?: string; description?: string; icon_emoji?: string }) =>
+    fetchAPI<StudyDiscipline>(`/api/general/disciplines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteStudyDiscipline: (id: number) =>
+    fetchAPI<void>(`/api/general/disciplines/${id}`, { method: 'DELETE' }),
   // LeetCode trainer (programming only)
   getLeetCodeMethods: () =>
     fetchAPI<LeetCodeMethod[]>('/api/coding/leetcode'),

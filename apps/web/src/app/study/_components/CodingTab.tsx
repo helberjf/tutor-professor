@@ -5,7 +5,7 @@ import { BookOpen, ClipboardList, GraduationCap, Layers } from 'lucide-react';
 import { CodingCurriculum } from '@/components/coding/CodingCurriculum';
 import { CurriculumTrackProvider } from '@/components/coding/curriculum-context';
 import { ExamList } from '@/components/exam/ExamList';
-import type { CurriculumTrack } from '@/lib/api';
+import type { CurriculumTrack, StudyDiscipline } from '@/lib/api';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
 import type { CodingMode } from '../_lib/study-helpers';
@@ -19,13 +19,15 @@ import { t } from '@/lib/i18n';
 // timed simulado. `track` only says which list the screens read and write; the
 // LeetCode trainer inside the curriculum shows up for programming alone.
 export function CodingTab({
-  track = 'programming', codingMode, setCodingMode,
+  track = 'programming', discipline = null, codingMode, setCodingMode,
   initialSubjectId, initialTopicId,
   pomodoroMode, pomodoroSeconds, pomodoroRunning, todayPomodoroCount,
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
   track?: CurriculumTrack;
+  /** The discipline on screen when the track is general (Francês, Direito...). */
+  discipline?: StudyDiscipline | null;
   codingMode: CodingMode;
   setCodingMode: (mode: CodingMode) => void;
   initialSubjectId: number | null;
@@ -37,7 +39,11 @@ export function CodingTab({
   onRequestNotifications: () => void;
 }) {
   return (
-    <CurriculumTrackProvider track={track}>
+    <CurriculumTrackProvider
+      track={track}
+      disciplineId={discipline?.id ?? null}
+      disciplineName={discipline?.name ?? ''}
+    >
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="order-2 min-w-0 lg:order-1">
           <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

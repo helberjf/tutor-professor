@@ -42,6 +42,7 @@ from models.database import (
     ProgrammingSubject,
     ProgrammingTopic,
     QuizAttempt,
+    StudyDiscipline,
     ReviewItem,
     StudyDay,
     StudyQuestion,
@@ -161,6 +162,7 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
         "coding_days": _dump(_rows(session, CodingDay, CodingDay.child_id, child_ids)),
         "books": _dump(books),
         "book_pages": _dump(_rows(session, BookPage, BookPage.book_id, book_ids)),
+        "study_disciplines": _dump(_rows(session, StudyDiscipline, StudyDiscipline.child_id, child_ids)),
         "programming_subjects": _dump(subjects),
         "programming_topics": _dump(topics),
         "programming_flashcards": _dump(
@@ -256,6 +258,7 @@ def delete_account(session: Session, user: User) -> dict[str, int]:
     remove(ProgrammingFlashcard, ProgrammingFlashcard.child_id, child_ids)
     remove(ProgrammingTopic, ProgrammingTopic.id, topic_ids)
     remove(ProgrammingSubject, ProgrammingSubject.child_id, child_ids)
+    remove(StudyDiscipline, StudyDiscipline.child_id, child_ids)
 
     remove(BookPage, BookPage.book_id, book_ids)
     remove(Book, Book.child_id, child_ids)

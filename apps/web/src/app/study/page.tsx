@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BarChart2, BookOpen, CalendarDays, ChevronRight, Layers, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart2, BookOpen, CalendarDays, ChevronRight, Layers, Loader2, Plus } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
-import { ApiError, api, type StudyDashboard } from '@/lib/api';
+import { ApiError, api, type StudyDashboard, type StudyDiscipline } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useModules } from '@/hooks/use-modules';
 import {
@@ -23,7 +23,8 @@ import {
 
 import { getLocalDateValue, getPomodoroCompletionMessage } from './_lib/study-helpers';
 import { EnglishTab } from './_components/EnglishTab';
-import { OtherSubjectsPicker } from './_components/OtherSubjectsPicker';
+import { CreateDisciplineModal } from './_components/CreateDisciplineModal';
+import { OtherSubjectsPicker, type DisciplineSelection } from './_components/OtherSubjectsPicker';
 import { DashboardTab, TabButton } from './_components/shared';
 import type { CodingMode, StudyTab } from './_lib/study-helpers';
 import { t as translate } from '@/lib/i18n';
@@ -42,8 +43,8 @@ const tabFallback = () => (
   </div>
 );
 
-// "Outras matérias" and "Programação" are the same study screen — reading,
-// flashcards, questions and simulado — on two different lists.
+// Every discipline — Programação, Francês, Direito — is the same study screen:
+// subjects, reading, flashcards, questions and simulado.
 const CodingTab = dynamic(() => import('./_components/CodingTab').then((m) => m.CodingTab), {
   ssr: false,
   loading: tabFallback,
@@ -54,12 +55,20 @@ export default function StudyPage() {
 
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
   const [codingMode, setCodingMode] = useState<CodingMode>('reading');
-  // A deep link names one subject/topic of one list; it only applies there.
-  const [curriculumResumeTarget, setCurriculumResumeTarget] = useState<{
+  // What the curriculum should open: a deep link, or a choice in the discipline
+  // picker. It names one tab and discipline, so a subject id never opens under
+  // another list; a new nonce remounts the curriculum to honour a new request.
+  const [curriculumRequest, setCurriculumRequest] = useState<{
     tab: StudyTab | null;
+    disciplineId: number | null;
     subjectId: number | null;
     topicId: number | null;
-  }>({ tab: null, subjectId: null, topicId: null });
+    nonce: number;
+  }>({ tab: null, disciplineId: null, subjectId: null, topicId: null, nonce: 0 });
+  // The other disciplines (null while loading) and the "Criar nova disciplina" form.
+  const [disciplines, setDisciplines] = useState<StudyDiscipline[] | null>(null);
+  const [disciplinesNonce, setDisciplinesNonce] = useState(0);
+  const [showCreateDiscipline, setShowCreateDiscipline] = useState(false);
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
   const requestedStudyDateRef = useRef<string | null>(null);
 
@@ -98,6 +107,7 @@ export default function StudyPage() {
     const tab = params.get('tab');
     const requestedMode = params.get('mode');
     const requestedDate = params.get('date');
+    const requestedDisciplineId = Number(params.get('discipline_id'));
     const requestedSubjectId = Number(params.get('subject_id'));
     const requestedTopicId = Number(params.get('topic_id'));
     if (requestedMode === 'reading' || requestedMode === 'flashcards' || requestedMode === 'questions') {
@@ -111,10 +121,12 @@ export default function StudyPage() {
         : tab
           ? 'diverse'
           : null;
-    setCurriculumResumeTarget({
+    setCurriculumRequest({
       tab: resolvedTab,
+      disciplineId: Number.isInteger(requestedDisciplineId) && requestedDisciplineId > 0 ? requestedDisciplineId : null,
       subjectId: Number.isInteger(requestedSubjectId) && requestedSubjectId > 0 ? requestedSubjectId : null,
       topicId: Number.isInteger(requestedTopicId) && requestedTopicId > 0 ? requestedTopicId : null,
+      nonce: 0,
     });
     if (requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
       requestedStudyDateRef.current = requestedDate;
@@ -145,7 +157,7 @@ export default function StudyPage() {
     setStudyUrlTab('diverse');
   }, [loadingModules, codingEnabled, activeTab]);
 
-  function setStudyUrlTab(slug: string | null) {
+  function setStudyUrlTab(slug: string | null, disciplineId: number | null = null) {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     if (!slug || slug === 'english') {
@@ -153,7 +165,43 @@ export default function StudyPage() {
     } else {
       url.searchParams.set('tab', slug);
     }
+    // A picked discipline survives a reload; an old subject, topic or mode would not.
+    for (const key of ['subject_id', 'topic_id', 'lesson_id']) url.searchParams.delete(key);
+    if (disciplineId) url.searchParams.set('discipline_id', String(disciplineId));
+    else url.searchParams.delete('discipline_id');
     window.history.replaceState(null, '', url.toString());
+  }
+
+  function requestCurriculum(tab: 'diverse' | 'coding', disciplineId: number | null) {
+    setActiveTab(tab);
+    setCurriculumRequest((current) => ({
+      tab,
+      disciplineId,
+      subjectId: null,
+      topicId: null,
+      nonce: current.nonce + 1,
+    }));
+    setStudyUrlTab(tab, disciplineId);
+  }
+
+  function selectDiscipline(value: DisciplineSelection) {
+    if (value === 'coding') {
+      if (codingEnabled) requestCurriculum('coding', null);
+      return;
+    }
+    if (value) requestCurriculum('diverse', Number(value.slice('discipline:'.length)));
+  }
+
+  async function deleteDiscipline(discipline: StudyDiscipline) {
+    const warning = translate("Excluir a disciplina e todas as matérias, tópicos e flashcards dela?");
+    if (!window.confirm(`${discipline.name}: ${warning}`)) return;
+    try {
+      await api.deleteStudyDiscipline(discipline.id);
+      setDisciplines((current) => (current ?? []).filter((item) => item.id !== discipline.id));
+      requestCurriculum('diverse', null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : translate("Não foi possível excluir a disciplina."));
+    }
   }
 
   function selectStudyTab(tab: StudyTab) {
@@ -168,9 +216,25 @@ export default function StudyPage() {
   }
 
   function selectDiverseOverview() {
-    setActiveTab('diverse');
-    setStudyUrlTab('diverse');
+    requestCurriculum('diverse', curriculumRequest.disciplineId);
   }
+
+  // ── Load the disciplines for the picker ─────────────────────────────────────
+  useEffect(() => {
+    if (authState.status !== 'authenticated') return;
+    if (activeTab !== 'diverse' && activeTab !== 'coding') return;
+    let cancelled = false;
+    api.getStudyDisciplines()
+      .then((items) => { if (!cancelled) setDisciplines(items); })
+      .catch(() => { if (!cancelled) setDisciplines((current) => current ?? []); });
+    return () => { cancelled = true; };
+  }, [authState.status, activeTab, disciplinesNonce]);
+
+  // The discipline on screen: the one asked for, else the first one there is.
+  const activeDiscipline =
+    disciplines?.find((discipline) => discipline.id === curriculumRequest.disciplineId)
+    ?? disciplines?.[0]
+    ?? null;
 
   // ── Load dashboard ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -425,16 +489,36 @@ export default function StudyPage() {
             active={activeTab === 'diverse' || activeTab === 'coding'}
             onClick={selectDiverseOverview}
             icon={<Layers size={17} />}
-            label={translate("Outras Matérias")}
-            mobileLabel={translate("Matérias")}
+            label={translate("Outras Disciplinas")}
+            mobileLabel={translate("Disciplinas")}
           />
         </div>
 
-        {(activeTab === 'diverse' || activeTab === 'coding') && codingEnabled && (
+        {(activeTab === 'diverse' || activeTab === 'coding') && (
           <OtherSubjectsPicker
-            selectedValue={activeTab === 'coding' ? 'coding' : 'general'}
-            onSelectGeneral={selectDiverseOverview}
-            onSelectCoding={() => selectStudyTab('coding')}
+            disciplines={disciplines ?? []}
+            selectedValue={
+              activeTab === 'coding' ? 'coding' : activeDiscipline ? `discipline:${activeDiscipline.id}` : ''
+            }
+            codingEnabled={codingEnabled}
+            onSelect={selectDiscipline}
+            onCreateDiscipline={() => setShowCreateDiscipline(true)}
+            onDeleteDiscipline={
+              activeTab === 'diverse' && activeDiscipline ? () => void deleteDiscipline(activeDiscipline) : undefined
+            }
+          />
+        )}
+        {showCreateDiscipline && (
+          <CreateDisciplineModal
+            onClose={() => setShowCreateDiscipline(false)}
+            onCreated={(discipline) => {
+              setShowCreateDiscipline(false);
+              setDisciplines((current) =>
+                [...(current ?? []), discipline].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+              );
+              setDisciplinesNonce((n) => n + 1);
+              requestCurriculum('diverse', discipline.id);
+            }}
           />
         )}
 
@@ -483,14 +567,39 @@ export default function StudyPage() {
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
+        ) : activeTab === 'diverse' && disciplines === null ? (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <Loader2 className="animate-spin text-primary" size={28} />
+          </div>
+        ) : activeTab === 'diverse' && !activeDiscipline ? (
+          <section className="app-surface p-8 text-center">
+            <Layers size={32} className="mx-auto text-primary" />
+            <h2 className="mt-3 text-xl font-black text-slate-800">{translate("Crie sua primeira disciplina")}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-slate-500">
+              {translate("Uma disciplina, como Francês ou Direito, reúne matérias; cada matéria vira um curso com aulas, flashcards, questões e simulado.")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreateDiscipline(true)}
+              className="mx-auto mt-5 flex min-h-12 items-center gap-2 rounded-2xl bg-primary-dark px-6 font-black text-white hover:bg-primary"
+            >
+              {translate("Criar nova disciplina")} <Plus size={18} />
+            </button>
+          </section>
         ) : activeTab === 'diverse' || activeTab === 'coding' ? (
           <CodingTab
-            key={activeTab}
+            key={`${activeTab}:${activeTab === 'diverse' ? activeDiscipline?.id : 'coding'}:${curriculumRequest.nonce}`}
             track={activeTab === 'coding' ? 'programming' : 'general'}
+            discipline={activeTab === 'diverse' ? activeDiscipline : null}
             codingMode={codingMode}
             setCodingMode={setCodingMode}
-            initialSubjectId={curriculumResumeTarget.tab === activeTab ? curriculumResumeTarget.subjectId : null}
-            initialTopicId={curriculumResumeTarget.tab === activeTab ? curriculumResumeTarget.topicId : null}
+            initialSubjectId={
+              curriculumRequest.tab === activeTab
+              && (activeTab === 'coding' || curriculumRequest.disciplineId === activeDiscipline?.id)
+                ? curriculumRequest.subjectId
+                : null
+            }
+            initialTopicId={curriculumRequest.tab === activeTab ? curriculumRequest.topicId : null}
             pomodoroMode={pomodoroState.mode}
             pomodoroSeconds={pomodoroState.seconds}
             pomodoroRunning={pomodoroState.running}
