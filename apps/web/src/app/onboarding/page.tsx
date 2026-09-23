@@ -31,6 +31,14 @@ const LANGUAGES = [
   { value: 'Russian', flag: '🇷🇺', label: "Russo" },
 ];
 
+// The language explanations and translations are written in — independent of
+// which language is being studied above, and never guessed from the device's
+// locale (an American on a Brazilian OS is still an American).
+const BASE_LANGUAGES = [
+  { value: 'Portuguese', flag: '🇧🇷', label: 'Português' },
+  { value: 'English', flag: '🇺🇸', label: 'English' },
+];
+
 type Step = 'profile' | 'language' | 'placement' | 'done';
 
 export default function OnboardingPage() {
@@ -41,6 +49,7 @@ export default function OnboardingPage() {
   const [name, setName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [language, setLanguage] = useState('English');
+  const [baseLanguage, setBaseLanguage] = useState('Portuguese');
 
   const [questions, setQuestions] = useState<PlacementQuestion[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -80,6 +89,7 @@ export default function OnboardingPage() {
         if (state.child_name) setName(state.child_name);
         if (state.birth_date) setBirthDate(state.birth_date);
         if (state.target_language) setLanguage(state.target_language);
+        if (state.base_language) setBaseLanguage(state.base_language);
       })
       .catch(() => {
         /* The form still works; only the pre-filling is lost. */
@@ -108,6 +118,7 @@ export default function OnboardingPage() {
         child_name: name.trim() || 'Estudante',
         birth_date: birthDate || undefined,
         target_language: language,
+        base_language: baseLanguage,
         correct_levels: levels,
         skipped_placement: skipped,
       });
@@ -210,6 +221,30 @@ export default function OnboardingPage() {
                 </p>
               </div>
             )}
+
+            <div className="mt-5">
+              <span className="text-sm font-black text-slate-700">{t("Idioma das explicações")}</span>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                {t("Em que idioma o estudante entende melhor? As traduções e explicações das aulas serão nesse idioma.")}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {BASE_LANGUAGES.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setBaseLanguage(item.value)}
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 px-4 text-base font-black transition ${
+                      baseLanguage === item.value
+                        ? 'border-sky-400 bg-sky-50 text-sky-700'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-sky-200'
+                    }`}
+                  >
+                    <span className="text-xl">{item.flag}</span>
+                    {t(item.label)}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <button
               type="button"

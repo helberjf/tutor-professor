@@ -26,6 +26,14 @@ const LANGUAGE_META: Record<string, { flag: string; label: string }> = Object.fr
   LANGUAGES.map(({ value, flag, label }) => [value, { flag, label }]),
 );
 
+// The language explanations and translations are written in. Kept separate
+// from LANGUAGES (what's being studied) and never guessed from the browser or
+// OS locale — a Brazilian OS doesn't mean a Brazilian learner.
+const BASE_LANGUAGES = [
+  { value: 'Portuguese', flag: '🇧🇷', label: 'Português' },
+  { value: 'English', flag: '🇺🇸', label: 'English' },
+];
+
 const AI_PROVIDERS = [
   { id: 'gemini', label: 'Gemini', defaultModel: 'gemini-3.1-flash-lite' },
   { id: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
@@ -82,6 +90,7 @@ export default function RegisterPage() {
     ai_base_url: '',
   });
   const [targetLanguage, setTargetLanguage] = useState('English');
+  const [baseLanguage, setBaseLanguage] = useState('Portuguese');
   // Only shown, and only required, when the date entered is a minor's.
   const [supervisionAccepted, setSupervisionAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -185,6 +194,7 @@ export default function RegisterPage() {
         child_name: form.child_name.trim(),
         birth_date: form.birth_date || undefined,
         target_language: targetLanguage,
+        base_language: baseLanguage,
         ai_provider: form.ai_provider,
         ai_api_key: aiApiKey || undefined,
         ai_model: form.ai_model.trim(),
@@ -388,6 +398,37 @@ export default function RegisterPage() {
                     onClick={() => setTargetLanguage(lang.value)}
                     className={`flex flex-col items-center gap-1 rounded-xl border-2 py-3 text-xs font-black transition ${
                       targetLanguage === lang.value
+                        ? 'border-primary bg-sky-50 text-primary-dark'
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-xl">{lang.flag}</span>
+                    {t(lang.label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Native/instruction language — asked explicitly instead of guessed
+                from the browser, since the device's locale doesn't tell you the
+                learner's own language. */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <Globe size={14} /> {t("Idioma das explicações")} <span aria-hidden="true" className="text-brand-pink">*</span>
+                </span>
+              </label>
+              <p className="text-xs font-semibold text-slate-400">
+                {t("Em que idioma o estudante entende melhor? As traduções e explicações das aulas serão nesse idioma.")}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {BASE_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.value}
+                    type="button"
+                    onClick={() => setBaseLanguage(lang.value)}
+                    className={`flex flex-col items-center gap-1 rounded-xl border-2 py-3 text-xs font-black transition ${
+                      baseLanguage === lang.value
                         ? 'border-primary bg-sky-50 text-primary-dark'
                         : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
                     }`}

@@ -374,6 +374,7 @@ class OnboardingStateSchema(BaseModel):
     child_name: str = ""
     birth_date: Optional[date] = None
     target_language: str = "English"
+    base_language: str = "Portuguese"
     placement_available: bool = False
 
 
@@ -382,6 +383,9 @@ class CompleteOnboardingSchema(BaseModel):
     age_group: str = Field(default="18+", min_length=1, max_length=20)
     birth_date: Optional[date] = None
     target_language: str = Field(default="English", min_length=1, max_length=40)
+    # The language lessons are explained in — asked explicitly, not guessed
+    # from the browser/OS locale.
+    base_language: Optional[str] = Field(default=None, max_length=40)
     # Levels of the placement questions the child answered correctly. Empty is a
     # valid answer: it means "start at the beginning".
     correct_levels: List[int] = Field(default_factory=list, max_length=20)
@@ -1370,6 +1374,9 @@ class UserRegisterSchema(BaseModel):
     # it whether the supervision clause in the terms applies.
     birth_date: Optional[date] = None
     target_language: Optional[str] = Field(default=None, max_length=40)
+    # The language lessons are explained in — chosen explicitly because the
+    # browser/OS locale is not a reliable proxy for the learner's own language.
+    base_language: Optional[str] = Field(default=None, max_length=40)
     ai_provider: Optional[str] = Field(default=None, max_length=40)
     ai_api_key: Optional[str] = Field(default=None, max_length=500)
     ai_model: Optional[str] = Field(default=None, max_length=120)
@@ -1522,6 +1529,7 @@ class ParentSettingsUpdateSchema(BaseModel):
     auto_audio: Optional[bool] = None
     rhythm: Optional[str] = None
     target_language: Optional[str] = Field(default=None, max_length=40)
+    base_language: Optional[str] = Field(default=None, max_length=40)
 
 
 class CreateChildProfileSchema(BaseModel):
@@ -1533,6 +1541,7 @@ class CreateChildProfileSchema(BaseModel):
     voice_preference: Optional[str] = Field(default=None, max_length=40)
     auto_audio: Optional[bool] = None
     target_language: Optional[str] = Field(default=None, max_length=40)
+    base_language: Optional[str] = Field(default=None, max_length=40)
 
 
 class GenerateLessonRequestSchema(BaseModel):

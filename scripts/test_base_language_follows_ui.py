@@ -1,13 +1,13 @@
-"""As traduções das lições são escritas na língua em que a pessoa lê o app.
+"""As traduções das lições são escritas na língua que a pessoa escolheu, não na
+que o navegador ou o sistema operacional dizem que ela fala.
 
-A interface e o ``base_language`` diziam respeito à mesma coisa — a língua do
-leitor — e podiam discordar: interface em inglês explicando uma frase em
-espanhol com uma tradução em português. Cada requisição passou a carregar o
-idioma da tela, e o servidor mantém o campo em dia.
-
-Duas regras seguram isso de pé, e as duas são testadas aqui: só escreve quando
-há divergência de verdade, e não mexe quando a língua da interface é a própria
-língua sendo estudada — explicar um idioma nele mesmo não é traduzir.
+``base_language`` já foi sincronizado automaticamente a partir do header
+``X-App-Locale`` (o idioma da interface), mas isso quebrava para quem usa um
+aparelho com o sistema num idioma diferente do seu — um americano com Windows
+em português passava a receber as explicações em português contra a vontade.
+Agora ``base_language`` é uma escolha explícita, feita no cadastro e ajustável
+depois na área da conta, e a interface pode mudar de idioma sem arrastar as
+explicações das aulas junto.
 """
 from __future__ import annotations
 
@@ -57,18 +57,11 @@ def read_child(child_id: int) -> main.ChildProfile:
         return child
 
 
-def set_target_language(child_id: int, language: str) -> None:
-    with Session(main.engine) as session:
-        child = session.get(main.ChildProfile, child_id)
-        child.target_language = language
-        session.add(child)
-        session.commit()
-
-
 async def run() -> None:
     main.on_startup()
     transport = httpx.ASGITransport(app=main.app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        # ── Quem não escolhe nada continua caindo em português ────────────────
         assert_status(
             await client.post(
                 "/api/auth/register",
@@ -82,7 +75,7 @@ async def run() -> None:
                 },
             ),
             201,
-            "register",
+            "register sem base_language",
         )
         assert_status(
             await client.post(
@@ -98,26 +91,14 @@ async def run() -> None:
 
         require(
             read_child(child_id).base_language == "Portuguese",
-            "uma conta nova começa escrevendo as traduções em português",
+            "sem escolha explícita, a conta nova começa em português",
         )
 
-        # ── Quem estuda outra língua recebe as traduções na língua da tela ────
-        set_target_language(child_id, "Spanish")
-
+        # ── O header de locale da interface não mexe mais na língua das aulas ─
         assert_status(await client.get("/api/progress", headers=headers), 200, "sem header")
         require(
             read_child(child_id).base_language == "Portuguese",
-            "sem o header, nada muda: um cliente antigo não é um pedido de troca",
-        )
-
-        assert_status(
-            await client.get("/api/progress", headers={**headers, "X-App-Locale": "klingon"}),
-            200,
-            "header desconhecido",
-        )
-        require(
-            read_child(child_id).base_language == "Portuguese",
-            "um idioma que o app não fala não muda nada",
+            "sem header, nada muda",
         )
 
         assert_status(
@@ -126,51 +107,73 @@ async def run() -> None:
             "tela em inglês",
         )
         require(
-            read_child(child_id).base_language == "English",
-            "lendo o app em inglês, o espanhol passa a ser explicado em inglês",
+            read_child(child_id).base_language == "Portuguese",
+            "o idioma da interface é independente do idioma das explicações: "
+            "trocar a tela para inglês não pode arrastar o base_language junto",
         )
 
+        # ── A escolha explícita nas configurações é o que manda ───────────────
+        assert_status(
+            await client.post(
+                "/api/parent/settings",
+                json={"base_language": "English"},
+                headers=headers,
+            ),
+            200,
+            "trocar o idioma das explicações nas configurações",
+        )
+        require(
+            read_child(child_id).base_language == "English",
+            "a troca explícita nas configurações é respeitada",
+        )
+
+        # E continua ali mesmo que a interface volte para português.
         assert_status(
             await client.get("/api/progress", headers={**headers, "X-App-Locale": "pt-BR"}),
             200,
-            "tela em português",
-        )
-        require(
-            read_child(child_id).base_language == "Portuguese",
-            "voltar a interface para português traz a explicação junto",
-        )
-
-        # Maiúsculas e minúsculas do header não são problema de quem envia.
-        assert_status(
-            await client.get("/api/progress", headers={**headers, "X-App-Locale": "EN"}),
-            200,
-            "header em maiúsculas",
+            "tela em português depois da troca explícita",
         )
         require(
             read_child(child_id).base_language == "English",
-            "o header não precisa chegar em minúsculas",
+            "a interface sozinha não derruba a escolha explícita",
         )
 
-        # ── Explicar uma língua nela mesma não é traduzir ─────────────────────
-        set_target_language(child_id, "English")
-        with Session(main.engine) as session:
-            profile = session.get(main.ChildProfile, child_id)
-            profile.base_language = "Portuguese"
-            session.add(profile)
-            session.commit()
-
+    # ── Quem escolhe no cadastro tem a escolha respeitada desde o início ──────
+    # (Uma conta nova não é aprovada automaticamente, então o perfil é lido
+    # direto do banco em vez de passar pela API de listagem de filhos.)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         assert_status(
-            await client.get("/api/progress", headers={**headers, "X-App-Locale": "en"}),
-            200,
-            "inglês na tela estudando inglês",
+            await client.post(
+                "/api/auth/register",
+                json={
+                    "first_name": "Jane",
+                    "last_name": "Doe",
+                    "email": "jane@example.com",
+                    "cpf": "11144477735",
+                    "password": "Secret@123",
+                    "child_name": "Jane",
+                    "base_language": "English",
+                },
+            ),
+            201,
+            "register com base_language explícito",
         )
+        with Session(main.engine) as session:
+            from sqlmodel import select
+
+            jane_user = session.exec(
+                select(main.User).where(main.User.email == "jane@example.com")
+            ).one()
+            jane_child = session.exec(
+                select(main.ChildProfile).where(main.ChildProfile.user_id == jane_user.id)
+            ).one()
         require(
-            read_child(child_id).base_language == "Portuguese",
-            "quem estuda inglês com a tela em inglês continua vendo a tradução "
-            "em português: inglês explicado em inglês não é tradução",
+            jane_child.base_language == "English",
+            "quem escolhe inglês no cadastro recebe as explicações em inglês, "
+            "mesmo estando num computador com o sistema em português",
         )
 
-    print("Base-language-follows-UI checks passed.")
+    print("Base-language-is-explicit checks passed.")
 
 
 if __name__ == "__main__":
