@@ -57,6 +57,7 @@ export default function QuickReviewPage() {
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || text,
         1.0,
+        data.lang,
       );
     } catch {
       // silent

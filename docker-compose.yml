@@ -48,7 +48,7 @@ services:
 
   # Optional local Kokoro TTS server
   # kokoro-tts:
-  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.1.4
+  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4
   #   ports:
   #     - "8880:8880"
   #   networks:
