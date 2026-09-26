@@ -78,6 +78,10 @@ const screens = [
   'app/study/_components/EnglishTab.tsx',
   'app/study/_components/EnglishQuestionsSection.tsx',
   'components/study-start-section.tsx',
+  'app/books/page.tsx',
+  'app/lesson/history/page.tsx',
+  'app/chat/page.tsx',
+  'components/exam/SubjectExamBuilder.tsx',
 ].map((path) => [path, read(path)]);
 
 for (const [path, source] of screens) {
@@ -88,11 +92,16 @@ for (const [path, source] of screens) {
   const visible = source
     .replace(/const SUBJECT_NAME = "Inglês";/, '')
     .replace(/subject_name: 'Inglês - Gramática'/, '');
-  assert.doesNotMatch(visible, /t\("[^"]*[Ii]nglês[^"]*"\)/, `${path}: a hard-coded "inglês" is back on screen`);
+  assert.doesNotMatch(visible, /"[^"\n]*[Ii]nglês[^"\n]*"/, `${path}: a hard-coded "inglês" is back on screen`);
 }
 
 const studyPage = screens[0][1];
 assert.doesNotMatch(studyPage, /label="English"/, 'the tab must not be hard-coded to English');
 assert.match(studyPage, /label=\{studyLanguageNativeName\(studyLanguage\)\}/);
+
+// The quiz shows "Como se diz … em francês?" split like the English one.
+const { formatQuestionPrompt } = loadModule('../src/lib/question-format.ts');
+assert.deepEqual(formatQuestionPrompt("Como se diz 'gato' em francês?"), { prompt: 'Como se diz em francês ?', focusText: 'gato' });
+assert.deepEqual(formatQuestionPrompt('Como se diz "azul" em inglês?'), { prompt: 'Como se diz em inglês ?', focusText: 'azul' });
 
 console.log('study language label checks passed');

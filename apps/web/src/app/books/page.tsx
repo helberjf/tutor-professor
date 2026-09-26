@@ -32,7 +32,8 @@ import {
 } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { t } from '@/lib/i18n';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence } from '@/lib/study-language';
 
 // ── Language metadata ─────────────────────────────────────────────────────────
 const LANGUAGE_META: Record<string, { flag: string; label: string; ttsCode: string }> = {
@@ -1013,7 +1014,7 @@ function BooksPageContent() {
                 <div>
                   <h1 className="text-3xl font-black text-slate-800 md:text-4xl">{t("Livros Pequenos")}</h1>
                   <p className="mt-1 text-sm leading-6 text-slate-500">
-                    {t("Histórias em inglês criadas por IA no seu nível")}
+                    {tf("Histórias em {language} criadas por IA no seu nível", { language: studyLanguageInSentence(targetLanguage) })}
                   </p>
                 </div>
               </div>
@@ -1033,7 +1034,7 @@ function BooksPageContent() {
               <div>
                 <p className="text-lg font-black text-slate-800">{t("Nenhum livro ainda")}</p>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                    {t("Gere o seu primeiro livro em inglês com a IA!")}
+                    {tf("Gere o seu primeiro livro em {language} com a IA!", { language: studyLanguageInSentence(targetLanguage) })}
                 </p>
               </div>
               <button

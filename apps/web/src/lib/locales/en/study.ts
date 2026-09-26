@@ -56,7 +56,7 @@ export const STUDY_EN: Record<string, string> = {
   'Estamos preparando as frases, os sons e a miniatividade para você.':
     'We are getting the sentences, the sounds and the mini activity ready for you.',
   'Carregando lições': 'Loading lessons',
-  'Buscando todas as suas aventuras de inglês...': 'Fetching all your English adventures...',
+  'Buscando todas as suas aventuras de {language}...': 'Fetching all your {language} adventures...',
   'Buscando sua próxima lição...': 'Fetching your next lesson...',
   'Erro ao carregar lições': 'Could not load lessons',
   'Não foi possível carregar as lições.': 'Could not load the lessons.',
@@ -69,7 +69,7 @@ export const STUDY_EN: Record<string, string> = {
   'Não foi possível confirmar o resultado. Recarregue a lição antes de tentar novamente para evitar questões duplicadas.':
     'Could not confirm the result. Reload the lesson before trying again to avoid duplicate questions.',
   'Todas as lições': 'All lessons',
-  'Suas aventuras em inglês': 'Your English adventures',
+  'Suas aventuras em {language}': 'Your {language} adventures',
   'Escolha uma lição para rever o conteúdo, treinar as frases ou refazer o quiz.':
     'Pick a lesson to go over the content, practise the sentences or redo the quiz.',
   'Nenhuma lição encontrada ainda.': 'No lessons found yet.',
@@ -390,16 +390,16 @@ export const STUDY_EN: Record<string, string> = {
   'Livros Pequenos': 'Little Books',
   'Meus livros': 'My books',
   'Novo livro': 'New book',
-  'Histórias em inglês criadas por IA no seu nível':
-    'English stories created by AI at your level',
+  'Histórias em {language} criadas por IA no seu nível':
+    '{language} stories created by AI at your level',
   'Carregando livros': 'Loading books',
   'Buscando seus livros...': 'Fetching your books...',
   'Não foi possível carregar os livros.': 'Could not load the books.',
   'Não foi possível acessar os livros. Tente novamente em instantes.':
     'Could not reach the books. Try again in a moment.',
   'Nenhum livro ainda': 'No books yet',
-  'Gere o seu primeiro livro em inglês com a IA!':
-    'Generate your first English book with the AI!',
+  'Gere o seu primeiro livro em {language} com a IA!':
+    'Generate your first {language} book with the AI!',
   'Gerar primeiro livro': 'Generate the first book',
   'Gerar com IA': 'Generate with AI',
   'Conte o contexto do livro antes de gerar.': 'Tell it the context of the book before generating.',
@@ -451,11 +451,11 @@ export const STUDY_EN: Record<string, string> = {
   'Não foi possível enviar a mensagem do chat.': 'Could not send the chat message.',
   'Não foi possível carregar o tutor agora. Aguarde um momento e atualize a página.':
     'Could not load the tutor right now. Wait a moment and reload the page.',
-  'Oi! Me peça uma frase em inglês e vamos praticar juntos.':
-    'Hi! Ask me for an English sentence and we will practise together.',
+  'Oi! Me peça uma frase em {language} e vamos praticar juntos.':
+    'Hi! Ask me for a sentence in {language} and we will practise together.',
   'Peça uma frase ou diga oi': 'Ask for a sentence or say hi',
   'Peça uma frase ou diga oi...': 'Ask for a sentence or say hi...',
-  'Como se diz azul em inglês?': 'How do you say blue in English?',
+  'Como se diz azul em {language}?': 'How do you say blue in {language}?',
   'Podemos praticar cores?': 'Can we practise colours?',
   'O que significa ?': 'What does mean?',
   'Qual é o significado ?': 'What is the meaning of?',

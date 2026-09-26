@@ -3,7 +3,7 @@ export interface FormattedQuestionPrompt {
   focusText: string | null;
 }
 
-const QUESTION_PATTERNS: Array<{ regex: RegExp; prompt: string }> = [
+const QUESTION_PATTERNS: Array<{ regex: RegExp; prompt: string | ((match: RegExpMatchArray) => string) }> = [
   {
     regex: /^O que significa\s+["'“”]?(.+?)["'“”]?\?$/i,
     prompt: 'O que significa ?',
@@ -17,8 +17,9 @@ const QUESTION_PATTERNS: Array<{ regex: RegExp; prompt: string }> = [
     prompt: 'Qual frase significa ?',
   },
   {
-    regex: /^Como se diz\s+["'“”]?(.+?)["'“”]?\s+em inglês\?$/i,
-    prompt: 'Como se diz em inglês ?',
+    // The API names the language studied ("em francês"), not always English.
+    regex: /^Como se diz\s+["'“”]?(.+?)["'“”]?\s+em\s+(\p{L}+)\?$/iu,
+    prompt: (match) => `Como se diz em ${match[2]} ?`,
   },
 ];
 
@@ -29,7 +30,7 @@ export function formatQuestionPrompt(question: string): FormattedQuestionPrompt 
     const match = trimmedQuestion.match(pattern.regex);
     if (match) {
       return {
-        prompt: pattern.prompt,
+        prompt: typeof pattern.prompt === 'function' ? pattern.prompt(match) : pattern.prompt,
         focusText: match[1].trim(),
       };
     }

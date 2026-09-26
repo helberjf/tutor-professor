@@ -9,9 +9,11 @@ assert.match(api, /createExamFromSubject:[\s\S]*?'\/api\/exams\/from-subject'/);
 assert.match(api, /export type ExamSourceArea = 'coding' \| 'general' \| 'diverse' \| 'english';/, 'every study area can feed a simulado');
 
 const builder = read('../src/components/exam/SubjectExamBuilder.tsx');
-for (const label of ['Inglês', 'Matérias', 'Programação']) {
+for (const label of ['Matérias', 'Programação']) {
   assert.match(builder, new RegExp(label), `the subject picker should group the ${label} area`);
 }
+// The language area is named after the language the child studies.
+assert.match(builder, /area === 'english' \? studyLanguageName\(studyLanguage\)/, 'the language group must follow the language studied');
 assert.match(builder, /api\.createExamFromSubject\(/, 'the builder must create through the subject endpoint');
 assert.match(builder, /Atualizar simulado/, 'a subject that already has a simulado should offer to refresh it');
 assert.match(builder, /Gere questões em Estudar/, 'an account with no questions should be told where they come from');

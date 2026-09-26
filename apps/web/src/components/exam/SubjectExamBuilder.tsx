@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ClipboardList, Loader2 } from 'lucide-react';
 
 import { api, type ExamSource, type ExamSourceArea } from '@/lib/api';
+import { useStudyLanguage } from '@/hooks/use-study-language';
 import { t } from '@/lib/i18n';
+import { studyLanguageName } from '@/lib/study-language';
 
-const AREA_LABELS: Record<ExamSourceArea, string> = {
-  english: "Inglês",
+// The 'english' area holds the lessons of whatever language the child studies;
+// its label comes from that language instead of this table.
+const AREA_LABELS: Record<Exclude<ExamSourceArea, 'english'>, string> = {
   general: "Matérias",
   diverse: "Matérias (antigas)",
   coding: "Programação",
@@ -24,6 +27,7 @@ export function examSourceKey(source: ExamSource): string {
 
 /** Turns any subject that already has questions into a simulado, or refreshes it. */
 export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
+  const studyLanguage = useStudyLanguage();
   const [sources, setSources] = useState<ExamSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -123,7 +127,7 @@ export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
                 const inArea = sources.filter((source) => source.area === area);
                 if (inArea.length === 0) return null;
                 return (
-                  <optgroup key={area} label={t(AREA_LABELS[area])}>
+                  <optgroup key={area} label={area === 'english' ? studyLanguageName(studyLanguage) : t(AREA_LABELS[area])}>
                     {inArea.map((source) => (
                       <option key={examSourceKey(source)} value={examSourceKey(source)}>
                         {source.subject_name} · {source.question_count} {t("questões")}
