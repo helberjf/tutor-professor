@@ -206,7 +206,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
 
   // The topic list can be long, and the page would keep its scroll: opening
   // topic 24 landed in the middle of the quiz. Start at the header instead,
-  // where "Iniciar estudo" is.
+  // where the button that opens the reading is.
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [initialTopic.id]);

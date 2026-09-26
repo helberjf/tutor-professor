@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import os
 import hashlib
+import unicodedata
 import requests
 import aiofiles
 from dataclasses import dataclass
@@ -65,26 +66,36 @@ _LANGUAGES: dict[str, _LanguageVoices] = {
     "russian": _LanguageVoices("ru-RU", None, None, None, "ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural"),
 }
 
+def _fold(text: str) -> str:
+    """Lower case without accents, so a name typed with or without them matches."""
+
+    decomposed = unicodedata.normalize("NFKD", text.strip().lower())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+# Written with their accents; lookups fold both sides, so unaccented input
+# ("frances", "portugues") still resolves without listing it twice.
 _LANGUAGE_ALIASES: dict[str, str] = {
-    "en": "english", "en-us": "english", "en-gb": "english", "inglês": "english", "ingles": "english",
-    "fr": "french", "fr-fr": "french", "français": "french", "francais": "french", "francês": "french", "frances": "french",
-    "es": "spanish", "es-es": "spanish", "español": "spanish", "espanol": "spanish", "espanhol": "spanish",
+    "en": "english", "en-us": "english", "en-gb": "english", "inglês": "english",
+    "fr": "french", "fr-fr": "french", "français": "french", "francês": "french",
+    "es": "spanish", "es-es": "spanish", "español": "spanish", "espanhol": "spanish",
     "it": "italian", "it-it": "italian", "italiano": "italian",
-    "pt": "portuguese", "pt-br": "portuguese", "português": "portuguese", "portugues": "portuguese",
-    "de": "german", "de-de": "german", "deutsch": "german", "alemão": "german", "alemao": "german",
+    "pt": "portuguese", "pt-br": "portuguese", "português": "portuguese",
+    "de": "german", "de-de": "german", "deutsch": "german", "alemão": "german",
     "ru": "russian", "ru-ru": "russian", "русский": "russian", "russo": "russian",
 }
+_FOLDED_ALIASES: dict[str, str] = {_fold(alias): language for alias, language in _LANGUAGE_ALIASES.items()}
 
 
 def resolve_language(language: str | None) -> str | None:
     """Accept "French", "fr" or "Francês" and return "french"; None if unknown."""
 
-    key = (language or "").strip().lower()
+    key = _fold(language or "")
     if not key:
         return None
     if key in _LANGUAGES:
         return key
-    return _LANGUAGE_ALIASES.get(key)
+    return _FOLDED_ALIASES.get(key)
 
 
 def language_bcp47(language: str | None) -> str | None:
