@@ -17,4 +17,9 @@ assert.match(topicView, /<footer className="shrink-0[^\"]*env\(safe-area-inset-b
 assert.match(topicView, /aria-label=\{t\("Etapa anterior do estudo"\)\}[\s\S]*?rounded-xl[^\"]*px-3 py-2 text-xs[^\"]*sm:rounded-2xl/, 'the previous button must be visually smaller on mobile');
 assert.match(topicView, /aria-label=\{t\("Próxima etapa do estudo"\)\}[\s\S]*?rounded-xl[^\"]*px-3 py-2 text-xs[^\"]*sm:rounded-2xl/, 'the next button must be visually smaller on mobile');
 
+assert.match(topicView, /flex flex-wrap items-start justify-between gap-x-3 lg:flex-nowrap lg:items-center/, 'on a computer the title, count and controls must share one row');
+assert.match(topicView, /order-last basis-full[^"]*lg:order-none lg:mt-0 lg:basis-auto/, 'below lg the controls wrap under the title; on lg they sit beside it');
+assert.match(topicView, /lg:hidden">\s*\{safeIndex \+ 1\} de \{total\}/, 'on a computer the step count joins the subject line instead of its own row');
+assert.match(topicView, /function buildSpeakableReadingText\(step: ReadingStudyStep\): string \{\s*if \(step.type === 'section'\) \{\s*return \[\s*`Parte/, 'the audio must start at the part, not repeat the topic title');
+assert.match(topicView, /window\.scrollTo\(\{ top: 0[^}]*\}\);\s*\}, \[initialTopic\.id\]\);/, 'opening a topic must start at its header, not keep the list scroll');
 console.log('topic reading mobile layout checks passed');

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
-import { speakWithBrowserVoice } from '@/lib/browser-speech';
+import { speakWithBrowserVoice, stopBrowserSpeech } from '@/lib/browser-speech';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
 import { DeepeningMarkdown } from './DeepeningMarkdown';
 import { SummarySheetModal } from './SummarySheetModal';
@@ -48,17 +48,17 @@ function readStoredReadingFontIndex(): number {
   return raw;
 }
 
-function buildSpeakableReadingText(step: ReadingStudyStep, topicTitle: string): string {
+// The topic title is already on screen, so the audio starts straight at the
+// part being read instead of repeating it before every step.
+function buildSpeakableReadingText(step: ReadingStudyStep): string {
   if (step.type === 'section') {
     return [
-      topicTitle,
       `Parte ${step.sectionIndex + 1}: ${step.section.title}`,
       step.section.body,
     ].join('. ');
   }
 
   return [
-    topicTitle,
     `Questão ${step.quizIndex + 1}: ${step.question.question}`,
     `Alternativas: ${step.question.options.join('; ')}`,
     `Resposta correta: ${step.question.correct_option}`,
@@ -203,6 +203,13 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   // be summarising while it is just fetching a sheet that already exists.
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState('');
+
+  // The topic list can be long, and the page would keep its scroll: opening
+  // topic 24 landed in the middle of the quiz. Start at the header instead,
+  // where "Iniciar estudo" is.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [initialTopic.id]);
 
   // A different topic must not show the previous topic's sheet.
   useEffect(() => {
@@ -1146,7 +1153,7 @@ function ReadingStudyModal({
   const isLast = safeIndex + 1 >= total;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    stopBrowserSpeech();
     setSpeaking(false);
     setSpeechError('');
     setShowDeepening(false);
@@ -1168,7 +1175,7 @@ function ReadingStudyModal({
 
   useEffect(() => {
     return () => {
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      stopBrowserSpeech();
     };
   }, []);
 
@@ -1191,13 +1198,13 @@ function ReadingStudyModal({
   async function handleSpeakCurrentStep() {
     if (!step) return;
     if (speaking) {
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      stopBrowserSpeech();
       setSpeaking(false);
       return;
     }
     setSpeechError('');
     setSpeaking(true);
-    const spoken = await speakWithBrowserVoice(buildSpeakableReadingText(step, topicTitle), 0.95, 'pt-BR');
+    const spoken = await speakWithBrowserVoice(buildSpeakableReadingText(step), 0.95, 'pt-BR');
     setSpeaking(false);
     if (!spoken) setSpeechError(t("Não consegui tocar o áudio neste navegador."));
   }
@@ -1242,30 +1249,33 @@ function ReadingStudyModal({
       className="fixed inset-0 z-[60] flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-3 lg:p-4"
     >
       <div className="flex h-[100dvh] min-h-0 w-full flex-col dialog-sheet text-slate-900 shadow-2xl sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
-        <header className="shrink-0 border-b border-slate-200 px-3 pb-2 pt-[calc(0.5rem_+_env(safe-area-inset-top))] sm:px-7 sm:pb-4 sm:pt-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[0.65rem] font-black uppercase tracking-widest text-primary sm:text-xs">{subjectName}</p>
-              <h2 id="reading-study-title" className="mt-0.5 text-base font-black leading-tight text-slate-900 sm:mt-1 sm:text-2xl">
+        {/* Phones stack title, controls and progress; on a computer the title,
+            the step count and the controls share one row so the lesson keeps
+            the height. */}
+        <header className="shrink-0 border-b border-slate-200 px-3 pb-2 pt-[calc(0.5rem_+_env(safe-area-inset-top))] sm:px-7 sm:pb-4 sm:pt-4 lg:pb-3 lg:pt-3">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 lg:flex-nowrap lg:items-center lg:gap-x-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.65rem] font-black uppercase tracking-widest text-primary sm:text-xs">
+                {subjectName}
+                <span className="hidden font-bold normal-case tracking-normal text-slate-500 lg:inline">
+                  {' · '}{safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : t("Questão")}
+                </span>
+              </p>
+              <h2
+                id="reading-study-title"
+                title={topicTitle}
+                className="mt-0.5 text-base font-black leading-tight text-slate-900 sm:mt-1 sm:text-2xl lg:mt-0.5 lg:truncate lg:text-xl"
+              >
                 {topicTitle}
               </h2>
-              <p className="mt-0.5 text-xs font-bold text-slate-500 sm:mt-1 sm:text-sm">
+              <p className="mt-0.5 text-xs font-bold text-slate-500 sm:mt-1 sm:text-sm lg:hidden">
                 {safeIndex + 1} de {total} · {step.type === 'section' ? 'Leitura' : t("Questão")}
               </p>
             </div>
-            {/* Close stays anchored top-right; the reading controls sit on their
-                own row so a long title is not squeezed into a narrow column. */}
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("Fechar estudo")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl"
-            >
-              <X size={18} />
-            </button>
-          </div>
 
-          <div className="mt-2 flex flex-nowrap items-center gap-1 sm:mt-3 sm:flex-wrap sm:gap-2">
+            {/* Below lg the controls wrap to their own row under the title, so a
+                long title is not squeezed; close stays anchored top-right. */}
+            <div className="mt-2 flex flex-nowrap items-center gap-1 order-last basis-full sm:mt-3 sm:flex-wrap sm:gap-2 lg:order-none lg:mt-0 lg:basis-auto lg:shrink-0 lg:flex-nowrap">
               <div className="flex shrink-0 items-center rounded-xl border border-slate-200 sm:rounded-2xl">
                 <button
                   type="button"
@@ -1273,7 +1283,7 @@ function ReadingStudyModal({
                   disabled={!canShrink}
                   aria-label={t("Diminuir tamanho da letra")}
                   title={t("Diminuir tamanho da letra")}
-                  className="flex h-10 w-8 items-center justify-center rounded-l-xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-l-2xl"
+                  className="flex h-10 w-8 items-center justify-center rounded-l-xl text-xs font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-l-2xl lg:h-10"
                 >
                   A<span className="text-[0.6rem]">−</span>
                 </button>
@@ -1284,7 +1294,7 @@ function ReadingStudyModal({
                   disabled={!canGrow}
                   aria-label={t("Aumentar tamanho da letra")}
                   title={t("Aumentar tamanho da letra")}
-                  className="flex h-10 w-8 items-center justify-center rounded-r-xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-r-2xl"
+                  className="flex h-10 w-8 items-center justify-center rounded-r-xl border-l border-slate-200 text-sm font-black text-slate-600 transition hover:bg-slate-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-35 sm:h-11 sm:w-9 sm:rounded-r-2xl lg:h-10"
                 >
                   A<span className="text-[0.6rem]">+</span>
                 </button>
@@ -1293,7 +1303,7 @@ function ReadingStudyModal({
                 type="button"
                 onClick={() => void handleSpeakCurrentStep()}
                 title={t("Ouvir o texto desta etapa")}
-                className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-2 py-1 text-[0.68rem] font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
+                className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-slate-200 px-2 py-1 text-[0.68rem] font-black text-slate-600 transition hover:border-primary hover:bg-sky-50 hover:text-primary sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs lg:min-h-10"
               >
                 <Volume2 size={15} />
                 <span className="whitespace-nowrap">{speaking ? t("Parar áudio") : t("Ouvir texto")}</span>
@@ -1305,17 +1315,27 @@ function ReadingStudyModal({
                   setDeepeningError('');
                 }}
                 title={t("Aprofundar este assunto com IA")}
-                className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-xl border border-violet-200 px-2 py-1 text-[0.68rem] font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
+                className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-xl border border-violet-200 px-2 py-1 text-[0.68rem] font-black text-violet-700 transition hover:border-violet-400 hover:bg-violet-50 sm:min-h-11 sm:gap-2 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs lg:min-h-10"
               >
                 <Sparkles size={15} />
                 <span className="whitespace-nowrap">{t("Aprofundar com IA")}</span>
               </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t("Fechar estudo")}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl lg:h-10 lg:w-10"
+            >
+              <X size={18} />
+            </button>
           </div>
           {speechError && (
-            <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700">{speechError}</p>
+            <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 lg:mt-2">{speechError}</p>
           )}
-          <div className="mt-2 h-1 w-full rounded-full bg-slate-100 sm:mt-4 sm:h-2">
-            <div className="h-1 rounded-full bg-primary-dark transition-all sm:h-2" style={{ width: `${progress}%` }} />
+          <div className="mt-2 h-1 w-full rounded-full bg-slate-100 sm:mt-4 sm:h-2 lg:mt-3 lg:h-1.5">
+            <div className="h-1 rounded-full bg-primary-dark transition-all sm:h-2 lg:h-1.5" style={{ width: `${progress}%` }} />
           </div>
         </header>
 
