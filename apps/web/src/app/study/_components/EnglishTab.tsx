@@ -10,7 +10,8 @@ import type { PomodoroMode } from '@/lib/pomodoro';
 import { formatDateLabel } from '../_lib/study-helpers';
 import { EnglishQuestionsSection } from './EnglishQuestionsSection';
 import { PomodoroWidget } from './shared';
-import { t } from '@/lib/i18n';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence, studyLanguageName } from '@/lib/study-language';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENGLISH TAB
@@ -44,6 +45,7 @@ function StatCell({
 }
 
 export function EnglishTab({
+  studyLanguage,
   dashboard, selectedDate,
   planText, setPlanText, studiedText, setStudiedText,
   distractions, newDistraction, setNewDistraction,
@@ -54,6 +56,8 @@ export function EnglishTab({
   notificationPermission, pomodoroMessage,
   onTogglePomodoro, onSwitchPomodoro, onRequestNotifications,
 }: {
+  /** The language chosen at signup, as the API stores it ("French"). */
+  studyLanguage: string;
   dashboard: StudyDashboard | null;
   selectedDate: string;
   planText: string; setPlanText: (v: string) => void;
@@ -97,7 +101,7 @@ export function EnglishTab({
       <section className="app-surface border-primary/30 p-4 sm:p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Inglês · meta do dia")}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{tf("{language} · meta do dia", { language: studyLanguageName(studyLanguage) })}</p>
             <h1 className="mt-1.5 text-2xl font-black leading-tight text-slate-800 md:text-3xl">{t("3 frases por dia")}</h1>
           </div>
           <span
@@ -288,7 +292,7 @@ export function EnglishTab({
                 <h2 className="text-xl font-black text-slate-800">{t("Criar lição")}</h2>
               </div>
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">{t("Gere uma nova lição de inglês com inteligência artificial.")}</p>
+            <p className="mt-4 text-sm leading-6 text-slate-600">{tf("Gere uma nova lição de {language} com inteligência artificial.", { language: studyLanguageInSentence(studyLanguage) })}</p>
             <button
               type="button"
               onClick={onGenerateLesson}
@@ -327,7 +331,7 @@ export function EnglishTab({
         </aside>
       </div>
 
-      <EnglishQuestionsSection />
+      <EnglishQuestionsSection studyLanguage={studyLanguage} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type StudyDashboard, type StudyDiscipline } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useModules } from '@/hooks/use-modules';
+import { useStudyLanguage } from '@/hooks/use-study-language';
 import {
   createInitialPomodoroState,
   getTodaysPomodoroCount,
@@ -27,7 +28,8 @@ import { CreateDisciplineModal } from './_components/CreateDisciplineModal';
 import { OtherSubjectsPicker, type DisciplineSelection } from './_components/OtherSubjectsPicker';
 import { DashboardTab, TabButton } from './_components/shared';
 import type { CodingMode, StudyTab } from './_lib/study-helpers';
-import { t as translate } from '@/lib/i18n';
+import { t as translate, tf } from '@/lib/i18n';
+import { studyLanguageInSentence, studyLanguageNativeName } from '@/lib/study-language';
 
 // Uma aba de cada vez aparece, mas as três vinham no mesmo pacote: abrir
 // "Estudos" baixava o currículo inteiro — flashcards, treinador de exercícios,
@@ -52,6 +54,8 @@ const CodingTab = dynamic(() => import('./_components/CodingTab').then((m) => m.
 
 export default function StudyPage() {
   const authState = useRequireAuth();
+  // The language tab follows the language chosen at signup, not always English.
+  const studyLanguage = useStudyLanguage();
 
   const [activeTab, setActiveTab] = useState<StudyTab>('english');
   const [codingMode, setCodingMode] = useState<CodingMode>('reading');
@@ -484,7 +488,7 @@ export default function StudyPage() {
         {/* Tab switcher */}
         <div className="mb-6 flex gap-2 overflow-x-auto rounded-[1.4rem] border-2 border-slate-200 bg-white p-1.5 shadow-sm">
           <TabButton active={activeTab === 'dashboard'} onClick={() => selectStudyTab('dashboard')} icon={<BarChart2 size={17} />} label={translate("Dashboard")} />
-          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label="English" mobileLabel="English" />
+          <TabButton active={activeTab === 'english'} onClick={() => selectStudyTab('english')} icon={<BookOpen size={17} />} label={studyLanguageNativeName(studyLanguage)} />
           <TabButton
             active={activeTab === 'diverse' || activeTab === 'coding'}
             onClick={selectDiverseOverview}
@@ -531,7 +535,7 @@ export default function StudyPage() {
               <BookOpen size={26} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xl font-black text-slate-800">{translate("Começar lição de inglês")}</span>
+              <span className="block text-xl font-black text-slate-800">{tf("Começar lição de {language}", { language: studyLanguageInSentence(studyLanguage) })}</span>
               <span className="mt-1 block text-sm font-semibold text-slate-500">{translate("Abrir página de lições")}</span>
             </span>
             <ChevronRight size={24} className="shrink-0 text-primary" />
@@ -539,6 +543,7 @@ export default function StudyPage() {
         )}
         {activeTab === 'english' ? (
           <EnglishTab
+            studyLanguage={studyLanguage}
             dashboard={dashboard}
             selectedDate={selectedDate}
             planText={planText} setPlanText={setPlanText}
