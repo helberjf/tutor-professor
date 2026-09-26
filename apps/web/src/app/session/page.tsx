@@ -220,7 +220,7 @@ export default function StudySessionPage() {
     setAudioBusy(true);
     try {
       const data = await api.speak(text);
-      await playAudioWithFallback(data.audio_url ? api.getAudioUrl(data.audio_url) : null, text);
+      await playAudioWithFallback(data.audio_url ? api.getAudioUrl(data.audio_url) : null, text, 1.0, data.lang);
     } catch {
       await playAudioWithFallback(null, text);
     } finally {

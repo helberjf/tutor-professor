@@ -4,6 +4,7 @@ import os
 import hashlib
 import requests
 import aiofiles
+from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
 
@@ -34,6 +35,71 @@ _EDGE_VOICE_MAP: dict[str, str] = {
     "bm_lewis":   "en-GB-RyanNeural",
 }
 _EDGE_DEFAULT_VOICE = "en-US-JennyNeural"
+
+
+@dataclass(frozen=True)
+class _LanguageVoices:
+    """Who speaks a language: Kokoro when it can, Edge when it cannot.
+
+    Kokoro only knows a language through its voice: "ff_siwis" is French because
+    it starts with "f". An English voice handed French text reads it with an
+    English accent, so the voice has to follow the language of the text.
+    """
+
+    bcp47: str
+    kokoro_lang: str | None  # None: Kokoro has no voice for it
+    kokoro_female: str | None
+    kokoro_male: str | None
+    edge_female: str
+    edge_male: str
+
+
+_LANGUAGES: dict[str, _LanguageVoices] = {
+    "english": _LanguageVoices("en-US", "a", "af_bella", "am_adam", "en-US-JennyNeural", "en-US-GuyNeural"),
+    # Kokoro has a single French voice.
+    "french": _LanguageVoices("fr-FR", "f", "ff_siwis", "ff_siwis", "fr-FR-DeniseNeural", "fr-FR-HenriNeural"),
+    "spanish": _LanguageVoices("es-ES", "e", "ef_dora", "em_alex", "es-ES-ElviraNeural", "es-ES-AlvaroNeural"),
+    "italian": _LanguageVoices("it-IT", "i", "if_sara", "im_nicola", "it-IT-ElsaNeural", "it-IT-DiegoNeural"),
+    "portuguese": _LanguageVoices("pt-BR", "p", "pf_dora", "pm_alex", "pt-BR-FranciscaNeural", "pt-BR-AntonioNeural"),
+    "german": _LanguageVoices("de-DE", None, None, None, "de-DE-KatjaNeural", "de-DE-ConradNeural"),
+    "russian": _LanguageVoices("ru-RU", None, None, None, "ru-RU-SvetlanaNeural", "ru-RU-DmitryNeural"),
+}
+
+_LANGUAGE_ALIASES: dict[str, str] = {
+    "en": "english", "en-us": "english", "en-gb": "english", "inglês": "english", "ingles": "english",
+    "fr": "french", "fr-fr": "french", "français": "french", "francais": "french", "francês": "french", "frances": "french",
+    "es": "spanish", "es-es": "spanish", "español": "spanish", "espanol": "spanish", "espanhol": "spanish",
+    "it": "italian", "it-it": "italian", "italiano": "italian",
+    "pt": "portuguese", "pt-br": "portuguese", "português": "portuguese", "portugues": "portuguese",
+    "de": "german", "de-de": "german", "deutsch": "german", "alemão": "german", "alemao": "german",
+    "ru": "russian", "ru-ru": "russian", "русский": "russian", "russo": "russian",
+}
+
+
+def resolve_language(language: str | None) -> str | None:
+    """Accept "French", "fr" or "Francês" and return "french"; None if unknown."""
+
+    key = (language or "").strip().lower()
+    if not key:
+        return None
+    if key in _LANGUAGES:
+        return key
+    return _LANGUAGE_ALIASES.get(key)
+
+
+def language_bcp47(language: str | None) -> str | None:
+    """The tag a browser voice needs ("fr-FR"), for the client-side fallback."""
+
+    resolved = resolve_language(language)
+    return _LANGUAGES[resolved].bcp47 if resolved else None
+
+
+@dataclass(frozen=True)
+class _SpeechPlan:
+    kokoro_voice: str | None  # None: go straight to Edge
+    kokoro_lang: str | None
+    edge_voice: str
+    cache_key: str
 
 
 class TTSService:
@@ -95,14 +161,44 @@ class TTSService:
     def _kokoro_voice_to_edge(self, voice: str) -> str:
         return _EDGE_VOICE_MAP.get(voice, _EDGE_DEFAULT_VOICE)
 
+    def _plan_speech(self, voice: str, language: str | None) -> _SpeechPlan:
+        """Pick the voice that actually speaks the language of the text.
+
+        English (or no language at all) keeps the child's chosen voice and the
+        cache key it always had. Any other language swaps in a native voice of
+        the same gender, since the voices a child can choose are all English.
+        """
+
+        resolved = resolve_language(language)
+        if resolved is None or resolved == "english":
+            return _SpeechPlan(voice, None, self._kokoro_voice_to_edge(voice), voice)
+
+        spec = _LANGUAGES[resolved]
+        male = len(voice) > 1 and voice[1] == "m"
+        edge_voice = spec.edge_male if male else spec.edge_female
+        if spec.kokoro_lang is None:
+            return _SpeechPlan(None, None, edge_voice, edge_voice)
+
+        if voice[:1] == spec.kokoro_lang:
+            kokoro_voice = voice  # already a voice of this language
+        else:
+            kokoro_voice = spec.kokoro_male if male else spec.kokoro_female
+        return _SpeechPlan(kokoro_voice, spec.kokoro_lang, edge_voice, kokoro_voice)
+
     async def generate_speech(
-        self, text: str, voice: Optional[str] = None, *, kokoro_url: str | None = None
+        self,
+        text: str,
+        voice: Optional[str] = None,
+        *,
+        language: str | None = None,
+        kokoro_url: str | None = None,
     ) -> Optional[str]:
         voice = self._normalize_voice(voice or self.default_voice)
         if not text.strip():
             return None
 
-        text_hash = self._get_text_hash(text, voice)
+        plan = self._plan_speech(voice, language)
+        text_hash = self._get_text_hash(text, plan.cache_key)
         file_path = self.cache_dir / f"{text_hash}.mp3"
 
         if file_path.exists():
@@ -114,10 +210,11 @@ class TTSService:
         if self.audio_store is not None and self.audio_store.exists(file_path.name):
             return str(file_path)
 
-        if self.provider == "edge":
-            generated = await self._generate_with_edge_tts(text, voice, file_path)
+        if self.provider == "edge" or (self.provider == "kokoro" and plan.kokoro_voice is None):
+            # German and Russian land here under Kokoro: it has no voice for them.
+            generated = await self._generate_with_edge_tts(text, plan.edge_voice, file_path)
         elif self.provider == "kokoro":
-            generated = await self._generate_with_kokoro(text, voice, file_path, kokoro_url)
+            generated = await self._generate_with_kokoro(text, plan, file_path, kokoro_url)
         else:
             return None
 
@@ -140,13 +237,12 @@ class TTSService:
         except Exception as exc:  # noqa: BLE001 - see docstring
             print(f"Áudio store upload failed for {file_path.name}: {exc}")
 
-    async def _generate_with_edge_tts(self, text: str, voice: str, file_path: Path) -> Optional[str]:
+    async def _generate_with_edge_tts(self, text: str, edge_voice: str, file_path: Path) -> Optional[str]:
         edge_tts = _load_edge_tts()
         if edge_tts is None:
             print("TTS Error: edge-tts is not installed. Run: pip install edge-tts")
             return None
 
-        edge_voice = self._kokoro_voice_to_edge(voice)
         try:
             communicate = edge_tts.Communicate(text, edge_voice)
             await communicate.save(str(file_path))
@@ -156,15 +252,18 @@ class TTSService:
             return None
 
     async def _generate_with_kokoro(
-        self, text: str, voice: str, file_path: Path, kokoro_url: str | None = None
+        self, text: str, plan: _SpeechPlan, file_path: Path, kokoro_url: str | None = None
     ) -> Optional[str]:
         try:
             payload = {
                 "model": self.model,
                 "input": text,
-                "voice": voice,
+                "voice": plan.kokoro_voice,
                 "response_format": "mp3"
             }
+            if plan.kokoro_lang:
+                # Pins the phonemizer as well as the timbre.
+                payload["lang_code"] = plan.kokoro_lang
             # An explicit address wins over the probed defaults: on a host with
             # no Kokoro sidecar, probing localhost is four guaranteed failures.
             urls = [kokoro_url] if kokoro_url else self.kokoro_urls
@@ -177,7 +276,7 @@ class TTSService:
             return str(file_path)
         except Exception as e:
             print(f"Kokoro TTS unavailable ({e}), falling back to edge-tts...")
-            return await self._generate_with_edge_tts(text, voice, file_path)
+            return await self._generate_with_edge_tts(text, plan.edge_voice, file_path)
 
     def _request_audio(
         self, payload: dict[str, str], urls: list[str] | None = None

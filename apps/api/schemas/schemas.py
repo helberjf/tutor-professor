@@ -678,10 +678,15 @@ class ChatResponseSchema(BaseModel):
 class SpeakRequestSchema(BaseModel):
     text: str
     voice: Optional[str] = None
+    # Language of the text ("French", "fr"...). Omitted: the language the child
+    # is studying.
+    language: Optional[str] = Field(default=None, max_length=40)
 
 class SpeakResponseSchema(BaseModel):
     audio_url: Optional[str] = None
     fallback_text: Optional[str] = None
+    # BCP-47 tag ("fr-FR") so the browser voice fallback speaks the same language.
+    lang: Optional[str] = None
 
 
 # ── Coding Curriculum ─────────────────────────────────────────────────────────
