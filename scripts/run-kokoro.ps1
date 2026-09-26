@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
   [string]$ContainerName = 'english-kids-tutor-kokoro',
-  [string]$Image = 'ghcr.io/remsky/kokoro-fastapi-cpu:v0.1.4',
+  # v0.2+ ships Kokoro v1.0, which speaks French, Spanish, Italian and Portuguese
+  # besides English. v0.1.x only speaks English.
+  [string]$Image = 'ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4',
   [int]$HostPort = 8880,
   [int]$ContainerPort = 8880,
   [string]$LocalRepoPath = '',
@@ -113,6 +115,16 @@ Write-Host "URL: http://127.0.0.1:$HostPort/v1/audio/speech"
 Write-Host ''
 
 $state = Get-ContainerState -Name $ContainerName
+
+if ($state) {
+  # A container left over from an older image would keep serving English only.
+  $currentImage = (docker container inspect --format "{{.Config.Image}}" $ContainerName 2>$null | Select-Object -First 1)
+  if ($currentImage -and $currentImage.Trim() -ne $Image) {
+    Write-Host "Replacing Kokoro container '$ContainerName' ($($currentImage.Trim()) -> $Image)..." -ForegroundColor Cyan
+    docker rm -f $ContainerName | Out-Null
+    $state = $null
+  }
+}
 
 if ($state -eq 'running') {
   Write-Host "Kokoro container '$ContainerName' is already running." -ForegroundColor Green

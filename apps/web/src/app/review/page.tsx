@@ -264,6 +264,7 @@ export default function ReviewPage() {
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || text,
         speed,
+        data.lang,
       );
     } catch {
       // Audio is optional during review.
