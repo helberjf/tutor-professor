@@ -653,10 +653,13 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
   async function playEn() {
     setAudioLoadingEn(true);
     try {
-      const data = await api.speak(page.text_en);
+      // text_en holds the book's language, whatever it is.
+      const data = await api.speak(page.text_en, targetLanguage);
       await playAudioWithFallback(
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || page.text_en,
+        1.0,
+        data.lang,
       );
     } catch { /* silent */ } finally { setAudioLoadingEn(false); }
   }
@@ -664,10 +667,12 @@ function BookReader({ book, onBack, targetLanguage = 'English' }: BookReaderProp
   async function playPt() {
     setAudioLoadingPt(true);
     try {
-      const data = await api.speak(page.text_pt, 'pt');
+      const data = await api.speak(page.text_pt, 'Portuguese');
       await playAudioWithFallback(
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || page.text_pt,
+        1.0,
+        data.lang,
       );
     } catch { /* silent */ } finally { setAudioLoadingPt(false); }
   }

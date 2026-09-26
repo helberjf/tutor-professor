@@ -17,7 +17,7 @@ Since Kokoro is a separate project, you will need to follow its official install
 
 **Please refer to the official Kokoro TTS documentation for the most up-to-date and detailed installation instructions.**
 
-*   [Kokoro TTS GitHub Repository](https://github.com/remsky/kokoro-fastapi-gpu) (Example, verify the official source)
+*   [Kokoro-FastAPI](https://github.com/remsky/Kokoro-FastAPI) — use v0.2 or newer. v0.1.x ships the English-only model.
 
 **Key considerations during Kokoro setup:**
 
@@ -60,6 +60,23 @@ The backend's `services/tts_service.py` handles the integration with the Kokoro 
 
 The backend exposes a `POST /api/audio/speak` endpoint that the frontend can call to request audio for a given text. This endpoint uses the `TTSService` to interact with Kokoro.
 
+## Languages
+
+The chosen voice (`af_bella`, `am_adam`...) is English. For any other language the
+backend swaps in a native voice of the same gender and sends Kokoro its `lang_code`:
+
+| Language | Kokoro voices | Notes |
+| --- | --- | --- |
+| French | `ff_siwis` | the only French voice |
+| Spanish | `ef_dora`, `em_alex` | |
+| Italian | `if_sara`, `im_nicola` | |
+| Portuguese | `pf_dora`, `pm_alex` | book translations |
+| German, Russian | — | Kokoro has no voice; these go straight to edge-tts |
+
+`POST /api/audio/speak` speaks the child's `target_language` unless the request
+sends `language`. The response carries `lang` (`fr-FR`...) so the browser voice
+fallback uses the same language.
+
 ## Fallback Mechanism
 
 In case the Kokoro TTS server is not running or fails to generate audio, the system is designed to provide a textual fallback. This ensures that the application remains functional even without the audio component, though the full learning experience will be enhanced with TTS.
@@ -72,7 +89,7 @@ If you are using Docker Compose for your project, you can integrate the Kokoro T
 
 ```yaml
   # kokoro-tts:
-  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.1.4
+  #   image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4
   #   ports:
   #     - "8880:8880"
   #   networks:

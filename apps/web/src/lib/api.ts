@@ -703,6 +703,8 @@ export interface ChatResponse {
 export interface SpeakResponse {
   audio_url: string | null;
   fallback_text?: string | null;
+  /** BCP-47 tag of the spoken language ("fr-FR"), for the browser fallback. */
+  lang?: string | null;
 }
 
 export interface ParentSettings {
@@ -2162,10 +2164,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message, history }),
     }),
-  speak: (text: string, voice?: string) =>
+  /** `language` defaults, on the server, to the language the child studies. */
+  speak: (text: string, language?: string) =>
     fetchAPI<SpeakResponse>('/api/audio/speak', {
       method: 'POST',
-      body: JSON.stringify({ text, voice }),
+      body: JSON.stringify({ text, language }),
     }),
   parentLogin: (password: string) =>
     fetchAPI<{ status: string }>('/api/parent/login', {

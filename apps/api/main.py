@@ -356,6 +356,8 @@ from services.study_queue_service import (
 )
 from services.password_policy import password_policy_detail, validate_password_strength
 from services.tts_service import TTSService
+from services.tts_service import language_bcp47 as tts_language_bcp47
+from services.tts_service import resolve_language as resolve_tts_language
 from services.tutor_service import TutorService
 
 load_dotenv()
@@ -5756,15 +5758,24 @@ async def speak_text(
 ) -> SpeakResponseSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
+    voice = payload.voice
+    language = payload.language
+    if resolve_tts_language(voice):
+        # Older clients sent a language code ("pt") in the voice field.
+        language = language or voice
+        voice = None
+    language = language or child.target_language
+    lang = tts_language_bcp47(language)
     audio_file = await tts_service.generate_speech(
         payload.text,
-        payload.voice or child.voice_preference,
+        voice or child.voice_preference,
+        language=language,
         kokoro_url=resolve_kokoro_url(),
     )
     if not audio_file:
-        return SpeakResponseSchema(audio_url=None, fallback_text=payload.text)
+        return SpeakResponseSchema(audio_url=None, fallback_text=payload.text, lang=lang)
 
-    return SpeakResponseSchema(audio_url=build_audio_url(audio_file))
+    return SpeakResponseSchema(audio_url=build_audio_url(audio_file), lang=lang)
 
 
 @app.post("/api/parent/login")

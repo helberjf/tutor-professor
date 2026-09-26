@@ -29,7 +29,12 @@ export async function speakWithBrowserVoice(text: string, rate = 0.92, lang = 'e
   });
 }
 
-export async function playAudioWithFallback(audioUrl: string | null | undefined, fallbackText: string, rate = 1.0): Promise<boolean> {
+export async function playAudioWithFallback(
+  audioUrl: string | null | undefined,
+  fallbackText: string,
+  rate = 1.0,
+  lang?: string | null,
+): Promise<boolean> {
   if (audioUrl) {
     try {
       const audio = new Audio(audioUrl);
@@ -37,9 +42,9 @@ export async function playAudioWithFallback(audioUrl: string | null | undefined,
       await audio.play();
       return true;
     } catch {
-      return speakWithBrowserVoice(fallbackText, rate);
+      return speakWithBrowserVoice(fallbackText, rate, lang || undefined);
     }
   }
 
-  return speakWithBrowserVoice(fallbackText, rate);
+  return speakWithBrowserVoice(fallbackText, rate, lang || undefined);
 }

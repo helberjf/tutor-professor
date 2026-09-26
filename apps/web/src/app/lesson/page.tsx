@@ -228,6 +228,7 @@ function LessonPageContent() {
         data.audio_url ? api.getAudioUrl(data.audio_url) : null,
         data.fallback_text || text,
         speed,
+        data.lang,
       );
     } catch (err) {
       console.error('Áudio error:', err);
