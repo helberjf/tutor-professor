@@ -6,9 +6,12 @@ import { ArrowLeft, BookOpen, CheckCircle2, ChevronRight, Clock } from 'lucide-r
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type LessonSummary } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { useStudyLanguage } from '@/hooks/use-study-language';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence } from '@/lib/study-language';
 
 export default function LessonHistoryPage() {
+  const language = studyLanguageInSentence(useStudyLanguage());
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | null>(null);
@@ -34,7 +37,7 @@ export default function LessonHistoryPage() {
       <StatusCard
         tone="loading"
         title={t("Carregando lições")}
-        message={t("Buscando todas as suas aventuras de inglês...")}
+        message={tf("Buscando todas as suas aventuras de {language}...", { language })}
         secondaryHref="/"
         secondaryLabel={t("Voltar ao início")}
       />
@@ -67,7 +70,7 @@ export default function LessonHistoryPage() {
 
         <div className="mb-8">
           <span className="app-tag mb-3">{t("Todas as lições")}</span>
-          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">{t("Suas aventuras em inglês")}</h1>
+          <h1 className="text-4xl font-black text-slate-800 md:text-5xl">{tf("Suas aventuras em {language}", { language })}</h1>
           <p className="mt-3 text-lg text-slate-600">
             {t("Escolha uma lição para rever o conteúdo, treinar as frases ou refazer o quiz.")}
           </p>

@@ -1,13 +1,15 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Bot, Loader2, Send, Volume2, WifiOff } from 'lucide-react';
 
 import { ApiError, api, type ChatMessage } from '@/lib/api';
 import { playAudioWithFallback } from '@/lib/browser-speech';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { t } from '@/lib/i18n';
+import { useStudyLanguage } from '@/hooks/use-study-language';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence } from '@/lib/study-language';
 
 type ChatBubble = ChatMessage & {
   audioUrl?: string | null;
@@ -15,18 +17,31 @@ type ChatBubble = ChatMessage & {
 
 const SUGGESTIONS = [
   'Oi!',
-  "Como se diz azul em inglês?",
+  "Como se diz azul em {language}?",
   "Podemos praticar cores?",
 ];
 
+function greetingFor(language: string): ChatBubble {
+  return {
+    role: 'assistant',
+    content: tf("Oi! Me peça uma frase em {language} e vamos praticar juntos.", { language }),
+  };
+}
+
 export default function ChatPage() {
   const authState = useRequireAuth();
-  const [messages, setMessages] = useState<ChatBubble[]>([
-    {
-      role: 'assistant',
-      content: t("Oi! Me peça uma frase em inglês e vamos praticar juntos."),
-    },
-  ]);
+  // The tutor speaks the language chosen at signup, so the greeting and the
+  // suggestions name it instead of always saying English.
+  const language = studyLanguageInSentence(useStudyLanguage());
+  const [messages, setMessages] = useState<ChatBubble[]>(() => [greetingFor(language)]);
+
+  // The language arrives after the first render; swap the greeting while it is
+  // still the only message, never once the conversation has started.
+  useEffect(() => {
+    setMessages((current) =>
+      current.length === 1 && current[0].role === 'assistant' ? [greetingFor(language)] : current,
+    );
+  }, [language]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
@@ -124,11 +139,11 @@ export default function ChatPage() {
             <div className="mt-8 space-y-3">
               {SUGGESTIONS.map((suggestion) => (
                 <button
-                  key={t(suggestion)}
-                  onClick={() => void handleSend(suggestion)}
+                  key={suggestion}
+                  onClick={() => void handleSend(tf(suggestion, { language }))}
                     className="w-full rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-left text-base font-bold text-slate-700 transition hover:border-primary hover:bg-primary-light md:text-lg"
                 >
-                  {t(suggestion)}
+                  {tf(suggestion, { language })}
                 </button>
               ))}
             </div>
