@@ -5,8 +5,11 @@ import { ClipboardList, Loader2 } from 'lucide-react';
 
 import { StudyQuestionsPanel } from '@/components/questions/StudyQuestionsPanel';
 import { api, type LessonSummary } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence } from '@/lib/study-language';
 
+// Keys the saved questions in the database, so it stays the same whatever the
+// language studied or the language on screen.
 const SUBJECT_NAME = "Inglês";
 
 /**
@@ -14,24 +17,27 @@ const SUBJECT_NAME = "Inglês";
  * simulado built from it. Lessons are the only stable English topic, so the
  * lesson id is what the saved questions are keyed by.
  */
-export function EnglishQuestionsSection() {
+export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: string }) {
+  const language = studyLanguageInSentence(studyLanguage);
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // A flag rather than the message: the message names the language, which can
+  // arrive after the lessons failed to load.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
     (async () => {
       setLoading(true);
-      setError('');
+      setLoadFailed(false);
       try {
         const loaded = await api.getAllLessons();
         if (!active) return;
         setLessons(loaded);
         setSelectedId((current) => current ?? loaded[0]?.id ?? null);
       } catch {
-        if (active) setError(t("Não foi possível carregar as lições de inglês."));
+        if (active) setLoadFailed(true);
       } finally {
         if (active) setLoading(false);
       }
@@ -58,13 +64,13 @@ export function EnglishQuestionsSection() {
         <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
           <Loader2 className="animate-spin" size={16} /> {t("Carregando lições")}
         </p>
-      ) : error ? (
+      ) : loadFailed ? (
         <p role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          {error}
+          {tf("Não foi possível carregar as lições de {language}.", { language })}
         </p>
       ) : lessons.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-          {t("Nenhuma lição de inglês ainda. Gere uma lição para poder montar o simulado.")}
+          {tf("Nenhuma lição de {language} ainda. Gere uma lição para poder montar o simulado.", { language })}
         </p>
       ) : (
         <div className="mt-5 space-y-4">
@@ -113,13 +119,13 @@ export function EnglishQuestionsSection() {
         <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
           <Loader2 className="animate-spin" size={16} /> {t("Carregando lições")}
         </p>
-      ) : error ? (
+      ) : loadFailed ? (
         <p role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          {error}
+          {tf("Não foi possível carregar as lições de {language}.", { language })}
         </p>
       ) : lessons.length === 0 ? (
         <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-          {t("Nenhuma lição de inglês ainda. Gere uma lição para poder praticar gramática.")}
+          {tf("Nenhuma lição de {language} ainda. Gere uma lição para poder praticar gramática.", { language })}
         </p>
       ) : (
         <div className="mt-5 space-y-4">

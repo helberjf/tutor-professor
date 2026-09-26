@@ -5,13 +5,15 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, BookOpen, Brain, ClipboardList, GraduationCap, Languages, PlayCircle, SpellCheck2 } from 'lucide-react';
 
 import { api, type StudySessionState } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { useStudyLanguage } from '@/hooks/use-study-language';
+import { t, tf } from '@/lib/i18n';
+import { studyLanguageInSentence, studyLanguageName } from '@/lib/study-language';
 
 const studyActions = [
   {
     href: '/lesson',
     title: "Lição",
-    description: "Comece pelas 3 frases por dia em inglês.",
+    description: "Comece pelas 3 frases por dia em {language}.",
     icon: BookOpen,
     tone: 'text-sky-700 bg-sky-50 border-sky-100',
   },
@@ -25,7 +27,7 @@ const studyActions = [
   {
     href: '/study?tab=english#english-grammar',
     title: "Gramática",
-    description: "Treine estruturas das frases de inglês.",
+    description: "Treine estruturas das frases de {language}.",
     icon: SpellCheck2,
     tone: 'text-violet-700 bg-violet-50 border-violet-100',
   },
@@ -55,6 +57,8 @@ const studyActions = [
  */
 export function StudyStartSection() {
   const [sessionState, setSessionState] = useState<StudySessionState | null>(null);
+  const studyLanguage = useStudyLanguage();
+  const language = studyLanguageInSentence(studyLanguage);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,14 +85,14 @@ export function StudyStartSection() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Iniciar estudo")}</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-800">{t("Comece pela lição de inglês")}</h2>
+          <h2 className="mt-1 text-2xl font-black text-slate-800">{tf("Comece pela lição de {language}", { language })}</h2>
           <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-slate-500">
-            {t("A sugestão para inglês é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.")}
+            {tf("A sugestão para {language} é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.", { language })}
           </p>
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-sm font-black text-slate-600">
           <Languages size={16} />
-          {t("Inglês")}
+          {studyLanguageName(studyLanguage)}
         </div>
       </div>
 
@@ -122,7 +126,7 @@ export function StudyStartSection() {
               </span>
               <span>
                 <span className="block text-base font-black">{t(action.title)}</span>
-                <span className="mt-1 block text-xs font-bold leading-5 opacity-80">{t(action.description)}</span>
+                <span className="mt-1 block text-xs font-bold leading-5 opacity-80">{tf(action.description, { language })}</span>
               </span>
             </Link>
           );

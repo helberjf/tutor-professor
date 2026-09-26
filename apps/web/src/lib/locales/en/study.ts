@@ -91,8 +91,8 @@ export const STUDY_EN: Record<string, string> = {
   'Criar lição com IA': 'Create a lesson with AI',
   'Criar nova lição com IA': 'Create a new lesson with AI',
   'Gerar nova lição com IA': 'Generate a new lesson with AI',
-  'Gere uma nova lição de inglês com inteligência artificial.':
-    'Generate a new English lesson with artificial intelligence.',
+  'Gere uma nova lição de {language} com inteligência artificial.':
+    'Generate a new {language} lesson with artificial intelligence.',
   'Gerando nova lição com IA...': 'Generating a new lesson with AI...',
   'Criando lição...': 'Creating lesson...',
   'Criar próxima lição': 'Create the next lesson',
@@ -342,18 +342,18 @@ export const STUDY_EN: Record<string, string> = {
   'Meta do dia cumprida. Salve para registrar.': "Today's goal met. Save to record it.",
   'Estude na sessão de hoje ou escreva o que estudou para fechar a meta.':
     "Study in today's session or write what you studied to close the goal.",
-  'Inglês · meta do dia': "English · today's goal",
+  '{language} · meta do dia': "{language} · today's goal",
   '3 frases por dia': '3 sentences a day',
-  'Comece pelas 3 frases por dia em inglês.': 'Start with the 3 English sentences a day.',
-  'A sugestão para inglês é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.':
-    'The suggestion for English is 3 sentences a day. Even so, each mode is free to open on its own.',
-  'Comece pela lição de inglês': 'Start with the English lesson',
-  'Começar lição de inglês': 'Start the English lesson',
+  'Comece pelas 3 frases por dia em {language}.': 'Start with the 3 {language} sentences a day.',
+  'A sugestão para {language} é estudar 3 frases por dia. Ainda assim, cada modo fica livre para abrir sozinho.':
+    'The suggestion for {language} is 3 sentences a day. Even so, each mode is free to open on its own.',
+  'Comece pela lição de {language}': 'Start with the {language} lesson',
+  'Começar lição de {language}': 'Start the {language} lesson',
   Ingles: 'English',
   'Inglês - Gramática': 'English - Grammar',
   'Pratique somente perguntas da lição escolhida.':
     'Practise only questions from the chosen lesson.',
-  'Treine estruturas das frases de inglês.': 'Drill the structures of the English sentences.',
+  'Treine estruturas das frases de {language}.': 'Drill the structures of the {language} sentences.',
   'Reforce o que precisa voltar hoje.': 'Reinforce what needs to come back today.',
   'Abra uma prova independente quando quiser medir progresso.':
     'Open a standalone exam whenever you want to measure progress.',
@@ -361,11 +361,11 @@ export const STUDY_EN: Record<string, string> = {
     'Pick a lesson and take a multiple-choice mock exam on it.',
   'Escolha uma lição e treine as estruturas das 3 frases do dia.':
     "Pick a lesson and drill the structures of the day's 3 sentences.",
-  'Nenhuma lição de inglês ainda. Gere uma lição para poder montar o simulado.':
-    'No English lesson yet. Generate a lesson so you can build the mock exam.',
-  'Nenhuma lição de inglês ainda. Gere uma lição para poder praticar gramática.':
-    'No English lesson yet. Generate a lesson so you can practise grammar.',
-  'Não foi possível carregar as lições de inglês.': 'Could not load the English lessons.',
+  'Nenhuma lição de {language} ainda. Gere uma lição para poder montar o simulado.':
+    'No {language} lesson yet. Generate a lesson so you can build the mock exam.',
+  'Nenhuma lição de {language} ainda. Gere uma lição para poder praticar gramática.':
+    'No {language} lesson yet. Generate a lesson so you can practise grammar.',
+  'Não foi possível carregar as lições de {language}.': 'Could not load the {language} lessons.',
   'Ver Estatísticas': 'Show statistics',
   Estatísticas: 'Statistics',
   'Recolher estatísticas': 'Collapse statistics',
