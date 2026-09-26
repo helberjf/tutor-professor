@@ -115,6 +115,10 @@ def test_language_tags_for_the_browser_fallback() -> None:
     require(module.language_bcp47("pt") == "pt-BR", "pt → pt-BR")
     require(module.language_bcp47("Klingon") is None, "unknown languages have no tag")
     require(module.resolve_language("af_bella") is None, "a voice name is not a language")
+    # Typed without accents still resolves: lookups ignore accents on both sides.
+    require(module.resolve_language("Francês") == "french", "accented name resolves")
+    require(module.resolve_language("frances") == "french", "unaccented name resolves too")
+    require(module.resolve_language("alemao") == "german", "unaccented German resolves")
 
 
 if __name__ == "__main__":

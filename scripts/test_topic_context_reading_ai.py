@@ -239,7 +239,9 @@ class ReadingDeepeningFrontendTests(unittest.TestCase):
                 self.assertIn(expected, source)
         self.assertIn("deepenCodingReadingStep", api_source)
         self.assertIn("lang = 'en-US'", speech_source)
-        self.assertIn("speakWithBrowserVoice(buildSpeakableReadingText(step, topicTitle), 0.95, 'pt-BR')", source)
+        # The audio starts at the part being read; the topic title is already on screen.
+        self.assertIn("speakWithBrowserVoice(buildSpeakableReadingText(step), 0.95, 'pt-BR')", source)
+        self.assertNotIn("buildSpeakableReadingText(step, topicTitle)", source)
 
 
 if __name__ == "__main__":
