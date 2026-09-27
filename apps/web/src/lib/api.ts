@@ -1140,6 +1140,99 @@ export interface StudyDiscipline {
   created_at: string;
 }
 
+/**
+ * Limits of the "Controle de estudos", mirroring StudyLogEntry*Schema in
+ * apps/api/schemas/schemas.py, so a long paste is stopped in the form instead
+ * of being thrown away by a 422. scripts/test_study_log.py fails if either side
+ * moves without the other.
+ */
+export const STUDY_LOG_LIMITS = {
+  content: 100_000,
+  title: 200,
+  discipline: 100,
+  subject: 100,
+  summary: 12_000,
+  minutes: 1440,
+} as const;
+
+/** Where an entry came from: written, uploaded, or picked up from the app. */
+export type StudyLogSource = 'manual' | 'file' | 'topic' | 'lesson' | 'day_note';
+
+/** One line of the "Controle de estudos" — everything but the long texts. */
+export interface StudyLogEntryItem {
+  id: number;
+  studied_on: string;
+  title: string;
+  /** True while nobody typed the title: the AI may still replace it. */
+  title_is_auto: boolean;
+  discipline: string;
+  subject: string | null;
+  /** Set when the subject is one of the curriculum's. */
+  subject_id: number | null;
+  /** True when the AI chose the subject. */
+  subject_is_auto: boolean;
+  source: StudyLogSource;
+  source_id: number | null;
+  source_filename: string | null;
+  duration_minutes: number | null;
+  has_content: boolean;
+  has_summary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyLogEntry extends StudyLogEntryItem {
+  content: string | null;
+  /** The study sheet, in Markdown. */
+  summary: string | null;
+  summary_updated_at: string | null;
+  /** Where the topic or lesson opens again; null when it is gone. */
+  open_href: string | null;
+  /** Whether there is anything to write a sheet from. */
+  can_summarize: boolean;
+}
+
+export interface StudyLogSubjectOption {
+  name: string;
+  subject_id: number | null;
+}
+
+export interface StudyLogDisciplineOption {
+  name: string;
+  kind: 'programming' | 'discipline' | 'language' | 'log';
+  subjects: StudyLogSubjectOption[];
+}
+
+export interface StudyLogOptions {
+  disciplines: StudyLogDisciplineOption[];
+  /** Whether a sheet can be written at all (a key of one's own, or credit). */
+  ai_available: boolean;
+}
+
+export interface CreateStudyLogPayload {
+  discipline: string;
+  /** Empty: the AI picks one of the discipline's subjects, or names one. */
+  subject?: string | null;
+  /** Empty: a provisional title until the AI writes one. */
+  title?: string | null;
+  content?: string | null;
+  source_filename?: string | null;
+  duration_minutes?: number | null;
+  studied_on?: string | null;
+}
+
+export interface UpdateStudyLogPayload {
+  discipline?: string;
+  /** "" clears the subject and hands the choice back to the AI. */
+  subject?: string;
+  title?: string;
+  content?: string;
+  /** 0 clears the time. */
+  duration_minutes?: number;
+  studied_on?: string;
+  summary?: string;
+}
+
 /** The AI's proposal for the next subject. Nothing is saved until it is created. */
 export interface SuggestedSubject {
   name: string;
@@ -2490,6 +2583,27 @@ export const api = {
     fetchAPI<StudyDiscipline>(`/api/general/disciplines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteStudyDiscipline: (id: number) =>
     fetchAPI<void>(`/api/general/disciplines/${id}`, { method: 'DELETE' }),
+  // Controle de estudos
+  getStudyLogOptions: () => fetchAPI<StudyLogOptions>('/api/study-log/options'),
+  getStudyLog: (range: { start?: string; end?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (range.start) params.set('start', range.start);
+    if (range.end) params.set('end', range.end);
+    const query = params.toString();
+    return fetchAPI<StudyLogEntryItem[]>(`/api/study-log${query ? `?${query}` : ''}`);
+  },
+  getStudyLogEntry: (id: number) => fetchAPI<StudyLogEntry>(`/api/study-log/${id}`),
+  createStudyLogEntry: (payload: CreateStudyLogPayload) =>
+    fetchAPI<StudyLogEntry>('/api/study-log', { method: 'POST', body: JSON.stringify(payload) }),
+  updateStudyLogEntry: (id: number, payload: UpdateStudyLogPayload) =>
+    fetchAPI<StudyLogEntry>(`/api/study-log/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteStudyLogEntry: (id: number) =>
+    fetchAPI<void>(`/api/study-log/${id}`, { method: 'DELETE' }),
+  /** Writes the sheet (and the title and subject nobody chose); a stored one comes back as it is. */
+  summarizeStudyLogEntry: (id: number, options: { regenerate?: boolean } = {}) =>
+    fetchAPI<StudyLogEntry>(`/api/study-log/${id}/summary${options.regenerate ? '?regenerate=true' : ''}`, {
+      method: 'POST',
+    }),
   // LeetCode trainer (programming only)
   getLeetCodeMethods: () =>
     fetchAPI<LeetCodeMethod[]>('/api/coding/leetcode'),

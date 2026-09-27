@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { BookOpen, CalendarDays, CheckCircle2, Circle, ClipboardList, Flame, Loader2, Plus, RotateCcw, Save, Sparkles, Trash2, X, Zap } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { BookOpen, CalendarDays, CheckCircle2, Circle, ClipboardList, Flame, Loader2, NotebookPen, Plus, RotateCcw, Save, Sparkles, Trash2, X, Zap } from 'lucide-react';
 
-import { ApiError, type StudyDashboard } from '@/lib/api';
+import { formatMinutes } from '@/components/study-log/study-log-helpers';
+import { ApiError, api, type StudyDashboard, type StudyLogEntryItem } from '@/lib/api';
 import type { PomodoroMode } from '@/lib/pomodoro';
 
 import { formatDateLabel } from '../_lib/study-helpers';
@@ -47,7 +48,7 @@ function StatCell({
 export function EnglishTab({
   studyLanguage,
   dashboard, selectedDate,
-  planText, setPlanText, studiedText, setStudiedText,
+  planText, setPlanText, studiedText,
   distractions, newDistraction, setNewDistraction,
   addDistraction, removeDistraction,
   loadingDay, dayLoadFailed, onRetryLoadDay, saving, error, savedMessage, onSave,
@@ -61,7 +62,8 @@ export function EnglishTab({
   dashboard: StudyDashboard | null;
   selectedDate: string;
   planText: string; setPlanText: (v: string) => void;
-  studiedText: string; setStudiedText: (v: string) => void;
+  /** The day's old "O que estudou" note, read-only: new study goes to the Controle de estudos. */
+  studiedText: string;
   distractions: string[];
   newDistraction: string; setNewDistraction: (v: string) => void;
   addDistraction: () => void;
@@ -81,6 +83,17 @@ export function EnglishTab({
   const todayDistractionCount = dashboard?.today.distractions.length ?? 0;
   const hasStudyText = studiedText.trim().length > 0;
   const historyDays = dashboard?.recent_days ?? [];
+  // What the "Controle de estudos" holds for this day: the record lives there now.
+  const [dayEntries, setDayEntries] = useState<StudyLogEntryItem[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setDayEntries(null);
+    api.getStudyLog({ start: selectedDate, end: selectedDate })
+      .then((items) => { if (!cancelled) setDayEntries(items); })
+      .catch(() => { if (!cancelled) setDayEntries([]); });
+    return () => { cancelled = true; };
+  }, [selectedDate]);
+  const dayHasRecord = hasStudyText || (dayEntries?.length ?? 0) > 0;
 
   const phrasesGoal = 3;
   // The backend only knows whether the day was studied, not how many phrases.
@@ -131,10 +144,10 @@ export function EnglishTab({
         </div>
         <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
           {closedByActivity && !hasStudyText
-            ? t("Meta do dia cumprida estudando. Escrever aqui é opcional.")
+            ? t("Meta do dia cumprida estudando.")
             : goalMet
               ? t("Meta do dia cumprida. Salve para registrar.")
-              : t("Estude na sessão de hoje ou escreva o que estudou para fechar a meta.")}
+              : t("Estude na sessão de hoje ou registre o que estudou no Controle de estudos para fechar a meta.")}
         </p>
 
         {/* The four nested cards became a stat row: same numbers, one card
@@ -178,8 +191,8 @@ export function EnglishTab({
                 <Loader2 className="animate-spin" size={16} /> {t("Carregando")}
               </span>
             ) : (
-              <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${hasStudyText ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {hasStudyText ? t("Estudo marcado") : 'Planejamento'}
+              <span className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${dayHasRecord ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                {dayHasRecord ? t("Estudo marcado") : t("Planejamento")}
               </span>
             )}
           </div>
@@ -192,12 +205,39 @@ export function EnglishTab({
                 className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
             </label>
 
-            <label className="block">
-              <span className="text-sm font-black text-slate-700">{t("O que estudou")}</span>
-              <textarea value={studiedText} onChange={(e) => setStudiedText(e.target.value)} rows={5} maxLength={3000}
-                placeholder={t("Ex.: Fiz a lição de greetings, ouvi os áudios e revisei flashcards.")}
-                className="mt-2 w-full resize-none rounded-[1.25rem] border-2 border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-700 outline-none transition focus:border-primary" />
-            </label>
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-black text-slate-700">{t("O que estudou")}</span>
+                <Link
+                  href={`/study-log?date=${selectedDate}`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary"
+                >
+                  <NotebookPen size={16} /> {t("Registrar no Controle de estudos")}
+                </Link>
+              </div>
+              {dayEntries === null ? (
+                <p className="mt-2 flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500">
+                  <Loader2 className="animate-spin" size={16} /> {t("Carregando")}
+                </p>
+              ) : dayEntries.length > 0 ? (
+                <ul className="mt-2 space-y-2">
+                  {dayEntries.map((entry) => (
+                    <li key={entry.id} className="rounded-2xl border-2 border-slate-100 bg-white px-4 py-3">
+                      <p className="break-words font-black text-slate-800">{entry.title}</p>
+                      <p className="mt-0.5 text-xs font-bold text-slate-500">
+                        {entry.discipline}
+                        {entry.subject ? ` › ${entry.subject}` : ''}
+                        {entry.duration_minutes ? ` · ${formatMinutes(entry.duration_minutes)}` : ''}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-500">
+                  {t("Nada registrado neste dia. O que você estudar fica no Controle de estudos, com uma ficha para revisar.")}
+                </p>
+              )}
+            </div>
 
             <div>
               <span className="text-sm font-black text-slate-700">{t("Distrações percebidas")}</span>
@@ -252,7 +292,7 @@ export function EnglishTab({
             <button type="button" onClick={onSave} disabled={saving || loadingDay || dayLoadFailed}
               className="app-button w-full bg-primary-dark hover:bg-primary-dark">
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-              {t("Salvar registro")}
+              {t("Salvar planejamento")}
             </button>
           </div>
         </div>
@@ -276,7 +316,7 @@ export function EnglishTab({
             </div>
             <div className="mt-5 space-y-3 text-sm leading-6 text-slate-600">
               <p>{t("Escreva o plano antes de dormir ou no comeco do dia.")}</p>
-              <p>{t("Depois do estudo, registre o que realmente fez. Esse campo alimenta os dias seguidos.")}</p>
+              <p>{t("Depois do estudo, registre no Controle de estudos o que realmente fez. Isso alimenta os dias seguidos.")}</p>
               <p>{t("Use as distrações como observação, sem culpa.")}</p>
             </div>
           </div>

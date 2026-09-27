@@ -16,6 +16,7 @@ const PRIVATE_PATH_PREFIXES = [
   '/review',
   '/session',
   '/study',
+  '/study-log',
 ];
 
 function normalizePathname(path: string) {

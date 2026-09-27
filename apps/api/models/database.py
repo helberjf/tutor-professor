@@ -824,3 +824,49 @@ class ObjectiveItem(SQLModel, table=True):
     auto_completed: bool = Field(default=False)
     order_index: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class StudyLogEntry(SQLModel, table=True):
+    """One thing the learner studied, as it goes into the "Controle de estudos".
+
+    Most entries are written by the learner — pasted notes, an uploaded file, or
+    only the time spent — and filed under a discipline they picked. Topics marked
+    as studied and finished lessons arrive on their own, so the log holds every
+    study in one place instead of only the ones somebody remembered to type.
+
+    ``subject_id`` and ``source_id`` point into the curriculum without a foreign
+    key, like ``DailyActivity.activity_id``: deleting a subject or a topic must
+    not take the history of having studied it along, and the labels stored here
+    keep the entry readable after the row it came from is gone.
+    """
+
+    __table_args__ = (
+        Index("ix_studylogentry_child_studied_on", "child_id", "studied_on"),
+        UniqueConstraint("child_id", "source", "source_id", name="uq_studylogentry_child_source"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    studied_on: date
+    title: str = Field(min_length=1, max_length=200)
+    # True while nobody typed the title: the AI may replace it with a better one.
+    title_is_auto: bool = Field(default=False)
+    # Always chosen by the learner — the grouping is theirs, not a guess.
+    discipline: str = Field(min_length=1, max_length=100)
+    # The matéria inside the discipline. Empty until the learner or the AI picks one.
+    subject: Optional[str] = Field(default=None, max_length=100)
+    subject_id: Optional[int] = Field(default=None)
+    # True when the AI chose the subject, so it may choose again; a choice the
+    # learner made is never overwritten.
+    subject_is_auto: bool = Field(default=False)
+    content: Optional[str] = Field(default=None, sa_column=Column(Text))
+    # manual | file | topic | lesson | day_note
+    source: str = Field(default="manual", max_length=12)
+    source_id: Optional[int] = Field(default=None)
+    source_filename: Optional[str] = Field(default=None, max_length=255)
+    duration_minutes: Optional[int] = Field(default=None)
+    # The study sheet: enough to review from and to teach somebody else.
+    summary: Optional[str] = Field(default=None, sa_column=Column(Text))
+    summary_updated_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
