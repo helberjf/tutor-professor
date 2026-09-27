@@ -64,7 +64,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyDiscipline, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyDiscipline, StudyLogEntry, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -196,6 +196,13 @@ from schemas.schemas import (
     StudyDashboardSchema,
     StudyDaySchema,
     StudyDayUpdateSchema,
+    StudyLogDisciplineOptionSchema,
+    StudyLogEntryCreateSchema,
+    StudyLogEntryListItemSchema,
+    StudyLogEntrySchema,
+    StudyLogEntryUpdateSchema,
+    StudyLogOptionsSchema,
+    StudyLogSubjectOptionSchema,
     SubjectSummaryResponseSchema,
     TopicSummarySchema,
     UpdateTopicSummarySchema,
@@ -305,6 +312,7 @@ from services.coding_service import (
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import normalize_front, sanitize_context
+from services import study_log_service
 from services.study_plan_service import (
     CurrentPriority,
     PriorityProgress,
@@ -2055,6 +2063,10 @@ ACTIVITY_TYPE_TO_OBJECTIVE_AREA = {
     "leetcode": "coding",
     "coding_topic": "coding",
 }
+# An entry of the "Controle de estudos". Its area is not fixed by the type: it
+# comes from the discipline the learner filed it under, like a question's does.
+STUDY_LOG_ACTIVITY_TYPE = "study_log"
+STUDY_LOG_OBJECTIVE_AREAS = frozenset({"language", "coding", "diverse"})
 
 
 def objective_area_for_activity(activity_type: str, result_details: dict | None) -> str | None:
@@ -2068,6 +2080,11 @@ def objective_area_for_activity(activity_type: str, result_details: dict | None)
         if raw_area == "coding":
             return "coding"
         return STUDY_QUESTION_AREA_TO_OBJECTIVE.get(raw_area)
+    if activity_type == STUDY_LOG_ACTIVITY_TYPE:
+        # A written entry carries the area of the discipline it was filed under.
+        details = result_details if isinstance(result_details, dict) else {}
+        raw_area = str(details.get("area") or "").strip()
+        return raw_area if raw_area in STUDY_LOG_OBJECTIVE_AREAS else None
     return ACTIVITY_TYPE_TO_OBJECTIVE_AREA.get(activity_type)
 
 
@@ -2670,6 +2687,7 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
             "topic_name": lesson.title,
         },
     )
+    sync_lesson_log_entry(session, child=child, lesson=lesson)
 
     session.add(child)
     session.add(lesson_progress)
@@ -3220,6 +3238,12 @@ def upsert_study_day(
 
     record.updated_at = now
     session.add(record)
+    if payload.studied_text is not None:
+        # The screen no longer sends this field — the "Controle de estudos" took
+        # its place — but a bundle cached before the change still does, and its
+        # note must land where the note now lives.
+        session.flush()
+        sync_day_note_log_entry(session, child=child, record=record)
     session.commit()
     session.refresh(record)
     activity_counts = count_activities_by_date(
@@ -3231,6 +3255,748 @@ def upsert_study_day(
     return build_study_day_schema(
         record, record.study_date, activity_count=activity_counts.get(record.study_date, 0)
     )
+
+
+# ── Controle de estudos ───────────────────────────────────────────────────────
+# One row per thing studied (see StudyLogEntry). What the learner writes goes
+# through add_daily_activity like any other study, so it shows in the log, the
+# streak and the objectives. Topics and finished lessons were logged when they
+# happened: their entries only add a line once the learner adds time to them.
+
+
+def _study_log_entry_for_child(session: Session, entry_id: int, child: ChildProfile) -> StudyLogEntry:
+    entry = session.get(StudyLogEntry, entry_id)
+    if entry is None or entry.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Registro não encontrado.")
+    return entry
+
+
+def _study_log_text(value: str | None) -> str:
+    """Pasted text with its line breaks kept; NUL is dropped (Postgres refuses it)."""
+
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+    return text.strip()[: study_log_service.MAX_CONTENT_CHARS]
+
+
+def _account_module_enabled(request: Request, session: Session, module_id: str) -> bool:
+    user = get_request_user(request=request, session=session)
+    return is_module_enabled(user.enabled_modules if user else None, module_id)
+
+
+def _curriculum_discipline_label(session: Session, child: ChildProfile, subject: ProgrammingSubject) -> str:
+    """The discipline a curriculum subject sits in, named the way the log names it."""
+
+    if subject_track(subject) == GENERAL_TRACK:
+        discipline = session.get(StudyDiscipline, subject.discipline_id) if subject.discipline_id else None
+        if discipline is not None and discipline.child_id == child.id:
+            return study_log_service.clean_label(discipline.name, study_log_service.MAX_DISCIPLINE_CHARS)
+        return study_log_service.clean_label(subject.name, study_log_service.MAX_DISCIPLINE_CHARS)
+    return study_log_service.programming_label(child.base_language)
+
+
+def study_log_subject_options(
+    session: Session,
+    request: Request,
+    child: ChildProfile,
+    discipline: str,
+) -> list[study_log_service.SubjectOption]:
+    """The subjects of one discipline: the curriculum's first, then the ones used in the log.
+
+    Only the curriculum's carry an id — a name used in the log alone may belong
+    to a subject deleted since, and an id pointing at nothing is worse than none.
+    """
+
+    key = study_log_service.name_key(discipline)
+    curriculum: list[study_log_service.SubjectOption] = []
+    if study_log_service.is_programming(discipline):
+        if _account_module_enabled(request, session, "coding"):
+            curriculum = [
+                study_log_service.SubjectOption(name=name, subject_id=subject_id)
+                for subject_id, name in session.exec(
+                    select(ProgrammingSubject.id, ProgrammingSubject.name).where(
+                        ProgrammingSubject.child_id == child.id,
+                        ProgrammingSubject.track == PROGRAMMING_TRACK,
+                    )
+                ).all()
+            ]
+    elif _account_module_enabled(request, session, "diverse"):
+        discipline_ids = [
+            discipline_id
+            for discipline_id, name in session.exec(
+                select(StudyDiscipline.id, StudyDiscipline.name).where(StudyDiscipline.child_id == child.id)
+            ).all()
+            if study_log_service.name_key(name) == key
+        ]
+        if discipline_ids:
+            curriculum = [
+                study_log_service.SubjectOption(name=name, subject_id=subject_id)
+                for subject_id, name in session.exec(
+                    select(ProgrammingSubject.id, ProgrammingSubject.name).where(
+                        ProgrammingSubject.child_id == child.id,
+                        ProgrammingSubject.track == GENERAL_TRACK,
+                        ProgrammingSubject.discipline_id.in_(discipline_ids),
+                    )
+                ).all()
+            ]
+    used = [
+        study_log_service.SubjectOption(name=subject)
+        for entry_discipline, subject in session.exec(
+            select(StudyLogEntry.discipline, StudyLogEntry.subject).where(
+                StudyLogEntry.child_id == child.id,
+                StudyLogEntry.subject.is_not(None),
+            )
+        ).all()
+        if subject and study_log_service.name_key(entry_discipline) == key
+    ]
+    return study_log_service.merge_subject_options(curriculum, used)
+
+
+def study_log_discipline_label(session: Session, child: ChildProfile, discipline: str) -> str:
+    """Reuse the spelling already in use for the same discipline ("direito" → "Direito")."""
+
+    typed = study_log_service.clean_label(discipline, study_log_service.MAX_DISCIPLINE_CHARS)
+    key = study_log_service.name_key(typed)
+    known = list(
+        session.exec(
+            select(StudyLogEntry.discipline)
+            .where(StudyLogEntry.child_id == child.id)
+            .order_by(StudyLogEntry.updated_at.desc())
+            .limit(500)
+        ).all()
+    )
+    known += list(session.exec(select(StudyDiscipline.name).where(StudyDiscipline.child_id == child.id)).all())
+    known += [
+        study_log_service.programming_label(child.base_language),
+        study_log_service.language_label(child.target_language, child.base_language),
+    ]
+    for name in known:
+        if study_log_service.name_key(name) == key:
+            return study_log_service.clean_label(name, study_log_service.MAX_DISCIPLINE_CHARS)
+    return typed
+
+
+def resolve_study_log_subject(
+    session: Session,
+    request: Request,
+    child: ChildProfile,
+    discipline: str,
+    subject: str | None,
+) -> tuple[str | None, int | None]:
+    """A subject typed or picked by the learner, linked to the curriculum when it is one of its."""
+
+    name = study_log_service.clean_label(subject, study_log_service.MAX_SUBJECT_CHARS)
+    if not name:
+        return None, None
+    match = study_log_service.match_subject(name, study_log_subject_options(session, request, child, discipline))
+    if match is not None:
+        return match.name, match.subject_id
+    return name, None
+
+
+def _study_log_activity(session: Session, entry: StudyLogEntry) -> DailyActivity | None:
+    return session.exec(
+        select(DailyActivity).where(
+            DailyActivity.child_id == entry.child_id,
+            DailyActivity.activity_type == STUDY_LOG_ACTIVITY_TYPE,
+            DailyActivity.activity_id == entry.id,
+        )
+    ).first()
+
+
+def sync_study_log_activity(session: Session, entry: StudyLogEntry, child: ChildProfile) -> None:
+    """Keep the entry's line in the activity log in step with the entry.
+
+    A written entry always has one, so its time counts in the dashboard and the
+    day closes. An entry that came from a topic, a lesson or an old note gets one
+    only once the learner adds time to it: the study itself was logged when it
+    happened, and a second line for it would count it twice.
+    """
+
+    activity = _study_log_activity(session, entry)
+    wanted = entry.source in study_log_service.LEARNER_SOURCES or bool(entry.duration_minutes)
+    if not wanted:
+        if activity is not None:
+            session.delete(activity)
+        return
+    duration = entry.duration_minutes * 60 if entry.duration_minutes else None
+    title = f"Registro: {entry.title}"
+    details = {
+        "entry_id": entry.id,
+        "discipline": entry.discipline,
+        "subject": entry.subject,
+        "area": study_log_service.objective_area_for(entry.discipline, target_language=child.target_language),
+        # Read by build_activity_metrics, like every other study event's.
+        "subject_name": entry.subject or entry.discipline,
+        "topic_name": entry.title,
+    }
+    if activity is None:
+        add_daily_activity(
+            session,
+            child_id=entry.child_id,
+            activity_type=STUDY_LOG_ACTIVITY_TYPE,
+            activity_title=title,
+            activity_date=entry.studied_on,
+            activity_id=entry.id,
+            result_details=details,
+            duration_seconds=duration,
+        )
+        return
+    activity.activity_title = title[:200]
+    activity.activity_date = entry.studied_on
+    activity.duration_seconds = duration
+    activity.result_details = details
+    session.add(activity)
+
+
+def _delete_study_log_entry(session: Session, entry: StudyLogEntry) -> None:
+    activity = _study_log_activity(session, entry)
+    if activity is not None:
+        session.delete(activity)
+    session.delete(entry)
+
+
+def _source_log_entry(session: Session, child_id: int, source: str, source_id: int | None) -> StudyLogEntry | None:
+    if source_id is None:
+        return None
+    return session.exec(
+        select(StudyLogEntry).where(
+            StudyLogEntry.child_id == child_id,
+            StudyLogEntry.source == source,
+            StudyLogEntry.source_id == source_id,
+        )
+    ).first()
+
+
+def sync_topic_log_entry(
+    session: Session,
+    *,
+    child: ChildProfile,
+    subject: ProgrammingSubject,
+    topic: ProgrammingTopic,
+) -> None:
+    """A studied topic has its entry; a topic set back to "not started" loses it.
+
+    Setting it back is a correction, not study, so the entry goes too. A rename
+    reaches the entry while nobody edited its title there.
+    """
+
+    entry = _source_log_entry(session, child.id or 0, study_log_service.SOURCE_TOPIC, topic.id)
+    if topic.status not in TOPIC_STATUS_PROGRESS_LABELS:
+        if entry is not None:
+            _delete_study_log_entry(session, entry)
+        return
+    title = study_log_service.clean_label(topic.title, study_log_service.MAX_TITLE_CHARS) or "?"
+    if entry is None:
+        session.add(
+            StudyLogEntry(
+                child_id=child.id or 0,
+                studied_on=activity_today(),
+                title=title,
+                title_is_auto=True,
+                discipline=_curriculum_discipline_label(session, child, subject),
+                subject=study_log_service.clean_label(subject.name, study_log_service.MAX_SUBJECT_CHARS) or None,
+                subject_id=subject.id,
+                source=study_log_service.SOURCE_TOPIC,
+                source_id=topic.id,
+            )
+        )
+        return
+    if entry.title_is_auto and entry.title != title:
+        entry.title = title
+        entry.updated_at = datetime.utcnow()
+        session.add(entry)
+        sync_study_log_activity(session, entry, child)
+
+
+def sync_lesson_log_entry(session: Session, *, child: ChildProfile, lesson: Lesson) -> None:
+    """A finished lesson has its entry, created the first time; finishing it again adds none."""
+
+    if _source_log_entry(session, child.id or 0, study_log_service.SOURCE_LESSON, lesson.id) is not None:
+        return
+    session.add(
+        StudyLogEntry(
+            child_id=child.id or 0,
+            studied_on=activity_today(),
+            title=study_log_service.clean_label(lesson.title, study_log_service.MAX_TITLE_CHARS) or "?",
+            title_is_auto=True,
+            discipline=study_log_service.language_label(lesson.target_language, child.base_language),
+            subject=study_log_service.clean_label(lesson.theme, study_log_service.MAX_SUBJECT_CHARS) or None,
+            source=study_log_service.SOURCE_LESSON,
+            source_id=lesson.id,
+        )
+    )
+
+
+def sync_day_note_log_entry(session: Session, *, child: ChildProfile, record: StudyDay) -> None:
+    """The old "O que estudou" note of a day, mirrored into its entry."""
+
+    text = _study_log_text(record.studied_text)
+    entry = _source_log_entry(session, child.id or 0, study_log_service.SOURCE_DAY_NOTE, record.id)
+    if not text:
+        if entry is not None:
+            _delete_study_log_entry(session, entry)
+        return
+    label = study_log_service.day_note_label(child.base_language)
+    title = study_log_service.provisional_title(text, label, base_language=child.base_language)
+    if entry is None:
+        session.add(
+            StudyLogEntry(
+                child_id=child.id or 0,
+                studied_on=record.study_date,
+                title=title,
+                title_is_auto=True,
+                discipline=label,
+                content=text,
+                source=study_log_service.SOURCE_DAY_NOTE,
+                source_id=record.id,
+            )
+        )
+        return
+    entry.content = text
+    if entry.title_is_auto:
+        entry.title = title
+    entry.updated_at = datetime.utcnow()
+    session.add(entry)
+
+
+def _study_log_topic(session: Session, entry: StudyLogEntry, child: ChildProfile) -> tuple[ProgrammingTopic, ProgrammingSubject] | None:
+    if entry.source != study_log_service.SOURCE_TOPIC or entry.source_id is None:
+        return None
+    topic = session.get(ProgrammingTopic, entry.source_id)
+    if topic is None:
+        return None
+    subject = session.get(ProgrammingSubject, topic.subject_id)
+    if subject is None or subject.child_id != child.id:
+        return None
+    return topic, subject
+
+
+def _study_log_lesson(session: Session, entry: StudyLogEntry) -> Lesson | None:
+    if entry.source != study_log_service.SOURCE_LESSON or entry.source_id is None:
+        return None
+    return session.get(Lesson, entry.source_id)
+
+
+def _study_log_material(session: Session, entry: StudyLogEntry, child: ChildProfile) -> str:
+    """What the sheet is written from: the learner's text, else the topic's or lesson's own content."""
+
+    text = (entry.content or "").strip()
+    if text:
+        return text
+    found = _study_log_topic(session, entry, child)
+    if found is not None:
+        return build_summary_digest([found[0]])
+    lesson = _study_log_lesson(session, entry)
+    if lesson is not None:
+        return study_log_service.lesson_material(
+            title=lesson.title,
+            theme=lesson.theme,
+            objective=lesson.objective,
+            items=[
+                (item.word_en, item.word_pt, item.example_sentence_en, item.example_sentence_pt)
+                for item in get_lesson_items(session=session, lesson_id=lesson.id or 0)
+            ],
+        )
+    return ""
+
+
+def _study_log_open_href(session: Session, entry: StudyLogEntry, child: ChildProfile) -> str | None:
+    found = _study_log_topic(session, entry, child)
+    if found is not None:
+        topic, subject = found
+        params = {"tab": curriculum_study_tab(subject), "subject_id": subject.id, "topic_id": topic.id}
+        if subject_track(subject) == GENERAL_TRACK and subject.discipline_id:
+            params["discipline_id"] = subject.discipline_id
+        return f"/study?{urlencode(params)}"
+    lesson = _study_log_lesson(session, entry)
+    if lesson is not None:
+        return f"/lesson?{urlencode({'lessonId': lesson.id})}"
+    return None
+
+
+def _study_log_list_item(entry: StudyLogEntry) -> StudyLogEntryListItemSchema:
+    return StudyLogEntryListItemSchema(
+        id=entry.id or 0,
+        studied_on=entry.studied_on,
+        title=entry.title,
+        title_is_auto=entry.title_is_auto,
+        discipline=entry.discipline,
+        subject=entry.subject,
+        subject_id=entry.subject_id,
+        subject_is_auto=entry.subject_is_auto,
+        source=entry.source,
+        source_id=entry.source_id,
+        source_filename=entry.source_filename,
+        duration_minutes=entry.duration_minutes,
+        has_content=bool((entry.content or "").strip()),
+        has_summary=bool((entry.summary or "").strip()),
+        created_at=entry.created_at,
+        updated_at=entry.updated_at,
+    )
+
+
+def _study_log_entry_schema(session: Session, entry: StudyLogEntry, child: ChildProfile) -> StudyLogEntrySchema:
+    return StudyLogEntrySchema(
+        **_study_log_list_item(entry).model_dump(),
+        content=entry.content,
+        summary=entry.summary,
+        summary_updated_at=entry.summary_updated_at,
+        open_href=_study_log_open_href(session, entry, child),
+        can_summarize=bool(_study_log_material(session, entry, child)),
+    )
+
+
+def _study_log_date(value: date | None) -> date:
+    today = activity_today()
+    if value is None:
+        return today
+    if value > today:
+        raise HTTPException(status_code=422, detail="A data do estudo não pode estar no futuro.")
+    return value
+
+
+@app.get("/api/study-log/options", response_model=StudyLogOptionsSchema)
+def get_study_log_options(request: Request, session: Session = Depends(get_session)) -> StudyLogOptionsSchema:
+    """The disciplines the form offers, each with its subjects.
+
+    The ones already used in the log come first, most recent first, so the usual
+    choice is at the top; then programming, the "Outras disciplinas" and the
+    language, for the first entry in each.
+    """
+
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    groups: dict[str, dict] = {}
+
+    def add(name: str, kind: str, subjects: list[study_log_service.SubjectOption]) -> None:
+        label = study_log_service.clean_label(name, study_log_service.MAX_DISCIPLINE_CHARS)
+        key = study_log_service.name_key(label)
+        if not key:
+            return
+        group = groups.setdefault(key, {"name": label, "kind": kind, "subjects": []})
+        if group["kind"] == "log" and kind != "log":
+            group["kind"] = kind
+        group["subjects"].extend(subjects)
+
+    for discipline, subject in session.exec(
+        select(StudyLogEntry.discipline, StudyLogEntry.subject)
+        .where(StudyLogEntry.child_id == child.id)
+        .order_by(StudyLogEntry.studied_on.desc(), StudyLogEntry.id.desc())
+    ).all():
+        add(discipline, "log", [study_log_service.SubjectOption(name=subject)] if subject else [])
+
+    if _account_module_enabled(request, session, "coding"):
+        add(
+            study_log_service.programming_label(child.base_language),
+            "programming",
+            [
+                study_log_service.SubjectOption(name=name, subject_id=subject_id)
+                for subject_id, name in session.exec(
+                    select(ProgrammingSubject.id, ProgrammingSubject.name).where(
+                        ProgrammingSubject.child_id == child.id,
+                        ProgrammingSubject.track == PROGRAMMING_TRACK,
+                    )
+                ).all()
+            ],
+        )
+    if _account_module_enabled(request, session, "diverse"):
+        general_subjects: dict[int, list[study_log_service.SubjectOption]] = {}
+        for subject_id, name, discipline_id in session.exec(
+            select(ProgrammingSubject.id, ProgrammingSubject.name, ProgrammingSubject.discipline_id).where(
+                ProgrammingSubject.child_id == child.id,
+                ProgrammingSubject.track == GENERAL_TRACK,
+            )
+        ).all():
+            if discipline_id:
+                general_subjects.setdefault(discipline_id, []).append(
+                    study_log_service.SubjectOption(name=name, subject_id=subject_id)
+                )
+        for discipline in session.exec(
+            select(StudyDiscipline)
+            .where(StudyDiscipline.child_id == child.id)
+            .order_by(func.lower(StudyDiscipline.name), StudyDiscipline.id)
+        ).all():
+            add(discipline.name, "discipline", general_subjects.get(discipline.id or 0, []))
+    add(study_log_service.language_label(child.target_language, child.base_language), "language", [])
+
+    ai_config, _ = plan_ai_config(user_session, session)
+    return StudyLogOptionsSchema(
+        disciplines=[
+            StudyLogDisciplineOptionSchema(
+                name=group["name"],
+                kind=group["kind"],
+                subjects=[
+                    StudyLogSubjectOptionSchema(name=option.name, subject_id=option.subject_id)
+                    for option in study_log_service.merge_subject_options(group["subjects"])
+                ],
+            )
+            for group in groups.values()
+        ],
+        ai_available=ai_config is not None,
+    )
+
+
+@app.get("/api/study-log", response_model=list[StudyLogEntryListItemSchema])
+def list_study_log(
+    request: Request,
+    start: date | None = Query(default=None),
+    end: date | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> list[StudyLogEntryListItemSchema]:
+    """Every entry, newest first, without the long texts — those come one entry at a time."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    query = select(
+        StudyLogEntry.id,
+        StudyLogEntry.studied_on,
+        StudyLogEntry.title,
+        StudyLogEntry.title_is_auto,
+        StudyLogEntry.discipline,
+        StudyLogEntry.subject,
+        StudyLogEntry.subject_id,
+        StudyLogEntry.subject_is_auto,
+        StudyLogEntry.source,
+        StudyLogEntry.source_id,
+        StudyLogEntry.source_filename,
+        StudyLogEntry.duration_minutes,
+        (func.coalesce(func.length(StudyLogEntry.content), 0) > 0).label("has_content"),
+        (func.coalesce(func.length(StudyLogEntry.summary), 0) > 0).label("has_summary"),
+        StudyLogEntry.created_at,
+        StudyLogEntry.updated_at,
+    ).where(StudyLogEntry.child_id == child.id)
+    if start is not None:
+        query = query.where(StudyLogEntry.studied_on >= start)
+    if end is not None:
+        query = query.where(StudyLogEntry.studied_on <= end)
+    rows = session.exec(
+        query.order_by(StudyLogEntry.studied_on.desc(), StudyLogEntry.created_at.desc(), StudyLogEntry.id.desc())
+    ).all()
+    return [
+        StudyLogEntryListItemSchema(
+            id=row.id,
+            studied_on=row.studied_on,
+            title=row.title,
+            title_is_auto=bool(row.title_is_auto),
+            discipline=row.discipline,
+            subject=row.subject,
+            subject_id=row.subject_id,
+            subject_is_auto=bool(row.subject_is_auto),
+            source=row.source,
+            source_id=row.source_id,
+            source_filename=row.source_filename,
+            duration_minutes=row.duration_minutes,
+            has_content=bool(row.has_content),
+            has_summary=bool(row.has_summary),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
+
+
+@app.get("/api/study-log/{entry_id}", response_model=StudyLogEntrySchema)
+def get_study_log_entry(entry_id: int, request: Request, session: Session = Depends(get_session)) -> StudyLogEntrySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entry = _study_log_entry_for_child(session, entry_id, child)
+    return _study_log_entry_schema(session, entry, child)
+
+
+@app.post("/api/study-log", response_model=StudyLogEntrySchema, status_code=201)
+def create_study_log_entry(
+    payload: StudyLogEntryCreateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogEntrySchema:
+    """Save what the learner studied. The sheet is asked for separately, so a
+    provider that fails or is slow never costs the learner what they typed."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    discipline = study_log_service.clean_label(payload.discipline, study_log_service.MAX_DISCIPLINE_CHARS)
+    if not discipline:
+        raise HTTPException(status_code=422, detail="Escolha a disciplina do que você estudou.")
+    content = _study_log_text(payload.content)
+    if not content and not payload.duration_minutes:
+        raise HTTPException(status_code=422, detail="Cole o que estudou ou informe quanto tempo estudou.")
+    studied_on = _study_log_date(payload.studied_on)
+    discipline = study_log_discipline_label(session, child, discipline)
+    subject, subject_id = resolve_study_log_subject(session, request, child, discipline, payload.subject)
+    title = study_log_service.clean_label(payload.title, study_log_service.MAX_TITLE_CHARS)
+    filename = study_log_service.clean_label(payload.source_filename, study_log_service.MAX_FILENAME_CHARS)
+    now = datetime.utcnow()
+    entry = StudyLogEntry(
+        child_id=child.id or 0,
+        studied_on=studied_on,
+        title=title or study_log_service.provisional_title(content, discipline, base_language=child.base_language),
+        title_is_auto=not title,
+        discipline=discipline,
+        subject=subject,
+        subject_id=subject_id,
+        subject_is_auto=False,
+        content=content or None,
+        source=study_log_service.SOURCE_FILE if filename else study_log_service.SOURCE_MANUAL,
+        source_filename=filename or None,
+        duration_minutes=payload.duration_minutes,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(entry)
+    session.flush()
+    sync_study_log_activity(session, entry, child)
+    session.commit()
+    session.refresh(entry)
+    return _study_log_entry_schema(session, entry, child)
+
+
+@app.put("/api/study-log/{entry_id}", response_model=StudyLogEntrySchema)
+def update_study_log_entry(
+    entry_id: int,
+    payload: StudyLogEntryUpdateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogEntrySchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entry = _study_log_entry_for_child(session, entry_id, child)
+
+    if payload.discipline is not None:
+        discipline = study_log_service.clean_label(payload.discipline, study_log_service.MAX_DISCIPLINE_CHARS)
+        if not discipline:
+            raise HTTPException(status_code=422, detail="Escolha a disciplina do que você estudou.")
+        discipline = study_log_discipline_label(session, child, discipline)
+        if study_log_service.name_key(discipline) != study_log_service.name_key(entry.discipline):
+            if payload.subject is None and entry.subject_is_auto:
+                # The AI's pick belonged to the old discipline; the next sheet picks again.
+                entry.subject, entry.subject_id, entry.subject_is_auto = None, None, False
+            elif payload.subject is None and entry.subject:
+                entry.subject, entry.subject_id = resolve_study_log_subject(
+                    session, request, child, discipline, entry.subject
+                )
+        entry.discipline = discipline
+    if payload.subject is not None:
+        subject, subject_id = resolve_study_log_subject(session, request, child, entry.discipline, payload.subject)
+        # A subject the learner picked is theirs; clearing the field hands the choice back to the AI.
+        entry.subject, entry.subject_id, entry.subject_is_auto = subject, subject_id, False
+    if payload.content is not None:
+        entry.content = _study_log_text(payload.content) or None
+    if payload.duration_minutes is not None:
+        entry.duration_minutes = payload.duration_minutes or None
+    if (
+        entry.source in study_log_service.LEARNER_SOURCES
+        and not (entry.content or "").strip()
+        and not entry.duration_minutes
+    ):
+        raise HTTPException(status_code=422, detail="Cole o que estudou ou informe quanto tempo estudou.")
+    if payload.title is not None:
+        title = study_log_service.clean_label(payload.title, study_log_service.MAX_TITLE_CHARS)
+        entry.title = title or study_log_service.provisional_title(
+            entry.content, entry.discipline, base_language=child.base_language
+        )
+        entry.title_is_auto = not title
+    if payload.studied_on is not None:
+        entry.studied_on = _study_log_date(payload.studied_on)
+    now = datetime.utcnow()
+    if payload.summary is not None:
+        entry.summary = payload.summary.strip() or None
+        entry.summary_updated_at = now
+    entry.updated_at = now
+    session.add(entry)
+    sync_study_log_activity(session, entry, child)
+    session.commit()
+    session.refresh(entry)
+    return _study_log_entry_schema(session, entry, child)
+
+
+@app.delete("/api/study-log/{entry_id}", status_code=204)
+def delete_study_log_entry(entry_id: int, request: Request, session: Session = Depends(get_session)) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entry = _study_log_entry_for_child(session, entry_id, child)
+    _delete_study_log_entry(session, entry)
+    session.commit()
+
+
+@app.post("/api/study-log/{entry_id}/summary", response_model=StudyLogEntrySchema)
+def summarize_study_log_entry(
+    entry_id: int,
+    request: Request,
+    regenerate: bool = False,
+    session: Session = Depends(get_session),
+) -> StudyLogEntrySchema:
+    """Write the entry's sheet, and its title and subject where nobody chose them.
+
+    A stored sheet is returned as it is unless a new one is asked for, so opening
+    an entry never costs a call and an edited sheet is never overwritten.
+    """
+
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entry = _study_log_entry_for_child(session, entry_id, child)
+    if (entry.summary or "").strip() and not regenerate:
+        return _study_log_entry_schema(session, entry, child)
+
+    material = _study_log_material(session, entry, child)
+    if not material:
+        raise HTTPException(
+            status_code=422,
+            detail="Este registro não tem texto para resumir. Cole o que estudou para gerar a ficha.",
+        )
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+    choose_subject = not entry.subject or entry.subject_is_auto
+    options = study_log_subject_options(session, request, child, entry.discipline) if choose_subject else []
+    system_text, prompt = study_log_service.build_sheet_prompts(
+        discipline=entry.discipline,
+        subject=entry.subject,
+        choose_subject=choose_subject,
+        subject_options=options,
+        title=entry.title,
+        title_is_auto=entry.title_is_auto,
+        material=material,
+        base_language=child.base_language,
+        age_group=child_age_group(child),
+    )
+
+    # Close the read transaction before the external provider call.
+    session.rollback()
+    try:
+        raw_text = phrase_generation_service.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            # Low: the sheet should recall the material, not improvise around it.
+            temperature=0.3,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    try:
+        sheet = study_log_service.parse_sheet_response(raw_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    entry = _study_log_entry_for_child(session, entry_id, child)
+    now = datetime.utcnow()
+    entry.summary = sheet.summary
+    entry.summary_updated_at = now
+    if entry.title_is_auto and sheet.title:
+        entry.title = sheet.title
+    if (not entry.subject or entry.subject_is_auto) and sheet.subject:
+        match = study_log_service.match_subject(sheet.subject, options)
+        entry.subject = match.name if match else sheet.subject
+        entry.subject_id = match.subject_id if match else None
+        entry.subject_is_auto = True
+    entry.updated_at = now
+    session.add(entry)
+    sync_study_log_activity(session, entry, child)
+    session.commit()
+    session.refresh(entry)
+    return _study_log_entry_schema(session, entry, child)
 
 
 # ── Study session: one queue, built once, resumable ───────────────────────────
@@ -4660,16 +5426,21 @@ def _materialize_legacy_coding_curriculum(session: Session, child_id: int) -> li
             topic_title = _legacy_coding_topic_title(raw_topic)
             if not topic_title:
                 continue
-            session.add(
-                ProgrammingTopic(
-                    subject_id=subject.id or 0,
-                    title=topic_title,
-                    order_index=index,
-                    status="studied" if _legacy_coding_topic_done(raw_topic) else "not_started",
-                    created_at=now,
-                    updated_at=now,
-                )
+            done = _legacy_coding_topic_done(raw_topic)
+            topic = ProgrammingTopic(
+                subject_id=subject.id or 0,
+                title=topic_title,
+                order_index=index,
+                status="studied" if done else "not_started",
+                created_at=now,
+                updated_at=now,
             )
+            session.add(topic)
+            if done:
+                session.flush()
+                child = session.get(ChildProfile, child_id)
+                if child is not None:
+                    sync_topic_log_entry(session, child=child, subject=subject, topic=topic)
 
     session.commit()
     return session.exec(
@@ -7456,6 +8227,10 @@ def update_coding_topic(
                 "previous_status": previous_status,
             },
         )
+    # The "Controle de estudos" lists every studied topic, so it follows the
+    # status (and the title) from here.
+    if topic.status != previous_status or payload.title is not None:
+        sync_topic_log_entry(session, child=child, subject=subject, topic=topic)
     session.commit()
     session.refresh(topic)
     return _programming_topic_schema(session, topic)
@@ -11167,6 +11942,8 @@ FEYNMAN_ACTIVITY_TYPES = {
     # Reaching an objective is a milestone, not a study block: it carries no
     # duration, but the day it happened belongs in the feed.
     "objective": "objective",
+    # An entry written in the "Controle de estudos": a study block like a lesson.
+    "study_log": "lesson",
 }
 CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard", "coding_topic"}
 

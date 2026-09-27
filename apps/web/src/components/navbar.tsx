@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, LogIn, LogOut, Menu, Settings, Target, Trophy, UserPlus, X } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, GraduationCap, Home, Library, LogIn, LogOut, Menu, NotebookPen, Settings, Target, Trophy, UserPlus, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageToggle } from '@/components/language-toggle';
 import { api } from '@/lib/api';
@@ -15,6 +15,7 @@ const primaryLinks = [
   { href: '/objectives', label: "Objetivos", icon: Target },
   { href: '/lesson', label: "Lição", icon: BookOpen },
   { href: '/study', label: "Estudos", icon: ClipboardList },
+  { href: '/study-log', label: "Controle de estudos", icon: NotebookPen },
   { href: '/quiz', label: "Quiz", icon: Trophy },
   { href: '/review', label: "Revisão", icon: Brain },
   { href: '/chat', label: "Chat", icon: Bot },

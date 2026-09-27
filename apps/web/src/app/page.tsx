@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, NotebookPen, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type LevelAnalysis, type Progress, type StudyResume, type StudySessionState } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -332,6 +332,17 @@ export default function HomePage() {
             bg="bg-teal-50"
             border="border-teal-200"
             iconColor="text-teal-600"
+            disabled={cardsDisabled}
+          />
+          <ActivityCard
+            href={cardHref('/study-log')}
+            emoji="📒"
+            icon={<NotebookPen size={28} />}
+            title={t("Controle de estudos")}
+            description={t("Registre o que estudou e revise pelas fichas")}
+            bg="bg-orange-50"
+            border="border-orange-200"
+            iconColor="text-orange-600"
             disabled={cardsDisabled}
           />
           <ActivityCard

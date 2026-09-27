@@ -35,6 +35,8 @@ const privatePaths = [
   '/review',
   '/study',
   '/study?tab=diverse',
+  '/study-log',
+  '/study-log?date=2026-09-26',
 ];
 
 for (const path of privatePaths) {

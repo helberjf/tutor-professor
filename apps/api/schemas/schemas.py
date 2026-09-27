@@ -1841,3 +1841,86 @@ class PlanContextSchema(BaseModel):
     snapshot: list[str] = Field(default_factory=list)
     # The last plan's answers, so "sobre você" is not typed twice.
     last_form: Optional[PlanFormSchema] = None
+
+
+# ── Controle de estudos ───────────────────────────────────────────────────────
+# The limits mirror services/study_log_service.py and STUDY_LOG_LIMITS in
+# apps/web/src/lib/api.ts, so a long paste is stopped in the form instead of
+# being thrown away by a 422 after the learner pressed Salvar.
+
+
+class StudyLogEntryCreateSchema(BaseModel):
+    discipline: str = Field(min_length=1, max_length=100)
+    # Empty or missing: the AI picks one of the discipline's subjects, or names one.
+    subject: Optional[str] = Field(default=None, max_length=100)
+    # Empty or missing: a provisional title until the AI writes one.
+    title: Optional[str] = Field(default=None, max_length=200)
+    content: Optional[str] = Field(default=None, max_length=100_000)
+    source_filename: Optional[str] = Field(default=None, max_length=255)
+    duration_minutes: Optional[int] = Field(default=None, ge=1, le=1440)
+    studied_on: Optional[date] = None
+
+
+class StudyLogEntryUpdateSchema(BaseModel):
+    discipline: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    # "" clears the subject and hands the choice back to the AI.
+    subject: Optional[str] = Field(default=None, max_length=100)
+    title: Optional[str] = Field(default=None, max_length=200)
+    content: Optional[str] = Field(default=None, max_length=100_000)
+    # 0 clears the time.
+    duration_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
+    studied_on: Optional[date] = None
+    summary: Optional[str] = Field(default=None, max_length=12_000)
+
+
+class StudyLogEntryListItemSchema(BaseModel):
+    """One line of the log: everything but the long texts."""
+
+    id: int
+    studied_on: date
+    title: str
+    title_is_auto: bool = False
+    discipline: str
+    subject: Optional[str] = None
+    subject_id: Optional[int] = None
+    subject_is_auto: bool = False
+    # manual | file | topic | lesson | day_note
+    source: str
+    source_id: Optional[int] = None
+    source_filename: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    has_content: bool = False
+    has_summary: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class StudyLogEntrySchema(StudyLogEntryListItemSchema):
+    content: Optional[str] = None
+    summary: Optional[str] = None
+    summary_updated_at: Optional[datetime] = None
+    # Where the topic or lesson can be opened again; None when it is gone.
+    open_href: Optional[str] = None
+    # Whether there is anything to write a sheet from.
+    can_summarize: bool = False
+
+
+class StudyLogSubjectOptionSchema(BaseModel):
+    name: str
+    # Set when the subject is one of the curriculum's.
+    subject_id: Optional[int] = None
+
+
+class StudyLogDisciplineOptionSchema(BaseModel):
+    name: str
+    # programming | discipline | language | log
+    kind: str
+    subjects: list[StudyLogSubjectOptionSchema] = Field(default_factory=list)
+
+
+class StudyLogOptionsSchema(BaseModel):
+    """What the form offers: the disciplines and each one's subjects."""
+
+    disciplines: list[StudyLogDisciplineOptionSchema] = Field(default_factory=list)
+    # Whether a sheet can be written at all (a key of one's own, or credit).
+    ai_available: bool = False

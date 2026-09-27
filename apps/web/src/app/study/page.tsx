@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BarChart2, BookOpen, CalendarDays, ChevronRight, Layers, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, BarChart2, BookOpen, CalendarDays, ChevronRight, Layers, Loader2, NotebookPen, Plus } from 'lucide-react';
 
 import { StatusCard } from '@/components/status-card';
 import { ApiError, api, type StudyDashboard, type StudyDiscipline } from '@/lib/api';
@@ -420,10 +420,12 @@ export default function StudyPage() {
     if (dayLoadFailed) return;
     setSaving(true); setSavedMessage(''); setError(null);
     try {
-      await api.saveStudyDay(selectedDate, { plan_text: planText, studied_text: studiedText, distractions });
+      // What was studied is recorded in the Controle de estudos now; this card
+      // keeps the plan and the distractions.
+      await api.saveStudyDay(selectedDate, { plan_text: planText, distractions });
       const refreshed = await api.getStudyDashboard();
       setDashboard(refreshed);
-      setSavedMessage(studiedText.trim() ? translate("Estudo registrado.") : translate("Planejamento salvo."));
+      setSavedMessage(translate("Planejamento salvo."));
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(translate("Não foi possível salvar.")));
     } finally { setSaving(false); }
@@ -471,6 +473,16 @@ export default function StudyPage() {
             <ArrowLeft size={18} /> {translate("Voltar")}
           </Link>
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <Link
+              href={`/study-log?date=${selectedDate}`}
+              aria-label={translate("Controle de estudos")}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary-dark px-3 text-xs font-black text-white transition hover:bg-primary"
+            >
+              <NotebookPen size={14} />
+              {/* Short on phones, so it shares a row with the tag instead of adding one. */}
+              <span className="sm:hidden">{translate("Controle")}</span>
+              <span className="hidden sm:inline">{translate("Controle de estudos")}</span>
+            </Link>
             <span className="app-tag w-fit text-xs">{translate("Painel de disciplina")}</span>
             <label className="inline-flex min-h-11 items-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-3 text-xs font-black text-slate-700">
               <CalendarDays size={14} />
@@ -547,7 +559,7 @@ export default function StudyPage() {
             dashboard={dashboard}
             selectedDate={selectedDate}
             planText={planText} setPlanText={setPlanText}
-            studiedText={studiedText} setStudiedText={setStudiedText}
+            studiedText={studiedText}
             distractions={distractions}
             newDistraction={newDistraction} setNewDistraction={setNewDistraction}
             addDistraction={addDistraction}
