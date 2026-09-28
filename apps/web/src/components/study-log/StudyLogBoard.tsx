@@ -1,7 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CalendarDays, Clock3, Layers, ListFilter, Loader2, NotebookPen, RotateCcw, Search } from 'lucide-react';
+import {
+  CalendarDays,
+  Check,
+  Clock3,
+  Layers,
+  ListFilter,
+  Loader2,
+  NotebookPen,
+  NotebookText,
+  Pencil,
+  Repeat2,
+  RotateCcw,
+  Search,
+} from 'lucide-react';
 
 import {
   ApiError,
@@ -9,6 +22,7 @@ import {
   type StudyLogEntry,
   type StudyLogEntryItem,
   type StudyLogOptions,
+  type StudyLogSearchResult,
   type UpdateStudyLogPayload,
 } from '@/lib/api';
 import { t, tf } from '@/lib/i18n';
@@ -16,12 +30,23 @@ import { getLocalDateKey } from '@/lib/pomodoro';
 
 import { StudyLogComposer } from './StudyLogComposer';
 import { StudyLogEntryCard, type EntryBusy } from './StudyLogEntryCard';
-import { filterEntries, formatMinutes, groupByDay, groupByDiscipline, studyLogTotals } from './study-log-helpers';
+import { StudyLogNotebookModal } from './StudyLogNotebookModal';
+import { StudyLogReviewModal, type ReviewScope } from './StudyLogReviewModal';
+import { filterEntries, formatMinutes, groupByDay, groupByDiscipline, nameKey, studyLogTotals } from './study-log-helpers';
 
 type LogView = 'day' | 'discipline';
 
+interface RenameState {
+  kind: 'discipline' | 'subject';
+  discipline: string;
+  /** The subject being renamed; null for the entries without one. */
+  subject: string | null;
+  value: string;
+}
+
 const VIEW_STORAGE_KEY = 'english-kids-tutor:study-log:view';
 const DAYS_PER_PAGE = 21;
+const SEARCH_DELAY_MS = 300;
 
 function toItem(entry: StudyLogEntry): StudyLogEntryItem {
   return {
@@ -39,6 +64,9 @@ function toItem(entry: StudyLogEntry): StudyLogEntryItem {
     duration_minutes: entry.duration_minutes,
     has_content: entry.has_content,
     has_summary: entry.has_summary,
+    last_reviewed_at: entry.last_reviewed_at,
+    review_count: entry.review_count,
+    last_review_score: entry.last_review_score,
     created_at: entry.created_at,
     updated_at: entry.updated_at,
   };
@@ -77,6 +105,102 @@ function StatCell({ icon, tint, value, label, helper }: { icon: ReactNode; tint:
   );
 }
 
+/** Notebook, review and rename for a discipline or a subject. Icons alone on phones. */
+function GroupActions({ onNotebook, onReview, onRename }: { onNotebook: () => void; onReview: () => void; onRename: () => void }) {
+  const buttonClass =
+    'inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 transition hover:border-primary hover:text-primary sm:px-3';
+  return (
+    <span className="flex items-center gap-1.5">
+      <button type="button" onClick={onNotebook} className={buttonClass} aria-label={t("Caderno")} title={t("Caderno")}>
+        <NotebookText size={15} /> <span className="hidden sm:inline">{t("Caderno")}</span>
+      </button>
+      <button type="button" onClick={onReview} className={buttonClass} aria-label={t("Revisar")} title={t("Revisar")}>
+        <Repeat2 size={15} /> <span className="hidden sm:inline">{t("Revisar")}</span>
+      </button>
+      <button type="button" onClick={onRename} className={buttonClass} aria-label={t("Renomear")} title={t("Renomear")}>
+        <Pencil size={15} /> <span className="hidden sm:inline">{t("Renomear")}</span>
+      </button>
+    </span>
+  );
+}
+
+function RenameForm({
+  state,
+  suggestions,
+  mergeWith,
+  busy,
+  error,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  state: RenameState;
+  suggestions: string[];
+  mergeWith: string | null;
+  busy: boolean;
+  error: string;
+  onChange: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const listId = `rename-${state.kind}-${nameKey(state.discipline)}-${nameKey(state.subject ?? '')}`.replace(/\s+/g, '-');
+  return (
+    <form
+      className="rounded-2xl border-2 border-primary/30 bg-white p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label className="block">
+        <span className="text-xs font-black text-slate-600">
+          {state.kind === 'discipline' ? t("Novo nome da disciplina") : t("Novo nome da matéria")}
+        </span>
+        <input
+          autoFocus
+          value={state.value}
+          onChange={(event) => onChange(event.target.value)}
+          list={listId}
+          maxLength={100}
+          placeholder={state.kind === 'subject' ? t("Em branco: fica sem matéria") : undefined}
+          className="mt-1.5 min-h-11 w-full min-w-0 rounded-2xl border-2 border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-primary"
+        />
+        <datalist id={listId}>
+          {suggestions.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+      </label>
+      <p className="mt-2 text-xs font-semibold text-slate-500">
+        {mergeWith
+          ? tf("Já existe \"{name}\": os registros vão para lá e os dois grupos viram um só.", { name: mergeWith })
+          : state.kind === 'discipline'
+            ? t("Muda só aqui no Controle de estudos; em Outras disciplinas o nome continua o mesmo.")
+            : t("Vale para todos os registros desta matéria.")}
+      </p>
+      {error ? <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{error}</p> : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={busy}
+          className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary"
+        >
+          {busy ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+          {mergeWith ? t("Juntar") : t("Renomear")}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="inline-flex min-h-11 items-center rounded-2xl border-2 border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:border-primary"
+        >
+          {t("Cancelar")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function readStoredView(): LogView {
   try {
     return window.localStorage.getItem(VIEW_STORAGE_KEY) === 'discipline' ? 'discipline' : 'day';
@@ -94,11 +218,18 @@ export function StudyLogBoard() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [view, setView] = useState<LogView>('day');
   const [query, setQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<Map<number, StudyLogSearchResult> | null>(null);
+  const [searching, setSearching] = useState(false);
   const [visibleDays, setVisibleDays] = useState(DAYS_PER_PAGE);
   const [details, setDetails] = useState<Record<number, StudyLogEntry>>({});
   const [openIds, setOpenIds] = useState<Set<number>>(() => new Set());
   const [busy, setBusy] = useState<Record<number, EntryBusy | undefined>>({});
   const [entryErrors, setEntryErrors] = useState<Record<number, string | undefined>>({});
+  const [notebook, setNotebook] = useState<{ discipline: string; subject?: string | null } | null>(null);
+  const [review, setReview] = useState<(ReviewScope & { heading: string }) | null>(null);
+  const [renaming, setRenaming] = useState<RenameState | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [renameError, setRenameError] = useState('');
 
   useEffect(() => {
     const now = getLocalDateKey();
@@ -133,6 +264,35 @@ export function StudyLogBoard() {
     };
   }, [reloadNonce, refreshOptions]);
 
+  // The filter answers at once for titles, disciplines and subjects; the text
+  // and the sheets are searched on the server, a moment after typing stops.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setSearchHits(null);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      api.searchStudyLog(trimmed)
+        .then((results) => {
+          if (!cancelled) setSearchHits(new Map(results.map((result) => [result.id, result])));
+        })
+        .catch(() => {
+          if (!cancelled) setSearchHits(new Map());
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, SEARCH_DELAY_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
   function chooseView(next: LogView) {
     setView(next);
     try {
@@ -155,6 +315,24 @@ export function StudyLogBoard() {
     setEntries((current) => sortEntries([...(current ?? []).filter((item) => item.id !== entry.id), toItem(entry)]));
   }
 
+  function fetchDetail(id: number) {
+    api.getStudyLogEntry(id)
+      .then((entry) => setDetails((current) => ({ ...current, [entry.id]: entry })))
+      .catch((err) => setEntryError(id, err instanceof ApiError ? err.message : t("Não foi possível abrir o registro.")));
+  }
+
+  /** After a rename or a batch of sheets, names and flags changed on many entries at once. */
+  async function reloadAll() {
+    try {
+      setEntries(sortEntries(await api.getStudyLog()));
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : t("Não foi possível carregar os registros."));
+    }
+    setDetails({});
+    refreshOptions();
+    openIds.forEach((id) => fetchDetail(id));
+  }
+
   function toggleEntry(id: number, open: boolean) {
     setOpenIds((current) => {
       const next = new Set(current);
@@ -162,11 +340,7 @@ export function StudyLogBoard() {
       else next.delete(id);
       return next;
     });
-    if (open && !details[id]) {
-      api.getStudyLogEntry(id)
-        .then((entry) => setDetails((current) => ({ ...current, [entry.id]: entry })))
-        .catch((err) => setEntryError(id, err instanceof ApiError ? err.message : t("Não foi possível abrir o registro.")));
-    }
+    if (open && !details[id]) fetchDetail(id);
   }
 
   async function generateSheet(id: number, regenerate: boolean) {
@@ -224,13 +398,87 @@ export function StudyLogBoard() {
     }
   }
 
+  function startRename(kind: RenameState['kind'], discipline: string, subject: string | null) {
+    setRenameError('');
+    setRenaming({ kind, discipline, subject, value: kind === 'discipline' ? discipline : subject ?? '' });
+  }
+
+  async function submitRename() {
+    if (!renaming) return;
+    const value = renaming.value.trim();
+    if (renaming.kind === 'discipline' && !value) {
+      setRenameError(t("Escolha o novo nome da disciplina."));
+      return;
+    }
+    setRenameBusy(true);
+    setRenameError('');
+    try {
+      if (renaming.kind === 'discipline') await api.renameStudyLogDiscipline(renaming.discipline, value);
+      else await api.renameStudyLogSubject(renaming.discipline, renaming.subject ?? '', value);
+      setRenaming(null);
+      await reloadAll();
+    } catch (err) {
+      setRenameError(err instanceof ApiError ? err.message : t("Não foi possível renomear."));
+    } finally {
+      setRenameBusy(false);
+    }
+  }
+
   const totals = useMemo(() => studyLogTotals(entries ?? [], today), [entries, today]);
-  const visibleEntries = useMemo(() => filterEntries(entries ?? [], query), [entries, query]);
+  const visibleEntries = useMemo(() => {
+    const local = filterEntries(entries ?? [], query);
+    if (!searchHits) return local;
+    const localIds = new Set(local.map((item) => item.id));
+    return (entries ?? []).filter((item) => localIds.has(item.id) || searchHits.has(item.id));
+  }, [entries, query, searchHits]);
   const dayGroups = useMemo(() => groupByDay(visibleEntries), [visibleEntries]);
   const disciplineGroups = useMemo(() => groupByDiscipline(visibleEntries), [visibleEntries]);
+  const allDisciplineNames = useMemo(() => groupByDiscipline(entries ?? []).map((group) => group.discipline), [entries]);
   const weekDelta = totals.weekMinutes - totals.previousWeekMinutes;
 
+  function renameSuggestions(state: RenameState): string[] {
+    if (state.kind === 'discipline') {
+      return [...new Set([...allDisciplineNames, ...(options?.disciplines ?? []).map((option) => option.name)])];
+    }
+    const group = groupByDiscipline(entries ?? []).find((item) => nameKey(item.discipline) === nameKey(state.discipline));
+    return (group?.subjects ?? []).map((subject) => subject.subject).filter((name): name is string => Boolean(name));
+  }
+
+  function mergeTarget(state: RenameState): string | null {
+    const key = nameKey(state.value);
+    if (!key || key === nameKey(state.kind === 'discipline' ? state.discipline : state.subject ?? '')) return null;
+    if (state.kind === 'discipline') {
+      return allDisciplineNames.find((name) => nameKey(name) === key) ?? null;
+    }
+    return renameSuggestions(state).find((name) => nameKey(name) === key) ?? null;
+  }
+
+  function isRenaming(kind: RenameState['kind'], discipline: string, subject: string | null) {
+    return (
+      renaming?.kind === kind &&
+      nameKey(renaming.discipline) === nameKey(discipline) &&
+      (kind === 'discipline' || nameKey(renaming.subject ?? '') === nameKey(subject ?? ''))
+    );
+  }
+
+  function renderRenameForm() {
+    if (!renaming) return null;
+    return (
+      <RenameForm
+        state={renaming}
+        suggestions={renameSuggestions(renaming)}
+        mergeWith={mergeTarget(renaming)}
+        busy={renameBusy}
+        error={renameError}
+        onChange={(value) => setRenaming((current) => (current ? { ...current, value } : current))}
+        onCancel={() => setRenaming(null)}
+        onSubmit={() => void submitRename()}
+      />
+    );
+  }
+
   function renderCard(item: StudyLogEntryItem, showDate: boolean) {
+    const hit = searchHits?.get(item.id);
     return (
       <StudyLogEntryCard
         key={item.id}
@@ -242,10 +490,12 @@ export function StudyLogBoard() {
         open={openIds.has(item.id)}
         busy={busy[item.id]}
         error={entryErrors[item.id]}
+        snippet={hit && hit.field !== 'title' ? hit.snippet : null}
         onToggle={(open) => toggleEntry(item.id, open)}
         onGenerateSheet={(regenerate) => void generateSheet(item.id, regenerate)}
         onSave={(payload) => saveEntry(item.id, payload)}
         onDelete={() => void deleteEntry(item.id)}
+        onReview={() => setReview({ heading: item.title, entryId: item.id })}
       />
     );
   }
@@ -316,16 +566,26 @@ export function StudyLogBoard() {
           </div>
         </div>
 
-        <label className="mt-4 flex min-h-12 items-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-4 focus-within:border-primary">
-          <Search size={16} className="shrink-0 text-slate-400" />
-          <span className="sr-only">{t("Filtrar registros")}</span>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("Filtrar por título, disciplina ou matéria")}
-            className="min-w-0 flex-1 bg-transparent text-base text-slate-700 outline-none"
-          />
-        </label>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <label className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-4 focus-within:border-primary">
+            {searching ? <Loader2 size={16} className="shrink-0 animate-spin text-slate-400" /> : <Search size={16} className="shrink-0 text-slate-400" />}
+            <span className="sr-only">{t("Buscar nos registros")}</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("Buscar no título, no texto e na ficha")}
+              className="min-w-0 flex-1 bg-transparent text-base text-slate-700 outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => setReview({ heading: t("Revisar fichas") })}
+            disabled={!entries?.some((item) => item.has_summary)}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-white px-4 text-sm font-black text-primary transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Repeat2 size={16} /> {t("Revisar fichas")}
+          </button>
+        </div>
 
         <div className="mt-4">
           {loadError ? (
@@ -353,7 +613,7 @@ export function StudyLogBoard() {
             </div>
           ) : visibleEntries.length === 0 ? (
             <p className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-4 text-sm font-bold text-slate-500">
-              <ListFilter size={16} /> {t("Nenhum registro com esse filtro.")}
+              <ListFilter size={16} /> {searching ? t("Buscando…") : t("Nenhum registro com essa busca.")}
             </p>
           ) : view === 'day' ? (
             <div className="space-y-6">
@@ -391,15 +651,40 @@ export function StudyLogBoard() {
                     </span>
                   </summary>
                   <div className="space-y-4 px-3 pb-4 sm:px-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">{t("Disciplina inteira")}</span>
+                      <GroupActions
+                        onNotebook={() => setNotebook({ discipline: group.discipline })}
+                        onReview={() => setReview({ heading: group.discipline, discipline: group.discipline })}
+                        onRename={() => startRename('discipline', group.discipline, null)}
+                      />
+                    </div>
+                    {isRenaming('discipline', group.discipline, null) ? renderRenameForm() : null}
                     {group.subjects.map((subject) => (
                       <div key={subject.subject ?? '—'}>
-                        <p className="mb-2 flex flex-wrap items-baseline justify-between gap-2 px-1">
-                          <span className="text-sm font-black text-slate-700">{subject.subject ?? t("Sem matéria")}</span>
-                          <span className="text-xs font-bold text-slate-400">
-                            {countLabel(subject.entries.length)}
-                            {subject.minutes ? ` · ${formatMinutes(subject.minutes)}` : ''}
+                        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                          <span className="min-w-0">
+                            <span className="block break-words text-sm font-black text-slate-700">{subject.subject ?? t("Sem matéria")}</span>
+                            <span className="text-xs font-bold text-slate-400">
+                              {countLabel(subject.entries.length)}
+                              {subject.minutes ? ` · ${formatMinutes(subject.minutes)}` : ''}
+                            </span>
                           </span>
-                        </p>
+                          <GroupActions
+                            onNotebook={() => setNotebook({ discipline: group.discipline, subject: subject.subject ?? '' })}
+                            onReview={() =>
+                              setReview({
+                                heading: `${group.discipline} › ${subject.subject ?? t("Sem matéria")}`,
+                                discipline: group.discipline,
+                                subject: subject.subject ?? '',
+                              })
+                            }
+                            onRename={() => startRename('subject', group.discipline, subject.subject)}
+                          />
+                        </div>
+                        {isRenaming('subject', group.discipline, subject.subject) ? (
+                          <div className="mb-2">{renderRenameForm()}</div>
+                        ) : null}
                         <div className="space-y-2">{subject.entries.map((item) => renderCard(item, true))}</div>
                       </div>
                     ))}
@@ -410,6 +695,26 @@ export function StudyLogBoard() {
           )}
         </div>
       </section>
+
+      {notebook ? (
+        <StudyLogNotebookModal
+          discipline={notebook.discipline}
+          subject={notebook.subject}
+          aiAvailable={options?.ai_available !== false}
+          onClose={() => setNotebook(null)}
+          onSheetsWritten={() => void reloadAll()}
+        />
+      ) : null}
+      {review ? (
+        <StudyLogReviewModal
+          discipline={review.discipline}
+          subject={review.subject}
+          entryId={review.entryId}
+          heading={review.heading}
+          onClose={() => setReview(null)}
+          onReviewed={storeEntry}
+        />
+      ) : null}
     </div>
   );
 }

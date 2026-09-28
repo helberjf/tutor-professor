@@ -4,7 +4,7 @@ export type DeepeningInline = {
 };
 
 export type DeepeningBlock =
-  | { type: 'heading'; level: 1 | 2 | 3; content: DeepeningInline[] }
+  | { type: 'heading'; level: 1 | 2 | 3 | 4; content: DeepeningInline[] }
   | { type: 'paragraph'; content: DeepeningInline[] }
   | { type: 'list'; ordered: boolean; items: DeepeningInline[][] }
   | { type: 'code'; language: string; code: string };
@@ -54,11 +54,13 @@ export function parseDeepeningMarkdown(markdown: string): DeepeningBlock[] {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    // Four levels are drawn; deeper ones share the fourth, so a nested outline
+    // (a notebook nests each sheet under its entry) never shows raw #### marks.
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       blocks.push({
         type: 'heading',
-        level: heading[1].length as 1 | 2 | 3,
+        level: Math.min(4, heading[1].length) as 1 | 2 | 3 | 4,
         content: parseInlineMarkdown(heading[2].trim()),
       });
       index += 1;
@@ -84,7 +86,7 @@ export function parseDeepeningMarkdown(markdown: string): DeepeningBlock[] {
     while (
       index < lines.length
       && lines[index].trim()
-      && !/^(#{1,3})\s+/.test(lines[index])
+      && !/^(#{1,6})\s+/.test(lines[index])
       && !/^```/.test(lines[index])
       && !/^\s*(?:(\d+)\.|[-*])\s+/.test(lines[index])
     ) {

@@ -16,6 +16,8 @@ import {
   NotebookPen,
   Pencil,
   RefreshCw,
+  Repeat2,
+  Search,
   Sparkles,
   StickyNote,
   Trash2,
@@ -30,7 +32,7 @@ import {
 } from '@/lib/api';
 import { t, tf } from '@/lib/i18n';
 
-import { formatMinutes, nameKey } from './study-log-helpers';
+import { daysSinceReview, formatMinutes, nameKey } from './study-log-helpers';
 
 // The sheet renderer brings the syntax highlighter along. It is only needed once
 // an entry is opened, so it stays out of the page's first download.
@@ -52,6 +54,20 @@ const actionClass =
 function formatDay(value: string): string {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+}
+
+function ReviewChip({ item, today }: { item: StudyLogEntryItem; today: string }) {
+  const days = daysSinceReview(item.last_reviewed_at, today);
+  if (days === null) return null;
+  const score = item.last_review_score ?? 0;
+  const tone = score >= 70 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${tone}`}>
+      <Repeat2 size={12} />
+      {days === 0 ? t("revisado hoje") : days === 1 ? t("revisado ontem") : tf("revisado há {days} dias", { days })}
+      {` · ${score}%`}
+    </span>
+  );
 }
 
 function SourceChip({ item }: { item: StudyLogEntryItem }) {
@@ -290,10 +306,12 @@ export function StudyLogEntryCard({
   open,
   busy,
   error,
+  snippet,
   onToggle,
   onGenerateSheet,
   onSave,
   onDelete,
+  onReview,
 }: {
   item: StudyLogEntryItem;
   detail: StudyLogEntry | undefined;
@@ -303,10 +321,13 @@ export function StudyLogEntryCard({
   open: boolean;
   busy: EntryBusy | undefined;
   error: string | undefined;
+  /** Why the entry matched a search in its text or sheet. */
+  snippet?: string | null;
   onToggle: (open: boolean) => void;
   onGenerateSheet: (regenerate: boolean) => void;
   onSave: (payload: UpdateStudyLogPayload) => Promise<boolean>;
   onDelete: () => void;
+  onReview: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editingSheet, setEditingSheet] = useState(false);
@@ -364,8 +385,15 @@ export function StudyLogEntryCard({
               <span className="rounded-full bg-rose-50 px-2.5 py-1 text-rose-700">{formatMinutes(item.duration_minutes)}</span>
             ) : null}
             <SourceChip item={item} />
+            <ReviewChip item={item} today={today} />
             {showDate ? <span className="px-1 text-slate-400">{formatDay(item.studied_on)}</span> : null}
           </span>
+          {snippet ? (
+            <span className="mt-2 flex gap-1.5 text-xs font-semibold leading-5 text-slate-500">
+              <Search size={13} className="mt-0.5 shrink-0 text-slate-400" aria-hidden />
+              <span className="min-w-0 break-words italic">{snippet}</span>
+            </span>
+          ) : null}
         </span>
         {generating ? (
           <Loader2 size={18} className="mt-1 shrink-0 animate-spin text-violet-600" aria-label={t("Escrevendo a ficha…")} />
@@ -472,6 +500,11 @@ export function StudyLogEntryCard({
                   <Link href={detail.open_href} className={actionClass}>
                     <ExternalLink size={14} /> {detail.source === 'lesson' ? t("Abrir lição") : t("Abrir aula")}
                   </Link>
+                ) : null}
+                {detail.summary ? (
+                  <button type="button" onClick={onReview} className={actionClass}>
+                    <Repeat2 size={14} /> {t("Revisar esta ficha")}
+                  </button>
                 ) : null}
                 <button type="button" onClick={() => setEditing(true)} className={actionClass}>
                   <Pencil size={14} /> {t("Editar registro")}

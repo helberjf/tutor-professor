@@ -48,10 +48,17 @@ export function DeepeningMarkdown({ content, fallbackLanguage }: DeepeningMarkdo
               </h4>
             );
           }
+          if (block.level === 3) {
+            return (
+              <h5 key={key} className="mt-6 text-[1.1em] font-black leading-tight text-slate-900">
+                <InlineContent content={block.content} />
+              </h5>
+            );
+          }
           return (
-            <h5 key={key} className="mt-6 text-[1.1em] font-black leading-tight text-slate-900">
+            <h6 key={key} className="mt-5 text-[1em] font-black leading-tight text-slate-700">
               <InlineContent content={block.content} />
-            </h5>
+            </h6>
           );
         }
         if (block.type === 'code') {

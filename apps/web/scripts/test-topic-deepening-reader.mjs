@@ -62,6 +62,14 @@ assert.deepEqual(parseDeepeningMarkdown('Texto com **marcador incompleto'), [
   { type: 'paragraph', content: [{ type: 'text', value: 'Texto com **marcador incompleto' }] },
 ]);
 
+// A nested outline (the study log notebook puts each sheet under its entry)
+// goes past ###: those headings share the fourth level instead of showing ####.
+assert.deepEqual(parseDeepeningMarkdown('#### Em uma frase\nA ideia.\n###### Fundo'), [
+  { type: 'heading', level: 4, content: [{ type: 'text', value: 'Em uma frase' }] },
+  { type: 'paragraph', content: [{ type: 'text', value: 'A ideia.' }] },
+  { type: 'heading', level: 4, content: [{ type: 'text', value: 'Fundo' }] },
+]);
+
 const rendererPath = resolve(scriptDir, '../src/components/coding/DeepeningMarkdown.tsx');
 assert.equal(existsSync(rendererPath), true, 'the formatted deepening renderer must exist');
 const rendererSource = readFileSync(rendererPath, 'utf8');

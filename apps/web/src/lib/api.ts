@@ -1177,6 +1177,10 @@ export interface StudyLogEntryItem {
   duration_minutes: number | null;
   has_content: boolean;
   has_summary: boolean;
+  last_reviewed_at: string | null;
+  review_count: number;
+  /** Share of the sheet's questions known last time, 0-100. */
+  last_review_score: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -1219,6 +1223,41 @@ export interface CreateStudyLogPayload {
   source_filename?: string | null;
   duration_minutes?: number | null;
   studied_on?: string | null;
+}
+
+export interface StudyLogSearchResult {
+  id: number;
+  /** The stretch of text around the first word found; null when only the title matched. */
+  snippet: string | null;
+  field: 'content' | 'summary' | 'title';
+}
+
+export interface StudyLogRenameResult {
+  updated: number;
+  name: string | null;
+}
+
+export interface StudyLogNotebook {
+  title: string;
+  discipline: string;
+  subject: string | null;
+  /** The sheets joined, in Markdown. */
+  content: string;
+  entry_count: number;
+  summarized_count: number;
+  pending: Array<{ id: number; title: string; can_summarize: boolean }>;
+}
+
+export interface StudyLogReviewItem {
+  id: number;
+  title: string;
+  discipline: string;
+  subject: string | null;
+  studied_on: string;
+  last_reviewed_at: string | null;
+  review_count: number;
+  last_review_score: number | null;
+  questions: Array<{ question: string; answer: string }>;
 }
 
 export interface UpdateStudyLogPayload {
@@ -2599,6 +2638,38 @@ export const api = {
     fetchAPI<StudyLogEntry>(`/api/study-log/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteStudyLogEntry: (id: number) =>
     fetchAPI<void>(`/api/study-log/${id}`, { method: 'DELETE' }),
+  /** Entries whose title, discipline, subject, text or sheet hold every word, accents aside. */
+  searchStudyLog: (query: string) =>
+    fetchAPI<StudyLogSearchResult[]>(`/api/study-log/search?${new URLSearchParams({ q: query }).toString()}`),
+  /** A name already in use merges the two groups. Only the log changes. */
+  renameStudyLogDiscipline: (fromName: string, toName: string) =>
+    fetchAPI<StudyLogRenameResult>('/api/study-log/disciplines/rename', {
+      method: 'POST',
+      body: JSON.stringify({ from_name: fromName, to_name: toName }),
+    }),
+  /** fromName "" files the entries without a subject; toName "" takes the subject away. */
+  renameStudyLogSubject: (discipline: string, fromName: string, toName: string) =>
+    fetchAPI<StudyLogRenameResult>('/api/study-log/subjects/rename', {
+      method: 'POST',
+      body: JSON.stringify({ discipline, from_name: fromName, to_name: toName }),
+    }),
+  getStudyLogNotebook: (discipline: string, subject?: string | null) => {
+    const params = new URLSearchParams({ discipline });
+    if (subject !== undefined && subject !== null) params.set('subject', subject);
+    return fetchAPI<StudyLogNotebook>(`/api/study-log/notebook?${params.toString()}`);
+  },
+  /** The questions of the sheets that went longest without a review. */
+  getStudyLogReview: (scope: { discipline?: string; subject?: string | null; entryId?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (scope.entryId !== undefined) params.set('entry_id', String(scope.entryId));
+    if (scope.discipline) params.set('discipline', scope.discipline);
+    if (scope.subject !== undefined && scope.subject !== null) params.set('subject', scope.subject);
+    if (scope.limit !== undefined) params.set('limit', String(scope.limit));
+    const query = params.toString();
+    return fetchAPI<StudyLogReviewItem[]>(`/api/study-log/review${query ? `?${query}` : ''}`);
+  },
+  submitStudyLogReview: (id: number, result: { known: number; total: number }) =>
+    fetchAPI<StudyLogEntry>(`/api/study-log/${id}/review`, { method: 'POST', body: JSON.stringify(result) }),
   /** Writes the sheet (and the title and subject nobody chose); a stored one comes back as it is. */
   summarizeStudyLogEntry: (id: number, options: { regenerate?: boolean } = {}) =>
     fetchAPI<StudyLogEntry>(`/api/study-log/${id}/summary${options.regenerate ? '?regenerate=true' : ''}`, {
