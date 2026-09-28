@@ -868,5 +868,11 @@ class StudyLogEntry(SQLModel, table=True):
     # The study sheet: enough to review from and to teach somebody else.
     summary: Optional[str] = Field(default=None, sa_column=Column(Text))
     summary_updated_at: Optional[datetime] = Field(default=None)
+    # Reviewing the sheet's questions: when it last happened, how many times,
+    # and how much of it the learner knew then (0-100). The review queue starts
+    # from the entries that went longest without one.
+    last_reviewed_at: Optional[datetime] = Field(default=None)
+    review_count: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
+    last_review_score: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -1891,6 +1891,10 @@ class StudyLogEntryListItemSchema(BaseModel):
     duration_minutes: Optional[int] = None
     has_content: bool = False
     has_summary: bool = False
+    last_reviewed_at: Optional[datetime] = None
+    review_count: int = 0
+    # Share of the sheet's questions the learner knew last time, 0-100.
+    last_review_score: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
@@ -1924,3 +1928,76 @@ class StudyLogOptionsSchema(BaseModel):
     disciplines: list[StudyLogDisciplineOptionSchema] = Field(default_factory=list)
     # Whether a sheet can be written at all (a key of one's own, or credit).
     ai_available: bool = False
+
+
+class StudyLogSearchResultSchema(BaseModel):
+    id: int
+    # The stretch of text around the first word found; None when only the
+    # title, discipline or subject matched.
+    snippet: Optional[str] = None
+    # content | summary | title
+    field: str = "title"
+
+
+class StudyLogRenameDisciplineSchema(BaseModel):
+    from_name: str = Field(min_length=1, max_length=100)
+    # An existing discipline's name merges the two groups.
+    to_name: str = Field(min_length=1, max_length=100)
+
+
+class StudyLogRenameSubjectSchema(BaseModel):
+    discipline: str = Field(min_length=1, max_length=100)
+    # "" names the entries without a subject.
+    from_name: str = Field(default="", max_length=100)
+    # "" takes the subject away; an existing subject's name merges the two.
+    to_name: str = Field(default="", max_length=100)
+
+
+class StudyLogRenameResultSchema(BaseModel):
+    updated: int
+    name: Optional[str] = None
+
+
+class StudyLogPendingSheetSchema(BaseModel):
+    """An entry of the notebook still without a sheet."""
+
+    id: int
+    title: str
+    # False when there is nothing to write it from (only the time was logged).
+    can_summarize: bool = False
+
+
+class StudyLogNotebookSchema(BaseModel):
+    """The sheets of a discipline, or of one of its subjects, as one document."""
+
+    title: str
+    discipline: str
+    subject: Optional[str] = None
+    content: str
+    entry_count: int = 0
+    summarized_count: int = 0
+    pending: list[StudyLogPendingSheetSchema] = Field(default_factory=list)
+
+
+class StudyLogReviewQuestionSchema(BaseModel):
+    question: str
+    answer: str
+
+
+class StudyLogReviewItemSchema(BaseModel):
+    """One entry of a review session, with the questions of its sheet."""
+
+    id: int
+    title: str
+    discipline: str
+    subject: Optional[str] = None
+    studied_on: date
+    last_reviewed_at: Optional[datetime] = None
+    review_count: int = 0
+    last_review_score: Optional[int] = None
+    questions: list[StudyLogReviewQuestionSchema] = Field(default_factory=list)
+
+
+class StudyLogReviewResultSchema(BaseModel):
+    known: int = Field(ge=0, le=50)
+    total: int = Field(ge=1, le=50)

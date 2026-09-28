@@ -22,11 +22,15 @@ function loadModule(path) {
 
 const {
   addDays,
+  daysBetween,
+  daysSinceReview,
   filterEntries,
   formatMinutes,
   groupByDay,
   groupByDiscipline,
   nameKey,
+  notebookFileName,
+  reviewScore,
   studyLogTotals,
 } = loadModule('../src/components/study-log/study-log-helpers.ts');
 
@@ -113,5 +117,17 @@ assert.equal(filterEntries(entries, '').length, entries.length);
 assert.equal(filterEntries(entries, 'penal direito').length, 1);
 assert.equal(filterEntries(entries, 'programming').length, 2, 'the English name finds the Portuguese label');
 assert.equal(filterEntries(entries, 'ingles').length, 2);
+
+// ── Reviews: days since, and the score the API also computes ──────────────────
+assert.equal(daysBetween('2026-09-20', '2026-09-27'), 7);
+assert.equal(daysBetween('2026-12-31', '2027-01-01'), 1);
+assert.equal(daysSinceReview(null, '2026-09-27'), null, 'never reviewed');
+assert.equal(daysSinceReview(`${new Date().getFullYear()}-06-15T12:00:00`, `${new Date().getFullYear()}-06-18`), 3);
+assert.equal(reviewScore(2, 3), 67);
+assert.equal(reviewScore(0, 0), 0);
+
+// ── The notebook's file name ──────────────────────────────────────────────────
+assert.equal(notebookFileName('Caderno de Direito › Constitucional'), 'caderno-de-direito-constitucional.md');
+assert.equal(notebookFileName('???'), 'caderno.md');
 
 console.log('study log helpers: ok');

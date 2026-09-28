@@ -63,13 +63,10 @@ export const STUDY_LOG_EN: Record<string, string> = {
   'Como agrupar': 'How to group',
   'Por dia': 'By day',
   'Por disciplina': 'By subject area',
-  'Filtrar registros': 'Filter entries',
-  'Filtrar por título, disciplina ou matéria': 'Filter by title, subject area or subject',
   'Carregando registros…': 'Loading entries…',
   'Nada registrado ainda': 'Nothing logged yet',
   'Registre o que estudou hoje. Tópicos marcados como estudados e lições concluídas também aparecem aqui.':
     'Log what you studied today. Topics marked as studied and finished lessons show up here too.',
-  'Nenhum registro com esse filtro.': 'No entries match this filter.',
   'Mostrar dias anteriores': 'Show earlier days',
   'Sem matéria': 'No subject',
   'Não foi possível carregar os registros.': 'Could not load the entries.',
@@ -112,4 +109,60 @@ export const STUDY_LOG_EN: Record<string, string> = {
     'Nothing logged on this day. What you study goes to the study log, with a sheet to review.',
   'Depois do estudo, registre no Controle de estudos o que realmente fez. Isso alimenta os dias seguidos.':
     'After studying, add what you actually did to the study log. It keeps your streak going.',
+
+  // Search
+  'Buscar nos registros': 'Search the entries',
+  'Buscar no título, no texto e na ficha': 'Search titles, texts and sheets',
+  'Buscando…': 'Searching…',
+  'Nenhum registro com essa busca.': 'No entries match this search.',
+
+  // Rename and merge
+  'Caderno': 'Notebook',
+  'Renomear': 'Rename',
+  'Juntar': 'Merge',
+  'Disciplina inteira': 'Whole subject area',
+  'Novo nome da disciplina': 'New subject area name',
+  'Novo nome da matéria': 'New subject name',
+  'Em branco: fica sem matéria': 'Blank: no subject',
+  'Já existe "{name}": os registros vão para lá e os dois grupos viram um só.':
+    '"{name}" already exists: the entries move there and the two groups become one.',
+  'Muda só aqui no Controle de estudos; em Outras disciplinas o nome continua o mesmo.':
+    'Changes only here in the study log; in Other disciplines the name stays the same.',
+  'Vale para todos os registros desta matéria.': 'Applies to every entry of this subject.',
+  'Escolha o novo nome da disciplina.': 'Pick the new name of the subject area.',
+  'Não foi possível renomear.': 'Could not rename.',
+
+  // Notebook
+  'Não foi possível abrir o caderno.': 'Could not open the notebook.',
+  'Abrindo o caderno…': 'Opening the notebook…',
+  'Fechar caderno': 'Close notebook',
+  'Baixar .md': 'Download .md',
+  '{summarized} de {total} registros com ficha': '{summarized} of {total} entries with a sheet',
+  '{minutes} min de leitura': '{minutes} min read',
+  'Escrevendo a ficha {current} de {total}: {title}': 'Writing sheet {current} of {total}: {title}',
+  'Gerar as {count} fichas que faltam': 'Write the {count} missing sheets',
+  'Gerar a ficha que falta': 'Write the missing sheet',
+  'Configure uma chave de IA na Área da conta para gerar as fichas que faltam.':
+    'Set up an AI key in the account area to write the missing sheets.',
+  'Registros só com o tempo ficam sem ficha — edite e cole o que estudou para ter uma.':
+    'Entries with only the time have no sheet — edit them and paste what you studied to get one.',
+
+  // Review
+  'Revisar fichas': 'Review sheets',
+  'Revisar esta ficha': 'Review this sheet',
+  'Modo revisar': 'Review mode',
+  'Montando a revisão…': 'Setting up the review…',
+  'Não foi possível abrir a revisão.': 'Could not open the review.',
+  'Não foi possível salvar a revisão.': 'Could not save the review.',
+  'Fechar revisão': 'Close review',
+  'Nada para revisar aqui ainda': 'Nothing to review here yet',
+  'As perguntas vêm das fichas. Gere as fichas dos seus registros e volte para revisar.':
+    'The questions come from the sheets. Write the sheets of your entries and come back to review.',
+  'Pergunta {current} de {total}': 'Question {current} of {total}',
+  'Atalhos: 1 = sabia · 2 = não sabia': 'Shortcuts: 1 = knew it · 2 = did not know',
+  'Você sabia {known} de {total} perguntas': 'You knew {known} of {total} questions',
+  'Concluir': 'Done',
+  'revisado hoje': 'reviewed today',
+  'revisado ontem': 'reviewed yesterday',
+  'revisado há {days} dias': 'reviewed {days} days ago',
 };

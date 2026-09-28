@@ -201,7 +201,16 @@ from schemas.schemas import (
     StudyLogEntryListItemSchema,
     StudyLogEntrySchema,
     StudyLogEntryUpdateSchema,
+    StudyLogNotebookSchema,
     StudyLogOptionsSchema,
+    StudyLogPendingSheetSchema,
+    StudyLogRenameDisciplineSchema,
+    StudyLogRenameResultSchema,
+    StudyLogRenameSubjectSchema,
+    StudyLogReviewItemSchema,
+    StudyLogReviewQuestionSchema,
+    StudyLogReviewResultSchema,
+    StudyLogSearchResultSchema,
     StudyLogSubjectOptionSchema,
     SubjectSummaryResponseSchema,
     TopicSummarySchema,
@@ -2066,6 +2075,8 @@ ACTIVITY_TYPE_TO_OBJECTIVE_AREA = {
 # An entry of the "Controle de estudos". Its area is not fixed by the type: it
 # comes from the discipline the learner filed it under, like a question's does.
 STUDY_LOG_ACTIVITY_TYPE = "study_log"
+# Answering the questions of an entry's sheet in the review mode.
+STUDY_LOG_REVIEW_ACTIVITY_TYPE = "study_log_review"
 STUDY_LOG_OBJECTIVE_AREAS = frozenset({"language", "coding", "diverse"})
 
 
@@ -2080,8 +2091,8 @@ def objective_area_for_activity(activity_type: str, result_details: dict | None)
         if raw_area == "coding":
             return "coding"
         return STUDY_QUESTION_AREA_TO_OBJECTIVE.get(raw_area)
-    if activity_type == STUDY_LOG_ACTIVITY_TYPE:
-        # A written entry carries the area of the discipline it was filed under.
+    if activity_type in (STUDY_LOG_ACTIVITY_TYPE, STUDY_LOG_REVIEW_ACTIVITY_TYPE):
+        # An entry, and a review of it, carry the area of the discipline it was filed under.
         details = result_details if isinstance(result_details, dict) else {}
         raw_area = str(details.get("area") or "").strip()
         return raw_area if raw_area in STUDY_LOG_OBJECTIVE_AREAS else None
@@ -3630,6 +3641,9 @@ def _study_log_list_item(entry: StudyLogEntry) -> StudyLogEntryListItemSchema:
         duration_minutes=entry.duration_minutes,
         has_content=bool((entry.content or "").strip()),
         has_summary=bool((entry.summary or "").strip()),
+        last_reviewed_at=entry.last_reviewed_at,
+        review_count=entry.review_count or 0,
+        last_review_score=entry.last_review_score,
         created_at=entry.created_at,
         updated_at=entry.updated_at,
     )
@@ -3762,6 +3776,9 @@ def list_study_log(
         StudyLogEntry.duration_minutes,
         (func.coalesce(func.length(StudyLogEntry.content), 0) > 0).label("has_content"),
         (func.coalesce(func.length(StudyLogEntry.summary), 0) > 0).label("has_summary"),
+        StudyLogEntry.last_reviewed_at,
+        StudyLogEntry.review_count,
+        StudyLogEntry.last_review_score,
         StudyLogEntry.created_at,
         StudyLogEntry.updated_at,
     ).where(StudyLogEntry.child_id == child.id)
@@ -3788,11 +3805,279 @@ def list_study_log(
             duration_minutes=row.duration_minutes,
             has_content=bool(row.has_content),
             has_summary=bool(row.has_summary),
+            last_reviewed_at=row.last_reviewed_at,
+            review_count=row.review_count or 0,
+            last_review_score=row.last_review_score,
             created_at=row.created_at,
             updated_at=row.updated_at,
         )
         for row in rows
     ]
+
+
+def _child_log_entries(session: Session, child: ChildProfile) -> list[StudyLogEntry]:
+    return list(
+        session.exec(
+            select(StudyLogEntry)
+            .where(StudyLogEntry.child_id == child.id)
+            .order_by(StudyLogEntry.studied_on.desc(), StudyLogEntry.id.desc())
+        ).all()
+    )
+
+
+def _entries_in(entries: list[StudyLogEntry], discipline: str, subject: str | None = None) -> list[StudyLogEntry]:
+    """The entries of one discipline, and of one of its subjects when given ("" = no subject)."""
+
+    discipline_key = study_log_service.name_key(discipline)
+    subject_key = None if subject is None else study_log_service.name_key(subject)
+    return [
+        entry
+        for entry in entries
+        if study_log_service.name_key(entry.discipline) == discipline_key
+        and (subject_key is None or study_log_service.name_key(entry.subject or "") == subject_key)
+    ]
+
+
+@app.get("/api/study-log/search", response_model=list[StudyLogSearchResultSchema])
+def search_study_log(
+    request: Request,
+    q: str = Query(default="", max_length=200),
+    session: Session = Depends(get_session),
+) -> list[StudyLogSearchResultSchema]:
+    """Entries whose title, discipline, subject, text or sheet hold every word searched.
+
+    Accents and case do not matter. Each result carries the stretch of text
+    around the first word found, so the list can show why it matched.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    words = study_log_service.search_words(q)
+    if not words:
+        return []
+    results: list[StudyLogSearchResultSchema] = []
+    rows = session.exec(
+        select(
+            StudyLogEntry.id,
+            StudyLogEntry.title,
+            StudyLogEntry.discipline,
+            StudyLogEntry.subject,
+            StudyLogEntry.content,
+            StudyLogEntry.summary,
+        )
+        .where(StudyLogEntry.child_id == child.id)
+        .order_by(StudyLogEntry.studied_on.desc(), StudyLogEntry.id.desc())
+    ).all()
+    for row in rows:
+        if not study_log_service.matches_search(
+            (row.title, row.discipline, row.subject, row.content, row.summary), words
+        ):
+            continue
+        snippet, field = None, "title"
+        for field_name, value in (("content", row.content), ("summary", row.summary)):
+            found = study_log_service.search_snippet(value, words)
+            if found:
+                snippet, field = found, field_name
+                break
+        results.append(StudyLogSearchResultSchema(id=row.id, snippet=snippet, field=field))
+        if len(results) >= study_log_service.MAX_SEARCH_RESULTS:
+            break
+    return results
+
+
+@app.post("/api/study-log/disciplines/rename", response_model=StudyLogRenameResultSchema)
+def rename_study_log_discipline(
+    payload: StudyLogRenameDisciplineSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogRenameResultSchema:
+    """Rename a discipline of the log; a name already in use merges the two groups.
+
+    Only the log changes: a discipline of "Outras disciplinas" keeps its own
+    name there. The subjects are linked again to the curriculum of the new name.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    target = study_log_service.clean_label(payload.to_name, study_log_service.MAX_DISCIPLINE_CHARS)
+    if not target:
+        raise HTTPException(status_code=422, detail="Escolha o novo nome da disciplina.")
+    entries = _entries_in(_child_log_entries(session, child), payload.from_name)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Disciplina não encontrada no Controle de estudos.")
+    # A new spelling of the same name is taken as typed; any other name reuses
+    # the spelling already in use for it, which is what merging two groups means.
+    same_name = study_log_service.name_key(target) == study_log_service.name_key(payload.from_name)
+    label = target if same_name else study_log_discipline_label(session, child, target)
+    options = study_log_subject_options(session, request, child, label)
+    now = datetime.utcnow()
+    for entry in entries:
+        entry.discipline = label
+        if entry.subject:
+            match = study_log_service.match_subject(entry.subject, options)
+            entry.subject = match.name if match else entry.subject
+            entry.subject_id = match.subject_id if match else None
+        entry.updated_at = now
+        session.add(entry)
+    session.flush()
+    for entry in entries:
+        sync_study_log_activity(session, entry, child)
+    session.commit()
+    return StudyLogRenameResultSchema(updated=len(entries), name=label)
+
+
+@app.post("/api/study-log/subjects/rename", response_model=StudyLogRenameResultSchema)
+def rename_study_log_subject(
+    payload: StudyLogRenameSubjectSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogRenameResultSchema:
+    """Rename a subject inside a discipline, merge it into another one, or file
+    the entries still without a subject under one. The choice becomes the learner's."""
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entries = _entries_in(_child_log_entries(session, child), payload.discipline, payload.from_name)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Matéria não encontrada no Controle de estudos.")
+    target = study_log_service.clean_label(payload.to_name, study_log_service.MAX_SUBJECT_CHARS)
+    label: str | None = None
+    subject_id: int | None = None
+    if target:
+        options = study_log_subject_options(session, request, child, entries[0].discipline)
+        match = study_log_service.match_subject(target, options)
+        same_name = study_log_service.name_key(target) == study_log_service.name_key(payload.from_name)
+        label = target if (same_name or match is None) else match.name
+        subject_id = match.subject_id if match else None
+    now = datetime.utcnow()
+    for entry in entries:
+        entry.subject, entry.subject_id, entry.subject_is_auto = label, subject_id, False
+        entry.updated_at = now
+        session.add(entry)
+    session.flush()
+    for entry in entries:
+        sync_study_log_activity(session, entry, child)
+    session.commit()
+    return StudyLogRenameResultSchema(updated=len(entries), name=label)
+
+
+@app.get("/api/study-log/notebook", response_model=StudyLogNotebookSchema)
+def get_study_log_notebook(
+    request: Request,
+    discipline: str = Query(min_length=1, max_length=100),
+    subject: str | None = Query(default=None, max_length=100),
+    session: Session = Depends(get_session),
+) -> StudyLogNotebookSchema:
+    """The sheets of a discipline, or of one of its subjects, joined for reading.
+
+    Nothing is generated here: entries still without a sheet come back in
+    `pending`, so the caller writes exactly those, one at a time.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entries = _entries_in(_child_log_entries(session, child), discipline, subject)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Nada registrado aqui ainda.")
+    # The entries come newest first, so the labels take the spelling in use now.
+    discipline_label = entries[0].discipline
+    subject_label = next((entry.subject for entry in entries if entry.subject), None) if subject else None
+    ordered = sorted(
+        entries,
+        key=lambda entry: (entry.subject is None, (entry.subject or "").casefold(), entry.studied_on, entry.id or 0),
+    )
+    content = study_log_service.build_notebook(
+        discipline=discipline_label,
+        subject=subject_label,
+        entries=[
+            study_log_service.NotebookEntry(
+                title=entry.title,
+                subject=entry.subject,
+                studied_on=entry.studied_on,
+                duration_minutes=entry.duration_minutes,
+                summary=entry.summary,
+            )
+            for entry in ordered
+        ],
+        base_language=child.base_language,
+    )
+    pending = [
+        StudyLogPendingSheetSchema(
+            id=entry.id or 0,
+            title=entry.title,
+            can_summarize=bool(_study_log_material(session, entry, child)),
+        )
+        for entry in ordered
+        if not (entry.summary or "").strip()
+    ]
+    return StudyLogNotebookSchema(
+        title=content.splitlines()[0].lstrip("#").strip(),
+        discipline=discipline_label,
+        subject=subject_label,
+        content=content,
+        entry_count=len(entries),
+        summarized_count=len(entries) - len(pending),
+        pending=pending,
+    )
+
+
+@app.get("/api/study-log/review", response_model=list[StudyLogReviewItemSchema])
+def get_study_log_review(
+    request: Request,
+    discipline: str | None = Query(default=None, max_length=100),
+    subject: str | None = Query(default=None, max_length=100),
+    entry_id: int | None = Query(default=None),
+    limit: int = Query(default=5, ge=1, le=20),
+    session: Session = Depends(get_session),
+) -> list[StudyLogReviewItemSchema]:
+    """A review session: the questions of the sheets that went longest without one.
+
+    Entries never reviewed come first, then the oldest reviews, older studies
+    before newer ones. A sheet without questions in the expected format is
+    skipped rather than shown with nothing to answer.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entries = [entry for entry in _child_log_entries(session, child) if (entry.summary or "").strip()]
+    if entry_id is not None:
+        entries = [entry for entry in entries if entry.id == entry_id]
+    elif discipline:
+        entries = _entries_in(entries, discipline, subject)
+    entries.sort(
+        key=lambda entry: (
+            entry.last_reviewed_at is not None,
+            entry.last_reviewed_at or datetime.min,
+            entry.studied_on,
+            entry.id or 0,
+        )
+    )
+    session_items: list[StudyLogReviewItemSchema] = []
+    question_total = 0
+    for entry in entries:
+        questions = study_log_service.extract_review_questions(entry.summary)
+        if not questions:
+            continue
+        session_items.append(
+            StudyLogReviewItemSchema(
+                id=entry.id or 0,
+                title=entry.title,
+                discipline=entry.discipline,
+                subject=entry.subject,
+                studied_on=entry.studied_on,
+                last_reviewed_at=entry.last_reviewed_at,
+                review_count=entry.review_count or 0,
+                last_review_score=entry.last_review_score,
+                questions=[
+                    StudyLogReviewQuestionSchema(question=item.question, answer=item.answer)
+                    for item in questions
+                ],
+            )
+        )
+        question_total += len(questions)
+        if len(session_items) >= limit or question_total >= study_log_service.MAX_REVIEW_QUESTIONS_PER_SESSION:
+            break
+    return session_items
 
 
 @app.get("/api/study-log/{entry_id}", response_model=StudyLogEntrySchema)
@@ -3994,6 +4279,54 @@ def summarize_study_log_entry(
     entry.updated_at = now
     session.add(entry)
     sync_study_log_activity(session, entry, child)
+    session.commit()
+    session.refresh(entry)
+    return _study_log_entry_schema(session, entry, child)
+
+
+@app.post("/api/study-log/{entry_id}/review", response_model=StudyLogEntrySchema)
+def record_study_log_review(
+    entry_id: int,
+    payload: StudyLogReviewResultSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogEntrySchema:
+    """Record one review of an entry's sheet: when, and how much the learner knew.
+
+    Each review is a study event of its own, so it reaches the activity log as a
+    review, advances the objective area of the discipline and counts its
+    questions in the dashboard.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    entry = _study_log_entry_for_child(session, entry_id, child)
+    if payload.known > payload.total:
+        raise HTTPException(status_code=422, detail="Não dá para saber mais perguntas do que as revisadas.")
+    score = round(100 * payload.known / payload.total)
+    entry.last_reviewed_at = datetime.utcnow()
+    entry.review_count = (entry.review_count or 0) + 1
+    entry.last_review_score = score
+    session.add(entry)
+    add_daily_activity(
+        session,
+        child_id=child.id or 0,
+        activity_type=STUDY_LOG_REVIEW_ACTIVITY_TYPE,
+        activity_title=f"Revisão: {entry.title}",
+        activity_id=entry.id,
+        result_score=float(score),
+        result_details={
+            "entry_id": entry.id,
+            "discipline": entry.discipline,
+            "subject": entry.subject,
+            "area": study_log_service.objective_area_for(entry.discipline, target_language=child.target_language),
+            "known": payload.known,
+            "total": payload.total,
+            # Read by build_activity_metrics, like every other study event's.
+            "subject_name": entry.subject or entry.discipline,
+            "topic_name": entry.title,
+        },
+    )
     session.commit()
     session.refresh(entry)
     return _study_log_entry_schema(session, entry, child)
@@ -11944,6 +12277,8 @@ FEYNMAN_ACTIVITY_TYPES = {
     "objective": "objective",
     # An entry written in the "Controle de estudos": a study block like a lesson.
     "study_log": "lesson",
+    # Its sheet's questions answered in the review mode.
+    "study_log_review": "review",
 }
 CODING_ACTIVITY_TYPES = {"coding", "coding_review", "flashcard", "coding_topic"}
 
@@ -12026,6 +12361,8 @@ def build_activity_metrics(activities: list[DailyActivity]) -> dict:
         elif raw_type == "exam":
             exam_questions = details.get("questions")
             questions_answered += len(exam_questions) if isinstance(exam_questions, list) else max(1, to_nonnegative_int(details.get("total")))
+        elif raw_type == STUDY_LOG_REVIEW_ACTIVITY_TYPE:
+            questions_answered += max(1, to_nonnegative_int(details.get("total")))
 
         add_subject(details.get("subject_name"))
         raw_subjects = details.get("subject_names")

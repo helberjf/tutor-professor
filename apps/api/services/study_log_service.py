@@ -16,7 +16,10 @@ discipline already has, and names a new one only if none fits.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from dataclasses import dataclass
+from datetime import date
 from typing import Iterable, Sequence
 
 from services.ai_flashcard_service import normalize_front
@@ -350,3 +353,194 @@ def objective_area_for(discipline: str, *, target_language: str | None) -> str:
     if language and key in {name_key(language), name_key(STUDY_LANGUAGE_LABELS_PT.get(language, language))}:
         return "language"
     return "diverse"
+
+
+# ── Review, search and notebook ───────────────────────────────────────────────
+
+MAX_REVIEW_QUESTIONS_PER_ENTRY = 10
+MAX_REVIEW_QUESTIONS_PER_SESSION = 40
+MAX_SEARCH_RESULTS = 100
+MAX_SEARCH_WORDS = 8
+SNIPPET_RADIUS = 90
+
+_HEADING_RE = re.compile(r"^(#{1,6})(\s+.*)$")
+_LIST_ITEM_RE = re.compile(r"^(?:\d+[.)]|[-*•])\s+(.*)$")
+_BOLD_QUESTION_RE = re.compile(r"^\*\*(.+?)\*\*\s*[:–—-]?\s*(.*)$")
+# The sheet's question section, named in either of the app's languages.
+_QUESTION_SECTION_WORDS = ("perguntas", "pergunta", "questions", "question")
+
+
+@dataclass(frozen=True)
+class ReviewQuestion:
+    question: str
+    answer: str
+
+
+@dataclass(frozen=True)
+class NotebookEntry:
+    title: str
+    subject: str | None
+    studied_on: date
+    duration_minutes: int | None
+    summary: str | None
+
+
+def _plain(text: str) -> str:
+    return " ".join(text.replace("**", "").replace("__", "").split())
+
+
+def extract_review_questions(summary: str | None) -> list[ReviewQuestion]:
+    """The "Perguntas para se testar" of a sheet, as question and answer pairs.
+
+    The prompt asks for "1. **Question?** Answer." on one line; an answer on the
+    next line, or a question without bold that ends in "?", are read too, since
+    a sheet the learner edited by hand does not always keep the format.
+    """
+
+    items: list[list[str]] = []
+    in_section = False
+    for raw_line in str(summary or "").splitlines():
+        line = raw_line.strip()
+        heading = _HEADING_RE.match(line)
+        if heading:
+            words = normalize_front(heading.group(2)).split()
+            in_section = bool(words) and words[0] in _QUESTION_SECTION_WORDS
+            continue
+        if not in_section or not line:
+            continue
+        item = _LIST_ITEM_RE.match(line)
+        if item:
+            items.append([item.group(1)])
+        elif items:
+            items[-1].append(line)
+
+    questions: list[ReviewQuestion] = []
+    for parts in items:
+        text = " ".join(parts).strip()
+        bold = _BOLD_QUESTION_RE.match(text)
+        if bold:
+            question, answer = bold.group(1), bold.group(2)
+        elif "?" in text:
+            head, _, tail = text.partition("?")
+            question, answer = f"{head}?", tail.strip(" :–—-")
+        else:
+            continue
+        question, answer = _plain(question)[:300], _plain(answer)[:1000]
+        if question and answer:
+            questions.append(ReviewQuestion(question=question, answer=answer))
+        if len(questions) >= MAX_REVIEW_QUESTIONS_PER_ENTRY:
+            break
+    return questions
+
+
+def fold_for_search(text: str) -> str:
+    """Lower case without accents, one character per character of the text.
+
+    Keeping the length is what lets a match found in the folded text point
+    back at the same place in the original, for the snippet.
+    """
+
+    folded: list[str] = []
+    for character in text:
+        base = "".join(
+            part for part in unicodedata.normalize("NFKD", character) if not unicodedata.combining(part)
+        ).lower()
+        if len(base) != 1:
+            base = (character.lower() or " ")[:1]
+        folded.append(base)
+    return "".join(folded)
+
+
+def search_words(query: str | None) -> list[str]:
+    """The words of a search, folded; one-letter words match too much to help."""
+
+    folded = fold_for_search(" ".join(str(query or "").split()))
+    words = [word for word in re.split(r"[\s,;]+", folded) if len(word) >= 2]
+    return words[:MAX_SEARCH_WORDS]
+
+
+def matches_search(fields: Iterable[str | None], words: Sequence[str]) -> bool:
+    """Every word appears somewhere in the fields, whatever the accents and case."""
+
+    haystack = fold_for_search(" ".join(field or "" for field in fields))
+    return all(word in haystack for word in words)
+
+
+def search_snippet(text: str | None, words: Sequence[str], radius: int = SNIPPET_RADIUS) -> str | None:
+    """The stretch of text around the first word found, to show why it matched."""
+
+    original = str(text or "")
+    folded = fold_for_search(original)
+    found = [(folded.find(word), word) for word in words if folded.find(word) != -1]
+    if not found:
+        return None
+    start, word = min(found)
+    begin = max(0, start - radius)
+    end = min(len(original), start + len(word) + radius)
+    # Cut at word boundaries, so the snippet does not open with half a word.
+    if begin > 0:
+        space = original.find(" ", begin, start)
+        begin = space + 1 if space != -1 else begin
+    if end < len(original):
+        space = original.rfind(" ", start + len(word), end)
+        end = space if space != -1 else end
+    snippet = re.sub(r"(^|\s)#{1,6}\s+", " ", original[begin:end]).replace("**", "")
+    snippet = " ".join(snippet.split())
+    return f"{'…' if begin > 0 else ''}{snippet}{'…' if end < len(original) else ''}"
+
+
+def format_minutes(minutes: int | None) -> str:
+    total = max(0, int(minutes or 0))
+    hours, rest = divmod(total, 60)
+    if not hours:
+        return f"{rest} min"
+    return f"{hours}h {rest}min" if rest else f"{hours}h"
+
+
+def _demote_headings(markdown: str, levels: int) -> str:
+    lines = []
+    for line in markdown.splitlines():
+        heading = _HEADING_RE.match(line)
+        if heading:
+            lines.append("#" * min(6, len(heading.group(1)) + levels) + heading.group(2))
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def build_notebook(
+    *,
+    discipline: str,
+    subject: str | None,
+    entries: Sequence[NotebookEntry],
+    base_language: str | None,
+) -> str:
+    """Every sheet of a discipline, or of one of its subjects, in one document.
+
+    The entries arrive in reading order: by subject, then in the order they
+    were studied. Each sheet's headings move down under its entry's heading, so
+    the document keeps one outline instead of a dozen competing "## Em uma
+    frase". Entries still without a sheet stay listed, marked as such.
+    """
+
+    pt = label_language(base_language) == "pt"
+    title = f"{'Caderno de' if pt else 'Notebook:'} {discipline}"
+    if subject:
+        title += f" › {subject}"
+    no_subject = "Sem matéria" if pt else "No subject"
+    no_sheet = "*Ainda sem ficha.*" if pt else "*No sheet yet.*"
+    entry_level = 2 if subject else 3
+
+    parts = [f"# {title}"]
+    current_subject: object = object()
+    for entry in entries:
+        if not subject and entry.subject != current_subject:
+            current_subject = entry.subject
+            parts += ["", f"## {entry.subject or no_subject}"]
+        when = entry.studied_on.strftime("%d/%m/%Y") if pt else entry.studied_on.isoformat()
+        if entry.duration_minutes:
+            when += f" · {format_minutes(entry.duration_minutes)}"
+        parts += ["", f"{'#' * entry_level} {entry.title}", f"*{when}*", ""]
+        body = _strip_leading_h1(str(entry.summary or "")).strip()
+        parts.append(_demote_headings(body, entry_level - 1) if body else no_sheet)
+    return "\n".join(parts).strip() + "\n"

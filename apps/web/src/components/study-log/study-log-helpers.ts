@@ -18,7 +18,7 @@ function stripAccents(value: string): string {
 
 // Spaces and punctuation separate words; letters of any alphabet stay, so a
 // name in Cyrillic keeps its own key instead of folding to nothing.
-const SEPARATORS = /[\s!-\/:-@[-`{-~–—«»“”‘’]+/g;
+const SEPARATORS = /[\s!-\/:-@[-`{-~–—«»“”‘’›·…]+/g;
 
 function fold(value: string | null | undefined): string {
   return stripAccents(String(value ?? ''))
@@ -199,4 +199,42 @@ export function filterEntries(entries: StudyLogEntryItem[], query: string): Stud
     const haystack = nameKey(`${entry.title} ${entry.discipline} ${entry.subject ?? ''}`);
     return words.every((word) => haystack.includes(word));
   });
+}
+
+/** Whole days from one YYYY-MM-DD to another (negative when `to` comes first). */
+export function daysBetween(from: string, to: string): number {
+  const toUtc = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
+}
+
+/**
+ * The local day of a timestamp the API sends in UTC without a zone, as
+ * YYYY-MM-DD, so "reviewed today" is today where the learner is.
+ */
+export function localDayOf(timestamp: string): string {
+  const parsed = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(timestamp) ? timestamp : `${timestamp}Z`);
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Days since the last review, or null when the entry was never reviewed. */
+export function daysSinceReview(lastReviewedAt: string | null | undefined, today: string): number | null {
+  if (!lastReviewedAt) return null;
+  return Math.max(0, daysBetween(localDayOf(lastReviewedAt), today));
+}
+
+/** Share of the questions known, 0-100 — the same rounding as the API. */
+export function reviewScore(known: number, total: number): number {
+  return total > 0 ? Math.round((100 * known) / total) : 0;
+}
+
+/** "caderno-de-direito-constitucional.md" from the notebook's title. */
+export function notebookFileName(title: string): string {
+  const slug = fold(title).replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return `${slug || 'caderno'}.md`;
 }
