@@ -22,16 +22,22 @@ function loadModule(path) {
 
 const {
   addDays,
+  barPercent,
   daysBetween,
   daysSinceReview,
   filterEntries,
   formatMinutes,
+  formatPeriodLabel,
   groupByDay,
   groupByDiscipline,
+  isValidPeriod,
   nameKey,
   notebookFileName,
+  presetOf,
+  presetRange,
   reviewScore,
   studyLogTotals,
+  weekdayLabels,
 } = loadModule('../src/components/study-log/study-log-helpers.ts');
 
 let nextId = 1;
@@ -129,5 +135,33 @@ assert.equal(reviewScore(0, 0), 0);
 // ── The notebook's file name ──────────────────────────────────────────────────
 assert.equal(notebookFileName('Caderno de Direito › Constitucional'), 'caderno-de-direito-constitucional.md');
 assert.equal(notebookFileName('???'), 'caderno.md');
+
+// ── The period of an analysis ─────────────────────────────────────────────────
+assert.deepEqual(presetRange('week', '2026-09-27'), { start: '2026-09-21', end: '2026-09-27' }, 'seven days, today included');
+assert.deepEqual(presetRange('month', '2026-09-27'), { start: '2026-08-29', end: '2026-09-27' });
+assert.equal(presetOf('2026-09-21', '2026-09-27', '2026-09-27'), 'week');
+assert.equal(presetOf('2026-08-29', '2026-09-27', '2026-09-27'), 'month');
+assert.equal(presetOf('2026-09-21', '2026-09-27', '2026-09-28'), 'custom', 'an old week is a custom period today');
+assert.equal(isValidPeriod('2026-09-27', '2026-09-27'), true, 'one day');
+assert.equal(isValidPeriod('2026-09-28', '2026-09-27'), false, 'the end before the start');
+assert.equal(isValidPeriod('2025-09-27', '2026-09-27'), true, 'a year, as the API allows 366 days');
+assert.equal(isValidPeriod('2025-09-26', '2026-09-27'), false, 'more than a year');
+assert.equal(isValidPeriod('', '2026-09-27'), false, 'a date input still empty');
+
+// ── Bars and labels ───────────────────────────────────────────────────────────
+assert.equal(barPercent(50, 100), 50);
+assert.equal(barPercent(1, 1000), 4, 'a small value stays visible');
+assert.equal(barPercent(0, 100), 0);
+assert.equal(barPercent(10, 0), 0);
+const week = formatPeriodLabel('2026-09-21', '2026-09-27', 'pt-BR');
+assert.match(week, /21/);
+assert.match(week, /27/);
+assert.doesNotMatch(week, /2026/, 'the year only when the period crosses one');
+assert.match(formatPeriodLabel('2025-12-29', '2026-01-04', 'pt-BR'), /2026/);
+assert.doesNotMatch(formatPeriodLabel('2026-09-27', '2026-09-27', 'en'), /[–-]/, 'one day is not a range');
+const weekdays = weekdayLabels('en');
+assert.equal(weekdays.length, 7);
+assert.match(weekdays[0], /^Mon/, 'Monday first, like the API');
+assert.match(weekdays[6], /^Sun/);
 
 console.log('study log helpers: ok');

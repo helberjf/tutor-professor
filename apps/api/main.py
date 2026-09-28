@@ -64,7 +64,7 @@ from services.modules import (
     is_module_enabled,
     resolve_modules,
 )
-from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyDiscipline, StudyLogEntry, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
+from models.database import AdminFlashcard, AppConfig, AuthToken, BillingEvent, Book, BookPage, ChildLessonProgress, ChildProfile, CodingDay, CodingDeckConfig, CodingReviewItem, DailyActivity, DiverseDay, LeetCodeMethod, Lesson, LessonItem, LessonQuestion, ProgrammingFlashcard, ProgrammingQuestion, Exam, ExamAttempt, ExamAttemptAnswer, ExamQuestion, Objective, ObjectiveItem, ProgrammingSubject, ProgrammingTopic, QuizAttempt, ReviewItem, StudyDay, StudyDiscipline, StudyLogAnalysis, StudyLogEntry, StudyPlan, StudyQuestion, StudyResume, StudySession, Subscription, UsageRecord, User, UserAISettings, UserSession
 from schemas.schemas import (
     AdminAICreditsSchema,
     AdminUserReviewSchema,
@@ -196,6 +196,9 @@ from schemas.schemas import (
     StudyDashboardSchema,
     StudyDaySchema,
     StudyDayUpdateSchema,
+    StudyLogAnalysisCreateSchema,
+    StudyLogAnalysisListItemSchema,
+    StudyLogAnalysisSchema,
     StudyLogDisciplineOptionSchema,
     StudyLogEntryCreateSchema,
     StudyLogEntryListItemSchema,
@@ -204,6 +207,7 @@ from schemas.schemas import (
     StudyLogNotebookSchema,
     StudyLogOptionsSchema,
     StudyLogPendingSheetSchema,
+    StudyLogPeriodStatsSchema,
     StudyLogRenameDisciplineSchema,
     StudyLogRenameResultSchema,
     StudyLogRenameSubjectSchema,
@@ -759,6 +763,8 @@ RATE_LIMITED_AI_PATHS = {
     "/api/chat",
     "/api/audio/speak",
     "/api/parent/generate-lesson",
+    # The analysis of a period of the study log.
+    "/api/study-log/analyses",
 }
 
 
@@ -4078,6 +4084,240 @@ def get_study_log_review(
         if len(session_items) >= limit or question_total >= study_log_service.MAX_REVIEW_QUESTIONS_PER_SESSION:
             break
     return session_items
+
+
+def _study_log_period(start: date, end: date) -> None:
+    if end < start:
+        raise HTTPException(status_code=422, detail="O fim do período vem antes do começo.")
+    if study_log_service.period_days(start, end) > study_log_service.MAX_ANALYSIS_DAYS:
+        raise HTTPException(status_code=422, detail="Escolha um período de até um ano.")
+
+
+def _study_log_period_data(
+    session: Session, child: ChildProfile, start: date, end: date
+) -> tuple[dict, list[study_log_service.PeriodEntry]]:
+    """The numbers of a period, and its entries as the analysis reads them."""
+
+    previous_start, _ = study_log_service.previous_period(start, end)
+    rows = session.exec(
+        select(
+            StudyLogEntry.studied_on,
+            StudyLogEntry.title,
+            StudyLogEntry.discipline,
+            StudyLogEntry.subject,
+            StudyLogEntry.duration_minutes,
+            StudyLogEntry.summary,
+            # The opening is enough for the line saying what an entry was about.
+            func.substr(StudyLogEntry.content, 1, 2000).label("opening"),
+            StudyLogEntry.last_review_score,
+        )
+        .where(
+            StudyLogEntry.child_id == child.id,
+            StudyLogEntry.studied_on >= previous_start,
+            StudyLogEntry.studied_on <= end,
+        )
+        .order_by(StudyLogEntry.studied_on, StudyLogEntry.id)
+    ).all()
+    entries: list[study_log_service.PeriodEntry] = []
+    previous: list[study_log_service.PeriodEntry] = []
+    for row in rows:
+        in_period = row.studied_on >= start
+        item = study_log_service.PeriodEntry(
+            studied_on=row.studied_on,
+            title=row.title,
+            discipline=row.discipline,
+            subject=row.subject,
+            duration_minutes=row.duration_minutes,
+            has_summary=bool((row.summary or "").strip()),
+            last_review_score=row.last_review_score,
+            excerpt=study_log_service.entry_excerpt(row.summary, row.opening) if in_period else None,
+        )
+        (entries if in_period else previous).append(item)
+    reviews = []
+    for activity_date, details in session.exec(
+        select(DailyActivity.activity_date, DailyActivity.result_details).where(
+            DailyActivity.child_id == child.id,
+            DailyActivity.activity_type == STUDY_LOG_REVIEW_ACTIVITY_TYPE,
+            DailyActivity.activity_date >= start,
+            DailyActivity.activity_date <= end,
+        )
+    ).all():
+        details = details if isinstance(details, dict) else {}
+        reviews.append(
+            study_log_service.PeriodReview(
+                reviewed_on=activity_date,
+                known=to_nonnegative_int(details.get("known")),
+                total=to_nonnegative_int(details.get("total")),
+            )
+        )
+    stats = study_log_service.period_stats(start=start, end=end, entries=entries, previous=previous, reviews=reviews)
+    return stats, entries
+
+
+def _study_log_analysis_for_child(session: Session, analysis_id: int, child: ChildProfile) -> StudyLogAnalysis:
+    analysis = session.get(StudyLogAnalysis, analysis_id)
+    if analysis is None or analysis.child_id != child.id:
+        raise HTTPException(status_code=404, detail="Análise não encontrada.")
+    return analysis
+
+
+def _study_log_analysis_schema(analysis: StudyLogAnalysis) -> StudyLogAnalysisSchema:
+    stats = None
+    if isinstance(analysis.stats, dict):
+        try:
+            stats = StudyLogPeriodStatsSchema.model_validate(analysis.stats)
+        except ValueError:
+            # Numbers stored in an older shape: the text still reads on its own.
+            stats = None
+    return StudyLogAnalysisSchema(
+        id=analysis.id or 0,
+        period_start=analysis.period_start,
+        period_end=analysis.period_end,
+        title=analysis.title,
+        content=analysis.content,
+        stats=stats,
+        created_at=analysis.created_at,
+        updated_at=analysis.updated_at,
+    )
+
+
+@app.get("/api/study-log/period", response_model=StudyLogPeriodStatsSchema)
+def get_study_log_period(
+    request: Request,
+    start: date = Query(),
+    end: date = Query(),
+    session: Session = Depends(get_session),
+) -> StudyLogPeriodStatsSchema:
+    """The numbers of a period of the log: time, study days, disciplines, reviews.
+
+    Nothing here calls the AI, so the page can show them for any period at once.
+    """
+
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    _study_log_period(start, end)
+    stats, _ = _study_log_period_data(session, child, start, end)
+    return StudyLogPeriodStatsSchema.model_validate(stats)
+
+
+@app.get("/api/study-log/analyses", response_model=list[StudyLogAnalysisListItemSchema])
+def list_study_log_analyses(
+    request: Request, session: Session = Depends(get_session)
+) -> list[StudyLogAnalysisListItemSchema]:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    analyses = session.exec(
+        select(StudyLogAnalysis)
+        .where(StudyLogAnalysis.child_id == child.id)
+        .order_by(StudyLogAnalysis.updated_at.desc(), StudyLogAnalysis.id.desc())
+        .limit(study_log_service.MAX_ANALYSES_LISTED)
+    ).all()
+    return [
+        StudyLogAnalysisListItemSchema(
+            id=analysis.id or 0,
+            period_start=analysis.period_start,
+            period_end=analysis.period_end,
+            title=analysis.title,
+            created_at=analysis.created_at,
+            updated_at=analysis.updated_at,
+        )
+        for analysis in analyses
+    ]
+
+
+@app.post("/api/study-log/analyses", response_model=StudyLogAnalysisSchema)
+def create_study_log_analysis(
+    payload: StudyLogAnalysisCreateSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> StudyLogAnalysisSchema:
+    """The AI's analysis of a period: what was studied, the rhythm, what to review, what next.
+
+    The numbers come from the app and go to the AI as facts; the analysis is
+    stored with them. Analysing the same period again replaces the text.
+    """
+
+    user_session = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    start, end = payload.start, payload.end
+    _study_log_period(start, end)
+    stats, entries = _study_log_period_data(session, child, start, end)
+    if not entries:
+        raise HTTPException(status_code=422, detail="Nada registrado nesse período para analisar.")
+    ai_config = _get_user_ai_config(user_session, session)
+    if ai_config is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Configuração de IA não encontrada. Configure sua chave de API em Configurações.",
+        )
+    child_id = child.id or 0
+    base_language = child.base_language
+    system_text, prompt = study_log_service.build_analysis_prompts(
+        stats=stats,
+        entries=entries,
+        base_language=base_language,
+        age_group=child_age_group(child),
+    )
+
+    # Close the read transaction before the external provider call.
+    session.rollback()
+    try:
+        raw_text = phrase_generation_service.generate_json_text(
+            system_text=system_text,
+            prompt=prompt,
+            temperature=0.4,
+            ai_config=ai_config,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    try:
+        result = study_log_service.parse_analysis_response(raw_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    now = datetime.utcnow()
+    title = result.title or study_log_service.analysis_fallback_title(start, end, base_language)
+    analysis = session.exec(
+        select(StudyLogAnalysis).where(
+            StudyLogAnalysis.child_id == child_id,
+            StudyLogAnalysis.period_start == start,
+            StudyLogAnalysis.period_end == end,
+        )
+    ).first()
+    if analysis is None:
+        analysis = StudyLogAnalysis(
+            child_id=child_id,
+            period_start=start,
+            period_end=end,
+            title=title,
+            content=result.analysis,
+            stats=stats,
+            created_at=now,
+            updated_at=now,
+        )
+    else:
+        analysis.title, analysis.content, analysis.stats, analysis.updated_at = title, result.analysis, stats, now
+    session.add(analysis)
+    session.commit()
+    session.refresh(analysis)
+    return _study_log_analysis_schema(analysis)
+
+
+@app.get("/api/study-log/analyses/{analysis_id}", response_model=StudyLogAnalysisSchema)
+def get_study_log_analysis(
+    analysis_id: int, request: Request, session: Session = Depends(get_session)
+) -> StudyLogAnalysisSchema:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    return _study_log_analysis_schema(_study_log_analysis_for_child(session, analysis_id, child))
+
+
+@app.delete("/api/study-log/analyses/{analysis_id}", status_code=204)
+def delete_study_log_analysis(analysis_id: int, request: Request, session: Session = Depends(get_session)) -> None:
+    require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    session.delete(_study_log_analysis_for_child(session, analysis_id, child))
+    session.commit()
 
 
 @app.get("/api/study-log/{entry_id}", response_model=StudyLogEntrySchema)

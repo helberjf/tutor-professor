@@ -1260,6 +1260,56 @@ export interface StudyLogReviewItem {
   questions: Array<{ question: string; answer: string }>;
 }
 
+/** The numbers of a period of the log, computed by the API (never by the AI). */
+export interface StudyLogPeriodStats {
+  start: string;
+  end: string;
+  days: number;
+  /** Only the time the learner typed; entries picked up on their own carry none. */
+  total_minutes: number;
+  entry_count: number;
+  study_days: number;
+  longest_streak: number;
+  longest_gap: number;
+  average_minutes_per_study_day: number;
+  /** The period of the same length right before. */
+  previous: { start: string; end: string; total_minutes: number; entry_count: number; study_days: number };
+  daily: Array<{ date: string; minutes: number; entries: number }>;
+  /** Monday first. */
+  weekdays: Array<{ minutes: number; entries: number }>;
+  disciplines: Array<{
+    name: string;
+    minutes: number;
+    entries: number;
+    subjects: Array<{ name: string | null; minutes: number; entries: number }>;
+  }>;
+  sheets: { with_sheet: number; without_sheet: number };
+  reviews: {
+    /** Reviews done in the period, whatever day the entries were studied. */
+    sessions: number;
+    questions: number;
+    known: number;
+    score: number | null;
+    never_reviewed: number;
+    weak: Array<{ title: string; discipline: string; subject: string | null; score: number }>;
+  };
+}
+
+export interface StudyLogAnalysisItem {
+  id: number;
+  period_start: string;
+  period_end: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The AI's analysis of a period, with the numbers it was written from. */
+export interface StudyLogAnalysis extends StudyLogAnalysisItem {
+  content: string;
+  stats: StudyLogPeriodStats | null;
+}
+
 export interface UpdateStudyLogPayload {
   discipline?: string;
   /** "" clears the subject and hands the choice back to the AI. */
@@ -2670,6 +2720,15 @@ export const api = {
   },
   submitStudyLogReview: (id: number, result: { known: number; total: number }) =>
     fetchAPI<StudyLogEntry>(`/api/study-log/${id}/review`, { method: 'POST', body: JSON.stringify(result) }),
+  getStudyLogPeriod: (start: string, end: string) =>
+    fetchAPI<StudyLogPeriodStats>(`/api/study-log/period?${new URLSearchParams({ start, end }).toString()}`),
+  getStudyLogAnalyses: () => fetchAPI<StudyLogAnalysisItem[]>('/api/study-log/analyses'),
+  getStudyLogAnalysis: (id: number) => fetchAPI<StudyLogAnalysis>(`/api/study-log/analyses/${id}`),
+  /** The AI reads the period's numbers and entries; the same period again replaces the analysis. */
+  createStudyLogAnalysis: (start: string, end: string) =>
+    fetchAPI<StudyLogAnalysis>('/api/study-log/analyses', { method: 'POST', body: JSON.stringify({ start, end }) }),
+  deleteStudyLogAnalysis: (id: number) =>
+    fetchAPI<void>(`/api/study-log/analyses/${id}`, { method: 'DELETE' }),
   /** Writes the sheet (and the title and subject nobody chose); a stored one comes back as it is. */
   summarizeStudyLogEntry: (id: number, options: { regenerate?: boolean } = {}) =>
     fetchAPI<StudyLogEntry>(`/api/study-log/${id}/summary${options.regenerate ? '?regenerate=true' : ''}`, {

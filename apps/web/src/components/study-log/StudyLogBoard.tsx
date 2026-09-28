@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
+  BarChart3,
   CalendarDays,
   Check,
   Clock3,
@@ -28,6 +29,7 @@ import {
 import { t, tf } from '@/lib/i18n';
 import { getLocalDateKey } from '@/lib/pomodoro';
 
+import { StudyLogAnalysisModal } from './StudyLogAnalysisModal';
 import { StudyLogComposer } from './StudyLogComposer';
 import { StudyLogEntryCard, type EntryBusy } from './StudyLogEntryCard';
 import { StudyLogNotebookModal } from './StudyLogNotebookModal';
@@ -227,6 +229,7 @@ export function StudyLogBoard() {
   const [entryErrors, setEntryErrors] = useState<Record<number, string | undefined>>({});
   const [notebook, setNotebook] = useState<{ discipline: string; subject?: string | null } | null>(null);
   const [review, setReview] = useState<(ReviewScope & { heading: string }) | null>(null);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
   const [renaming, setRenaming] = useState<RenameState | null>(null);
   const [renameBusy, setRenameBusy] = useState(false);
   const [renameError, setRenameError] = useState('');
@@ -532,6 +535,15 @@ export function StudyLogBoard() {
             helper={countLabel(totals.weekCount)}
           />
         </div>
+        <div className="mt-4 flex border-t border-slate-100 pt-4 sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setAnalysisOpen(true)}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-white px-4 text-sm font-black text-primary transition hover:bg-primary-light sm:w-auto"
+          >
+            <BarChart3 size={16} /> {t("Analisar período")}
+          </button>
+        </div>
       </section>
 
       <StudyLogComposer options={options} today={today} defaultDate={requestedDate} onCreated={handleCreated} />
@@ -713,6 +725,13 @@ export function StudyLogBoard() {
           heading={review.heading}
           onClose={() => setReview(null)}
           onReviewed={storeEntry}
+        />
+      ) : null}
+      {analysisOpen ? (
+        <StudyLogAnalysisModal
+          today={today}
+          aiAvailable={options?.ai_available !== false}
+          onClose={() => setAnalysisOpen(false)}
         />
       ) : null}
     </div>

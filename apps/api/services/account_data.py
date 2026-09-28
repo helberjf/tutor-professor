@@ -45,6 +45,7 @@ from models.database import (
     StudyDiscipline,
     ReviewItem,
     StudyDay,
+    StudyLogAnalysis,
     StudyLogEntry,
     StudyQuestion,
     StudyPlan,
@@ -162,6 +163,9 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
         "study_log_entries": _dump(
             _rows(session, StudyLogEntry, StudyLogEntry.child_id, child_ids)
         ),
+        "study_log_analyses": _dump(
+            _rows(session, StudyLogAnalysis, StudyLogAnalysis.child_id, child_ids)
+        ),
         "diverse_days": _dump(_rows(session, DiverseDay, DiverseDay.child_id, child_ids)),
         "coding_days": _dump(_rows(session, CodingDay, CodingDay.child_id, child_ids)),
         "books": _dump(books),
@@ -277,6 +281,7 @@ def delete_account(session: Session, user: User) -> dict[str, int]:
     remove(StudyResume, StudyResume.child_id, child_ids)
     remove(StudySession, StudySession.child_id, child_ids)
     remove(ReviewItem, ReviewItem.child_id, child_ids)
+    remove(StudyLogAnalysis, StudyLogAnalysis.child_id, child_ids)
     remove(StudyLogEntry, StudyLogEntry.child_id, child_ids)
     remove(StudyDay, StudyDay.child_id, child_ids)
     remove(DiverseDay, DiverseDay.child_id, child_ids)

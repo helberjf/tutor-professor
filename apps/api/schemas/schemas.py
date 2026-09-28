@@ -2001,3 +2001,103 @@ class StudyLogReviewItemSchema(BaseModel):
 class StudyLogReviewResultSchema(BaseModel):
     known: int = Field(ge=0, le=50)
     total: int = Field(ge=1, le=50)
+
+
+class StudyLogPeriodDaySchema(BaseModel):
+    date: date
+    minutes: int = 0
+    entries: int = 0
+
+
+class StudyLogPeriodWeekdaySchema(BaseModel):
+    minutes: int = 0
+    entries: int = 0
+
+
+class StudyLogPeriodSubjectSchema(BaseModel):
+    # None: the entries without a subject.
+    name: Optional[str] = None
+    minutes: int = 0
+    entries: int = 0
+
+
+class StudyLogPeriodDisciplineSchema(BaseModel):
+    name: str
+    minutes: int = 0
+    entries: int = 0
+    subjects: list[StudyLogPeriodSubjectSchema] = Field(default_factory=list)
+
+
+class StudyLogPeriodPreviousSchema(BaseModel):
+    """The period of the same length right before, to compare with."""
+
+    start: date
+    end: date
+    total_minutes: int = 0
+    entry_count: int = 0
+    study_days: int = 0
+
+
+class StudyLogWeakEntrySchema(BaseModel):
+    title: str
+    discipline: str
+    subject: Optional[str] = None
+    score: int
+
+
+class StudyLogPeriodReviewsSchema(BaseModel):
+    # Reviews done in the period, whatever day the entries were studied.
+    sessions: int = 0
+    questions: int = 0
+    known: int = 0
+    score: Optional[int] = None
+    # Entries of the period with a sheet and no review yet.
+    never_reviewed: int = 0
+    weak: list[StudyLogWeakEntrySchema] = Field(default_factory=list)
+
+
+class StudyLogPeriodSheetsSchema(BaseModel):
+    with_sheet: int = 0
+    without_sheet: int = 0
+
+
+class StudyLogPeriodStatsSchema(BaseModel):
+    """The numbers of a period of the log. Computed by the app, never by the AI."""
+
+    start: date
+    end: date
+    days: int
+    total_minutes: int = 0
+    entry_count: int = 0
+    study_days: int = 0
+    longest_streak: int = 0
+    longest_gap: int = 0
+    average_minutes_per_study_day: int = 0
+    previous: StudyLogPeriodPreviousSchema
+    daily: list[StudyLogPeriodDaySchema] = Field(default_factory=list)
+    # Monday first.
+    weekdays: list[StudyLogPeriodWeekdaySchema] = Field(default_factory=list)
+    disciplines: list[StudyLogPeriodDisciplineSchema] = Field(default_factory=list)
+    sheets: StudyLogPeriodSheetsSchema = Field(default_factory=StudyLogPeriodSheetsSchema)
+    reviews: StudyLogPeriodReviewsSchema = Field(default_factory=StudyLogPeriodReviewsSchema)
+
+
+class StudyLogAnalysisCreateSchema(BaseModel):
+    start: date
+    end: date
+
+
+class StudyLogAnalysisListItemSchema(BaseModel):
+    id: int
+    period_start: date
+    period_end: date
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class StudyLogAnalysisSchema(StudyLogAnalysisListItemSchema):
+    """The AI's analysis of a period, with the numbers it was written from."""
+
+    content: str
+    stats: Optional[StudyLogPeriodStatsSchema] = None
