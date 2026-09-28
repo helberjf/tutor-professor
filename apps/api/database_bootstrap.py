@@ -26,6 +26,7 @@ from typing import Iterator
 
 from alembic import command
 from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from dotenv import load_dotenv
 from sqlalchemy import CheckConstraint, UniqueConstraint, create_engine, inspect, text
 from sqlalchemy.engine import Connection, Engine, make_url
@@ -38,7 +39,11 @@ from database_security import harden_public_schema
 
 
 API_DIR = Path(__file__).resolve().parent
-HEAD_REVISION = "0008"
+# The revision stamped on an unversioned database shaped like the complete
+# models, before it is upgraded to head (see _detect_unversioned_revision). It
+# is not the head itself: the bootstrap reports the revision alembic_version
+# holds once the upgrade is done.
+CURRENT_SHAPE_STAMP_REVISION = "0008"
 POSTGRES_ADVISORY_LOCK_ID = 4992089506640973647
 
 
@@ -588,7 +593,7 @@ def _detect_unversioned_revision(bind: Engine | Connection) -> str | None:
 
     _validate_known_shape(bind, CURRENT_SHAPE)
     _validate_head_lesson_question_keys(bind)
-    return HEAD_REVISION
+    return CURRENT_SHAPE_STAMP_REVISION
 
 
 @contextmanager
@@ -690,7 +695,18 @@ def _harden_public_schema(bind: Engine | Connection) -> None:
         bind.commit()
 
 
-def _run_bootstrap(database_url: str) -> str:
+def _recorded_revision(bind: Engine | Connection) -> str | None:
+    """The revision alembic_version holds, which is what the bootstrap reports."""
+
+    if isinstance(bind, Connection):
+        revision = MigrationContext.configure(bind).get_current_revision()
+        bind.commit()
+        return revision
+    with bind.connect() as connection:
+        return MigrationContext.configure(connection).get_current_revision()
+
+
+def _run_bootstrap(database_url: str) -> str | None:
     config = _alembic_config(database_url)
     engine = create_engine(database_url)
     previous_url = os.environ.get("DATABASE_URL")
@@ -709,16 +725,17 @@ def _run_bootstrap(database_url: str) -> str:
                 command.stamp(config, detected_revision)
             command.upgrade(config, "head")
             _harden_public_schema(inspection_bind)
+            revision = _recorded_revision(inspection_bind)
     finally:
         engine.dispose()
         if previous_url is None:
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = previous_url
-    return HEAD_REVISION
+    return revision
 
 
-def bootstrap_database(database_url: str | None = None) -> str:
+def bootstrap_database(database_url: str | None = None) -> str | None:
     """Verify a known legacy schema, serialize migration, and upgrade to head."""
 
     load_dotenv(API_DIR / ".env")
