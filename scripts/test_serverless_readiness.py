@@ -36,6 +36,7 @@ sys.path.insert(0, str(API_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import httpx  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
 from sqlmodel import Session  # noqa: E402
 
 import main  # noqa: E402
@@ -118,6 +119,51 @@ def test_engine_settings_leave_sqlite_alone() -> None:
     with with_env(DB_POOL_MODE="null"):
         unpooled = main._engine_kwargs("postgresql://u:p@host/db")
     require("poolclass" in unpooled, "DB_POOL_MODE=null must be the escape hatch it claims")
+
+
+def test_pool_size_follows_the_host() -> None:
+    """One request at a time on a serverless instance; many at once on a server.
+
+    A long-running server with the serverless pool made parallel requests take
+    turns for three connections. The serverless pool itself must not change.
+    """
+
+    url = "postgresql://u:p@host/db"
+    unset = {"DB_POOL_MODE": None, "DB_POOL_SIZE": None, "DB_MAX_OVERFLOW": None}
+
+    with with_env(VERCEL=None, **unset):
+        server = main._engine_kwargs(url)
+    require(
+        (server["pool_size"], server["max_overflow"]) == (5, 10),
+        f"a long-running server serves requests in parallel and needs a real pool, got {server}",
+    )
+
+    with with_env(VERCEL="1", **unset):
+        serverless = main._engine_kwargs(url)
+    require(
+        (serverless["pool_size"], serverless["max_overflow"]) == (1, 2),
+        f"a serverless instance must keep the pool it had, got {serverless}",
+    )
+    require(
+        server["pool_timeout"] == serverless["pool_timeout"] == 10,
+        "the pool timeout does not depend on the host",
+    )
+
+    for vercel in (None, "1"):
+        with with_env(VERCEL=vercel, DB_POOL_MODE=None, DB_POOL_SIZE="3", DB_MAX_OVERFLOW="4"):
+            explicit = main._engine_kwargs(url)
+        require(
+            (explicit["pool_size"], explicit["max_overflow"]) == (3, 4),
+            f"DB_POOL_SIZE and DB_MAX_OVERFLOW must win on either host (VERCEL={vercel!r}), got {explicit}",
+        )
+
+    # Settings create_engine would refuse are worse than no settings at all.
+    # Building the engine does not connect.
+    built = create_engine(url, **server)
+    try:
+        require(built.pool.size() == 5, f"the engine must get the pool it was given, got {built.pool.status()}")
+    finally:
+        built.dispose()
 
 
 def test_advisory_keys_are_stable_and_namespaced() -> None:
@@ -267,6 +313,7 @@ async def run_publisher_checks() -> None:
 def main_entry() -> None:
     test_startup_schema_work_defaults_to_on()
     test_engine_settings_leave_sqlite_alone()
+    test_pool_size_follows_the_host()
     test_advisory_keys_are_stable_and_namespaced()
     test_rate_limiter_stays_in_process_on_sqlite()
     test_audio_store_is_off_unless_fully_configured()

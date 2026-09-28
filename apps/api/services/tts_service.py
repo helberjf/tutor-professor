@@ -217,8 +217,11 @@ class TTSService:
 
         # Somebody else may already have synthesised this exact phrase. The path
         # is returned without a local file on purpose: the caller turns it into a
-        # URL, and the store signs that URL itself.
-        if self.audio_store is not None and self.audio_store.exists(file_path.name):
+        # URL, and the store signs that URL itself. The check is a blocking HTTP
+        # call, so it runs in a thread rather than holding up the event loop.
+        if self.audio_store is not None and await asyncio.to_thread(
+            self.audio_store.exists, file_path.name
+        ):
             return str(file_path)
 
         if self.provider == "edge" or (self.provider == "kokoro" and plan.kokoro_voice is None):

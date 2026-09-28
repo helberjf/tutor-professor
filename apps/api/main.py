@@ -10,10 +10,10 @@ import secrets
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterable, Iterator, Literal, Optional, Sequence
+from typing import Callable, Iterable, Iterator, Literal, Optional, Sequence, TypeVar
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -25,6 +25,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Req
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRoute
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import case, func, inspect, text, update
@@ -634,12 +635,20 @@ def _engine_kwargs(database_url: str) -> dict:
     that gets frozen mid-connection leaves a half-open socket behind, and without
     keepalives the next request inherits it and waits for the OS to give up.
 
-    The pool is deliberately a small QueuePool rather than NullPool, even on
-    serverless. One request opens two to four connections today (the access log,
-    the route's own session, the module gate and the rate limiter each open one),
-    so NullPool would mean up to four TLS handshakes on the critical path. A warm
-    instance with pool_size=1 reuses a single connection instead. DB_POOL_MODE=null
-    is the escape hatch if the pooler ever runs out of slots.
+    The pool is deliberately a QueuePool rather than NullPool, even on
+    serverless. One request checks out two connections, one after the other —
+    the account lookup the middlewares share, then the route's own session —
+    plus one for the rate limiter's counter on a login or an AI call, so
+    NullPool would mean that many TLS handshakes on the critical path.
+    DB_POOL_MODE=null is the escape hatch if the pooler ever runs out of slots.
+
+    Its size depends on the host. A warm serverless instance serves one request
+    at a time, so pool_size=1 with a little overflow is all it can use, and a
+    shared pooler has only so many slots for every instance together. A
+    long-running server — Docker, the VPS, uvicorn on a laptop — serves many at
+    once from one process, up to the threadpool's 40 sync routes, and with a
+    pool of three they would take turns for a connection. DB_POOL_SIZE and
+    DB_MAX_OVERFLOW override either default.
     """
 
     if database_url.startswith("sqlite"):
@@ -663,10 +672,12 @@ def _engine_kwargs(database_url: str) -> dict:
     }
     if os.getenv("DB_POOL_MODE", "queue").strip().lower() == "null":
         return {"connect_args": connect_args, "poolclass": NullPool}
+    # The platform's own marker, the one _startup_schema_work_enabled reads too.
+    serverless = bool(os.getenv("VERCEL"))
     return {
         "connect_args": connect_args,
-        "pool_size": int(os.getenv("DB_POOL_SIZE", "1")),
-        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "2")),
+        "pool_size": int(os.getenv("DB_POOL_SIZE", "1" if serverless else "5")),
+        "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "2" if serverless else "10")),
         # Under the pooler's idle timeout, so a recycled connection is our
         # choice rather than a surprise mid-query disconnect.
         "pool_recycle": int(os.getenv("DB_POOL_RECYCLE_SECONDS", "270")),
@@ -677,6 +688,87 @@ def _engine_kwargs(database_url: str) -> dict:
 
 engine = create_engine(DATABASE_URL, **_engine_kwargs(DATABASE_URL))
 app = FastAPI(title="Tutor and Professor API", version="1.0.0")
+
+# ── The account behind a request ──────────────────────────────────────────────
+# The access log, the rate limiter and the module gate below all want to know
+# whose request it is. They are async middleware, so what they do runs on the
+# event loop — the one thread that hands every finished route its response,
+# closes its session and returns its connection to the pool. Each used to open a
+# session there, and the two gates went through get_request_user_session, which
+# stamps last_seen_at: they sent an UPDATE for the caller's session row. When a
+# route of the same account held that row, or the pool's last connection, it
+# could only let go once the loop was free, and the loop was waiting for it. The
+# server stopped answering, /health included.
+#
+# So the lookup is read-only, runs in the threadpool like a sync route, and
+# happens once per request: the first middleware that asks keeps the answer on
+# request.state for the others. Routes still resolve the session themselves;
+# they need the ORM objects, and keeping last_seen_at current is their job.
+_T = TypeVar("_T")
+
+
+@dataclass(frozen=True)
+class RequestAccount:
+    # None for a session of the legacy shared parent password, which has no
+    # account, and for one whose account no longer exists.
+    user_id: int | None
+    enabled_modules: dict | None
+
+
+_ACCOUNT_NOT_LOOKED_UP = object()
+
+
+def _lookup_request_account(token: str) -> RequestAccount | None:
+    """The live session behind a token, read in one query that writes nothing."""
+
+    with Session(engine) as db:
+        row = db.exec(
+            select(UserSession.expires_at, User.id, User.enabled_modules)
+            .select_from(UserSession)
+            .join(User, User.id == UserSession.user_id, isouter=True)
+            .where(UserSession.session_token_hash == hash_session_token(token))
+        ).first()
+    if row is None:
+        return None
+    expires_at, user_id, enabled_modules = row
+    if expires_at <= datetime.utcnow():
+        # get_request_user_session deletes it the next time a route asks.
+        return None
+    return RequestAccount(user_id=user_id, enabled_modules=enabled_modules)
+
+
+async def request_account(request: Request) -> RequestAccount | None:
+    """Who is asking, for middleware: looked up once, never on the event loop."""
+
+    known = getattr(request.state, "account", _ACCOUNT_NOT_LOOKED_UP)
+    if known is not _ACCOUNT_NOT_LOOKED_UP:
+        return known
+    token = request_session_token(request)
+    account = await run_in_threadpool(_lookup_request_account, token) if token else None
+    request.state.account = account
+    return account
+
+
+async def run_then_close(session: Session, work: Callable[[], _T]) -> _T:
+    """Run an async route's database work in the threadpool, then end its session.
+
+    The async routes are async only to await something slow, such as speech
+    synthesis. FastAPI runs them on the event loop, so their queries go to the
+    threadpool, where every sync route runs its own. The session is closed
+    before the slow part because its transaction holds a pooled connection and,
+    through last_seen_at, a lock on the caller's session row, and every other
+    request of that account would queue behind the lock for as long as the
+    await takes.
+    """
+
+    def run() -> _T:
+        try:
+            return work()
+        finally:
+            session.close()
+
+    return await run_in_threadpool(run)
+
 
 # ── Module gate ───────────────────────────────────────────────────────────────
 # Optional modules are switched off by whole route families rather than by a
@@ -708,21 +800,14 @@ async def _module_gate(request: Request, call_next):
     module_id = module_for_path(request.url.path)
     if module_id is None:
         return await call_next(request)
-    with Session(engine) as db:
-        session_record = get_request_user_session(request=request, session=db)
-        if session_record is None:
-            # No session means no account, and so no module choice to enforce.
-            # Answering 403 here would tell a signed-out caller that a module is
-            # off when what they need to hear is that they are not signed in;
-            # the route's own check says that.
-            return await call_next(request)
-        user = (
-            db.get(User, session_record.user_id)
-            if session_record.user_id is not None
-            else None
-        )
-        enabled = is_module_enabled(user.enabled_modules if user else None, module_id)
-    if not enabled:
+    account = await request_account(request)
+    if account is None:
+        # No session means no account, and so no module choice to enforce.
+        # Answering 403 here would tell a signed-out caller that a module is
+        # off when what they need to hear is that they are not signed in;
+        # the route's own check says that.
+        return await call_next(request)
+    if not is_module_enabled(account.enabled_modules, module_id):
         return JSONResponse(
             status_code=403,
             content={"detail": MODULE_DISABLED_DETAIL, "module": module_id},
@@ -797,13 +882,14 @@ async def _rate_limit_gate(request: Request, call_next):
     elif _is_ai_request(request):
         # Keyed by account, so one noisy household cannot spend a shared budget,
         # and a signed-out caller falls back to their address.
-        with Session(engine) as db:
-            user = get_request_user(request=request, session=db)
-            key = f"user:{user.id}" if user else f"ip:{client_address(request)}"
+        account = await request_account(request)
+        user_id = account.user_id if account else None
+        key = f"user:{user_id}" if user_id is not None else f"ip:{client_address(request)}"
         rule = AI_RATE_RULE
 
     if rule is not None:
-        verdict = rate_limiter.check(rule, key)
+        # The shared limiter writes to the database: off the event loop too.
+        verdict = await run_in_threadpool(rate_limiter.check, rule, key)
         if not verdict.allowed:
             return JSONResponse(
                 status_code=429,
@@ -826,6 +912,20 @@ async def _access_log(request: Request, call_next):
     stopwatch = Stopwatch()
     request_id = new_request_id()
     request.state.request_id = request_id
+
+    account_id: int | None = None
+    # Looked up before the route rather than after it, so the gates underneath
+    # reuse the answer instead of querying again, and a logout is still logged
+    # against the account that made it. Health checks and audio files are not
+    # worth a database round trip just to label a log line.
+    path = request.url.path
+    if path.startswith("/api") and not path.startswith("/api/audio/file/"):
+        try:
+            account = await request_account(request)
+            account_id = account.user_id if account else None
+        except Exception:  # pragma: no cover - logging must never break a response
+            account_id = None
+
     try:
         response = await call_next(request)
     except Exception:
@@ -838,22 +938,12 @@ async def _access_log(request: Request, call_next):
                     path=request.url.path,
                     status=500,
                     duration_ms=stopwatch.elapsed_ms,
+                    account_id=account_id,
                     client=client_address(request),
                 )
             },
         )
         raise
-
-    account_id: int | None = None
-    # Health checks and static-ish routes are not worth a database round trip
-    # just to label a log line.
-    if request.url.path.startswith("/api") and request.url.path != "/api/audio/file":
-        try:
-            with Session(engine) as db:
-                session_record = get_request_user_session(request=request, session=db)
-                account_id = session_record.user_id if session_record else None
-        except Exception:  # pragma: no cover - logging must never break a response
-            account_id = None
 
     entry = RequestLogEntry(
         request_id=request_id,
@@ -1303,10 +1393,7 @@ def hash_session_token(token: str) -> str:
     return hashlib.sha256(f"{SESSION_SECRET}:{token}".encode("utf-8")).hexdigest()
 
 
-def get_request_user_session(request: Request | None, session: Session) -> UserSession | None:
-    if request is None:
-        return None
-
+def request_session_token(request: Request) -> str | None:
     # Aceita o token por duas vias:
     # 1) header "Authorization: Bearer <token>" — usado por celulares (iOS bloqueia
     #    cookies cross-site entre o front na Vercel e o backend no tunnel);
@@ -1317,6 +1404,14 @@ def get_request_user_session(request: Request | None, session: Session) -> UserS
         token = auth_header[7:].strip()
     if not token:
         token = request.cookies.get(PARENT_SESSION_COOKIE_NAME)
+    return token or None
+
+
+def get_request_user_session(request: Request | None, session: Session) -> UserSession | None:
+    if request is None:
+        return None
+
+    token = request_session_token(request)
     if not token:
         return None
 
@@ -6986,12 +7081,11 @@ def set_child_level(
     return build_level_analysis(session=session, child=child)
 
 
-@app.post("/api/chat", response_model=ChatResponseSchema)
-async def chat_with_tutor(
-    payload: ChatRequestSchema,
-    request: Request,
-    session: Session = Depends(get_session),
-) -> ChatResponseSchema:
+def _tutor_reply(
+    payload: ChatRequestSchema, request: Request, session: Session
+) -> tuple[str, bool, str]:
+    """The tutor's answer, with the day's log updated, and whether and how to voice it."""
+
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     response_text = tutor_service.build_response(
@@ -7015,15 +7109,28 @@ async def chat_with_tutor(
         )
         session.commit()
 
+    return response_text, bool(child.auto_audio), child.voice_preference
+
+
+@app.post("/api/chat", response_model=ChatResponseSchema)
+async def chat_with_tutor(
+    payload: ChatRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ChatResponseSchema:
+    response_text, auto_audio, voice = await run_then_close(
+        session, lambda: _tutor_reply(payload, request, session)
+    )
+
     audio_url = None
-    if child.auto_audio:
+    if auto_audio:
         audio_file = await tts_service.generate_speech(
             response_text,
-            child.voice_preference,
-            kokoro_url=resolve_kokoro_url(),
+            voice,
+            kokoro_url=await run_in_threadpool(resolve_kokoro_url),
         )
         if audio_file:
-            audio_url = build_audio_url(audio_file)
+            audio_url = await run_in_threadpool(build_audio_url, audio_file)
 
     return ChatResponseSchema(response=response_text, audio_url=audio_url)
 
@@ -7094,12 +7201,11 @@ def publish_tts_backend(
     return Response(status_code=204)
 
 
-@app.post("/api/audio/speak", response_model=SpeakResponseSchema)
-async def speak_text(
-    payload: SpeakRequestSchema,
-    request: Request,
-    session: Session = Depends(get_session),
-) -> SpeakResponseSchema:
+def _speech_settings(
+    payload: SpeakRequestSchema, request: Request, session: Session
+) -> tuple[str, str]:
+    """The voice and language to speak in, for the child making the request."""
+
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     voice = payload.voice
@@ -7108,18 +7214,31 @@ async def speak_text(
         # Older clients sent a language code ("pt") in the voice field.
         language = language or voice
         voice = None
-    language = language or child.target_language
+    return voice or child.voice_preference, language or child.target_language
+
+
+@app.post("/api/audio/speak", response_model=SpeakResponseSchema)
+async def speak_text(
+    payload: SpeakRequestSchema,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> SpeakResponseSchema:
+    voice, language = await run_then_close(
+        session, lambda: _speech_settings(payload, request, session)
+    )
     lang = tts_language_bcp47(language)
     audio_file = await tts_service.generate_speech(
         payload.text,
-        voice or child.voice_preference,
+        voice,
         language=language,
-        kokoro_url=resolve_kokoro_url(),
+        kokoro_url=await run_in_threadpool(resolve_kokoro_url),
     )
     if not audio_file:
         return SpeakResponseSchema(audio_url=None, fallback_text=payload.text, lang=lang)
 
-    return SpeakResponseSchema(audio_url=build_audio_url(audio_file), lang=lang)
+    return SpeakResponseSchema(
+        audio_url=await run_in_threadpool(build_audio_url, audio_file), lang=lang
+    )
 
 
 @app.post("/api/parent/login")
@@ -11974,15 +12093,26 @@ def _webhook_signature_is_valid(raw_body: bytes, signature: str) -> bool:
     return hmac.compare_digest(expected, (signature or "").strip())
 
 
+async def _raw_body(request: Request) -> bytes:
+    """The body exactly as sent, which is what the signature covers.
+
+    A dependency so the webhook itself can be a sync route: reading the body is
+    the only part that has to be awaited, and the rest is database work, which
+    belongs in the threadpool rather than on the event loop.
+    """
+
+    return await request.body()
+
+
 @app.post("/api/billing/webhook", status_code=202)
-async def billing_webhook(
+def billing_webhook(
     request: Request,
+    raw_body: bytes = Depends(_raw_body),
     session: Session = Depends(get_session),
 ) -> dict[str, str]:
     if not BILLING_WEBHOOK_SECRET:
         raise HTTPException(status_code=503, detail=BILLING_NOT_CONFIGURED_DETAIL)
 
-    raw_body = await request.body()
     signature = request.headers.get("x-webhook-signature", "")
     if not _webhook_signature_is_valid(raw_body, signature):
         raise HTTPException(status_code=401, detail="Assinatura inválida.")
