@@ -233,6 +233,63 @@ export function reviewScore(known: number, total: number): number {
   return total > 0 ? Math.round((100 * known) / total) : 0;
 }
 
+export type PeriodPreset = 'week' | 'month' | 'custom';
+
+/** The last 7 or 30 days, today included. */
+export function presetRange(preset: 'week' | 'month', today: string): { start: string; end: string } {
+  return { start: addDays(today, preset === 'week' ? -6 : -29), end: today };
+}
+
+/** Which chip a period matches, so reopening an old analysis selects the right one. */
+export function presetOf(start: string, end: string, today: string): PeriodPreset {
+  if (end !== today) return 'custom';
+  const span = daysBetween(start, end);
+  if (span === 6) return 'week';
+  if (span === 29) return 'month';
+  return 'custom';
+}
+
+/** The API's rule: the end not before the start, and at most a year (366 days). */
+export function isValidPeriod(start: string, end: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return false;
+  const span = daysBetween(start, end);
+  return span >= 0 && span <= 365;
+}
+
+/** Width of a bar, 0-100, against the largest one; any value above zero stays visible. */
+export function barPercent(value: number, max: number): number {
+  if (max <= 0 || value <= 0) return 0;
+  return Math.max(4, Math.round((100 * value) / max));
+}
+
+function utcDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/** "21 – 27 de set." — the year only when the period crosses one. */
+export function formatPeriodLabel(start: string, end: string, locale: string): string {
+  const sameYear = start.slice(0, 4) === end.slice(0, 4);
+  const format = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    timeZone: 'UTC',
+  });
+  if (start === end) return format.format(utcDate(start));
+  const range = format as Intl.DateTimeFormat & { formatRange?: (from: Date, to: Date) => string };
+  return range.formatRange
+    ? range.formatRange(utcDate(start), utcDate(end))
+    : `${format.format(utcDate(start))} – ${format.format(utcDate(end))}`;
+}
+
+/** Short weekday names, Monday first, in the page's language. */
+export function weekdayLabels(locale: string): string[] {
+  const format = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' });
+  // 2024-01-01 was a Monday.
+  return Array.from({ length: 7 }, (_, index) => format.format(utcDate(addDays('2024-01-01', index))).replace('.', ''));
+}
+
 /** "caderno-de-direito-constitucional.md" from the notebook's title. */
 export function notebookFileName(title: string): string {
   const slug = fold(title).replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');

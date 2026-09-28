@@ -876,3 +876,26 @@ class StudyLogEntry(SQLModel, table=True):
     last_review_score: Optional[int] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class StudyLogAnalysis(SQLModel, table=True):
+    """The AI's reading of one period of the study log, kept to be read again.
+
+    One per period: analysing the same days again replaces the text. The numbers
+    it was written from are stored with it, so an old analysis still shows the
+    figures it talks about after the log has changed.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("child_id", "period_start", "period_end", name="uq_studyloganalysis_child_period"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    child_id: int = Field(foreign_key="childprofile.id", index=True)
+    period_start: date
+    period_end: date
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(sa_column=Column(Text, nullable=False))
+    stats: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
