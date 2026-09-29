@@ -929,7 +929,9 @@ export interface UserRegisterPayload {
   first_name: string;
   last_name: string;
   email: string;
-  cpf: string;
+  /** Omitted for foreigners, who have no CPF. */
+  cpf?: string;
+  is_foreign?: boolean;
   password: string;
   child_name?: string;
   /** ISO date of birth: it decides the age band and whether a minor is studying. */

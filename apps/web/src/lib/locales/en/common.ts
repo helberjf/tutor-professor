@@ -285,6 +285,7 @@ export const COMMON_EN: Record<string, string> = {
   'Informe o CPF.': 'Enter your CPF.',
   'CPF incompleto.': 'Incomplete CPF.',
   'CPF inválido.': 'Invalid CPF.',
+  'Sou estrangeiro(a) e não tenho CPF': "I'm a foreigner and don't have a CPF",
   'Informe a data de nascimento.': 'Enter the date of birth.',
   'Data inválida.': 'Invalid date.',
   'A data não pode estar no futuro.': 'The date cannot be in the future.',
