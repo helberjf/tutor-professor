@@ -373,7 +373,7 @@ export function AdminAccountQueue() {
                             ? t("Créditos: ilimitado")
                             : `Créditos: ${user.ai_credits.credits} restantes`}
                           <span className="ml-2 text-xs font-bold text-slate-400">
-                            {user.ai_credits.used} ja usados
+                            {user.ai_credits.used} {t("hoje")} · {user.ai_credits.total_used} {t("no total")}
                           </span>
                         </p>
                         <button

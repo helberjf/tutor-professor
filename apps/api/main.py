@@ -7572,11 +7572,21 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
     user = session.get(User, user_id)
     if user is None or user.ai_unlimited or user_is_admin(user):
         return
-    user.ai_credits = max(0, user.ai_credits - 1)
-    user.ai_credits_used += 1
-    user.ai_credits_used_today += 1
-    session.add(user)
+    # One UPDATE that adds to the stored values, not a read-modify-write in
+    # Python: two generations finishing together each read the same balance and
+    # the second write would drop one charge.
+    session.exec(
+        update(User)
+        .where(User.id == user_id)
+        .values(
+            ai_credits=case((User.ai_credits > 0, User.ai_credits - 1), else_=0),
+            ai_credits_used=User.ai_credits_used + 1,
+            ai_credits_used_today=User.ai_credits_used_today + 1,
+        )
+        .execution_options(synchronize_session=False)
+    )
     session.commit()
+    session.expire(user)
 
 
 # ── Entitlements and usage ────────────────────────────────────────────────────
@@ -14568,7 +14578,26 @@ def admin_system_health(
     }
 
 
-def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> dict:
+def _admin_generation_totals(session: Session) -> dict[int, int]:
+    """Every generation each account ran on the platform key, from the usage log.
+
+    The log rather than the credit counter: an account made unlimited is never
+    charged a credit, so the counter would show zero for its whole history.
+    """
+
+    rows = session.exec(
+        select(UsageRecord.user_id, func.count(UsageRecord.id))
+        .where(UsageRecord.kind == USAGE_AI_GENERATION)
+        .group_by(UsageRecord.user_id)
+    ).all()
+    return {int(user_id): int(total) for user_id, total in rows}
+
+
+def _build_admin_user_schema(
+    user: User,
+    ai_settings: UserAISettings | None,
+    total_generations: int = 0,
+) -> dict:
     return {
         "id": user.id,
         "first_name": user.first_name,
@@ -14581,7 +14610,7 @@ def _build_admin_user_schema(user: User, ai_settings: UserAISettings | None) -> 
         "reviewed_at": user.reviewed_at.isoformat() if user.reviewed_at else None,
         "review_note": user.review_note,
         "ai_settings": build_ai_settings_schema(ai_settings).model_dump(mode="json"),
-        "ai_credits": build_ai_credits_schema(user),
+        "ai_credits": {**build_ai_credits_schema(user), "total_used": total_generations},
     }
 
 
@@ -14623,7 +14652,9 @@ def _review_user_account(
     ai_settings = session.exec(
         select(UserAISettings).where(UserAISettings.user_id == user_id)
     ).first()
-    return _build_admin_user_schema(user, ai_settings)
+    return _build_admin_user_schema(
+        user, ai_settings, _admin_generation_totals(session).get(user.id or 0, 0)
+    )
 
 
 @app.get("/api/admin/users")
@@ -14643,8 +14674,11 @@ def admin_list_users(
         settings.user_id: settings
         for settings in session.exec(select(UserAISettings)).all()
     }
+    totals = _admin_generation_totals(session)
     rows = [
-        _build_admin_user_schema(user, settings_by_user_id.get(user.id or 0))
+        _build_admin_user_schema(
+            user, settings_by_user_id.get(user.id or 0), totals.get(user.id or 0, 0)
+        )
         for user in users
     ]
     if status is None:
@@ -14840,7 +14874,9 @@ def admin_set_user_ai_credits(
     session.refresh(user)
 
     ai_settings = get_user_ai_settings_record(user_id, session)
-    return _build_admin_user_schema(user, ai_settings)
+    return _build_admin_user_schema(
+        user, ai_settings, _admin_generation_totals(session).get(user.id or 0, 0)
+    )
 
 
 @app.delete("/api/admin/users/{user_id}/ai-settings", response_model=UserAISettingsSchema)
