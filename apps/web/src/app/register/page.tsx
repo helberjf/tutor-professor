@@ -93,6 +93,8 @@ export default function RegisterPage() {
   const [baseLanguage, setBaseLanguage] = useState('Portuguese');
   // Only shown, and only required, when the date entered is a minor's.
   const [supervisionAccepted, setSupervisionAccepted] = useState(false);
+  // A foreigner has no CPF, so the field is neither shown nor required.
+  const [isForeign, setIsForeign] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors] = useState<Partial<typeof form & { submit: string }>>({});
@@ -145,7 +147,9 @@ export default function RegisterPage() {
     }
 
     const cpfDigits = onlyDigits(form.cpf);
-    if (!cpfDigits) {
+    if (isForeign) {
+      // No CPF to check.
+    } else if (!cpfDigits) {
       next.cpf = t("Informe o CPF.");
     } else if (cpfDigits.length !== 11) {
       next.cpf = t("CPF incompleto.");
@@ -189,7 +193,8 @@ export default function RegisterPage() {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
-        cpf: onlyDigits(form.cpf),
+        cpf: isForeign ? undefined : onlyDigits(form.cpf),
+        is_foreign: isForeign,
         password: form.password,
         child_name: form.child_name.trim(),
         birth_date: form.birth_date || undefined,
@@ -525,6 +530,7 @@ export default function RegisterPage() {
             </Field>
 
             {/* CPF */}
+            {!isForeign && (
             <Field
               id="cpf"
               label="CPF"
@@ -552,6 +558,19 @@ export default function RegisterPage() {
                 className={inputCls}
               />
             </Field>
+            )}
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+              <input
+                type="checkbox"
+                checked={isForeign}
+                onChange={(e) => {
+                  setIsForeign(e.target.checked);
+                  setErrors((prev) => ({ ...prev, cpf: '' }));
+                }}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              {t("Sou estrangeiro(a) e não tenho CPF")}
+            </label>
 
             {/* Password */}
             <Field id="password" label={t("Senha")} icon={<Lock size={16} className="text-slate-400" />} error={errors.password} required>

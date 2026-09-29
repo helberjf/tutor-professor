@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import uuid
 import hmac
 import json
 import logging
@@ -11589,7 +11590,7 @@ def user_register(
     payload: UserRegisterSchema,
     session: Session = Depends(get_session),
 ) -> UserResponseSchema:
-    if not validate_cpf(payload.cpf):
+    if not payload.is_foreign and not validate_cpf(payload.cpf or ""):
         raise HTTPException(status_code=422, detail="CPF inválido.")
 
     # The browser shows the same rules while typing, but this is the check that
@@ -11602,9 +11603,14 @@ def user_register(
     if session.exec(select(User).where(User.email == email)).first():
         raise HTTPException(status_code=409, detail="Este e-mail já está cadastrado.")
 
-    cpf_hash = hash_cpf(payload.cpf)
-    if session.exec(select(User).where(User.cpf_hash == cpf_hash)).first():
-        raise HTTPException(status_code=409, detail="Este CPF já está cadastrado.")
+    if payload.is_foreign:
+        # The column is unique and not null; a foreigner has no CPF, so the
+        # account gets a one-off marker (same idea as the Google sign-up).
+        cpf_hash = f"foreign:{uuid.uuid4().hex}"
+    else:
+        cpf_hash = hash_cpf(payload.cpf or "")
+        if session.exec(select(User).where(User.cpf_hash == cpf_hash)).first():
+            raise HTTPException(status_code=409, detail="Este CPF já está cadastrado.")
 
     if payload.ai_api_key:
         validate_ai_provider(payload.ai_provider)

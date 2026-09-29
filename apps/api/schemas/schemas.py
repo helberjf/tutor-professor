@@ -1400,7 +1400,9 @@ class UserRegisterSchema(BaseModel):
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
     email: str = Field(min_length=5, max_length=254)
-    cpf: str = Field(min_length=11, max_length=18)
+    # Required unless the person says they are a foreigner (no CPF to give).
+    cpf: Optional[str] = Field(default=None, max_length=18)
+    is_foreign: bool = False
     # The real rule lives in services/password_policy.py so that the message can
     # name what is missing; this bound only keeps absurd input out of hashing.
     password: str = Field(min_length=8, max_length=128)
