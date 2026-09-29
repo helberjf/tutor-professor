@@ -141,6 +141,14 @@ def build_key_vault(*, session_secret: str) -> KeyVault:
             "one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
         )
         primary = session_secret
+    elif session_secret and session_secret not in previous:
+        # Rows saved while the fallback above was in effect carry the v2 prefix
+        # but were encrypted under SESSION_SECRET. Without it in the ring, setting
+        # AI_ENCRYPTION_KEY later would strand every one of them (the VPS
+        # compose file used to leave the key out of the container, so a VPS ran
+        # like this with the key sitting in .env.prod). They still count as
+        # stale, so scripts/reencrypt_ai_keys.py moves them over.
+        previous.append(session_secret)
     return KeyVault(
         primary_secret=primary,
         previous_secrets=previous,
