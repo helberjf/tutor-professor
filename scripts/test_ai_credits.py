@@ -340,6 +340,48 @@ async def run() -> None:
             f"the overview must count every credit spent, got {overview}",
         )
 
+        # The admin list shows the account's whole history from the usage log.
+        rows = (await admin_client.get("/api/admin/users")).json()
+        family_total = next(r for r in rows if r["id"] == family_id)["ai_credits"]["total_used"]
+        require(family_total >= 1, f"the admin list must show total usage, got {family_total}")
+
+        # Generations that finish together must each be charged: the charge is a
+        # single UPDATE, not a read-modify-write that loses one of two racers.
+        assert_status(
+            await admin_client.post(f"/api/admin/users/{family_id}/ai-credits", json={"unlimited": False}),
+            200,
+            "meter the account again for the race",
+        )
+        assert_status(
+            await admin_client.post(
+                f"/api/admin/users/{family_id}/ai-credits", json={"daily_limit": 50, "credits": 50}
+            ),
+            200,
+            "reset balance for the race",
+        )
+        before_race = await credits_of(family_client)
+
+        def slow_generation(*args, **kwargs):
+            import time
+
+            time.sleep(0.2)
+            return fake_generation()
+
+        with patch.object(
+            main.PhraseGenerationService, "_generate_gemini_json_text", side_effect=slow_generation
+        ):
+            responses = await asyncio.gather(
+                *[family_client.post(GENERATE_URL, json={"subject": "Historia", "count": 2}) for _ in range(10)]
+            )
+        require(all(r.status_code == 200 for r in responses), "every racing generation must succeed")
+        after_race = await credits_of(family_client)
+        require(
+            after_race["credits"] == 40
+            and after_race["total_used"] == before_race["total_used"] + 10
+            and after_race["used"] == before_race["used"] + 10,
+            f"ten simultaneous generations must cost ten credits, got {before_race} -> {after_race}",
+        )
+
     print("AI credit tests passed.")
 
 
