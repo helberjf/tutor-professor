@@ -61,22 +61,30 @@ chmod 600 .env.prod
 nano .env.prod
 ```
 
-Gere os dois segredos com:
+Gere os três segredos com:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"   # SESSION_SECRET
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"   # AI_ENCRYPTION_KEY
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # POSTGRES_PASSWORD
 ```
 
-> **`SESSION_SECRET` é permanente.** Ele assina as sessões e deriva a chave que
-> criptografa as chaves de IA de cada usuário. Se você trocá-lo depois, todo
-> mundo é deslogado e as chaves de IA já salvas ficam impossíveis de
-> descriptografar. Guarde um backup. A API se **recusa a iniciar** com um valor
-> placeholder — isso é proposital.
+> **`SESSION_SECRET`** assina as sessões: trocá-lo desloga todo mundo. A API se
+> **recusa a iniciar** com um valor placeholder — isso é proposital.
+>
+> **`AI_ENCRYPTION_KEY`** criptografa as chaves de IA que cada conta salva. Perdê-la
+> torna essas chaves ilegíveis, então guarde um backup dela. Sem ela, a API usa o
+> `SESSION_SECRET` no lugar, e aí trocar o `SESSION_SECRET` também inutiliza as
+> chaves salvas.
 
-Chaves opcionais da aplicação (Gemini, Google OAuth, TTS) vão em
-`apps/api/.env` — copie de `apps/api/.env.example`. Se você não usa nenhuma,
-pode pular: o arquivo é opcional.
+Todo valor do `.env.prod` chega à API: o Compose usa o arquivo para preencher o
+`docker-compose.prod.yml` e também o entrega ao contêiner. Chaves opcionais da
+aplicação (Gemini, Google OAuth, TTS) podem ir em `apps/api/.env` — copie de
+`apps/api/.env.example`. Se você não usa nenhuma, pode pular: o arquivo é
+opcional. **Uma chave presente nos dois arquivos fica com o valor do `.env.prod`**,
+mesmo vazio (`KOKORO_URL=` apaga o que estiver no outro). Deixe cada chave num
+arquivo só. `DATABASE_URL`, `APP_ENV` e os cookies são fixados pelo próprio
+`docker-compose.prod.yml` e ignoram os dois arquivos.
 
 Preencha também `ADMIN_EMAIL` no `.env.prod`: é a conta que aprova cadastros
 novos em `/admin`. Quem se cadastra fica aguardando até ela liberar.
@@ -166,6 +174,72 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 As migrações rodam sozinhas no start do contêiner. Há uma janela curta de
 indisponibilidade enquanto a API reinicia.
+
+**Atualizar uma VPS instalada antes de o `.env.prod` chegar à API**
+
+Até esta correção, o contêiner da API recebia do `.env.prod` só `SESSION_SECRET`,
+`CORS_ALLOWED_ORIGINS`, `FRONTEND_BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` e
+a senha do banco (dentro de `DATABASE_URL`). Todo o resto — `AI_ENCRYPTION_KEY`,
+`SIGNUP_MODE`, `EMAIL_PROVIDER`/`SMTP_*`, `TRUST_PROXY_HEADERS`, `LOG_FORMAT`,
+limites, billing, Kokoro — era ignorado, e a API rodava com os padrões do código.
+No primeiro `up -d` depois do `git pull`, esses valores passam a valer de uma vez.
+Antes de subir:
+
+1. **Chaves repetidas.** Liste as que existem nos dois arquivos; em cada uma, o
+   valor do `.env.prod` vai ganhar. Apague a linha do arquivo que não deve valer —
+   principalmente se você tinha contornado o problema pondo `EMAIL_PROVIDER`,
+   `AI_ENCRYPTION_KEY` ou `KOKORO_URL` no `apps/api/.env`, porque o `.env.prod`
+   copiado do exemplo tem `EMAIL_PROVIDER=console`, `AI_ENCRYPTION_KEY=` e
+   `KOKORO_URL=` e passaria por cima.
+
+   ```bash
+   comm -12 <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' .env.prod | sort -u) \
+            <(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' apps/api/.env 2>/dev/null | sort -u)
+   ```
+
+2. **`SIGNUP_MODE`.** Se o `.env.prod` diz `open`, cadastros novos deixam de
+   esperar em `/admin`: basta verificar o e-mail. Isso exige `EMAIL_PROVIDER=smtp`
+   funcionando (que também passa a valer agora); com `console` ninguém recebe o
+   link. Quem já estava na fila continua pendente — aprove em `/admin`. Se não era
+   isso que você queria, deixe `SIGNUP_MODE=manual`.
+
+3. **`ALLOW_GUEST_ACCESS`.** Confirme que está `false`. Ligado, todo visitante sem
+   sessão passa a compartilhar um mesmo perfil de estudante.
+
+4. **`AI_ENCRYPTION_KEY`.** Se você preencheu, ela passa a criptografar as chaves
+   de IA salvas daqui em diante. As que já estavam salvas foram criptografadas com o
+   `SESSION_SECRET` (a chave nunca chegou ao contêiner) e **continuam legíveis sem
+   nada a fazer**: a API ainda tenta o `SESSION_SECRET` nelas. Não troque o
+   `SESSION_SECRET` antes de migrá-las para a chave nova:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm \
+     -v "$PWD/scripts:/scripts:ro" -e PYTHONPATH=/app \
+     api python /scripts/reencrypt_ai_keys.py
+   ```
+
+   O script termina com "Verified: no stored AI key depends on SESSION_SECRET any
+   more." Se ele disser que uma linha não pôde ser lida, **não** rode de novo com
+   `--skip-unreadable` antes de entender o porquê: essa opção apaga as linhas.
+   Se o `AI_ENCRYPTION_KEY` está vazio, nada muda — mas gere um e siga este passo.
+
+5. **O que muda sozinho**, com o `.env.prod` igual ao exemplo:
+   - `LOG_FORMAT=json`: o `logs api` passa a mostrar um objeto JSON por linha (o
+     padrão era texto).
+   - `GEMINI_REQUEST_TIMEOUT_SECONDS=45`: a geração de livros espera 45 s pela
+     IA, não 60.
+   - `TRUST_PROXY_HEADERS=true`: nenhum efeito atrás do Caddy. O uvicorn do
+     contêiner já usa o `X-Forwarded-For` (`--proxy-headers`), e o Caddy troca o
+     cabeçalho que vem do cliente pelo IP real, então o limite de login já era por
+     cliente. Por isso mesmo, **nunca publique a porta 8001**: direto na API,
+     qualquer um escolhe o próprio endereço.
+
+Para conferir o que a API recebeu depois de subir (mostra os valores na tela):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec api \
+  printenv SIGNUP_MODE ALLOW_GUEST_ACCESS EMAIL_PROVIDER TRUST_PROXY_HEADERS LOG_FORMAT
+```
 
 **Backup do banco** (faça antes de qualquer atualização com mudança de schema)
 

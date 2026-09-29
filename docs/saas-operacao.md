@@ -17,7 +17,7 @@ ficar no padrão:
 | `SESSION_SECRET` | valor único | Assina as sessões. Com placeholder a API se recusa a subir. |
 | `AI_ENCRYPTION_KEY` | valor único | Criptografa as chaves de IA guardadas. Separada do `SESSION_SECRET` para que girar um não destrua o outro. |
 | `EMAIL_PROVIDER` | `smtp` + servidor | Com `console` ninguém consegue verificar e-mail nem redefinir senha. |
-| `TRUST_PROXY_HEADERS` | `true` atrás do Caddy | Sem isso, o limite de requisições vê o proxy como único cliente. |
+| `TRUST_PROXY_HEADERS` | `true` atrás do Caddy | Faz o limite de requisições ler o IP real no `X-Forwarded-For`. Na imagem da VPS o uvicorn já faz isso (`--proxy-headers`); vale para um servidor iniciado sem essa opção. |
 | `SIGNUP_MODE` | `manual` ou `open` | `open` só funciona com e-mail configurado. |
 
 Verificação rápida depois de subir:
