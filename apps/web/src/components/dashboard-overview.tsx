@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BookOpen, ChevronLeft, ChevronRight, ClipboardList, Clock, Flame, Timer } from 'lucide-react';
 import { api, type ActivityPeriod, type ActivityPeriodSummary, type DailyActivitySummarySchema, type StudyDashboard, type StudyDay } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { t, tf } from '@/lib/i18n';
 
 function getLocalDateValue(date = new Date()) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
@@ -32,6 +32,9 @@ export function DashboardOverview({
   // How many 30-day windows back the calendars below are showing. Zero is the
   // window ending today; the history used to stop dead at that edge.
   const [windowOffset, setWindowOffset] = useState(0);
+  const [windowLoading, setWindowLoading] = useState(true);
+  const [windowError, setWindowError] = useState<string | null>(null);
+  const [periodError, setPeriodError] = useState<string | null>(null);
 
   const windowEndDate = useMemo(() => {
     if (windowOffset === 0) return null;
@@ -42,12 +45,22 @@ export function DashboardOverview({
 
   useEffect(() => {
     let cancelled = false;
+    let requestId = 0;
+    setActivityMonth(null);
+    setWindowLoading(true);
+    setWindowError(null);
     const loadMonth = async () => {
+      const currentRequest = ++requestId;
       try {
         const data = await api.getActivityMonth(windowEndDate ?? undefined);
-        if (!cancelled) setActivityMonth(data);
+        if (!cancelled && currentRequest === requestId) {
+          setActivityMonth(data);
+          setWindowError(null);
+        }
       } catch {
-        // Keep the existing StudyDay fallback if the activity feed is offline.
+        if (!cancelled && currentRequest === requestId) setWindowError(t("Não foi possível carregar o histórico de atividades. Exibindo os registros disponíveis."));
+      } finally {
+        if (!cancelled && currentRequest === requestId) setWindowLoading(false);
       }
     };
     void loadMonth();
@@ -65,19 +78,33 @@ export function DashboardOverview({
 
   useEffect(() => {
     let cancelled = false;
-    setPeriodLoading(true);
-    api.getActivitySummary(activityPeriod)
-      .then((data) => {
-        if (!cancelled) setPeriodSummary(data);
-      })
-      .catch(() => {
-        if (!cancelled) setPeriodSummary(null);
-      })
-      .finally(() => {
-        if (!cancelled) setPeriodLoading(false);
-      });
+    let requestId = 0;
+    const loadPeriod = async () => {
+      const currentRequest = ++requestId;
+      setPeriodLoading(true);
+      setPeriodError(null);
+      try {
+        const data = await api.getActivitySummary(activityPeriod);
+        if (!cancelled && currentRequest === requestId) setPeriodSummary(data);
+      } catch {
+        if (!cancelled && currentRequest === requestId) {
+          setPeriodSummary(null);
+          setPeriodError(t("Não foi possível carregar a atividade do período."));
+        }
+      } finally {
+        if (!cancelled && currentRequest === requestId) setPeriodLoading(false);
+      }
+    };
+    void loadPeriod();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void loadPeriod();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [activityPeriod]);
 
@@ -99,7 +126,7 @@ export function DashboardOverview({
     }> = [];
     const fallbackDates = Array.from({ length: 30 }, (_, index) => {
       const d = new Date();
-      d.setDate(d.getDate() - (29 - index));
+      d.setDate(d.getDate() - windowOffset * 30 - (29 - index));
       return getLocalDateValue(d);
     });
     const dateKeys = activityMonth?.length ? activityMonth.map((day) => day.activity_date) : fallbackDates;
@@ -120,7 +147,7 @@ export function DashboardOverview({
       });
     }
     return result;
-  }, [activityMonth, dashboard, pomodoroState.completedByDate]);
+  }, [activityMonth, dashboard, pomodoroState.completedByDate, windowOffset]);
 
   const maxPomodoros = useMemo(() => Math.max(1, ...allDays.map((d) => d.pomodoroCount)), [allDays]);
   const totalPomodoros = useMemo(() => allDays.reduce((sum, day) => sum + day.pomodoroCount, 0), [allDays]);
@@ -129,7 +156,6 @@ export function DashboardOverview({
   // Today's numbers come from the server's own view of today, so that browsing
   // back through the calendars below never relabels an older day as "hoje".
   const pomodoroToday = dashboard?.today.pomodoro_count ?? 0;
-  const activityToday = dashboard?.today.activity_count ?? 0;
   const thisWeekActivities = useMemo(() => allDays.slice(-7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const previousWeekActivities = useMemo(() => allDays.slice(-14, -7).reduce((sum, day) => sum + day.activityCount, 0), [allDays]);
   const weeklyDelta = thisWeekActivities - previousWeekActivities;
@@ -149,19 +175,19 @@ export function DashboardOverview({
     all: t("Todo o período"),
   };
   const currentPeriodLabel = periodLabels[activityPeriod];
-  const periodDateLabel = periodSummary?.start_date
+  const periodDateLabel = periodLoading ? t("Carregando atividades do período...") : periodError ? '—' : periodSummary?.start_date
     ? `${formatDateLabel(periodSummary.start_date)} até ${formatDateLabel(periodSummary.end_date)}`
     : t("Nenhuma atividade registrada ainda");
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <SummaryCard icon={<Flame size={22} />} value={`${dashboard?.study_streak_count ?? 0}`} label={t("Sequência (dias)")} tone="amber" />
         <SummaryCard icon={<Timer size={22} />} value={`${pomodoroToday}`} label={t("Pomodoros hoje")} tone="sky" />
         <SummaryCard icon={<Timer size={22} />} value={`${totalPomodoros}`} label={`Pomodoros · ${windowLabel}`} tone="violet" />
         <SummaryCard icon={<BookOpen size={22} />} value={`${studyDays}`} label={`Dias ativos · ${windowLabel}`} tone="emerald" />
-        <SummaryCard icon={<Clock size={22} />} value={formatDurationCompact(totalActivityDuration)} label={`Tempo registrado · ${activityToday} atividades hoje`} tone="sky" />
-        <SummaryCard icon={<ClipboardList size={22} />} value={periodLoading ? '…' : `${periodSummary?.questions_answered ?? 0}`} label={`Questões · ${currentPeriodLabel.toLowerCase()}`} tone="amber" />
+        <SummaryCard icon={<Clock size={22} />} value={formatDurationCompact(totalActivityDuration)} label={`Tempo registrado · ${windowLabel}`} tone="sky" />
+        <SummaryCard icon={<ClipboardList size={22} />} value={periodLoading ? '…' : `${periodSummary?.questions_answered ?? '—'}`} label={`Questões · ${currentPeriodLabel.toLowerCase()}`} tone="amber" />
       </div>
 
       <div className="rounded-[1.4rem] border-2 border-emerald-100 bg-emerald-100/70 p-5 dark:border-emerald-300/30 dark:bg-emerald-400/10">
@@ -185,32 +211,41 @@ export function DashboardOverview({
             </select>
           </label>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        {periodError && <p role="alert" className="mt-4 text-sm font-bold text-rose-700">{periodError}</p>}
+        <div className="mt-4 grid grid-cols-1 gap-3 min-[360px]:grid-cols-3">
           <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
-            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.questions_answered ?? 0}</p>
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.questions_answered ?? '—'}</p>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-200">{t("Questões feitas")}</p>
           </div>
           <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
-            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.topics_studied ?? 0}</p>
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.topics_studied ?? '—'}</p>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-200">{t("Tópicos estudados")}</p>
           </div>
           <div className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 text-center dark:border-emerald-300/20 dark:bg-slate-950/45">
-            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.subjects_studied ?? 0}</p>
+            <p className="text-2xl font-black text-slate-800 dark:text-slate-50">{periodLoading ? '…' : periodSummary?.subjects_studied ?? '—'}</p>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-200">{t("Matérias")}</p>
           </div>
         </div>
         <div className="mt-4 rounded-2xl border border-emerald-100 bg-white px-4 py-3 dark:border-emerald-300/20 dark:bg-slate-950/45">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-emerald-100">{t("Matérias estudadas no período")}</p>
-          {(periodSummary?.subject_names ?? []).length > 0 ? (
+          {periodLoading ? <p className="mt-2 text-sm font-bold text-slate-500">{t("Carregando atividades do período...")}</p> : periodError ? <p className="mt-2 text-sm font-bold text-slate-500">—</p> : (periodSummary?.subject_names ?? []).length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {(periodSummary?.subject_names ?? []).map((name) => (
-                <span key={name} className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-100">{name}</span>
+                <span key={name} className="max-w-full break-words rounded-full bg-emerald-100 px-3 py-1 text-sm font-black text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-100">{name}</span>
               ))}
             </div>
           ) : (
             <p className="mt-2 text-sm font-bold text-slate-500 dark:text-slate-200">{t("As matérias aparecerão aqui assim que você responder ou concluir uma atividade neste período.")}</p>
           )}
         </div>
+        {!periodLoading && !periodError && (periodSummary?.topic_names ?? []).length > 0 && (
+          <details className="mt-4 rounded-2xl border border-emerald-100 bg-white px-4 py-3 dark:border-emerald-300/20 dark:bg-slate-950/45">
+            <summary className="cursor-pointer text-sm font-bold text-slate-700">{t("Tópicos estudados no período")}</summary>
+            <ul className="mt-3 space-y-2 text-sm font-medium text-slate-600">
+              {periodSummary?.topic_names.map(name => <li key={name} className="break-words">{name}</li>)}
+            </ul>
+          </details>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 rounded-[1.4rem] border-2 border-sky-100 bg-sky-100/70 p-4 dark:border-sky-300/30 dark:bg-sky-400/10 sm:flex-row sm:items-center sm:justify-between">
@@ -223,7 +258,7 @@ export function DashboardOverview({
         </span>
       </div>
 
-      <div className="rounded-[1.4rem] border-2 border-amber-100 bg-white/90 p-5">
+      <div className="rounded-[1.4rem] border-2 border-amber-100 bg-white/90 p-5 dark:border-amber-300/30">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-500">{t("Questões por matéria")}</p>
@@ -245,10 +280,10 @@ export function DashboardOverview({
               return (
                 <article key={metric.subject_id} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-black text-slate-800">{metric.subject_name}</h3>
+                    <div className="min-w-0">
+                      <h3 className="break-words text-base font-black text-slate-800">{metric.subject_name}</h3>
                       <p className="mt-1 text-xs font-bold text-slate-500">
-                        {metric.resolved_count} {t("questão")}{metric.resolved_count === 1 ? '' : 'ões'} resolvida{metric.resolved_count === 1 ? '' : 's'}
+                        {tf(metric.resolved_count === 1 ? "{count} questão resolvida" : "{count} questões resolvidas", { count: metric.resolved_count })}
                       </p>
                     </div>
                     <span className="w-fit rounded-full bg-white px-3 py-1 text-sm font-black text-amber-700 shadow-sm">
@@ -256,11 +291,11 @@ export function DashboardOverview({
                     </span>
                   </div>
 
-                  <div className="mt-3 h-2 rounded-full bg-rose-100">
+                  <div role="progressbar" aria-label={tf("Acertos em {subject}", { subject: metric.subject_name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={accuracy} className="mt-3 h-2 rounded-full bg-rose-100">
                     <div className="h-2 rounded-full bg-emerald-400 transition-all" style={{ width: `${accuracy}%` }} />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-black">
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-center text-xs font-black min-[360px]:grid-cols-3">
                     <span className="rounded-xl bg-white px-2 py-2 text-slate-600">{metric.resolved_count} feitas</span>
                     <span className="rounded-xl bg-emerald-50 px-2 py-2 text-emerald-700">{metric.correct_count} acertos</span>
                     <span className="rounded-xl bg-rose-50 px-2 py-2 text-rose-700">{metric.error_count} erros</span>
@@ -271,6 +306,9 @@ export function DashboardOverview({
           </div>
         )}
       </div>
+
+      {windowLoading && <p role="status" className="text-sm font-bold text-slate-500">{t("Carregando histórico de atividades...")}</p>}
+      {windowError && <p role="alert" className="text-sm font-bold text-rose-700">{windowError}</p>}
 
       <div className="flex flex-wrap items-center gap-2 rounded-[1.4rem] border-2 border-slate-100 bg-white/90 px-4 py-3">
         <p className="mr-auto text-sm font-black text-slate-700">
@@ -319,8 +357,8 @@ export function DashboardOverview({
           ))}
         </div>
         <div className="mt-1.5 flex justify-between text-[10px] font-semibold text-slate-400">
-          <span>{t("30 dias atrás")}</span>
-          <span>{t("Hoje")}</span>
+          <span>{formatDateLabel(windowStart)}</span>
+          <span>{formatDateLabel(windowEnd)}</span>
         </div>
       </div>
 

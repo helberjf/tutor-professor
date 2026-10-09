@@ -69,8 +69,11 @@ def used_classes() -> set[str]:
         for cls in CUSTOM_TEXT_CLASSES:
             if re.search(rf"(?<![\w-]){re.escape(cls)}(?![\w-])", text):
                 found.add(cls)
-        for cls in re.findall(r"(?<![\w-])(bg-white|bg-slate-50|bg-slate-100)(?![\w/-])", text):
-            found.add(cls)
+        for cls, opacity in re.findall(r"(?<![\w-])((?:bg-white|bg-slate-50|bg-slate-100)(?:/(\d+))?)(?![\w/-])", text):
+            # Subtle white overlays on dark/gradient actions are intentional.
+            # Opaque card surfaces must follow the theme, including /80.
+            if not opacity or int(opacity) >= 60:
+                found.add(cls)
         for family in TAILWIND_COLOR_FAMILIES:
             if family == "slate":
                 continue
