@@ -53,6 +53,12 @@ export function withoutObjective(plan: StudyPlan, objectiveId: number): StudyPla
   });
 }
 
+/** Apply a delayed objective response to the latest plans without restoring deleted work. */
+export function updatePlansWithObjective(plans: StudyPlan[], updated: Objective): StudyPlan[] {
+  return plans.map((plan) => plan.objectives.some((objective) => objective.id === updated.id)
+    ? withObjective(plan, updated) : plan);
+}
+
 export function recomputePlan(plan: StudyPlan): StudyPlan {
   const active = activePriorities(plan);
   const finished = active.filter(isFinished);
