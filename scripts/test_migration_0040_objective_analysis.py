@@ -8,9 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "apps" / "api"
 sys.path.insert(0, str(API))
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 import database_bootstrap
 from sqlmodel import SQLModel
+
+
+def head_revision(url):
+    return ScriptDirectory.from_config(database_bootstrap._alembic_config(url)).get_current_head()
 
 
 def verify_unversioned_previous_shape():
@@ -21,7 +26,8 @@ def verify_unversioned_previous_shape():
         with engine.begin() as db:
             db.execute(text("ALTER TABLE objective DROP COLUMN study_scope"))
             db.execute(text("ALTER TABLE objective DROP COLUMN study_analysis"))
-        assert database_bootstrap.bootstrap_database(url) == "0040", "pre-0040 unversioned create_all shape must upgrade safely"
+            db.execute(text("ALTER TABLE objective DROP COLUMN analysis_workflow"))
+        assert database_bootstrap.bootstrap_database(url) == head_revision(url), "pre-0040 unversioned create_all shape must upgrade safely"
         assert {"study_scope", "study_analysis"} <= {c["name"] for c in inspect(engine).get_columns("objective")}
         engine.dispose()
 
@@ -44,14 +50,14 @@ def verify(already_created=False):
             command.upgrade(config, "head")
             with engine.connect() as db:
                 revision = db.execute(text("SELECT version_num FROM alembic_version")).scalar()
-                assert revision == "0040", f"objective analysis migration missing: {revision}"
+                assert revision == head_revision(url), f"objective analysis migration missing: {revision}"
                 columns = {c["name"]: c for c in inspect(db).get_columns("objective")}
                 assert columns["study_scope"]["nullable"] and columns["study_analysis"]["nullable"]
                 row = db.execute(text("SELECT title,study_scope,study_analysis FROM objective")).one()
                 assert row[0] == "Legado" and row[2] is None
                 assert (row[1] is not None) == already_created
             before = [(c["name"], str(c["type"]), c["nullable"]) for c in inspect(engine).get_columns("objective")]
-            assert database_bootstrap.bootstrap_database(url) == "0040"
+            assert database_bootstrap.bootstrap_database(url) == head_revision(url)
             assert before == [(c["name"], str(c["type"]), c["nullable"]) for c in inspect(engine).get_columns("objective")]
             engine.dispose()
         finally:

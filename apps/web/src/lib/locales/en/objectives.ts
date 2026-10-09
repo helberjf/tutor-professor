@@ -1,4 +1,9 @@
 export const OBJECTIVES_EN: Record<string, string> = {
+  'Lendo estudos: {completed} de {total} partes.': 'Reading studies: {completed} of {total} parts.',
+  'Preparando o histórico de estudos...': 'Preparing your study history...',
+  'Leitura do histórico de estudos': 'Study history review',
+  'Continuar análise': 'Continue analysis',
+  'O progresso fica salvo. Se houver uma falha, tente novamente para continuar.': 'Progress is saved. If a step fails, try again to continue.',
   'O que falta melhorar': 'What needs improvement',
   'Plano para alcançar o objetivo': 'Plan to reach your goal',
   'Escolha uma matéria para selecionar seus tópicos. Você pode ajustar a seleção abaixo.': 'Choose a subject to select its topics. You can adjust the selection below.',

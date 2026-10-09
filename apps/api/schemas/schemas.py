@@ -1701,6 +1701,7 @@ class ObjectiveSchema(FromAttributesModel):
     plan_order: Optional[int] = None
     study_scope: Optional[ObjectiveStudyScopeSchema] = None
     study_analysis: Optional[ObjectiveStudyAnalysisSchema] = None
+    study_analysis_pending: bool = False
     created_at: datetime
     updated_at: datetime
     items: list[ObjectiveItemSchema] = Field(default_factory=list)
@@ -1713,6 +1714,14 @@ class ObjectiveSchema(FromAttributesModel):
     progress_percent: int = 0
     # Days until target_date; negative when the date has passed. None without one.
     days_remaining: Optional[int] = None
+
+
+class ObjectiveAnalysisJobSchema(BaseModel):
+    job_id: str
+    status: Literal["pending", "running", "complete"]
+    completed_steps: int
+    total_steps: int
+    objective: Optional[ObjectiveSchema] = None
 
 
 class CreateObjectiveSchema(BaseModel):

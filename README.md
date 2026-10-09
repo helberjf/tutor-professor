@@ -63,10 +63,13 @@ The project was built as a practical engineering exercise: a real product surfac
   The goal form links recorded studies without asking for manual task items;
   objectives without a checklist show their AI study assessment directly.
   Relevant history is read in full, including old records and long text, using
-  bounded batches and summary consolidation. If the full review exceeds the
-  operation budget or fails, the previous diagnosis is preserved. The default
-  budget is 12 provider calls and 50 seconds (`OBJECTIVE_ANALYSIS_MAX_CALLS` and
-  `OBJECTIVE_ANALYSIS_TIME_BUDGET_SECONDS`, capped at 50 seconds). An
+  bounded batches and summary consolidation over resumable requests. Each
+  request makes at most one provider call with a 45-second timeout; a durable
+  snapshot retains validated checkpoints across connection failures and retries.
+  An expiring claim prevents overlapping steps, and the previous diagnosis is
+  preserved until every batch and the final assessment succeed. One job reserves
+  one platform credit and records usage once, so the last available credit can
+  finish its whole history. An
   empty history shows insufficient evidence rather than an invented percentage.
   The estimate stays separate from checklist progress; editing the goal or its
   study links marks the previous analysis as outdated. Optional analysis after
@@ -371,6 +374,9 @@ python scripts/test_study_plan.py
 python scripts/test_objective_deletion_foreign_keys.py
 python scripts/test_objective_study_analysis.py
 python scripts/test_objective_full_history.py
+python scripts/test_objective_analysis_jobs.py
+python scripts/test_objective_job_deletion.py
+python scripts/test_migration_0041_objective_workflow.py
 python scripts/test_account_modules.py
 python scripts/test_account_self_service.py
 python scripts/test_billing_and_usage.py

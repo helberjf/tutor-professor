@@ -795,6 +795,9 @@ class Objective(SQLModel, table=True):
     study_scope: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     # The last valid AI assessment, including the input signature it evaluated.
     study_analysis: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Private durable evidence snapshot, reduction checkpoints and expiring lease.
+    # Deliberately absent from every public objective schema.
+    analysis_workflow: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
