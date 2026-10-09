@@ -25,3 +25,13 @@ O usuário acrescentou que a IA deve ler todo o estudo relevante da disciplina e
 - Notas gerais da matéria são evidência de estudo quando todos os seus tópicos estão selecionados, sem afirmar domínio de um tópico específico. Com apenas alguns tópicos, servem como contexto, conforme o comportamento existente.
 - Apresentar a porcentagem como estimativa, o que já foi estudado, o que falta melhorar e um plano ordenado de ações concretas com critérios de conclusão. Na ausência de evidência, explicar que ainda não é possível estimar uma porcentagem.
 - Preservar a cobrança e os controles de concorrência da operação de análise. Verificar cobertura com um registro antigo e um trecho após o corte anterior, além de isolamento, falhas do provedor e persistência.
+
+## Ajuste solicitado depois da publicação
+
+O usuário ampliou o máximo para 60 tópicos e pediu a retirada do bloco de tarefas manuais porque o diagnóstico deve usar os estudos já registrados. Este ajuste substitui o limite de 30 e o formulário manual descritos acima.
+
+- Aceitar até 60 vínculos no seletor, validação do cliente, schema da API e resolução do escopo; o 61º continua bloqueado, sem alterar os vínculos salvos. Atualizar avisos e traduções.
+- Remover os campos de tarefas da criação e de adição nos cartões. Novos objetivos enviam apenas o objetivo e seus vínculos, sem itens manuais. Cartões sem itens exibem a análise de estudo diretamente, sem uma barra vazia pedindo tarefas.
+- Itens existentes e prioridades dos planos continuam legíveis; nenhum registro é apagado. A análise continua usando as evidências de estudo do escopo, sem ler checklists como prova de aprendizagem.
+- A média geral de tarefas considera somente objetivos ativos com itens; objetivos acompanhados pelo histórico de estudos não reduzem essa média nem exibem uma barra de checklist vazia.
+- Verificar os limites 31/60/61 na seleção e no salvamento por HTTP, a ausência dos campos removidos e o fluxo com agent-browser antes de publicar frontend e API na main.

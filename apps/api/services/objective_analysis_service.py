@@ -114,7 +114,7 @@ def resolve_scope(raw: Mapping[str, Any] | None, options: list[dict]) -> dict | 
     discipline_key = raw.get("discipline_key")
     keys = raw.get("target_keys")
     group = next((item for item in options if item["key"] == discipline_key), None)
-    if not group or not isinstance(keys, list) or not keys or len(keys) > 30:
+    if not group or not isinstance(keys, list) or not keys or len(keys) > 60:
         raise ValueError("Escolha uma disciplina e pelo menos um tópico disponível.")
     targets = {item["key"]: item for item in group["targets"]}
     selected = []

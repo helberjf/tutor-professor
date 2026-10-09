@@ -116,6 +116,33 @@ def seed(child_id, foreign_id):
         return dict(discipline=math.id, history=history.id, limits=limits.id, derivatives=derivatives.id, secret=secret.id, dates=dates.id, statistics=statistics.id, statistics_sibling=statistics_sibling.id)
 
 
+async def selection_limit_tests(client, headers, child_id, discipline_id):
+    with Session(main.engine) as db:
+        subject = ProgrammingSubject(child_id=child_id, name="Seleção de 60 tópicos", track="general", discipline_id=discipline_id)
+        db.add(subject); db.flush()
+        topics = [ProgrammingTopic(subject_id=subject.id, title=f"Tópico {n}") for n in range(61)]
+        db.add_all(topics); db.flush()
+        keys = [f"topic:{topic.id}" for topic in topics]
+        db.commit()
+    scope = dict(discipline_key=f"discipline:{discipline_id}", target_keys=keys[:31])
+    created = await client.post("/api/objectives", headers=headers, json=dict(title="Objetivo com 31 tópicos", study_scope=scope))
+    require(created.status_code == 201, f"creation accepts the 31st topic: {created.text}")
+    oid = created.json()["id"]
+    scope["target_keys"] = keys[:60]
+    sixty = await client.post("/api/objectives", headers=headers, json=dict(title="Objetivo com 60 tópicos", study_scope=scope))
+    require(sixty.status_code == 201 and len(sixty.json()["study_scope"]["targets"]) == 60, "creation persists all 60 selected topics")
+    updated = await client.put(f"/api/objectives/{oid}", headers=headers, json=dict(study_scope=scope))
+    require(updated.status_code == 200 and len(updated.json()["study_scope"]["targets"]) == 60, "editing accepts and persists 60 topics")
+    scope["target_keys"] = keys
+    rejected = await client.post("/api/objectives", headers=headers, json=dict(title="Objetivo acima do limite", study_scope=scope))
+    require(rejected.status_code == 422, "creation rejects the 61st topic")
+    rejected = await client.put(f"/api/objectives/{oid}", headers=headers, json=dict(study_scope=scope))
+    require(rejected.status_code == 422, "editing rejects the 61st topic")
+    saved = next(item for item in (await client.get("/api/objectives", headers=headers)).json() if item["id"] == oid)
+    require(len(saved["study_scope"]["targets"]) == 60, "a rejected edit preserves the previous 60 links")
+    return sixty.json()["id"]
+
+
 async def http_tests():
     main.on_startup()
     fake = Provider()
@@ -135,6 +162,7 @@ async def http_tests():
         keys = [f"topic:{ids['limits']}", f"topic:{ids['derivatives']}"]
         require(all(k in [t["key"] for t in group["targets"]] for k in keys), "unstudied curriculum topics remain selectable")
         scope = dict(discipline_key=group["key"], target_keys=keys)
+        limit_oid = await selection_limit_tests(client, headers, child_id, ids["discipline"])
         with Session(main.engine) as db:
             user = db.get(User, db.get(ChildProfile, child_id).user_id)
             user.enabled_modules = {"coding": False, "diverse": False}; db.add(user); db.commit()
@@ -156,6 +184,11 @@ async def http_tests():
         require(denied.status_code == 404, "analysis hides foreign objectives")
         configured = await client.put("/api/ai/settings", headers=headers, json=dict(provider="openai", api_key="test-key", model="gpt-test"))
         require(configured.status_code == 200, configured.text)
+        analyzed_limit = await client.post(f"/api/objectives/{limit_oid}/analyze", headers=headers)
+        require(analyzed_limit.status_code == 200 and len(analyzed_limit.json()["study_scope"]["targets"]) == 60,
+                "analysis accepts the entire 60-topic scope")
+        require(analyzed_limit.json()["study_analysis"]["progress_percent"] is None, "unstudied topics do not invent progress")
+        fake.calls.clear()
         statistics_target = next(t for t in group["targets"] if t["subject_id"] == ids["statistics"])
         require(statistics_target["key"] == f"subject:{ids['statistics']}", "owned log subjects use stable subject IDs as target keys")
         statistics_objective = await client.post("/api/objectives", headers=headers,

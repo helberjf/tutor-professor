@@ -1,6 +1,15 @@
 import type { CreateObjectivePayload, Objective, ObjectiveStudyOptions, ObjectiveStudyScope, ObjectiveStudyScopeInput, ObjectiveStudyTarget } from '@/lib/api';
 
-export const MAX_STUDY_TARGETS = 30;
+export const MAX_STUDY_TARGETS = 60;
+
+export function objectiveTaskProgress(objectives: Objective[]): { averagePercent: number | null; achievedCount: number; pendingItems: number } {
+  const withTasks = objectives.filter((objective) => objective.status === 'active' && objective.item_count > 0);
+  return {
+    averagePercent: withTasks.length ? Math.round(withTasks.reduce((total, objective) => total + objective.progress_percent, 0) / withTasks.length) : null,
+    achievedCount: withTasks.filter((objective) => objective.progress_percent >= 100).length,
+    pendingItems: withTasks.reduce((total, objective) => total + objective.item_count - objective.done_count, 0),
+  };
+}
 
 export function studyAiUnavailableMessage(reason?: string | null): string {
   if (reason === 'no_config') return 'Configure uma chave de API na sua conta para analisar seus objetivos.';
