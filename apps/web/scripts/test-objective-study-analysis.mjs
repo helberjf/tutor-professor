@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(source, {
 }).outputText;
 const module = { exports: {} };
 new Function('exports', 'module', 'require', compiled)(module.exports, module, require);
-const { toStudyScopeInput, toggleStudyTarget, filterStudyTargets, validStudyScope, missingStudyTargets, createAndAnalyzeObjective, studyAiUnavailableMessage } = module.exports;
+const { toStudyScopeInput, toggleStudyTarget, selectStudyTargets, filterStudyTargets, validStudyScope, missingStudyTargets, createAndAnalyzeObjective, studyAiUnavailableMessage } = module.exports;
 
 const limits = { key: 'topic:1', title: 'Limites', subject: 'Cálculo', topic_id: 1, subject_id: 10, available: true };
 const derivatives = { key: 'topic:2', title: 'Derivação', subject: 'Cálculo', topic_id: 2, subject_id: 10, available: true };
@@ -29,6 +29,17 @@ assert.match(studyAiUnavailableMessage('no_credits'), /créditos/);
 assert.deepEqual(filterStudyTargets(options.disciplines[0].targets, 'derivacao', ''), [derivatives]);
 assert.deepEqual(filterStudyTargets(options.disciplines[0].targets, '', 'Geometria'), [geometry]);
 assert.deepEqual(filterStudyTargets(options.disciplines[0].targets, 'limites', 'Geometria'), []);
+assert.equal(typeof selectStudyTargets, 'function', 'bulk selection must be available');
+assert.deepEqual(selectStudyTargets(filterStudyTargets(options.disciplines[0].targets, '', 'Cálculo')), ['topic:1', 'topic:2'], 'choosing a subject selects all its topics');
+assert.deepEqual(selectStudyTargets(filterStudyTargets(options.disciplines[0].targets, '', 'Geometria')), ['topic:3'], 'changing subject replaces the prior group');
+assert.deepEqual(selectStudyTargets(options.disciplines[0].targets), ['topic:1', 'topic:2', 'topic:3'], 'all subjects selects the discipline');
+assert.deepEqual(selectStudyTargets(filterStudyTargets(options.disciplines[0].targets, 'derivacao', ''), ['topic:3']), ['topic:3', 'topic:2'], 'selecting search results preserves other selected topics');
+assert.deepEqual(selectStudyTargets([limits, limits, derivatives], ['topic:1', 'topic:1']), ['topic:1', 'topic:2'], 'bulk selection deduplicates old and new keys');
+assert.deepEqual(selectStudyTargets([{ ...limits, available: false }, derivatives]), ['topic:2'], 'unavailable topics are never selected automatically');
+const manyTargets = Array.from({ length: 35 }, (_, index) => ({ ...limits, key: `topic:${index}` }));
+assert.deepEqual(selectStudyTargets(manyTargets), fullSelection, 'bulk selection respects the server cap');
+assert.deepEqual(selectStudyTargets([geometry], fullSelection), fullSelection, 'a full selection cannot grow');
+assert.deepEqual(selectStudyTargets([]), [], 'an empty subject has no selected targets');
 assert.equal(validStudyScope(toStudyScopeInput(scope), options), true);
 assert.equal(validStudyScope({ discipline_key: 'discipline:1', target_keys: [] }, options), false);
 assert.equal(validStudyScope({ discipline_key: 'discipline:2', target_keys: ['topic:1'] }, options), false);

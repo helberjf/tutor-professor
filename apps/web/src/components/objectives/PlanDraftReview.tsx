@@ -142,11 +142,6 @@ export function PlanDraftReview({
                                   <span className={`rounded-full px-2 py-0.5 text-[0.68rem] font-black ${areaChipClass(item.area)}`}>
                                     {areaLabel(item.area)}
                                   </span>
-                                  {item.weight > 1 ? (
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.68rem] font-black text-slate-500">
-                                      peso {item.weight}
-                                    </span>
-                                  ) : null}
                                 </div>
                               </div>
                               {selected ? (

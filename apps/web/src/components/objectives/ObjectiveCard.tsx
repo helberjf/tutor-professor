@@ -26,7 +26,6 @@ interface Props {
 export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
   const [itemTitle, setItemTitle] = useState('');
   const [itemArea, setItemArea] = useState<ObjectiveArea>('free');
-  const [itemWeight, setItemWeight] = useState(1);
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
@@ -71,13 +70,12 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     if (!clean) return;
     setAdding(true);
     const updated = await run(
-      () => api.addObjectiveItem(objective.id, { title: clean, area: itemArea, weight: itemWeight }),
+      () => api.addObjectiveItem(objective.id, { title: clean, area: itemArea }),
       t("Não foi possível adicionar o item."),
     );
     if (updated) {
       onChanged(updated);
       setItemTitle('');
-      setItemWeight(1);
     }
     setAdding(false);
   }
@@ -168,7 +166,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
         <p className="mt-2 text-xs font-semibold text-slate-400">
           {objective.item_count === 0
             ? t("Adicione o que precisa estudar para começar a medir.")
-            : `${objective.done_count} de ${objective.item_count} itens concluídos · peso ${objective.done_weight} de ${objective.total_weight}`}
+            : `${objective.done_count} de ${objective.item_count} itens concluídos`}
         </p>
       </div>
 
@@ -206,11 +204,6 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
                   <span className={`rounded-full px-2 py-0.5 text-[0.68rem] font-black ${areaChipClass(item.area)}`}>
                     {areaLabel(item.area)}
                   </span>
-                  {item.weight > 1 ? (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.68rem] font-black text-slate-500">
-                      peso {item.weight}
-                    </span>
-                  ) : null}
                   {/* A box that ticks itself is only reassuring while it is
                       clear who ticked it. Unchecking it hands it back. */}
                   {item.auto_completed ? (
@@ -235,33 +228,23 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
         })}
       </ul>
 
-      <form onSubmit={addItem} className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <form onSubmit={addItem} className="mt-3 grid grid-cols-2 gap-2">
         <input
           aria-label={`Novo item de estudo para ${objective.title}`}
           value={itemTitle}
           onChange={(event) => setItemTitle(event.target.value)}
           placeholder={t("O que falta estudar?")}
           maxLength={200}
-          className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
+          className="col-span-2 min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
         />
         <select
           aria-label={`Área do novo item de ${objective.title}`}
           value={itemArea}
           onChange={(event) => setItemArea(event.target.value as ObjectiveArea)}
-          className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
+          className="min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
         >
           {OBJECTIVE_AREAS.map((area) => (
             <option key={area.id} value={area.id}>{area.label}</option>
-          ))}
-        </select>
-        <select
-          aria-label={`Peso do novo item de ${objective.title}`}
-          value={itemWeight}
-          onChange={(event) => setItemWeight(Number(event.target.value))}
-          className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
-        >
-          {[1, 2, 3, 5, 8, 10].map((weight) => (
-            <option key={weight} value={weight}>peso {weight}</option>
           ))}
         </select>
         <button

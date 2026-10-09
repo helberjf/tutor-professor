@@ -42,10 +42,10 @@ export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objectiv
   const date = analysis ? new Date(/(?:Z|[+-]\d{2}:\d{2})$/.test(analysis.generated_at) ? analysis.generated_at : `${analysis.generated_at}Z`) : null;
 
   return (
-    <section className="mt-4 min-w-0 rounded-2xl border-2 border-sky-100 bg-sky-50/30 p-4" aria-label={t('Análise do objetivo com IA')}>
+    <section className="mt-4 min-w-0 rounded-2xl border border-[var(--line-strong)] bg-[var(--surface-strong)] p-4" aria-label={t('Análise do objetivo com IA')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h4 className="flex items-center gap-2 text-sm font-black text-sky-900"><Sparkles size={16} />{t('Quanto falta para alcançar?')}</h4>
+          <h4 className="flex items-center gap-2 text-sm font-bold text-[var(--text-strong)]"><Sparkles size={16} className="text-[var(--sky)]" />{t('Quanto falta para alcançar?')}</h4>
           {scope ? (
             <>
               <p className="mt-2 break-words text-sm font-bold text-slate-700">{scope.discipline}</p>
@@ -93,14 +93,21 @@ export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objectiv
           </div>
           {([
             [t('O que já foi estudado'), analysis.studied],
-            [t('O que falta'), analysis.gaps],
-            [t('Próximos passos'), analysis.next_steps],
+            [t('O que falta melhorar'), analysis.gaps],
           ] as [string, string[]][]).map(([title, items]) => items.length ? (
             <div key={title}>
               <p className="text-sm font-black text-slate-700">{title}</p>
               <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-600">{items.map((item, index) => <li key={index} className="break-words">{item}</li>)}</ul>
             </div>
           ) : null)}
+          {analysis.next_steps.length ? (
+            <div className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface-muted)] p-3 sm:p-4">
+              <h5 className="text-sm font-bold text-[var(--text-strong)]">{t('Plano para alcançar o objetivo')}</h5>
+              <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-6 text-[var(--text)]">
+                {analysis.next_steps.map((step, index) => <li key={index} className="break-words pl-1">{step}</li>)}
+              </ol>
+            </div>
+          ) : null}
           <p className="text-xs leading-5 text-slate-500">{tf('Confiança: {confidence} · {count} evidências de estudo', { confidence: confidence[analysis.confidence], count: analysis.evidence_count })}
             {date && !Number.isNaN(date.valueOf()) ? ` · ${date.toLocaleString(getActiveLocale(), { dateStyle: 'short', timeStyle: 'short' })}` : ''}
           </p>
