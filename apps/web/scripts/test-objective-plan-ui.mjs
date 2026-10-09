@@ -63,6 +63,7 @@ const {
   selectDraft,
   withObjective,
   withoutObjective,
+  updatePlansWithObjective,
 } = loadModule('../src/components/objectives/plan-helpers.ts');
 
 function objective(id, planOrder, percent, extra = {}) {
@@ -123,6 +124,17 @@ assert.ok(!moved.objectives.some((o) => o.id === 20), 'a priority now in another
 const trimmed = withoutObjective(base, 10);
 assert.equal(trimmed.next_objective_id, 20);
 assert.equal(trimmed.progress_percent, 25);
+
+// A slow analysis of priority 20 must apply to the current plan, preserving
+// priority 30's more recent completion or deletion.
+const afterOtherCompletion = [withObjective(base, objective(30, 3, 100))];
+const afterAnalysis = updatePlansWithObjective(afterOtherCompletion, objective(20, 2, 50, { study_analysis: { progress_percent: 80 } }));
+assert.equal(afterAnalysis[0].objectives.find((o) => o.id === 30).progress_percent, 100);
+assert.equal(afterAnalysis[0].progress_percent, 83);
+const afterOtherDeletion = [withoutObjective(base, 30)];
+assert.ok(!updatePlansWithObjective(afterOtherDeletion, objective(20, 2, 50))[0].objectives.some((o) => o.id === 30));
+const afterOwnDeletion = [withoutObjective(base, 20)];
+assert.equal(updatePlansWithObjective(afterOwnDeletion, objective(20, 2, 50))[0], afterOwnDeletion[0], 'a late response cannot restore a removed priority');
 
 const done = plan([objective(1, 1, 100), objective(2, 2, 100)]);
 assert.equal(done.next_objective_id, null, 'a finished plan has no next step');

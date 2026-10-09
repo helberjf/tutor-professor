@@ -106,6 +106,7 @@ from schemas.schemas import (
     UpdatePlanSchema,
     ObjectiveItemSchema,
     ObjectiveSchema,
+    ObjectiveStudyOptionsSchema,
     ObjectivesSummarySchema,
     UpdateObjectiveItemSchema,
     UpdateObjectiveSchema,
@@ -326,7 +327,7 @@ from services.coding_service import (
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import normalize_front, sanitize_context
-from services import study_log_service
+from services import objective_analysis_service, study_log_service
 from services.study_plan_service import (
     CurrentPriority,
     PriorityProgress,
@@ -870,6 +871,7 @@ def _is_ai_request(request: Request) -> bool:
         or "/generate" in path
         or path.endswith("/reading/deepen")
         or path.endswith("/summary")
+        or re.fullmatch(r"/api/objectives/\d+/analyze", path) is not None
     )
 
 
@@ -4023,6 +4025,10 @@ def rename_study_log_discipline(
     session.flush()
     for entry in entries:
         sync_study_log_activity(session, entry, child)
+    objective_analysis_service.rename_log_scopes(
+        session, child, {module: _account_module_enabled(request, session, module) for module in ("coding", "diverse")},
+        old_discipline=payload.from_name, new_discipline=label,
+    )
     session.commit()
     return StudyLogRenameResultSchema(updated=len(entries), name=label)
 
@@ -4058,6 +4064,10 @@ def rename_study_log_subject(
     session.flush()
     for entry in entries:
         sync_study_log_activity(session, entry, child)
+    objective_analysis_service.rename_log_scopes(
+        session, child, {module: _account_module_enabled(request, session, module) for module in ("coding", "diverse")},
+        old_discipline=payload.discipline, old_subject=payload.from_name, new_subject=label, subject_rename=True,
+    )
     session.commit()
     return StudyLogRenameResultSchema(updated=len(entries), name=label)
 
@@ -7576,6 +7586,57 @@ def _consume_ai_credit(user_id: int, session: Session) -> None:
     user.ai_credits_used_today += 1
     session.add(user)
     session.commit()
+
+
+def _reserve_objective_analysis_credit(
+    user_id: int | None, session: Session, config: AIProviderConfig,
+) -> tuple[AIProviderConfig, Callable[[], None] | None]:
+    """Admit one metered objective call atomically, then release the DB lock.
+
+    The normal provider hook charges after an answer. A concurrent objective
+    call needs admission before the network call, so replace only its metered
+    hook and refund failed calls on the same allowance day.
+    """
+    if user_id is None:
+        return config, None
+    settings = get_user_ai_settings_record(user_id, session)
+    user = session.get(User, user_id)
+    if settings is None or not settings.use_global_key or user is None or user.ai_unlimited or user_is_admin(user):
+        session.rollback()
+        return config, None
+    reservation_date = user.ai_credits_reset_date
+    debit = session.execute(update(User).where(User.id == user_id, User.ai_credits > 0,
+                             User.ai_credits_reset_date == reservation_date)
+                            .values(ai_credits=User.ai_credits - 1)
+                            .execution_options(synchronize_session=False))
+    if debit.rowcount != 1:
+        session.rollback()
+        raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+    session.commit()
+    answered = False
+
+    def record_answer() -> None:
+        nonlocal answered
+        if answered:
+            return
+        answered = True
+        session.execute(update(User).where(User.id == user_id).values(
+            ai_credits_used=User.ai_credits_used + 1,
+            ai_credits_used_today=case((User.ai_credits_reset_date == reservation_date,
+                                       User.ai_credits_used_today + 1), else_=User.ai_credits_used_today),
+        ).execution_options(synchronize_session=False))
+        record_usage(session=session, user_id=user_id, kind=USAGE_AI_GENERATION,
+                     provider=config.provider, model=config.model, cost_micros=AI_GENERATION_COST_MICROS)
+
+    def refund_before_answer() -> None:
+        if answered:
+            return
+        session.rollback()
+        session.execute(update(User).where(User.id == user_id, User.ai_credits_reset_date == reservation_date)
+                        .values(ai_credits=User.ai_credits + 1).execution_options(synchronize_session=False))
+        session.commit()
+
+    return replace(config, on_success=record_answer), refund_before_answer
 
 
 # ── Entitlements and usage ────────────────────────────────────────────────────
@@ -13073,9 +13134,19 @@ def objective_progress(items: list[ObjectiveItem]) -> tuple[int, int, int]:
     return done_weight, total_weight, round(done_weight * 100 / total_weight)
 
 
-def build_objective_schema(objective: Objective, items: list[ObjectiveItem]) -> ObjectiveSchema:
+def objective_study_options_for(session: Session, child: ChildProfile) -> list[dict]:
+    user = session.get(User, child.user_id) if child.user_id is not None else None
+    return objective_analysis_service.study_options(session, child, resolve_modules(user.enabled_modules if user else None))
+
+
+def build_objective_schema(objective: Objective, items: list[ObjectiveItem], *, session: Session | None = None) -> ObjectiveSchema:
     done_weight, total_weight, percent = objective_progress(items)
     days_remaining = (objective.target_date - activity_today()).days if objective.target_date else None
+    study_scope = objective.study_scope
+    if study_scope is not None and session is not None:
+        child = session.get(ChildProfile, objective.child_id)
+        if child:
+            study_scope = objective_analysis_service.current_scope(study_scope, objective_study_options_for(session, child))
     return ObjectiveSchema(
         id=objective.id or 0,
         child_id=objective.child_id,
@@ -13088,6 +13159,8 @@ def build_objective_schema(objective: Objective, items: list[ObjectiveItem]) -> 
         order_index=objective.order_index,
         plan_id=objective.plan_id,
         plan_order=objective.plan_order,
+        study_scope=study_scope,
+        study_analysis=objective_analysis_service.analysis_view(objective, study_scope),
         created_at=objective.created_at,
         updated_at=objective.updated_at,
         items=[ObjectiveItemSchema.model_validate(item) for item in items],
@@ -13300,6 +13373,89 @@ def archived_plan_ids(session: Session, child_id: int) -> set[int]:
     }
 
 
+@app.get("/api/objectives/study-options", response_model=ObjectiveStudyOptionsSchema)
+def get_objective_study_options(request: Request, session: Session = Depends(get_session)) -> ObjectiveStudyOptionsSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    config, reason = plan_ai_config(session_record, session)
+    return ObjectiveStudyOptionsSchema(disciplines=objective_study_options_for(session, child),
+                                       ai_available=config is not None, ai_unavailable_reason=reason)
+
+
+@app.post("/api/objectives/{objective_id}/analyze", response_model=ObjectiveSchema)
+def analyze_objective(objective_id: int, request: Request, session: Session = Depends(get_session)) -> ObjectiveSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id = child.id or 0
+    user_id = session_record.user_id
+    objective = require_owned_objective(session, objective_id=objective_id, child_id=child_id)
+    scope = objective_analysis_service.current_scope(objective.study_scope, objective_study_options_for(session, child))
+    if scope is None or not scope["available"]:
+        raise HTTPException(status_code=422, detail="Escolha uma disciplina e tópicos disponíveis antes de analisar o objetivo.")
+    config, reason = plan_ai_config(session_record, session)
+    if config is None:
+        if reason == "no_credits":
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+        raise HTTPException(status_code=403, detail="Configure sua chave de API em Configurações para analisar o objetivo.")
+    signature = objective_analysis_service.input_signature(objective)
+    scope_signature = objective_analysis_service.scope_signature(scope)
+    evaluated_scope = scope
+    evaluated_objective = dict(title=objective.title, description=objective.description)
+    context = objective_analysis_service.collect_evidence(session, child, scope)
+    system_text, prompt = objective_analysis_service.build_analysis_prompts(
+        title=objective.title, description=objective.description, scope=scope, context=context,
+        base_language=child.base_language, age_group=child_age_group(child),
+    )
+    # Do not retain a read transaction or row lock during the external call.
+    session.rollback()
+    config, refund = _reserve_objective_analysis_credit(user_id, session, config)
+    try:
+        raw = phrase_generation_service.generate_json_text(
+            system_text=system_text, prompt=prompt, temperature=0.3, ai_config=config,
+            timeout_seconds=PLAN_GENERATION_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        if refund is not None:
+            refund()
+        if isinstance(exc, RuntimeError):
+            raise HTTPException(status_code=502, detail="Não foi possível analisar o objetivo agora. Tente novamente.") from exc
+        raise
+    try:
+        result = objective_analysis_service.parse_analysis_response(raw, learning_count=context["learning_count"])
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    # Credit/usage callbacks can reload rows; expire everything before the check.
+    session.rollback()
+    if session.get_bind().dialect.name == "sqlite":
+        # SQLite ignores SELECT FOR UPDATE. Acquire its write lock only after
+        # the provider, covering the final reload/check/write as one operation.
+        session.execute(text("BEGIN IMMEDIATE"))
+    session.expire_all()
+    objective = session.exec(select(Objective).where(Objective.id == objective_id,
+                              Objective.child_id == child_id).with_for_update()).first()
+    if objective is None:
+        raise HTTPException(status_code=404, detail="Objetivo não encontrado.")
+    if objective_analysis_service.input_signature(objective) != signature:
+        raise HTTPException(status_code=409, detail="O objetivo mudou durante a análise. Atualize a página e analise novamente.")
+    child = session.get(ChildProfile, child_id)
+    if child is None:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado.")
+    scope = objective_analysis_service.current_scope(objective.study_scope, objective_study_options_for(session, child))
+    if scope is None or not scope["available"] or objective_analysis_service.scope_signature(scope) != scope_signature:
+        raise HTTPException(status_code=409, detail="Os tópicos mudaram durante a análise. Revise o escopo e tente novamente.")
+    now = datetime.utcnow()
+    objective.study_analysis = dict(result, evidence_count=context["learning_count"],
+                                    evidence_refs=context["evidence_refs"], context_truncated=context["context_truncated"],
+                                    generated_at=now.isoformat(), input_signature=signature,
+                                    evaluated_scope=evaluated_scope, evaluated_objective=evaluated_objective)
+    objective.updated_at = now
+    session.add(objective)
+    session.commit()
+    session.refresh(objective)
+    return build_objective_schema(objective, objective_items_for(session, objective_id), session=session)
+
+
 @app.get("/api/objectives", response_model=list[ObjectiveSchema])
 def list_objectives(
     request: Request,
@@ -13317,7 +13473,7 @@ def list_objectives(
         hidden_plans = archived_plan_ids(session, child_id)
         objectives = [objective for objective in objectives if objective.plan_id not in hidden_plans]
     return [
-        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
         for objective in objectives
     ]
 
@@ -13340,7 +13496,7 @@ def get_objectives_summary(
         if objective.status == OBJECTIVE_ACTIVE and objective.plan_id not in hidden_plans
     ]
     schemas = [
-        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
         for objective in active
     ]
     average = round(sum(schema.progress_percent for schema in schemas) / len(schemas)) if schemas else 0
@@ -13373,6 +13529,13 @@ def create_objective(
             detail=f"Limite de {MAX_OBJECTIVES_PER_CHILD} objetivos atingido. Arquive ou exclua algum antes de criar outro.",
         )
     now = datetime.utcnow()
+    try:
+        study_scope = objective_analysis_service.resolve_scope(
+            payload.study_scope.model_dump() if payload.study_scope else None,
+            objective_study_options_for(session, child) if payload.study_scope else [],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     objective = Objective(
         child_id=child_id,
         title=payload.title.strip(),
@@ -13380,6 +13543,7 @@ def create_objective(
         icon_emoji=(payload.icon_emoji or "").strip() or None,
         target_date=payload.target_date,
         order_index=int(existing or 0) + 1,
+        study_scope=study_scope,
         created_at=now,
         updated_at=now,
     )
@@ -13394,7 +13558,7 @@ def create_objective(
     )
     session.commit()
     session.refresh(objective)
-    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
 
 
 @app.put("/api/objectives/{objective_id}", response_model=ObjectiveSchema)
@@ -13407,6 +13571,14 @@ def update_objective(
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     objective = require_owned_objective(session, objective_id=objective_id, child_id=child.id or 0)
+    if "study_scope" in payload.model_fields_set:
+        try:
+            objective.study_scope = objective_analysis_service.resolve_scope(
+                payload.study_scope.model_dump() if payload.study_scope else None,
+                objective_study_options_for(session, child) if payload.study_scope else [],
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     if payload.title is not None:
         objective.title = payload.title.strip() or objective.title
     if payload.description is not None:
@@ -13423,7 +13595,7 @@ def update_objective(
     session.add(objective)
     session.commit()
     session.refresh(objective)
-    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
 
 
 @app.delete("/api/objectives/{objective_id}", status_code=204)
@@ -13474,7 +13646,7 @@ def add_objective_item(
     sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
     session.commit()
     session.refresh(objective)
-    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
 
 
 @app.put("/api/objectives/items/{item_id}", response_model=ObjectiveSchema)
@@ -13510,7 +13682,7 @@ def update_objective_item(
     sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
     session.commit()
     session.refresh(objective)
-    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
 
 
 @app.delete("/api/objectives/items/{item_id}", response_model=ObjectiveSchema)
@@ -13532,7 +13704,7 @@ def delete_objective_item(
     sync_objective_achievement(session, objective, objective_items_for(session, objective.id or 0))
     session.commit()
     session.refresh(objective)
-    return build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+    return build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
 
 
 # ── Planos de estudo ──────────────────────────────────────────────────────────
@@ -13589,7 +13761,7 @@ def plan_objectives_for(session: Session, plan: StudyPlan) -> list[Objective]:
 def build_study_plan_schema(session: Session, plan: StudyPlan) -> StudyPlanSchema:
     objectives = plan_objectives_for(session, plan)
     schemas = [
-        build_objective_schema(objective, objective_items_for(session, objective.id or 0))
+        build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session)
         for objective in objectives
     ]
     overall, next_objective_id, achieved = plan_progress(

@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 
-import { api, type CreateObjectiveItemPayload, type Objective, type ObjectiveArea } from '@/lib/api';
+import { api, type CreateObjectiveItemPayload, type Objective, type ObjectiveArea, type ObjectiveStudyScopeInput } from '@/lib/api';
 import { OBJECTIVE_AREAS } from './objective-areas';
+import { ObjectiveStudyScopePicker } from './ObjectiveStudyScopePicker';
+import { useObjectiveStudyOptions } from './ObjectiveStudyOptions';
+import { createAndAnalyzeObjective, studyAiUnavailableMessage, validStudyScope } from './objective-study-helpers';
 import { t } from '@/lib/i18n';
 
 interface Props {
   onClose: () => void;
-  onCreated: (objective: Objective) => void;
+  onCreated: (objective: Objective, analysisError?: string) => void;
 }
 
 /**
@@ -30,6 +33,11 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   const [itemWeight, setItemWeight] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [studyScope, setStudyScope] = useState<ObjectiveStudyScopeInput | null>(null);
+  const [analyzeAfterCreate, setAnalyzeAfterCreate] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const { options } = useObjectiveStudyOptions();
+  const scopeValid = validStudyScope(studyScope, options);
 
   function addItem() {
     const clean = itemTitle.trim();
@@ -46,29 +54,36 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
     setSaving(true);
     setError('');
     try {
-      const objective = await api.createObjective({
+      const result = await createAndAnalyzeObjective({
+        create: api.createObjective,
+        analyze: (id) => { setAnalyzing(true); return api.analyzeObjective(id); },
+      }, {
         title: clean,
         description: description.trim() || undefined,
         icon_emoji: emoji.trim() || undefined,
         target_date: targetDate || undefined,
         items,
-      });
-      onCreated(objective);
+        study_scope: studyScope,
+      }, scopeValid && !!options?.ai_available && analyzeAfterCreate);
+      onCreated(result.objective, result.analysisError
+        ? `${t('Objetivo salvo. A análise falhou; tente novamente no cartão do objetivo.')} ${result.analysisError}` : undefined);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("Não foi possível criar o objetivo."));
     } finally {
       setSaving(false);
+      setAnalyzing(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-3 sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="new-objective-title" className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-xl font-black text-slate-800">{t("Novo objetivo")}</h2>
+          <h2 id="new-objective-title" className="text-xl font-black text-slate-800">{t("Novo objetivo")}</h2>
           <button
             type="button"
             onClick={onClose}
+            disabled={saving}
             aria-label={t("Fechar")}
             className="rounded-xl p-2 text-slate-400 hover:bg-slate-100"
           >
@@ -76,7 +91,8 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} aria-busy={saving}>
+          <fieldset disabled={saving} className="min-w-0 space-y-4">
           <div className="flex gap-3">
             <input
               aria-label={t("Emoji do objetivo")}
@@ -117,6 +133,18 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
               className="mt-2 w-full rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
             />
           </label>
+
+          <ObjectiveStudyScopePicker value={studyScope} onChange={setStudyScope} disabled={saving} />
+          {scopeValid ? (
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 text-sm font-semibold text-slate-700">
+                <input type="checkbox" checked={analyzeAfterCreate && !!options?.ai_available} onChange={(event) => setAnalyzeAfterCreate(event.target.checked)}
+                  disabled={saving || !options?.ai_available} className="mt-1 h-4 w-4 shrink-0 accent-sky-700" />
+                {t('Analisar com IA após criar')}
+              </label>
+              {!options?.ai_available ? <p className="text-xs leading-5 text-slate-500">{t(studyAiUnavailableMessage(options?.ai_unavailable_reason))}</p> : null}
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border-2 border-slate-200 p-4">
             <p className="text-sm font-bold text-slate-700">{t("O que precisa estudar")}</p>
@@ -201,18 +229,20 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
             <button
               type="button"
               onClick={onClose}
+              disabled={saving}
               className="min-h-11 flex-1 rounded-2xl border-2 border-slate-200 py-3 font-bold text-slate-600 hover:bg-slate-50"
             >
               {t("Cancelar")}
             </button>
             <button
               type="submit"
-              disabled={saving || !title.trim()}
+              disabled={saving || !title.trim() || (studyScope !== null && !scopeValid)}
               className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
             >
-              {saving ? <Loader2 size={18} className="animate-spin" /> : t("Criar objetivo")}
+              {saving ? <><Loader2 size={18} className="animate-spin" />{analyzing ? t('Objetivo salvo. Analisando...') : t('Salvando...')}</> : t("Criar objetivo")}
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
     </div>

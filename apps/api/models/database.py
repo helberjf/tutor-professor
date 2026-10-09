@@ -791,6 +791,10 @@ class Objective(SQLModel, table=True):
     plan_id: Optional[int] = Field(default=None, foreign_key="studyplan.id", index=True)
     # Position among the plan's priorities; 1 is the first thing to do.
     plan_order: Optional[int] = Field(default=None)
+    # A server-resolved discipline and its selected curriculum/log targets.
+    study_scope: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # The last valid AI assessment, including the input signature it evaluated.
+    study_analysis: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
