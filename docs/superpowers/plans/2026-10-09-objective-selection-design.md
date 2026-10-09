@@ -24,7 +24,7 @@
 - [x] Start the existing isolated UI fixture and the local Next dev server. Use agent-browser snapshots and real controls to verify automatic subject selection, individual deselection, search/bulk selection, save and edit flows; inspect persisted fixture payloads.
 - [x] Capture and inspect light/dark desktop and mobile screenshots, including hovered topic rows and the task input. Check dialog and document widths.
 - [x] Run relevant Node regression scripts, `pnpm typecheck`, `pnpm lint`, `pnpm build` and `git diff --check`.
-- [ ] Obtain independent review, merge and push main, verify deployment and clean up task-owned browser/server processes.
+- [x] Obtain independent review, merge and push main, verify deployment and clean up task-owned browser/server processes.
 
 ## Complete AI history coverage (user follow-up)
 
@@ -33,7 +33,7 @@
 - [x] Keep provider calls outside database transactions, reserve one operation credit and preserve the concurrency checks and previous snapshot on failure. Validate batch output and propagate errors safely.
 - [x] Strengthen the final prompt to return percentage, improvement gaps and concrete ordered actions with completion criteria using the existing analysis response fields.
 - [x] Present `next_steps` as an ordered plan in the analysis panel with consistent semantic theme colors. Verify this result and retry behavior with agent-browser.
-- [ ] Run backend objective-analysis, credit, plan and progress regressions; review the backend changes independently and explicitly deploy the API after merging main.
+- [x] Run backend objective-analysis, credit, plan and progress regressions; review the backend changes independently and explicitly deploy the API after merging main.
 
 ## Validation recorded before publication
 
@@ -42,4 +42,4 @@
 - Web checks passed: helper/render, objective-plan UI, objective UI, TypeScript, ESLint, production Next build and dark-mode coverage.
 - agent-browser 0.26.0 used an isolated local fixture to verify automatic subject selection, search/bulk actions, individual deselection, the explicit 30-target notice, a single objective save despite initial analysis failure, retry, percentage/gaps/ordered plan, scope edits with stale analysis and task creation without custom weight. Desktop 1280px and mobile 390px/360px screenshots were inspected in dark/light themes; task input widths were 275px/245px with no horizontal overflow.
 - Visual QA used synthetic responses. Provider behavior was verified with controlled fixtures; no paid live-provider request was made during this validation.
-- The task-owned agent-browser session, fixture server and Next dev server were closed. Publication remains to be verified after committing.
+- The task-owned agent-browser session, fixture server and Next dev server were closed. Publication was verified on main: feature commit a5bbcbf, successful frontend Vercel commit statuses and deployed bundles containing the new selection/plan labels. API deployment dpl_FgnBwYPt3ZTZ9GjscHE15S1VpUdz is Ready and aliased to tutor-professor-api.vercel.app; production health returned 200 and study-options correctly returned 401 without authentication. OpenAPI retains objective analysis and plan deletion routes, and the frontend runtime points to that API.
