@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { api, type DailyActivitySummarySchema, ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { t } from '@/lib/i18n';
 
 // Utility function to get Portuguese day abbreviation
@@ -50,9 +50,13 @@ export function WeeklyActivityChart() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    let requestId = 0;
     const fetchWeekData = async () => {
+      const currentRequest = ++requestId;
       try {
         setLoading(true);
+        setError(null);
         const data = await api.getWeekActivities();
 
         const bars: ActivityBar[] = data.map((day) => {
@@ -73,15 +77,16 @@ export function WeeklyActivityChart() {
           };
         });
 
-        setWeekData(bars);
+        if (!cancelled && currentRequest === requestId) setWeekData(bars);
       } catch (err) {
+        if (cancelled || currentRequest !== requestId) return;
         if (err instanceof ApiError) {
           setError(`Erro: ${err.message}`);
         } else {
           setError(t("Erro ao carregar dados"));
         }
       } finally {
-        setLoading(false);
+        if (!cancelled && currentRequest === requestId) setLoading(false);
       }
     };
 
@@ -92,6 +97,7 @@ export function WeeklyActivityChart() {
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', refresh);
     return () => {
+      cancelled = true;
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
@@ -117,7 +123,7 @@ export function WeeklyActivityChart() {
     new Set(weekData.flatMap((day) => day.activities.map((activity) => activity.type))),
   );
 
-  // Encontra o máximo de atividades em um dia para escala
+  const maxActivities = Math.max(1, ...weekData.map(day => day.total));
   return (
     <div className="rounded-xl border-2 border-slate-200 bg-white p-6">
       {/* Header */}
@@ -133,7 +139,7 @@ export function WeeklyActivityChart() {
             {/* Bar */}
             <div className="relative h-32 w-full rounded-t-lg border-2 border-slate-200 bg-slate-50">
               {day.total > 0 && (
-                <div className="absolute inset-0 flex flex-col-reverse overflow-hidden rounded-t-lg">
+                <div className="absolute inset-x-0 bottom-0 flex flex-col-reverse overflow-hidden rounded-t-lg" style={{ height: `${(day.total / maxActivities) * 100}%` }}>
                   {/* Stacked bar por tipo */}
                   {day.activities.map((activity) => {
                     const heightPercent = (activity.count / day.total) * 100;
@@ -144,7 +150,7 @@ export function WeeklyActivityChart() {
                         style={{
                           height: `${heightPercent}%`,
                         }}
-                        title={`${activity.type}: ${activity.count}`}
+                        title={`${getTypeLabel(activity.type)}: ${activity.count}`}
                       />
                     );
                   })}

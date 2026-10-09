@@ -320,7 +320,7 @@ html[data-theme='dark'] :is(input, select, textarea)::placeholder {
   color: var(--text-soft);
 }
 
-html[data-theme='dark'] :is(.bg-white, [class~='bg-white/78'], [class~='bg-white/80'], [class~='bg-white/85'], [class~='bg-white/90'], [class~='bg-white/95']) {
+html[data-theme='dark'] :is(.bg-white, [class~='bg-white/60'], [class~='bg-white/70'], [class~='bg-white/78'], [class~='bg-white/80'], [class~='bg-white/85'], [class~='bg-white/90'], [class~='bg-white/95']) {
   background-color: var(--surface-strong) !important;
 }
 
@@ -335,7 +335,7 @@ html[data-theme='dark'] .dialog-sheet {
   background-color: rgb(15, 23, 42) !important;
 }
 
-html[data-theme='dark'] :is(.bg-slate-50, .bg-slate-100) {
+html[data-theme='dark'] :is(.bg-slate-50, .bg-slate-100, [class~='bg-slate-50/60'], [class~='bg-slate-50/80'], [class~='bg-slate-50/90']) {
   background-color: var(--surface-muted) !important;
 }
 

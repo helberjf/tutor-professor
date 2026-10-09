@@ -57,21 +57,34 @@ export default function DashboardPage() {
   useEffect(() => {
     if (gateState !== 'authenticated') return;
     let cancelled = false;
+    let requestId = 0;
 
     setLoading(true);
-    api.getStudyDashboard()
-      .then((data) => {
-        if (!cancelled) setDashboard(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : t("Não foi possível carregar o dashboard."));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    const loadDashboard = async () => {
+      const currentRequest = ++requestId;
+      try {
+        const data = await api.getStudyDashboard();
+        if (!cancelled && currentRequest === requestId) {
+          setDashboard(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled && currentRequest === requestId) setError(err instanceof ApiError ? err.message : t("Não foi possível carregar o dashboard."));
+      } finally {
+        if (!cancelled && currentRequest === requestId) setLoading(false);
+      }
+    };
+    void loadDashboard();
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void loadDashboard();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [gateState]);
 
@@ -115,7 +128,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (error) {
+  if (error && !dashboard) {
     return (
       <div className="min-h-screen px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-10">
         <div className="mx-auto max-w-6xl rounded-[1.6rem] border-2 border-rose-200 bg-white p-6 text-rose-700">
@@ -139,6 +152,8 @@ export default function DashboardPage() {
             {t("Acompanhe ritmo, sequência, desempenho e tudo que foi estudado hoje em uma única visão.")}
           </p>
         </section>
+
+        {error && <p role="alert" className="rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-bold text-rose-700">{error}</p>}
 
         <StudyStartSection />
 
