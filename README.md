@@ -54,6 +54,15 @@ The project was built as a practical engineering exercise: a real product surfac
   current progress back to the AI; a revision can reorder, add and archive, but
   never removes finished work. Without an AI key, ready-made models
   (`apps/api/content/plan-templates/`) give the same flow for free.
+- **Objectives linked to what you study.** Choose a discipline and one or more
+  curriculum topics or study-log subjects. "Analisar objetivo" compares the
+  objective with the selected study history, answers and reviews, then keeps an
+  AI estimate of what remains, knowledge gaps and prioritized next steps. An
+  empty history shows insufficient evidence rather than an invented percentage.
+  The estimate stays separate from checklist progress; editing the goal or its
+  study links marks the previous analysis as outdated. Optional analysis after
+  creation saves the objective first, so a provider failure keeps it available
+  for another attempt.
 - **The day closes by studying.** Finishing a session (or any logged activity)
   marks the day as studied; writing a note about it stays optional.
 - **The audience is whoever is studying.** The profile carries an age band

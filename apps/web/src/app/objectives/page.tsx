@@ -54,7 +54,7 @@ export default function ObjectivesPage() {
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-sm font-medium leading-7 text-slate-500 md:text-base">
-            {t("Crie um objetivo e vá adicionando o que precisa estudar para alcançá-lo. Cada dia que você estuda uma área conclui o próximo item dela — os marcados assim aparecem como “concluído estudando”, e desmarcar devolve o item para você. Itens da área “Livre” continuam só no manual.")}
+            {t('Defina seu objetivo e vincule uma disciplina e um ou mais tópicos. A IA usa seus estudos e resultados para estimar quanto falta, identificar lacunas e sugerir os próximos passos. Você também pode acompanhar tarefas e marcar o que já concluiu.')}
           </p>
         </section>
 

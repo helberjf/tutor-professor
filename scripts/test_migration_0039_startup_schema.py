@@ -21,6 +21,9 @@ API_DIR = REPO_ROOT / "apps" / "api"
 sys.path.insert(0, str(API_DIR))
 
 import database_bootstrap  # noqa: E402
+from alembic.script import ScriptDirectory  # noqa: E402
+
+HEAD_REVISION = ScriptDirectory.from_config(database_bootstrap._alembic_config("sqlite://")).get_current_head()
 
 NOW = "2026-09-28 12:00:00"
 STARTUP_TABLES = (
@@ -117,11 +120,17 @@ class Migration0039Tests(unittest.TestCase):
             )
         before = schema(self.database)
 
+        # Pin the schema-preservation assertion to the revision under test.
+        # Later migrations are allowed to extend these tables at bootstrap.
+        alembic(self.database, "upgrade", "0039")
+        alembic(self.database, "upgrade", "0039")
+        self.assertEqual(version(self.database), "0039")
+        self.assertEqual(schema(self.database), before, "0039 must not change a schema that already has it all")
+
         database_bootstrap.bootstrap_database(sqlite_url(self.database))
         database_bootstrap.bootstrap_database(sqlite_url(self.database))
 
-        self.assertEqual(version(self.database), "0039")
-        self.assertEqual(schema(self.database), before, "0039 must not change a schema that already has it all")
+        self.assertEqual(version(self.database), HEAD_REVISION)
         with sqlite3.connect(self.database) as connection:
             self.assertEqual(
                 connection.execute('SELECT google_sub, auth_provider FROM "user" WHERE id = 1').fetchone(),
@@ -211,7 +220,7 @@ class Migration0039Tests(unittest.TestCase):
         self.assertLessEqual(created, tables)
 
     def test_downgrade_never_drops_what_may_predate_it(self) -> None:
-        database_bootstrap.bootstrap_database(sqlite_url(self.database))
+        alembic(self.database, "upgrade", "0039")
         before = schema(self.database)
 
         alembic(self.database, "downgrade", "0038")

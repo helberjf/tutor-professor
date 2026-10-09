@@ -525,10 +525,20 @@ def _validate_known_shape(
             f"{sorted(missing_tables)}."
         )
     for table_name in sorted(expected_tables):
+        expected = expected_tables[table_name]
+        actual = _actual_table_shape(bind, table_name)
+        if table_name == "objective":
+            # These optional fields first arrived in 0040. Recognize the exact
+            # previous create_all shape (including a partially applied add),
+            # while retaining every other strict type/constraint check.
+            absent_analysis_columns = {"study_scope", "study_analysis"} - set(actual.columns)
+            if absent_analysis_columns:
+                expected = replace(expected, columns={name: shape for name, shape in expected.columns.items()
+                                                       if name not in absent_analysis_columns})
         _validate_table_shape(
             table_name,
-            expected_tables[table_name],
-            _actual_table_shape(bind, table_name),
+            expected,
+            actual,
         )
 
 

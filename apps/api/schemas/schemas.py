@@ -1636,6 +1636,54 @@ class ObjectiveItemSchema(FromAttributesModel):
     created_at: datetime
 
 
+class ObjectiveStudyTargetSchema(BaseModel):
+    key: str
+    title: str
+    subject: Optional[str] = None
+    topic_id: Optional[int] = None
+    subject_id: Optional[int] = None
+    available: bool = True
+
+
+class ObjectiveStudyScopeSchema(BaseModel):
+    discipline_key: str
+    discipline: str
+    targets: list[ObjectiveStudyTargetSchema]
+    available: bool = True
+
+
+class ObjectiveStudyScopeInputSchema(BaseModel):
+    discipline_key: str = Field(min_length=1, max_length=200)
+    target_keys: list[str] = Field(min_length=1, max_length=30)
+
+
+class ObjectiveStudyAnalysisSchema(BaseModel):
+    progress_percent: Optional[float] = None
+    remaining_percent: Optional[float] = None
+    confidence: Literal["low", "medium", "high"]
+    summary: str
+    studied: list[str]
+    gaps: list[str]
+    next_steps: list[str]
+    evidence_count: int
+    evidence_refs: list[str]
+    context_truncated: bool
+    generated_at: datetime
+    stale: bool = False
+
+
+class ObjectiveStudyDisciplineSchema(BaseModel):
+    key: str
+    name: str
+    targets: list[ObjectiveStudyTargetSchema]
+
+
+class ObjectiveStudyOptionsSchema(BaseModel):
+    disciplines: list[ObjectiveStudyDisciplineSchema]
+    ai_available: bool
+    ai_unavailable_reason: Optional[str] = None
+
+
 class ObjectiveSchema(FromAttributesModel):
     id: int
     child_id: int
@@ -1649,6 +1697,8 @@ class ObjectiveSchema(FromAttributesModel):
     # The plan this objective is a priority of, and its place in that plan.
     plan_id: Optional[int] = None
     plan_order: Optional[int] = None
+    study_scope: Optional[ObjectiveStudyScopeSchema] = None
+    study_analysis: Optional[ObjectiveStudyAnalysisSchema] = None
     created_at: datetime
     updated_at: datetime
     items: list[ObjectiveItemSchema] = Field(default_factory=list)
@@ -1668,6 +1718,7 @@ class CreateObjectiveSchema(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     icon_emoji: Optional[str] = Field(default=None, max_length=10)
     target_date: Optional[date] = None
+    study_scope: Optional[ObjectiveStudyScopeInputSchema] = None
     # Lets the create form add the first study items in the same request.
     items: List["CreateObjectiveItemSchema"] = Field(default_factory=list, max_length=50)
 
@@ -1679,6 +1730,7 @@ class UpdateObjectiveSchema(BaseModel):
     target_date: Optional[date] = None
     # "" and null both mean "clear the date", which a plain Optional cannot say.
     clear_target_date: bool = False
+    study_scope: Optional[ObjectiveStudyScopeInputSchema] = None
     status: Optional[Literal["active", "archived"]] = None
 
 

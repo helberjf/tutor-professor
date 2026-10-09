@@ -8,7 +8,9 @@ import { Plus, Sparkles, Target } from 'lucide-react';
 import { api, ApiError, type Objective, type StudyPlan } from '@/lib/api';
 import { ObjectiveCard } from './ObjectiveCard';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
+import { ObjectiveStudyOptionsProvider } from './ObjectiveStudyOptions';
 import { PlanPanel } from './PlanPanel';
+import { updatePlansWithObjective, withoutObjective } from './plan-helpers';
 import { t } from '@/lib/i18n';
 
 // Dois diálogos que só existem depois de um clique. Estaticamente importados,
@@ -105,6 +107,7 @@ export function ObjectivesBoard() {
   const canPlan = plansAvailable && !serverOutdated;
 
   function replaceObjective(updated: Objective) {
+    setPlans((previous) => updatePlansWithObjective(previous, updated));
     setObjectives((previous) => {
       const next = previous.map((objective) => (objective.id === updated.id ? updated : objective));
       // An objective just archived leaves the list unless archived ones are shown.
@@ -116,6 +119,8 @@ export function ObjectivesBoard() {
 
   function removeObjective(objectiveId: number) {
     setObjectives((previous) => previous.filter((item) => item.id !== objectiveId));
+    setPlans((previous) => previous.map((plan) => plan.objectives.some((item) => item.id === objectiveId)
+      ? withoutObjective(plan, objectiveId) : plan));
   }
 
   function handlePlanChanged(updated: StudyPlan) {
@@ -132,11 +137,11 @@ export function ObjectivesBoard() {
   }
 
   return (
-    <div className="space-y-5">
+    <ObjectiveStudyOptionsProvider><div className="space-y-5">
       <section className="rounded-[1.6rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Alcance geral")}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t('Progresso geral das tarefas')}</p>
             <p className="mt-1 text-3xl font-black text-slate-800">{averagePercent}%</p>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               {active.length === 0
@@ -226,7 +231,7 @@ export function ObjectivesBoard() {
               </span>
               <h2 className="mt-4 text-lg font-black text-slate-800">{t("Defina seu primeiro objetivo")}</h2>
               <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-6 text-slate-500">
-                {t("Escreva aonde quer chegar e liste o que precisa estudar para isso. Cada dia de estudo conclui o próximo item da área correspondente, e você pode marcar o que quiser à mão. Sem saber por onde começar? Crie um plano: ele ordena as prioridades para você.")}
+                {t('Escreva aonde quer chegar e selecione uma disciplina e tópicos para a IA analisar o que falta com base nos seus estudos. Você também pode listar tarefas ou criar um plano com prioridades.')}
               </p>
               <div className="mx-auto mt-5 flex flex-col justify-center gap-2 sm:flex-row">
                 {canPlan ? (
@@ -270,8 +275,9 @@ export function ObjectivesBoard() {
       {creating ? (
         <CreateObjectiveModal
           onClose={() => setCreating(false)}
-          onCreated={(objective) => {
+          onCreated={(objective, analysisError) => {
             setObjectives((previous) => sortObjectives([...previous, objective]));
+            setError(analysisError ?? '');
             setCreating(false);
           }}
         />
@@ -287,6 +293,6 @@ export function ObjectivesBoard() {
           }}
         />
       ) : null}
-    </div>
+    </div></ObjectiveStudyOptionsProvider>
   );
 }
