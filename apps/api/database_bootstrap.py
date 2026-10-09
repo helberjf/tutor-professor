@@ -528,10 +528,10 @@ def _validate_known_shape(
         expected = expected_tables[table_name]
         actual = _actual_table_shape(bind, table_name)
         if table_name == "objective":
-            # These optional fields first arrived in 0040. Recognize the exact
+            # These optional fields arrived in 0040/0041. Recognize the exact
             # previous create_all shape (including a partially applied add),
             # while retaining every other strict type/constraint check.
-            absent_analysis_columns = {"study_scope", "study_analysis"} - set(actual.columns)
+            absent_analysis_columns = {"study_scope", "study_analysis", "analysis_workflow"} - set(actual.columns)
             if absent_analysis_columns:
                 expected = replace(expected, columns={name: shape for name, shape in expected.columns.items()
                                                        if name not in absent_analysis_columns})

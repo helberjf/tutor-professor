@@ -8,6 +8,8 @@ import { ObjectiveStudyScopePicker } from './ObjectiveStudyScopePicker';
 import { useObjectiveStudyOptions } from './ObjectiveStudyOptions';
 import { createAndAnalyzeObjective, studyAiUnavailableMessage, validStudyScope } from './objective-study-helpers';
 import { t } from '@/lib/i18n';
+import type { ObjectiveAnalysisProgress as AnalysisProgress } from '@/lib/objective-analysis-workflow';
+import { ObjectiveAnalysisProgress } from './ObjectiveAnalysisProgress';
 
 interface Props {
   onClose: () => void;
@@ -25,6 +27,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   const [studyScope, setStudyScope] = useState<ObjectiveStudyScopeInput | null>(null);
   const [analyzeAfterCreate, setAnalyzeAfterCreate] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const { options } = useObjectiveStudyOptions();
   const scopeValid = validStudyScope(studyScope, options);
 
@@ -43,7 +46,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
     try {
       const result = await createAndAnalyzeObjective({
         create: api.createObjective,
-        analyze: (id) => { setAnalyzing(true); return api.analyzeObjective(id); },
+        analyze: (id) => { setAnalyzing(true); setAnalysisProgress(null); return api.analyzeObjective(id, setAnalysisProgress); },
       }, {
         title: clean,
         description: description.trim() || undefined,
@@ -135,6 +138,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
           {error ? (
             <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>
           ) : null}
+          {analyzing ? <ObjectiveAnalysisProgress progress={analysisProgress} /> : null}
 
           <div className="flex gap-3 pt-1">
             <button

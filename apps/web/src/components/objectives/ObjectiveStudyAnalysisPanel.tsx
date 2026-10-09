@@ -8,6 +8,8 @@ import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { ObjectiveStudyScopePicker } from './ObjectiveStudyScopePicker';
 import { useObjectiveStudyOptions } from './ObjectiveStudyOptions';
 import { studyAiUnavailableMessage, toStudyScopeInput, validStudyScope } from './objective-study-helpers';
+import type { ObjectiveAnalysisProgress as AnalysisProgress } from '@/lib/objective-analysis-workflow';
+import { ObjectiveAnalysisProgress } from './ObjectiveAnalysisProgress';
 
 export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objective: Objective; onChanged: (objective: Objective) => void }) {
   const { options, loading, error: optionsError, reload } = useObjectiveStudyOptions();
@@ -15,9 +17,12 @@ export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objectiv
   const [draft, setDraft] = useState<ObjectiveStudyScopeInput | null>(null);
   const [busy, setBusy] = useState<'save' | 'analyze' | null>(null);
   const [error, setError] = useState('');
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
   const scope = objective.study_scope;
   const analysis = objective.study_analysis;
-  const canAnalyze = !!scope?.available && !!options?.ai_available && !loading && !optionsError && !busy;
+  const pendingAnalysis = !!objective.study_analysis_pending || analysisProgress !== null;
+  const canResumeWithoutCredit = pendingAnalysis && options?.ai_unavailable_reason === 'no_credits';
+  const canAnalyze = !!scope?.available && (!!options?.ai_available || canResumeWithoutCredit) && !loading && !optionsError && !busy;
 
   function editScope() { setDraft(toStudyScopeInput(scope)); setEditing(true); setError(''); }
 
@@ -32,8 +37,12 @@ export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objectiv
   }
 
   async function analyze() {
-    setBusy('analyze'); setError('');
-    try { onChanged(await api.analyzeObjective(objective.id)); }
+    setBusy('analyze'); setError(''); setAnalysisProgress(null);
+    try {
+      const updated = await api.analyzeObjective(objective.id, setAnalysisProgress);
+      setAnalysisProgress(null);
+      onChanged(updated);
+    }
     catch (err: unknown) { setError(err instanceof Error ? err.message : t('Não foi possível analisar o objetivo.')); }
     finally { setBusy(null); }
   }
@@ -120,11 +129,12 @@ export function ObjectiveStudyAnalysisPanel({ objective, onChanged }: { objectiv
           {!scope.available ? <p className="text-xs font-semibold text-amber-800">{t('Revise os tópicos indisponíveis antes de analisar novamente.')}</p> : null}
           {loading ? <p className="text-xs text-slate-500">{t('Carregando disciplinas e tópicos...')}</p> : optionsError ? (
             <p className="text-xs text-rose-700">{optionsError} <button type="button" onClick={reload} className="font-bold underline">{t('Tentar novamente')}</button></p>
-          ) : options && !options.ai_available ? <p className="text-xs leading-5 text-slate-500">{t(studyAiUnavailableMessage(options.ai_unavailable_reason))}</p> : null}
+          ) : options && !options.ai_available && !canResumeWithoutCredit ? <p className="text-xs leading-5 text-slate-500">{t(studyAiUnavailableMessage(options.ai_unavailable_reason))}</p> : null}
           <button type="button" onClick={() => void analyze()} disabled={!canAnalyze} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-700 px-4 text-sm font-bold text-white hover:bg-sky-800 disabled:opacity-50">
             {busy === 'analyze' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {busy === 'analyze' ? t('Analisando estudos...') : analysis ? t('Atualizar análise') : t('Analisar objetivo')}
+            {busy === 'analyze' ? t('Analisando estudos...') : pendingAnalysis ? t('Continuar análise') : analysis ? t('Atualizar análise') : t('Analisar objetivo')}
           </button>
+          {busy === 'analyze' ? <ObjectiveAnalysisProgress progress={analysisProgress} /> : null}
           {!analysis ? <p className="text-xs leading-5 text-slate-500">{t('A IA compara o objetivo com os estudos registrados nos tópicos escolhidos.')}</p> : null}
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import {
   resolveApiBaseUrlAfterOfflineFailure,
 } from '@/lib/api-config';
 import { choosePreferredActiveChildId, clearActiveChildId, getStoredActiveChildId, isStoredActiveChildExplicit, saveActiveChildId } from '@/lib/active-child';
+import { runObjectiveAnalysis, type ObjectiveAnalysisJob, type ObjectiveAnalysisProgress } from '@/lib/objective-analysis-workflow';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Autenticação por token (resolve o login em celular/iPhone)
@@ -1994,6 +1995,7 @@ export interface Objective {
   days_remaining: number | null;
   study_scope?: ObjectiveStudyScope | null;
   study_analysis?: ObjectiveStudyAnalysis | null;
+  study_analysis_pending?: boolean;
 }
 
 export interface ObjectivesSummary {
@@ -2791,8 +2793,11 @@ export const api = {
     fetchAPI<void>(`/api/coding/leetcode/${id}`, { method: 'DELETE' }),
   // Objetivos
   getObjectiveStudyOptions: () => fetchAPI<ObjectiveStudyOptions>('/api/objectives/study-options'),
-  analyzeObjective: (id: number) =>
-    fetchAPI<Objective>(`/api/objectives/${id}/analyze`, { method: 'POST' }),
+  analyzeObjective: (id: number, onProgress?: (progress: ObjectiveAnalysisProgress) => void) =>
+    runObjectiveAnalysis<Objective>({
+      start: () => fetchAPI<ObjectiveAnalysisJob<Objective>>(`/api/objectives/${id}/analysis-job`, { method: 'POST' }),
+      step: (jobId) => fetchAPI<ObjectiveAnalysisJob<Objective>>(`/api/objectives/${id}/analysis-job/${encodeURIComponent(jobId)}/step`, { method: 'POST' }),
+    }, onProgress),
   getObjectives: (options: { includeArchived?: boolean } = {}) =>
     fetchAPI<Objective[]>(`/api/objectives${options.includeArchived ? '?include_archived=true' : ''}`),
   getObjectivesSummary: () => fetchAPI<ObjectivesSummary>('/api/objectives/summary'),

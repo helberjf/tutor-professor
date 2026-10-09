@@ -31,6 +31,13 @@ const { ObjectiveStudyScopePicker } = load('./components/objectives/ObjectiveStu
 const { ObjectiveStudyAnalysisPanel } = load('./components/objectives/ObjectiveStudyAnalysisPanel');
 const { ObjectiveCard } = load('./components/objectives/ObjectiveCard');
 const { CreateObjectiveModal } = load('./components/objectives/CreateObjectiveModal');
+const { ObjectiveAnalysisProgress } = load('./components/objectives/ObjectiveAnalysisProgress');
+const readingHistory = renderToStaticMarkup(React.createElement(ObjectiveAnalysisProgress, { progress: { completed_steps: 12, total_steps: 65 } }));
+assert.match(readingHistory, /role="status"/);
+assert.match(readingHistory, /Lendo estudos: 12 de 65 partes/);
+assert.match(readingHistory, /<progress[^>]*value="12"[^>]*max="65"/);
+assert.match(readingHistory, /progresso fica salvo/);
+assert.doesNotMatch(readingHistory, /Estimativa da IA|%/, 'reading progress is distinct from the objective estimate');
 const scope = { discipline_key: 'discipline:1', discipline: 'Matemática', targets: targets.slice(0, 2), available: true };
 const input = { discipline_key: scope.discipline_key, target_keys: ['topic:1', 'topic:2'] };
 const picker = renderToStaticMarkup(React.createElement(ObjectiveStudyScopePicker, { value: input, onChange: () => {}, savedScope: scope }));
@@ -73,4 +80,10 @@ optionsState = { ...optionsState, options: { ...optionsState.options, ai_availab
 const unavailable = renderToStaticMarkup(React.createElement(ObjectiveStudyAnalysisPanel, { objective, onChanged: () => {} }));
 assert.match(unavailable, /Configure sua chave de IA\./);
 assert.match(unavailable, /<button[^>]+disabled=""[^>]*>[\s\S]*?Atualizar análise/);
+optionsState = { ...optionsState, options: { ...optionsState.options, ai_available: false, ai_unavailable_reason: 'no_credits' } };
+const resumable = renderToStaticMarkup(React.createElement(ObjectiveStudyAnalysisPanel, { objective: { ...objective, study_analysis_pending: true }, onChanged: () => {} }));
+const resumeButton = (resumable.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find(button => button.includes('Continuar análise'));
+assert.ok(resumeButton, 'an admitted job offers resume after consuming the last available credit');
+assert.doesNotMatch(resumeButton, /\sdisabled(?:=|\s|>)/, 'an admitted job can resume without another credit');
+assert.match(resumable, /Dados insuficientes para estimar/, 'resuming retains the previous diagnosis');
 console.log('objective study component render checks passed');

@@ -107,6 +107,7 @@ from schemas.schemas import (
     UpdatePlanSchema,
     ObjectiveItemSchema,
     ObjectiveSchema,
+    ObjectiveAnalysisJobSchema,
     ObjectiveStudyOptionsSchema,
     ObjectivesSummarySchema,
     UpdateObjectiveItemSchema,
@@ -328,7 +329,7 @@ from services.coding_service import (
     VALID_TOPIC_STATUSES,
 )
 from services.ai_flashcard_service import normalize_front, sanitize_context
-from services import objective_analysis_service, study_log_service
+from services import objective_analysis_service, objective_analysis_job_service, study_log_service
 from services.study_plan_service import (
     CurrentPriority,
     PriorityProgress,
@@ -13177,6 +13178,7 @@ def build_objective_schema(objective: Objective, items: list[ObjectiveItem], *, 
         plan_order=objective.plan_order,
         study_scope=study_scope,
         study_analysis=objective_analysis_service.analysis_view(objective, study_scope),
+        study_analysis_pending=bool(objective.analysis_workflow and objective.analysis_workflow.get("status") != "complete"),
         created_at=objective.created_at,
         updated_at=objective.updated_at,
         items=[ObjectiveItemSchema.model_validate(item) for item in items],
@@ -13488,6 +13490,286 @@ def analyze_objective(objective_id: int, request: Request, session: Session = De
     return build_objective_schema(objective, objective_items_for(session, objective_id), session=session)
 
 
+OBJECTIVE_ANALYSIS_CLAIM_SECONDS = 90
+OBJECTIVE_ANALYSIS_STEP_TIMEOUT_SECONDS = 45
+
+
+def _begin_analysis_transaction(session: Session) -> None:
+    """Discard authentication reads before taking a short fresh write lock."""
+    session.rollback()
+    if session.get_bind().dialect.name == "sqlite":
+        session.execute(text("BEGIN IMMEDIATE"))
+    session.expire_all()
+
+
+def _locked_analysis_objective(session: Session, objective_id: int, child_id: int) -> Objective:
+    """Only the claim/checkpoint transaction holds this lock, never the network."""
+    _begin_analysis_transaction(session)
+    objective = session.exec(select(Objective).where(Objective.id == objective_id,
+                             Objective.child_id == child_id).with_for_update()).first()
+    if objective is None:
+        raise HTTPException(status_code=404, detail="Objetivo não encontrado.")
+    return objective
+
+
+def _analysis_job_provider(session: Session, user_id: int) -> tuple[AIProviderConfig, str, str]:
+    """Resolve current keys without a second admission or success callback.
+
+    A signature detects settings/key rotation. The persisted value is a digest;
+    neither cleartext nor encrypted API keys are stored in workflow JSON.
+    """
+    settings = get_user_ai_settings_record(user_id, session)
+    config = None
+    if settings is not None:
+        if settings.use_global_key:
+            config = _get_global_ai_config(settings)
+        else:
+            try:
+                config = AIProviderConfig(provider=settings.provider, api_key=decrypt_api_key(settings.api_key_encrypted),
+                                          model=settings.model, base_url=settings.base_url)
+            except Exception:
+                pass
+    if config is None or not config.api_key.strip():
+        raise HTTPException(status_code=403, detail="Configure sua chave de API em Configurações para analisar o objetivo.")
+    mode = "platform" if settings.use_global_key else "own"
+    fingerprint = objective_analysis_job_service.signature(dict(provider=config.provider, model=config.model,
+        base_url=config.base_url, mode=mode, credential=config.api_key, updated_at=settings.updated_at.isoformat()))
+    return config, fingerprint, mode
+
+
+def _analysis_job_signatures(session: Session, objective: Objective, child: ChildProfile) -> tuple[dict, dict]:
+    scope = objective_analysis_service.current_scope(objective.study_scope, objective_study_options_for(session, child))
+    if scope is None or not scope["available"]:
+        raise HTTPException(status_code=422, detail="Escolha uma disciplina e tópicos disponíveis antes de analisar o objetivo.")
+    signatures = dict(input=objective_analysis_service.input_signature(objective),
+                      scope=objective_analysis_service.scope_signature(scope),
+                      curriculum=objective_analysis_service.curriculum_signature(session, child.id or 0, scope),
+                      audience=objective_analysis_job_service.signature(dict(base_language=child.base_language,
+                                                                            age_group=child_age_group(child))))
+    return scope, signatures
+
+
+def _require_analysis_job_current(session: Session, objective: Objective, child: ChildProfile,
+                                  workflow: dict, provider_signature: str) -> None:
+    try:
+        _, signatures = _analysis_job_signatures(session, objective, child)
+    except HTTPException as exc:
+        if exc.status_code == 422:
+            raise HTTPException(status_code=409, detail="Os tópicos mudaram. Revise o escopo e inicie uma nova análise.") from exc
+        raise
+    if signatures != workflow["signatures"]:
+        raise HTTPException(status_code=409, detail="O objetivo ou os tópicos mudaram. Inicie uma nova análise.")
+    if provider_signature != workflow["provider_signature"]:
+        raise HTTPException(status_code=409, detail="As configurações de IA mudaram. Inicie uma nova análise.")
+
+
+def _analysis_job_envelope(session: Session, objective: Objective) -> ObjectiveAnalysisJobSchema:
+    workflow = objective.analysis_workflow
+    complete = workflow["status"] == "complete"
+    claim = workflow.get("claim")
+    running = bool(claim and datetime.fromisoformat(claim["expires_at"]) > datetime.utcnow())
+    return ObjectiveAnalysisJobSchema(job_id=workflow["job_id"], status="complete" if complete else "running" if running else "pending",
+        completed_steps=workflow["completed_steps"], total_steps=workflow["total_steps"],
+        objective=build_objective_schema(objective, objective_items_for(session, objective.id or 0), session=session) if complete else None)
+
+
+def _refund_analysis_job(session: Session, workflow: dict) -> None:
+    billing = workflow["billing"]
+    if billing["reserved"] and not billing["answered"]:
+        session.execute(update(User).where(User.id == billing["user_id"],
+            User.ai_credits_reset_date == date.fromisoformat(billing["reservation_date"]))
+            .values(ai_credits=User.ai_credits + 1).execution_options(synchronize_session=False))
+    if not billing["answered"]:
+        billing.update(admitted=False, reserved=False, reservation_date=None)
+
+
+def _admit_analysis_job(session: Session, workflow: dict) -> None:
+    billing = workflow["billing"]
+    if billing["admitted"]:
+        return
+    user = session.exec(select(User).where(User.id == billing["user_id"]).with_for_update()).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Conta não encontrada.")
+    metered = billing["mode"] == "platform" and not user.ai_unlimited and not user_is_admin(user)
+    if metered:
+        today = activity_today()
+        if user.ai_credits_reset_date != today:
+            user.ai_credits = max(0, user.ai_daily_credit_limit)
+            user.ai_credits_used_today = 0
+            user.ai_credits_reset_date = today
+            session.add(user)
+            session.flush()
+        debit = session.execute(update(User).where(User.id == user.id, User.ai_credits > 0)
+            .values(ai_credits=User.ai_credits - 1).execution_options(synchronize_session=False))
+        if debit.rowcount != 1:
+            raise HTTPException(status_code=402, detail=NO_AI_CREDITS_DETAIL)
+        billing.update(reserved=True, reservation_date=today.isoformat())
+    # A job is one AI operation regardless of its number of lossless batches.
+    # Counting each HTTP step would reject a 60-topic job at the default rate
+    # limit before its final request. Failed admission rolls back the debit.
+    if not billing.get("rate_admitted"):
+        verdict = rate_limiter.check(AI_RATE_RULE, f"user:{billing['user_id']}")
+        if not verdict.allowed:
+            raise HTTPException(status_code=429, detail="Muitas requisições. Tente novamente em instantes.",
+                                headers={"Retry-After": str(verdict.retry_after_seconds)})
+        billing["rate_admitted"] = True
+    billing["admitted"] = True
+
+
+def _require_analysis_claim(objective: Objective, job_id: str, token: str) -> dict:
+    workflow = objective.analysis_workflow
+    claim = workflow.get("claim") if workflow else None
+    if (not workflow or workflow["job_id"] != job_id or not claim or claim["token"] != token
+            or datetime.fromisoformat(claim["expires_at"]) <= datetime.utcnow()):
+        raise HTTPException(status_code=409, detail="Esta etapa expirou ou foi retomada. Retome a análise atual.")
+    return json.loads(json.dumps(workflow))
+
+
+def _record_analysis_job_answer(session: Session, objective_id: int, child_id: int, job_id: str,
+                                token: str, config: AIProviderConfig) -> None:
+    objective = _locked_analysis_objective(session, objective_id, child_id)
+    workflow = _require_analysis_claim(objective, job_id, token)
+    billing = workflow["billing"]
+    if not billing["answered"]:
+        billing["answered"] = True
+        if billing["reserved"]:
+            reservation_date = date.fromisoformat(billing["reservation_date"])
+            session.execute(update(User).where(User.id == billing["user_id"]).values(
+                ai_credits_used=User.ai_credits_used + 1,
+                ai_credits_used_today=case((User.ai_credits_reset_date == reservation_date,
+                                           User.ai_credits_used_today + 1), else_=User.ai_credits_used_today)
+            ).execution_options(synchronize_session=False))
+        platform = billing["mode"] == "platform"
+        session.add(UsageRecord(user_id=billing["user_id"], kind=USAGE_AI_GENERATION if platform else USAGE_AI_GENERATION_OWN_KEY,
+                               provider=config.provider, model=config.model,
+                               cost_micros=AI_GENERATION_COST_MICROS if platform else 0, period_key=period_key()))
+        objective.analysis_workflow = workflow
+        session.add(objective)
+    session.commit()
+
+
+def _release_analysis_job_claim(session: Session, objective_id: int, child_id: int, job_id: str, token: str) -> None:
+    """A failed or expired worker must never release its replacement's lease."""
+    try:
+        objective = _locked_analysis_objective(session, objective_id, child_id)
+    except HTTPException:
+        session.rollback()
+        return
+    saved = objective.analysis_workflow
+    if not saved or saved["job_id"] != job_id or not saved.get("claim") or saved["claim"]["token"] != token:
+        session.rollback()
+        return
+    workflow = json.loads(json.dumps(saved))
+    _refund_analysis_job(session, workflow)
+    workflow.update(claim=None, status="pending")
+    objective.analysis_workflow = workflow
+    session.add(objective)
+    session.commit()
+
+
+@app.post("/api/objectives/{objective_id}/analysis-job", response_model=ObjectiveAnalysisJobSchema)
+def start_objective_analysis_job(objective_id: int, request: Request, session: Session = Depends(get_session)) -> ObjectiveAnalysisJobSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id, user_id = child.id or 0, session_record.user_id
+    objective = _locked_analysis_objective(session, objective_id, child_id)
+    child = session.get(ChildProfile, child_id)
+    scope, signatures = _analysis_job_signatures(session, objective, child)
+    _, provider_signature, mode = _analysis_job_provider(session, user_id)
+    context = objective_analysis_service.collect_evidence(session, child, scope)
+    evidence_signature = objective_analysis_job_service.signature(context)
+    saved = objective.analysis_workflow
+    if (saved and saved["status"] != "complete" and saved["signatures"] == signatures
+            and saved["evidence_signature"] == evidence_signature and saved["provider_signature"] == provider_signature):
+        result = _analysis_job_envelope(session, objective)
+        session.rollback()
+        return result
+    if saved:
+        old = json.loads(json.dumps(saved))
+        _refund_analysis_job(session, old)
+    workflow = objective_analysis_job_service.new_workflow(title=objective.title, description=objective.description,
+        scope=scope, context=context, base_language=child.base_language, age_group=child_age_group(child))
+    workflow.update(job_id=str(uuid.uuid4()), signatures=signatures, evidence_signature=evidence_signature,
+                    provider_signature=provider_signature,
+                    billing=dict(user_id=user_id, mode=mode, admitted=False, reserved=False, answered=False, reservation_date=None))
+    objective.analysis_workflow = workflow
+    session.add(objective)
+    session.commit()
+    return _analysis_job_envelope(session, objective)
+
+
+@app.post("/api/objectives/{objective_id}/analysis-job/{job_id}/step", response_model=ObjectiveAnalysisJobSchema)
+def step_objective_analysis_job(objective_id: int, job_id: str, request: Request,
+                                session: Session = Depends(get_session)) -> ObjectiveAnalysisJobSchema:
+    session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id, user_id = child.id or 0, session_record.user_id
+    objective = _locked_analysis_objective(session, objective_id, child_id)
+    saved = objective.analysis_workflow
+    if not saved or saved["job_id"] != job_id:
+        raise HTTPException(status_code=404, detail="Análise não encontrada. Inicie ou retome a análise atual.")
+    if saved["status"] == "complete":
+        result = _analysis_job_envelope(session, objective)
+        session.rollback()
+        return result
+    child = session.get(ChildProfile, child_id)
+    config, provider_signature, _ = _analysis_job_provider(session, user_id)
+    _require_analysis_job_current(session, objective, child, saved, provider_signature)
+    claim = saved.get("claim")
+    if claim and datetime.fromisoformat(claim["expires_at"]) > datetime.utcnow():
+        result = _analysis_job_envelope(session, objective)
+        session.rollback()
+        return result
+    workflow = json.loads(json.dumps(saved))
+    system, prompt = objective_analysis_job_service.step_prompts(workflow)
+    _admit_analysis_job(session, workflow)
+    token = str(uuid.uuid4())
+    workflow.update(status="running", claim=dict(token=token,
+        expires_at=(datetime.utcnow() + timedelta(seconds=OBJECTIVE_ANALYSIS_CLAIM_SECONDS)).isoformat()))
+    objective.analysis_workflow = workflow
+    session.add(objective)
+    session.commit()
+    answered = False
+
+    def record_answer() -> None:
+        nonlocal answered
+        if not answered:
+            _record_analysis_job_answer(session, objective_id, child_id, job_id, token, config)
+            answered = True
+
+    try:
+        raw = phrase_generation_service.generate_json_text(system_text=system, prompt=prompt, temperature=0.3,
+            ai_config=replace(config, on_success=record_answer), timeout_seconds=OBJECTIVE_ANALYSIS_STEP_TIMEOUT_SECONDS)
+        # A provider adapter that returns an answer without its hook still counts.
+        record_answer()
+        objective = _locked_analysis_objective(session, objective_id, child_id)
+        workflow = _require_analysis_claim(objective, job_id, token)
+        child = session.get(ChildProfile, child_id)
+        _, current_provider_signature, _ = _analysis_job_provider(session, user_id)
+        _require_analysis_job_current(session, objective, child, workflow, current_provider_signature)
+        advanced, result = objective_analysis_job_service.checkpoint(workflow, raw)
+        if result is not None:
+            context = advanced["context"]
+            now = datetime.utcnow()
+            objective.study_analysis = dict(result, evidence_count=context["learning_count"], evidence_refs=context["evidence_refs"],
+                context_truncated=False, generated_at=now.isoformat(), input_signature=advanced["signatures"]["input"],
+                evaluated_scope=advanced["inputs"]["scope"], evaluated_objective=dict(
+                    title=advanced["inputs"]["title"], description=advanced["inputs"]["description"]))
+            objective.updated_at = now
+            # Retain the receipt for idempotent final retries; release large private evidence.
+            advanced.update(context=None, groups=[], summaries=[])
+        objective.analysis_workflow = advanced
+        session.add(objective)
+        session.commit()
+        return _analysis_job_envelope(session, objective)
+    except Exception as exc:
+        _release_analysis_job_claim(session, objective_id, child_id, job_id, token)
+        if isinstance(exc, HTTPException):
+            raise
+        detail = str(exc) if isinstance(exc, ValueError) else "Não foi possível concluir esta etapa agora. A análise anterior foi mantida. Tente novamente."
+        raise HTTPException(status_code=502, detail=detail) from exc
+
+
 @app.get("/api/objectives", response_model=list[ObjectiveSchema])
 def list_objectives(
     request: Request,
@@ -13638,7 +13920,9 @@ def delete_objective(
 ) -> None:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    objective = require_owned_objective(session, objective_id=objective_id, child_id=child.id or 0)
+    objective = _locked_analysis_objective(session, objective_id, child.id or 0)
+    if objective.analysis_workflow:
+        _refund_analysis_job(session, json.loads(json.dumps(objective.analysis_workflow)))
     # The items first: the schema has no cascade, so deleting the objective on
     # its own would leave rows nobody can reach.
     for item in objective_items_for(session, objective.id or 0):
@@ -14318,9 +14602,17 @@ def delete_study_plan(
 ) -> None:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    plan = require_owned_plan(session, plan_id=plan_id, child_id=child.id or 0)
-    for objective in plan_objectives_for(session, plan):
+    child_id = child.id or 0
+    _begin_analysis_transaction(session)
+    plan = session.exec(select(StudyPlan).where(StudyPlan.id == plan_id, StudyPlan.child_id == child_id).with_for_update()).first()
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Plano não encontrado.")
+    objectives = session.exec(select(Objective).where(Objective.plan_id == plan_id,
+                              Objective.child_id == child_id).order_by(Objective.id).with_for_update()).all()
+    for objective in objectives:
         if delete_objectives:
+            if objective.analysis_workflow:
+                _refund_analysis_job(session, json.loads(json.dumps(objective.analysis_workflow)))
             for item in objective_items_for(session, objective.id or 0):
                 session.delete(item)
             # Persist child deletes before a later query can autoflush the parent.

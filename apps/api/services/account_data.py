@@ -201,7 +201,8 @@ def export_account(session: Session, user: User) -> dict[str, Any]:
             _rows(session, LeetCodeMethod, LeetCodeMethod.child_id, child_ids)
         ),
         "study_plans": _dump(_rows(session, StudyPlan, StudyPlan.child_id, child_ids)),
-        "objectives": _dump(_rows(session, Objective, Objective.child_id, child_ids)),
+        "objectives": [objective.model_dump(exclude={"analysis_workflow"})
+                       for objective in _rows(session, Objective, Objective.child_id, child_ids)],
         "objective_items": _dump(
             _rows(session, ObjectiveItem, ObjectiveItem.child_id, child_ids)
         ),
