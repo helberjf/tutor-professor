@@ -1914,6 +1914,48 @@ function getReviewSession(
 
 export type ObjectiveArea = 'free' | 'language' | 'coding' | 'diverse' | 'exam';
 
+export interface ObjectiveStudyTarget {
+  key: string;
+  title: string;
+  subject: string | null;
+  topic_id: number | null;
+  subject_id: number | null;
+  available: boolean;
+}
+
+export interface ObjectiveStudyScope {
+  discipline_key: string;
+  discipline: string;
+  targets: ObjectiveStudyTarget[];
+  available: boolean;
+}
+
+export interface ObjectiveStudyScopeInput {
+  discipline_key: string;
+  target_keys: string[];
+}
+
+export interface ObjectiveStudyOptions {
+  disciplines: Array<{ key: string; name: string; targets: ObjectiveStudyTarget[] }>;
+  ai_available: boolean;
+  ai_unavailable_reason: string | null;
+}
+
+export interface ObjectiveStudyAnalysis {
+  progress_percent: number | null;
+  remaining_percent: number | null;
+  confidence: 'low' | 'medium' | 'high';
+  summary: string;
+  studied: string[];
+  gaps: string[];
+  next_steps: string[];
+  evidence_count: number;
+  evidence_refs: string[];
+  context_truncated: boolean;
+  generated_at: string;
+  stale: boolean;
+}
+
 export interface ObjectiveItem {
   id: number;
   objective_id: number;
@@ -1950,6 +1992,8 @@ export interface Objective {
   done_weight: number;
   progress_percent: number;
   days_remaining: number | null;
+  study_scope?: ObjectiveStudyScope | null;
+  study_analysis?: ObjectiveStudyAnalysis | null;
 }
 
 export interface ObjectivesSummary {
@@ -1975,6 +2019,7 @@ export interface CreateObjectivePayload {
   icon_emoji?: string | null;
   target_date?: string | null;
   items?: CreateObjectiveItemPayload[];
+  study_scope?: ObjectiveStudyScopeInput | null;
 }
 
 export interface UpdateObjectivePayload {
@@ -1984,6 +2029,7 @@ export interface UpdateObjectivePayload {
   target_date?: string | null;
   clear_target_date?: boolean;
   status?: 'active' | 'archived';
+  study_scope?: ObjectiveStudyScopeInput | null;
 }
 
 export interface UpdateObjectiveItemPayload {
@@ -2744,6 +2790,9 @@ export const api = {
   deleteLeetCodeMethod: (id: number) =>
     fetchAPI<void>(`/api/coding/leetcode/${id}`, { method: 'DELETE' }),
   // Objetivos
+  getObjectiveStudyOptions: () => fetchAPI<ObjectiveStudyOptions>('/api/objectives/study-options'),
+  analyzeObjective: (id: number) =>
+    fetchAPI<Objective>(`/api/objectives/${id}/analyze`, { method: 'POST' }),
   getObjectives: (options: { includeArchived?: boolean } = {}) =>
     fetchAPI<Objective[]>(`/api/objectives${options.includeArchived ? '?include_archived=true' : ''}`),
   getObjectivesSummary: () => fetchAPI<ObjectivesSummary>('/api/objectives/summary'),

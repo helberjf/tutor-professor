@@ -19,7 +19,7 @@ import { api, type Objective, type StudyPlan } from '@/lib/api';
 import { ObjectiveCard } from './ObjectiveCard';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { deadlineLabel } from './objective-areas';
-import { activePriorities, archivedPriorities, isFinished, withObjective, withoutObjective } from './plan-helpers';
+import { activePriorities, archivedPriorities, isFinished } from './plan-helpers';
 import { t } from '@/lib/i18n';
 
 interface Props {
@@ -27,7 +27,7 @@ interface Props {
   onChanged: (plan: StudyPlan) => void;
   onDeleted: (planId: number, objectivesDeleted: boolean) => void;
   onRevise: (plan: StudyPlan) => void;
-  /** Keeps the board's own objective list in step with changes made here. */
+  /** The board applies objective responses to both lists using the latest state. */
   onObjectiveChanged: (objective: Objective) => void;
   onObjectiveDeleted: (objectiveId: number) => void;
 }
@@ -78,12 +78,10 @@ export function PlanPanel({ plan, onChanged, onDeleted, onRevise, onObjectiveCha
 
   function handleObjectiveChanged(updated: Objective) {
     onObjectiveChanged(updated);
-    onChanged(withObjective(plan, updated));
   }
 
   function handleObjectiveDeleted(objectiveId: number) {
     onObjectiveDeleted(objectiveId);
-    onChanged(withoutObjective(plan, objectiveId));
   }
 
   async function toggleArchive() {

@@ -5,6 +5,7 @@ import { Archive, ArchiveRestore, CalendarClock, Check, Loader2, Plus, Trash2, T
 
 import { api, type Objective, type ObjectiveArea } from '@/lib/api';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
+import { ObjectiveStudyAnalysisPanel } from './ObjectiveStudyAnalysisPanel';
 import { areaChipClass, areaLabel, deadlineLabel, OBJECTIVE_AREAS } from './objective-areas';
 import { t } from '@/lib/i18n';
 
@@ -155,7 +156,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
 
       <div className="mt-4">
         <div className="flex items-end justify-between gap-3">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Alcance")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Progresso das tarefas")}</p>
           <p className="text-2xl font-black text-slate-800">{objective.progress_percent}%</p>
         </div>
         <div className="mt-2">
@@ -170,6 +171,8 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
             : `${objective.done_count} de ${objective.item_count} itens concluídos · peso ${objective.done_weight} de ${objective.total_weight}`}
         </p>
       </div>
+
+      <ObjectiveStudyAnalysisPanel objective={objective} onChanged={onChanged} />
 
       <ul className="mt-4 space-y-2">
         {objective.items.map((item) => {

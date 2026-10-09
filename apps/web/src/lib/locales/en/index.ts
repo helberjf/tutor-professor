@@ -3,6 +3,7 @@ import { CODING_EN } from './coding';
 import { COMMON_EN } from './common';
 import { STUDY_EN } from './study';
 import { STUDY_LOG_EN } from './study-log';
+import { OBJECTIVES_EN } from './objectives';
 
 /**
  * Portuguese source text → English.
@@ -18,4 +19,5 @@ export const EN_DICTIONARY: Record<string, string> = {
   ...STUDY_EN,
   ...STUDY_LOG_EN,
   ...CODING_EN,
+  ...OBJECTIVES_EN,
 };
