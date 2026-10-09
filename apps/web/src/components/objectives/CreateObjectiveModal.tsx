@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 
 import { api, type CreateObjectiveItemPayload, type Objective, type ObjectiveArea, type ObjectiveStudyScopeInput } from '@/lib/api';
@@ -30,7 +30,6 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   const [items, setItems] = useState<CreateObjectiveItemPayload[]>([]);
   const [itemTitle, setItemTitle] = useState('');
   const [itemArea, setItemArea] = useState<ObjectiveArea>('free');
-  const [itemWeight, setItemWeight] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [studyScope, setStudyScope] = useState<ObjectiveStudyScopeInput | null>(null);
@@ -39,12 +38,17 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   const { options } = useObjectiveStudyOptions();
   const scopeValid = validStudyScope(studyScope, options);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+
   function addItem() {
     const clean = itemTitle.trim();
     if (!clean) return;
-    setItems((previous) => [...previous, { title: clean, area: itemArea, weight: itemWeight }]);
+    setItems((previous) => [...previous, { title: clean, area: itemArea }]);
     setItemTitle('');
-    setItemWeight(1);
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -76,8 +80,8 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-3 sm:p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="new-objective-title" className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="new-objective-title" className="dialog-sheet max-h-[90dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-3xl p-5 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-center justify-between">
           <h2 id="new-objective-title" className="text-xl font-black text-slate-800">{t("Novo objetivo")}</h2>
           <button
@@ -149,7 +153,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
           <div className="rounded-2xl border-2 border-slate-200 p-4">
             <p className="text-sm font-bold text-slate-700">{t("O que precisa estudar")}</p>
             <p className="mt-0.5 text-xs font-medium text-slate-400">
-              {t("Cada item concluído aumenta a porcentagem do objetivo. O peso diz o tamanho do item.")}
+              {t("Liste tarefas para acompanhar seu progresso. Cada nova tarefa conta igualmente.")}
             </p>
 
             {items.length > 0 ? (
@@ -160,7 +164,6 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
                     className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2"
                   >
                     <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">{item.title}</span>
-                    <span className="text-xs font-bold text-slate-400">peso {item.weight}</span>
                     <button
                       type="button"
                       aria-label={`Remover ${item.title}`}
@@ -174,7 +177,7 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
               </ul>
             ) : null}
 
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <input
                 aria-label={t("Item de estudo")}
                 value={itemTitle}
@@ -188,26 +191,16 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
                 }}
                 placeholder={t("Ex: terminar o módulo 3")}
                 maxLength={200}
-                className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
+                className="col-span-2 min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
               />
               <select
                 aria-label={t("Área do item")}
                 value={itemArea}
                 onChange={(event) => setItemArea(event.target.value as ObjectiveArea)}
-                className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
+                className="min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
               >
                 {OBJECTIVE_AREAS.map((area) => (
                   <option key={area.id} value={area.id}>{area.label}</option>
-                ))}
-              </select>
-              <select
-                aria-label={t("Peso do item")}
-                value={itemWeight}
-                onChange={(event) => setItemWeight(Number(event.target.value))}
-                className="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-primary"
-              >
-                {[1, 2, 3, 5, 8, 10].map((weight) => (
-                  <option key={weight} value={weight}>peso {weight}</option>
                 ))}
               </select>
               <button

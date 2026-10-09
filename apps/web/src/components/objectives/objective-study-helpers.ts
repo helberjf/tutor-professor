@@ -16,6 +16,11 @@ export function toggleStudyTarget(keys: string[], key: string): string[] {
   return keys.includes(key) ? keys.filter((item) => item !== key) : keys.length < MAX_STUDY_TARGETS ? [...keys, key] : keys;
 }
 
+export function selectStudyTargets(targets: ObjectiveStudyTarget[], selectedKeys: string[] = []): string[] {
+  return [...new Set([...selectedKeys, ...targets.filter((target) => target.available).map((target) => target.key)])]
+    .slice(0, MAX_STUDY_TARGETS);
+}
+
 function searchKey(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }

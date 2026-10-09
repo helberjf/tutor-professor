@@ -15,3 +15,13 @@ Ao escolher uma matéria no filtro, selecionar automaticamente seus tópicos. Of
 ## Validação
 
 Testar seleção por matéria, seleção em lote com busca, deduplicação, indisponíveis e limite. Executar testes existentes, TypeScript, lint e build. Com agent-browser em dados locais isolados, verificar criação, inclusão de tarefas, edição de vínculos, contraste de hover e ausência de overflow em desktop e celular, nos temas claro e escuro. Publicar na main conforme autorização persistente desta conversa.
+
+## Análise de IA — complemento solicitado pelo usuário
+
+O usuário acrescentou que a IA deve ler todo o estudo relevante da disciplina e matéria, estimar a porcentagem e o que falta, apontar melhorias e traçar um plano. A implementação existente já retorna estimativa, lacunas e próximos passos, mas amostra o histórico; corrigir essa cobertura.
+
+- Considerar todo o histórico pertencente ao perfil e ao escopo escolhido, incluindo textos completos e resultados de questões e revisões. Nenhum estudo de outra disciplina, matéria ou tópico individual não selecionado entra como evidência.
+- Processar históricos longos em lotes e consolidar os diagnósticos antes de gerar a avaliação final. O limite por chamada protege o provedor; não equivale a descartar registros. Se a revisão completa falhar, preservar a análise anterior e mostrar o erro.
+- Notas gerais da matéria são evidência de estudo quando todos os seus tópicos estão selecionados, sem afirmar domínio de um tópico específico. Com apenas alguns tópicos, servem como contexto, conforme o comportamento existente.
+- Apresentar a porcentagem como estimativa, o que já foi estudado, o que falta melhorar e um plano ordenado de ações concretas com critérios de conclusão. Na ausência de evidência, explicar que ainda não é possível estimar uma porcentagem.
+- Preservar a cobrança e os controles de concorrência da operação de análise. Verificar cobertura com um registro antigo e um trecho após o corte anterior, além de isolamento, falhas do provedor e persistência.

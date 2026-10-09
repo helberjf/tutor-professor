@@ -13400,6 +13400,7 @@ def get_objective_study_options(request: Request, session: Session = Depends(get
 
 @app.post("/api/objectives/{objective_id}/analyze", response_model=ObjectiveSchema)
 def analyze_objective(objective_id: int, request: Request, session: Session = Depends(get_session)) -> ObjectiveSchema:
+    started_at = time.monotonic()
     session_record = require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
     child_id = child.id or 0
@@ -13415,31 +13416,45 @@ def analyze_objective(objective_id: int, request: Request, session: Session = De
         raise HTTPException(status_code=403, detail="Configure sua chave de API em Configurações para analisar o objetivo.")
     signature = objective_analysis_service.input_signature(objective)
     scope_signature = objective_analysis_service.scope_signature(scope)
+    curriculum_signature = objective_analysis_service.curriculum_signature(session, child_id, scope)
     evaluated_scope = scope
     evaluated_objective = dict(title=objective.title, description=objective.description)
     context = objective_analysis_service.collect_evidence(session, child, scope)
-    system_text, prompt = objective_analysis_service.build_analysis_prompts(
-        title=objective.title, description=objective.description, scope=scope, context=context,
-        base_language=child.base_language, age_group=child_age_group(child),
-    )
+    base_language, age_group = child.base_language, child_age_group(child)
     # Do not retain a read transaction or row lock during the external call.
     session.rollback()
     config, refund = _reserve_objective_analysis_credit(user_id, session, config)
+    provider_answered = False
+    original_success = config.on_success
+
+    def record_operation_answer() -> None:
+        nonlocal provider_answered
+        if provider_answered:
+            return
+        provider_answered = True
+        if original_success is not None:
+            original_success()
+        # Own-key callbacks can reopen a read transaction while loading their
+        # configuration. Release it before the next batch's external call.
+        session.rollback()
+
+    config = replace(config, on_success=record_operation_answer)
     try:
-        raw = phrase_generation_service.generate_json_text(
-            system_text=system_text, prompt=prompt, temperature=0.3, ai_config=config,
-            timeout_seconds=PLAN_GENERATION_TIMEOUT_SECONDS,
+        result = objective_analysis_service.analyze_history(
+            **evaluated_objective, scope=scope, context=context, base_language=base_language,
+            age_group=age_group, generate=phrase_generation_service.generate_json_text,
+            ai_config=config, timeout_seconds=PLAN_GENERATION_TIMEOUT_SECONDS, started_at=started_at,
         )
     except Exception as exc:
-        if refund is not None:
+        if refund is not None and not provider_answered:
             refund()
+        if isinstance(exc, ValueError):
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         if isinstance(exc, RuntimeError):
-            raise HTTPException(status_code=502, detail="Não foi possível analisar o objetivo agora. Tente novamente.") from exc
+            detail = (str(exc) if str(exc) == objective_analysis_service.INCOMPLETE_HISTORY_DETAIL else
+                      "Não foi possível concluir a análise de todo o histórico agora. A análise anterior foi mantida. Tente novamente.")
+            raise HTTPException(status_code=502, detail=detail) from exc
         raise
-    try:
-        result = objective_analysis_service.parse_analysis_response(raw, learning_count=context["learning_count"])
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     # Credit/usage callbacks can reload rows; expire everything before the check.
     session.rollback()
@@ -13458,7 +13473,8 @@ def analyze_objective(objective_id: int, request: Request, session: Session = De
     if child is None:
         raise HTTPException(status_code=404, detail="Perfil não encontrado.")
     scope = objective_analysis_service.current_scope(objective.study_scope, objective_study_options_for(session, child))
-    if scope is None or not scope["available"] or objective_analysis_service.scope_signature(scope) != scope_signature:
+    if (scope is None or not scope["available"] or objective_analysis_service.scope_signature(scope) != scope_signature
+            or objective_analysis_service.curriculum_signature(session, child_id, scope) != curriculum_signature):
         raise HTTPException(status_code=409, detail="Os tópicos mudaram durante a análise. Revise o escopo e tente novamente.")
     now = datetime.utcnow()
     objective.study_analysis = dict(result, evidence_count=context["learning_count"],

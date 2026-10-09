@@ -57,7 +57,14 @@ The project was built as a practical engineering exercise: a real product surfac
 - **Objectives linked to what you study.** Choose a discipline and one or more
   curriculum topics or study-log subjects. "Analisar objetivo" compares the
   objective with the selected study history, answers and reviews, then keeps an
-  AI estimate of what remains, knowledge gaps and prioritized next steps. An
+  AI estimate of what remains, knowledge gaps and an ordered action plan with
+  completion criteria. Choosing a subject selects its topics automatically;
+  bulk selection also works with search results, up to 30 linked topics.
+  Relevant history is read in full, including old records and long text, using
+  bounded batches and summary consolidation. If the full review exceeds the
+  operation budget or fails, the previous diagnosis is preserved. The default
+  budget is 12 provider calls and 50 seconds (`OBJECTIVE_ANALYSIS_MAX_CALLS` and
+  `OBJECTIVE_ANALYSIS_TIME_BUDGET_SECONDS`, capped at 50 seconds). An
   empty history shows insufficient evidence rather than an invented percentage.
   The estimate stays separate from checklist progress; editing the goal or its
   study links marks the previous analysis as outdated. Optional analysis after
@@ -360,6 +367,8 @@ python scripts/test_tenant_isolation.py
 python scripts/test_objectives_progress.py
 python scripts/test_study_plan.py
 python scripts/test_objective_deletion_foreign_keys.py
+python scripts/test_objective_study_analysis.py
+python scripts/test_objective_full_history.py
 python scripts/test_account_modules.py
 python scripts/test_account_self_service.py
 python scripts/test_billing_and_usage.py

@@ -1,4 +1,11 @@
 export const OBJECTIVES_EN: Record<string, string> = {
+  'O que falta melhorar': 'What needs improvement',
+  'Plano para alcançar o objetivo': 'Plan to reach your goal',
+  'Escolha uma matéria para selecionar seus tópicos. Você pode ajustar a seleção abaixo.': 'Choose a subject to select its topics. You can adjust the selection below.',
+  'Selecionar todos': 'Select all',
+  'Limpar seleção': 'Clear selection',
+  'Selecionamos os primeiros 30. Desmarque tópicos para escolher outros.': 'We selected the first 30. Deselect topics to choose others.',
+  'Liste tarefas para acompanhar seu progresso. Cada nova tarefa conta igualmente.': 'List tasks to track your progress. Each new task counts equally.',
   'Não foi possível carregar disciplinas e tópicos.': 'Could not load disciplines and topics.',
   'Não foi possível analisar o objetivo.': 'Could not analyze the objective.',
   'Não foi possível salvar os tópicos do objetivo.': 'Could not save the objective topics.',
