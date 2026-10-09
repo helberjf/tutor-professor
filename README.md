@@ -59,7 +59,9 @@ The project was built as a practical engineering exercise: a real product surfac
   objective with the selected study history, answers and reviews, then keeps an
   AI estimate of what remains, knowledge gaps and an ordered action plan with
   completion criteria. Choosing a subject selects its topics automatically;
-  bulk selection also works with search results, up to 30 linked topics.
+  bulk selection also works with search results, up to 60 linked topics.
+  The goal form links recorded studies without asking for manual task items;
+  objectives without a checklist show their AI study assessment directly.
   Relevant history is read in full, including old records and long text, using
   bounded batches and summary consolidation. If the full review exceeds the
   operation budget or fails, the previous diagnosis is preserved. The default

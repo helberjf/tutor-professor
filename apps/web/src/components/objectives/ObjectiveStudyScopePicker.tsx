@@ -95,7 +95,7 @@ export function ObjectiveStudyScopePicker({ value, onChange, savedScope, disable
                   </button>
                 </div>
               </div>
-              {selectionLimited || value.target_keys.length >= MAX_STUDY_TARGETS ? <p role="status" className="text-xs leading-5 text-[var(--text-muted)]">{t('Você pode selecionar até 30 tópicos por objetivo.')}{selectionLimited ? ` ${t('Selecionamos os primeiros 30. Desmarque tópicos para escolher outros.')}` : ''}</p> : null}
+              {selectionLimited || value.target_keys.length >= MAX_STUDY_TARGETS ? <p role="status" className="text-xs leading-5 text-[var(--text-muted)]">{t('Você pode selecionar até 60 tópicos por objetivo.')}{selectionLimited ? ` ${t('Selecionamos os primeiros 60. Desmarque tópicos para escolher outros.')}` : ''}</p> : null}
               <div className="max-h-60 space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-[var(--line-soft)] bg-[var(--surface-strong)] p-1.5">
                 {visible.map((target) => (
                   <label key={target.key} className={`flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${value.target_keys.includes(target.key) ? 'border-[var(--sky)] bg-[var(--surface-tint)]' : 'border-transparent hover:bg-[var(--surface-muted)]'}`}>

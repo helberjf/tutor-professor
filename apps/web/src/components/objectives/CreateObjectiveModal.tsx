@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
-import { api, type CreateObjectiveItemPayload, type Objective, type ObjectiveArea, type ObjectiveStudyScopeInput } from '@/lib/api';
-import { OBJECTIVE_AREAS } from './objective-areas';
+import { api, type Objective, type ObjectiveStudyScopeInput } from '@/lib/api';
 import { ObjectiveStudyScopePicker } from './ObjectiveStudyScopePicker';
 import { useObjectiveStudyOptions } from './ObjectiveStudyOptions';
 import { createAndAnalyzeObjective, studyAiUnavailableMessage, validStudyScope } from './objective-study-helpers';
@@ -15,21 +14,12 @@ interface Props {
   onCreated: (objective: Objective, analysisError?: string) => void;
 }
 
-/**
- * Creating the objective and listing its first study items in one step.
- *
- * Asking for the goal and then sending the person to a second screen to say
- * what it takes is how a goal ends up with no items and a permanent 0%. The
- * list is still optional: items can be added any time from the card.
- */
+/** Create a goal linked to recorded studies, then optionally assess its history. */
 export function CreateObjectiveModal({ onClose, onCreated }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [emoji, setEmoji] = useState('');
   const [targetDate, setTargetDate] = useState('');
-  const [items, setItems] = useState<CreateObjectiveItemPayload[]>([]);
-  const [itemTitle, setItemTitle] = useState('');
-  const [itemArea, setItemArea] = useState<ObjectiveArea>('free');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [studyScope, setStudyScope] = useState<ObjectiveStudyScopeInput | null>(null);
@@ -43,13 +33,6 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previousOverflow; };
   }, []);
-
-  function addItem() {
-    const clean = itemTitle.trim();
-    if (!clean) return;
-    setItems((previous) => [...previous, { title: clean, area: itemArea }]);
-    setItemTitle('');
-  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -66,7 +49,6 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
         description: description.trim() || undefined,
         icon_emoji: emoji.trim() || undefined,
         target_date: targetDate || undefined,
-        items,
         study_scope: studyScope,
       }, scopeValid && !!options?.ai_available && analyzeAfterCreate);
       onCreated(result.objective, result.analysisError
@@ -149,70 +131,6 @@ export function CreateObjectiveModal({ onClose, onCreated }: Props) {
               {!options?.ai_available ? <p className="text-xs leading-5 text-slate-500">{t(studyAiUnavailableMessage(options?.ai_unavailable_reason))}</p> : null}
             </div>
           ) : null}
-
-          <div className="rounded-2xl border-2 border-slate-200 p-4">
-            <p className="text-sm font-bold text-slate-700">{t("O que precisa estudar")}</p>
-            <p className="mt-0.5 text-xs font-medium text-slate-400">
-              {t("Liste tarefas para acompanhar seu progresso. Cada nova tarefa conta igualmente.")}
-            </p>
-
-            {items.length > 0 ? (
-              <ul className="mt-3 space-y-2">
-                {items.map((item, index) => (
-                  <li
-                    key={`${item.title}-${index}`}
-                    className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-700">{item.title}</span>
-                    <button
-                      type="button"
-                      aria-label={`Remover ${item.title}`}
-                      onClick={() => setItems((previous) => previous.filter((_, position) => position !== index))}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <input
-                aria-label={t("Item de estudo")}
-                value={itemTitle}
-                onChange={(event) => setItemTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    // Enter here adds an item; it must not submit the whole form.
-                    event.preventDefault();
-                    addItem();
-                  }
-                }}
-                placeholder={t("Ex: terminar o módulo 3")}
-                maxLength={200}
-                className="col-span-2 min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
-              />
-              <select
-                aria-label={t("Área do item")}
-                value={itemArea}
-                onChange={(event) => setItemArea(event.target.value as ObjectiveArea)}
-                className="min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
-              >
-                {OBJECTIVE_AREAS.map((area) => (
-                  <option key={area.id} value={area.id}>{area.label}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={addItem}
-                disabled={!itemTitle.trim()}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 hover:bg-slate-200 disabled:opacity-50"
-              >
-                <Plus size={16} /> {t("Adicionar")}
-              </button>
-            </div>
-          </div>
 
           {error ? (
             <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>

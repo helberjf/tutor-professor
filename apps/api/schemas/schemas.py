@@ -1656,7 +1656,7 @@ class ObjectiveStudyScopeSchema(BaseModel):
 
 class ObjectiveStudyScopeInputSchema(BaseModel):
     discipline_key: str = Field(min_length=1, max_length=200)
-    target_keys: list[str] = Field(min_length=1, max_length=30)
+    target_keys: list[str] = Field(min_length=1, max_length=60)
 
 
 class ObjectiveStudyAnalysisSchema(BaseModel):

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Archive, ArchiveRestore, CalendarClock, Check, Loader2, Plus, Trash2, Trophy } from 'lucide-react';
+import { Archive, ArchiveRestore, CalendarClock, Check, Loader2, Trash2, Trophy } from 'lucide-react';
 
-import { api, type Objective, type ObjectiveArea } from '@/lib/api';
+import { api, type Objective } from '@/lib/api';
 import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { ObjectiveStudyAnalysisPanel } from './ObjectiveStudyAnalysisPanel';
-import { areaChipClass, areaLabel, deadlineLabel, OBJECTIVE_AREAS } from './objective-areas';
+import { areaChipClass, areaLabel, deadlineLabel } from './objective-areas';
 import { t } from '@/lib/i18n';
 
 interface Props {
@@ -24,10 +24,7 @@ interface Props {
  * leaves nothing half-applied on screen.
  */
 export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
-  const [itemTitle, setItemTitle] = useState('');
-  const [itemArea, setItemArea] = useState<ObjectiveArea>('free');
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
 
   const achieved = objective.progress_percent >= 100 && objective.item_count > 0;
@@ -62,22 +59,6 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
     );
     if (updated) onChanged(updated);
     setBusyItemId(null);
-  }
-
-  async function addItem(event: React.FormEvent) {
-    event.preventDefault();
-    const clean = itemTitle.trim();
-    if (!clean) return;
-    setAdding(true);
-    const updated = await run(
-      () => api.addObjectiveItem(objective.id, { title: clean, area: itemArea }),
-      t("Não foi possível adicionar o item."),
-    );
-    if (updated) {
-      onChanged(updated);
-      setItemTitle('');
-    }
-    setAdding(false);
   }
 
   async function toggleArchive() {
@@ -152,7 +133,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
         </div>
       </header>
 
-      <div className="mt-4">
+      {objective.item_count > 0 ? <div className="mt-4">
         <div className="flex items-end justify-between gap-3">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t("Progresso das tarefas")}</p>
           <p className="text-2xl font-black text-slate-800">{objective.progress_percent}%</p>
@@ -164,11 +145,9 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           />
         </div>
         <p className="mt-2 text-xs font-semibold text-slate-400">
-          {objective.item_count === 0
-            ? t("Adicione o que precisa estudar para começar a medir.")
-            : `${objective.done_count} de ${objective.item_count} itens concluídos`}
+          {`${objective.done_count} de ${objective.item_count} itens concluídos`}
         </p>
-      </div>
+      </div> : null}
 
       <ObjectiveStudyAnalysisPanel objective={objective} onChanged={onChanged} />
 
@@ -227,34 +206,6 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
           );
         })}
       </ul>
-
-      <form onSubmit={addItem} className="mt-3 grid grid-cols-2 gap-2">
-        <input
-          aria-label={`Novo item de estudo para ${objective.title}`}
-          value={itemTitle}
-          onChange={(event) => setItemTitle(event.target.value)}
-          placeholder={t("O que falta estudar?")}
-          maxLength={200}
-          className="col-span-2 min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
-        />
-        <select
-          aria-label={`Área do novo item de ${objective.title}`}
-          value={itemArea}
-          onChange={(event) => setItemArea(event.target.value as ObjectiveArea)}
-          className="min-h-11 w-full min-w-0 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-strong)] px-3 py-2.5 text-sm font-semibold text-[var(--text)] outline-none focus:border-primary"
-        >
-          {OBJECTIVE_AREAS.map((area) => (
-            <option key={area.id} value={area.id}>{area.label}</option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          disabled={adding || !itemTitle.trim()}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 text-sm font-black text-white transition hover:bg-primary-dark disabled:opacity-50"
-        >
-          {adding ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} {t("Adicionar")}
-        </button>
-      </form>
 
       {error ? (
         <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{error}</p>

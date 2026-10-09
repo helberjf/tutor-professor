@@ -11,6 +11,7 @@ import { ObjectiveProgressBar } from './ObjectiveProgressBar';
 import { ObjectiveStudyOptionsProvider } from './ObjectiveStudyOptions';
 import { PlanPanel } from './PlanPanel';
 import { updatePlansWithObjective, withoutObjective } from './plan-helpers';
+import { objectiveTaskProgress } from './objective-study-helpers';
 import { t } from '@/lib/i18n';
 
 // Dois diálogos que só existem depois de um clique. Estaticamente importados,
@@ -96,14 +97,7 @@ export function ObjectivesBoard() {
     return visible.filter((objective) => objective.plan_id == null || !planIds.has(objective.plan_id));
   }, [visible, plans]);
 
-  const averagePercent = active.length
-    ? Math.round(active.reduce((total, objective) => total + objective.progress_percent, 0) / active.length)
-    : 0;
-  const achievedCount = active.filter((objective) => objective.progress_percent >= 100 && objective.item_count > 0).length;
-  const pendingItems = active.reduce(
-    (total, objective) => total + (objective.item_count - objective.done_count),
-    0,
-  );
+  const { averagePercent, achievedCount, pendingItems } = objectiveTaskProgress(active);
   const canPlan = plansAvailable && !serverOutdated;
 
   function replaceObjective(updated: Objective) {
@@ -141,12 +135,14 @@ export function ObjectivesBoard() {
       <section className="rounded-[1.6rem] border-2 border-slate-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t('Progresso geral das tarefas')}</p>
-            <p className="mt-1 text-3xl font-black text-slate-800">{averagePercent}%</p>
+            {averagePercent !== null ? <>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{t('Progresso geral das tarefas')}</p>
+              <p className="mt-1 text-3xl font-black text-slate-800">{averagePercent}%</p>
+            </> : <p className="text-2xl font-black text-slate-800">{t('Objetivos')}</p>}
             <p className="mt-1 text-sm font-semibold text-slate-500">
               {active.length === 0
                 ? t("Nenhum objetivo ativo ainda.")
-                : `${active.length} ${active.length === 1 ? 'objetivo ativo' : 'objetivos ativos'} · ${achievedCount} ${achievedCount === 1 ? 'conquistado' : 'conquistados'} · ${pendingItems} ${pendingItems === 1 ? 'item pendente' : 'itens pendentes'}`}
+                : `${active.length} ${active.length === 1 ? 'objetivo ativo' : 'objetivos ativos'}${averagePercent !== null ? ` · ${achievedCount} ${achievedCount === 1 ? 'conquistado' : 'conquistados'} · ${pendingItems} ${pendingItems === 1 ? 'item pendente' : 'itens pendentes'}` : ''}`}
             </p>
           </div>
 
@@ -171,7 +167,7 @@ export function ObjectivesBoard() {
           </div>
         </div>
 
-        {active.length > 0 ? (
+        {averagePercent !== null ? (
           <div className="mt-4">
             <ObjectiveProgressBar percent={averagePercent} label={t("Alcance médio dos objetivos ativos")} />
           </div>
