@@ -13627,6 +13627,8 @@ def delete_objective(
     # its own would leave rows nobody can reach.
     for item in objective_items_for(session, objective.id or 0):
         session.delete(item)
+    # Without ORM relationships, the unit of work does not order these deletes.
+    session.flush()
     session.delete(objective)
     session.commit()
 
@@ -14305,6 +14307,8 @@ def delete_study_plan(
         if delete_objectives:
             for item in objective_items_for(session, objective.id or 0):
                 session.delete(item)
+            # Persist child deletes before a later query can autoflush the parent.
+            session.flush()
             session.delete(objective)
         else:
             # The progress belongs to the learner, not to the plan: without the

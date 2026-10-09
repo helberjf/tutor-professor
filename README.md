@@ -359,6 +359,7 @@ python scripts/test_password_security.py
 python scripts/test_tenant_isolation.py
 python scripts/test_objectives_progress.py
 python scripts/test_study_plan.py
+python scripts/test_objective_deletion_foreign_keys.py
 python scripts/test_account_modules.py
 python scripts/test_account_self_service.py
 python scripts/test_billing_and_usage.py
