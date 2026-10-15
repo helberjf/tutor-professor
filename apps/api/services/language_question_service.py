@@ -97,10 +97,18 @@ def build_language_questions_prompt(
         sanitize_context(front)[:160]
         for front in list(existing_fronts)[-MAX_EXISTING_FRONTS_IN_PROMPT:]
     ]
+    base_label = sanitize_context(base_language)[:40]
     prompt = (
-        "Crie exatamente 5 perguntas de estudo únicas para a lição abaixo. "
-        "Use o idioma-alvo nas perguntas/respostas quando pedagogicamente adequado e "
-        "o idioma-base para instruções, explicações e traduções.\n"
+        "Crie exatamente 5 perguntas de estudo únicas para a lição abaixo.\n"
+        # O enunciado é o que o estudante lê para saber o que estão perguntando.
+        # Escrito no idioma que ele ainda está aprendendo, ele cobra duas coisas de
+        # uma vez, e quem está começando erra a questão sem errar o conteúdo.
+        f"O enunciado (front) deve ser escrito inteiramente em {base_label}, o idioma "
+        "nativo do estudante. Apenas as palavras ou frases do idioma-alvo que estão "
+        "sendo estudadas aparecem no idioma-alvo, entre aspas, dentro do enunciado. "
+        f"Nunca escreva o enunciado em outro idioma que não seja {base_label}. "
+        f"Instruções, explicações e traduções também ficam em {base_label}; a resposta "
+        "(back) usa o idioma-alvo quando o que se pede é produzir a frase.\n"
         f"Título: {sanitize_context(lesson_title)[:200]}\n"
         f"Tema: {sanitize_context(theme)[:200]}\n"
         f"Objetivo: {sanitize_context(objective)[:1000]}\n"
@@ -114,7 +122,7 @@ def build_language_questions_prompt(
         f"Contexto adicional: {sanitized_context or 'Nenhum contexto adicional.'}\n"
         f"Tipos permitidos: {allowed_types}. Use pelo menos 3 tipos distintos.\n"
         f"Inclua front_translation com a tradução natural do enunciado (front) no idioma-base "
-        f"({sanitize_context(base_language)[:40]}). Se o front já estiver totalmente no idioma-base, repita-o. "
+        f"({base_label}). Como o enunciado já nasce no idioma-base, repita-o ali. "
         "Inclua supporting_example_translation com a tradução do supporting_example no idioma-base, "
         "ou null quando não houver supporting_example.\n"
         "Retorne somente JSON válido neste formato: "

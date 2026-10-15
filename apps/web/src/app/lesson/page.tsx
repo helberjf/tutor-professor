@@ -903,8 +903,13 @@ function LessonPageContent() {
                       <span className="ml-auto text-xs font-bold text-slate-400">#{index + 1}</span>
                     </div>
                     <p className="mt-3 text-base font-black leading-7 text-slate-800 md:text-lg">
-                      {question.front}
+                      {question.native_front || question.front}
                     </p>
+                    {question.native_front ? (
+                      <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+                        {question.front}
+                      </p>
+                    ) : null}
                     <details className="group mt-3 rounded-xl bg-slate-50 px-4 py-3">
                       <summary className="cursor-pointer text-sm font-black text-violet-700 marker:text-violet-400">
                         {t("Ver resposta")}

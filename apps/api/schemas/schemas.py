@@ -44,7 +44,23 @@ class LessonQuestionSchema(FromAttributesModel):
     supporting_example: Optional[str] = None
     front_translation: Optional[str] = None
     supporting_example_translation: Optional[str] = None
+    # The statement in the student's own language, for questions saved before
+    # statements were required to be written in it. None when `front` already is.
+    native_front: Optional[str] = None
     created_at: datetime
+
+    @model_validator(mode="after")
+    def _fill_native_front(self) -> "LessonQuestionSchema":
+        from services.offline_question_service import is_offline_front
+
+        translation = " ".join((self.front_translation or "").split())
+        if (
+            translation
+            and translation.casefold() != " ".join(self.front.split()).casefold()
+            and not is_offline_front(self.front)
+        ):
+            self.native_front = translation
+        return self
 
 class LessonSchema(BaseModel):
     id: int

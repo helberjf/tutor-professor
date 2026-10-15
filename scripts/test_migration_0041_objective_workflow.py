@@ -9,9 +9,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 from alembic import command
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlmodel import SQLModel
 import database_bootstrap
+
+
+def head_revision(url):
+    """The latest revision, so a later migration does not fail this one."""
+
+    return ScriptDirectory.from_config(database_bootstrap._alembic_config(url)).get_current_head()
 
 
 def verify(already_created=False):
@@ -37,7 +44,7 @@ def verify(already_created=False):
             row = db.execute(text("SELECT title,study_analysis,analysis_workflow FROM objective")).one()
             assert row[0] == "Preservado" and "previous diagnosis" in row[1]
             assert (row[2] is not None) == already_created
-        assert database_bootstrap.bootstrap_database(url) == "0041"
+        assert database_bootstrap.bootstrap_database(url) == head_revision(url)
         command.downgrade(config, "0040")
         assert "analysis_workflow" not in {column["name"] for column in inspect(engine).get_columns("objective")}
         with engine.connect() as db:
@@ -53,7 +60,7 @@ def verify_unversioned():
         SQLModel.metadata.create_all(engine)
         with engine.begin() as db:
             db.execute(text("ALTER TABLE objective DROP COLUMN analysis_workflow"))
-        assert database_bootstrap.bootstrap_database(url) == "0041"
+        assert database_bootstrap.bootstrap_database(url) == head_revision(url)
         assert "analysis_workflow" in {column["name"] for column in inspect(engine).get_columns("objective")}
         engine.dispose()
 

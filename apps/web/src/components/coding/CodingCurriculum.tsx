@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, ListOrdered, Loader2, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, ListOrdered, Loader2, PlayCircle, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
 import { api, type AICredits, type CodingReviewCard, type CodingSubjectSort, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingSubjectPage, type ProgrammingTopic } from '@/lib/api';
 import { rememberStudyLocation } from '@/lib/study-resume';
 import { CreateSubjectModal } from './CreateSubjectModal';
@@ -302,6 +302,11 @@ export function CodingCurriculum({
     } finally {
       setLoadingTopics(false);
     }
+  }
+
+  function openTopic(subject: ProgrammingSubject, topic: ProgrammingTopic) {
+    if (focusMode === 'questions') openQuestionTopic(subject, topic);
+    else setView({ type: 'topic', subject, topic });
   }
 
   async function handleStartReview(subject: ProgrammingSubject) {
@@ -701,6 +706,9 @@ export function CodingCurriculum({
   // ── Topics view ──────────────────────────────────────────────────────────
   if (view.type === 'topics') {
     const { subject } = view;
+    // Where the student stopped: the first topic in the course order they have
+    // not studied yet. Finding it by hand means scrolling a list of 41.
+    const nextTopic = topics.find((topic) => topic.status === 'not_started') ?? null;
     const summaryCreditCost = topics.filter((topic) => topic.ai_content && !topic.has_summary).length;
     const enoughSummaryCredits = aiCredits?.unlimited || (aiCredits?.credits ?? 0) >= summaryCreditCost;
     const statusIcon = (s: string) => s === 'mastered' ? '⭐' : s === 'studied' ? '✅' : '🔘';
@@ -731,6 +739,25 @@ export function CodingCurriculum({
               </button>
             )}
           </div>
+
+          {nextTopic && (
+            <button
+              type="button"
+              onClick={() => openTopic(subject, nextTopic)}
+              className="mt-3 flex min-h-12 w-full items-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-left font-black text-white transition hover:bg-primary"
+            >
+              <PlayCircle size={20} className="shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm leading-5">{translate("Continuar de onde parou")}</span>
+                <span className="block truncate text-xs font-bold leading-4 text-white/85">{nextTopic.title}</span>
+              </span>
+            </button>
+          )}
+          {!loadingTopics && topics.length > 0 && !nextTopic && (
+            <p className="mt-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+              {translate("Todos os tópicos desta matéria já foram estudados.")}
+            </p>
+          )}
 
           <div className="mt-3 rounded-2xl border-2 border-violet-100 bg-violet-100/70 p-4 dark:border-violet-300/30 dark:bg-violet-400/10">
             <p className="text-sm font-black text-violet-900 dark:text-violet-100">{translate("Resumo da matéria")}</p>
@@ -896,10 +923,7 @@ export function CodingCurriculum({
               <div
                 key={topic.id}
                 className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 bg-white px-5 py-4 transition hover:border-primary/40 ${topic.id === newTopicId ? 'border-violet-300 bg-violet-50/60' : 'border-slate-100'}`}
-                onClick={() => {
-                  if (focusMode === 'questions') openQuestionTopic(subject, topic);
-                  else setView({ type: 'topic', subject, topic });
-                }}
+                onClick={() => openTopic(subject, topic)}
               >
                 <span className="w-5 shrink-0 text-center text-sm font-bold text-slate-400">{idx + 1}</span>
                 <span className="text-lg">{statusIcon(topic.status)}</span>

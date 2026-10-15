@@ -69,6 +69,8 @@ export const ACCOUNT_EN: Record<string, string> = {
   Temas: 'Themes',
   'temas concluídos': 'themes completed',
   'Começar lição': 'Start lesson',
+  'Idioma das explicações (ou idioma nativo)':
+    'Explanations language (your native language)',
   Ativo: 'Active',
 
   // AI settings

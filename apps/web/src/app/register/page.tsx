@@ -420,7 +420,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <label className="block text-sm font-bold uppercase tracking-[0.14em] text-slate-400">
                 <span className="flex items-center gap-1.5">
-                  <Globe size={14} /> {t("Idioma das explicações")} <span aria-hidden="true" className="text-brand-pink">*</span>
+                  <Globe size={14} /> {t("Idioma das explicações (ou idioma nativo)")} <span aria-hidden="true" className="text-brand-pink">*</span>
                 </span>
               </label>
               <p className="text-xs font-semibold text-slate-400">

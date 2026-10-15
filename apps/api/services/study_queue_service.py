@@ -139,9 +139,21 @@ def _lesson_cards(
     return cards
 
 
-def _review_cards(session: Session, child_id: int, limit: int, now: datetime | None) -> list[dict[str, Any]]:
+def _review_cards(
+    session: Session,
+    child_id: int,
+    limit: int,
+    now: datetime | None,
+    target_language: str | None = None,
+) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
-    for card in build_mixed_review_cards(session=session, child_id=child_id, limit=limit, now=now):
+    for card in build_mixed_review_cards(
+        session=session,
+        child_id=child_id,
+        limit=limit,
+        now=now,
+        target_language=target_language,
+    ):
         if card.get("card_type") == "vocabulary":
             cards.append(
                 {
@@ -205,6 +217,7 @@ def build_study_queue(
     lesson_items: Sequence[LessonItem] = (),
     limit: int = DEFAULT_QUEUE_LIMIT,
     now: datetime | None = None,
+    target_language: str | None = None,
 ) -> list[dict[str, Any]]:
     """The next cards to answer: today's lesson, what is due, then what is owed.
 
@@ -230,7 +243,15 @@ def build_study_queue(
 
     remaining = limit - len(queue)
     if remaining > 0:
-        queue.extend(_review_cards(session, child_id, min(MAX_REVIEW_CARDS, remaining), now))
+        queue.extend(
+            _review_cards(
+                session,
+                child_id,
+                min(MAX_REVIEW_CARDS, remaining),
+                now,
+                target_language,
+            )
+        )
 
     remaining = limit - len(queue)
     if remaining > 0:
@@ -245,11 +266,14 @@ def count_queue_sources(
     child_id: int,
     lesson_pending: bool,
     now: datetime | None = None,
+    target_language: str | None = None,
 ) -> dict[str, int | bool]:
     """What the home screen needs to say why there is something to do."""
 
     return {
-        "due_review": count_due_mixed_review_items(session=session, child_id=child_id, now=now),
+        "due_review": count_due_mixed_review_items(
+            session=session, child_id=child_id, now=now, target_language=target_language
+        ),
         "pending_questions": count_pending_questions(session=session, child_id=child_id),
         "lesson_pending": bool(lesson_pending),
     }

@@ -544,7 +544,7 @@ export default function ParentsPage() {
                     </div>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Idioma das explicações")}</label>
+                    <label className="mb-2 block text-sm font-bold uppercase tracking-[0.18em] text-slate-400">{t("Idioma das explicações (ou idioma nativo)")}</label>
                     <p className="mb-2 text-xs font-semibold text-slate-400">
                       {t("Idioma em que as traduções e explicações das aulas são escritas.")}
                     </p>

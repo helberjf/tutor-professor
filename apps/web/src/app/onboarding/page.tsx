@@ -223,7 +223,7 @@ export default function OnboardingPage() {
             )}
 
             <div className="mt-5">
-              <span className="text-sm font-black text-slate-700">{t("Idioma das explicações")}</span>
+              <span className="text-sm font-black text-slate-700">{t("Idioma das explicações (ou idioma nativo)")}</span>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
                 {t("Em que idioma o estudante entende melhor? As traduções e explicações das aulas serão nesse idioma.")}
               </p>

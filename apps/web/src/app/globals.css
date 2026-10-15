@@ -351,7 +351,7 @@ html[data-theme='dark'] :is(.bg-amber-50, .bg-amber-100, .bg-amber-200, .bg-yell
   background-color: rgba(251, 191, 36, 0.14) !important;
 }
 
-html[data-theme='dark'] :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-teal-50, .bg-accent-light) {
+html[data-theme='dark'] :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-teal-50, .bg-teal-100, .bg-accent-light) {
   background-color: rgba(34, 197, 94, 0.14) !important;
 }
 
@@ -414,7 +414,7 @@ html[data-theme='dark'] :is(
 
 html[data-theme='dark'] :is(
   .text-cyan-700, .text-cyan-800,
-  .text-teal-500, .text-teal-600
+  .text-teal-500, .text-teal-600, .text-teal-700
 ) {
   color: #5eead4 !important;
 }
