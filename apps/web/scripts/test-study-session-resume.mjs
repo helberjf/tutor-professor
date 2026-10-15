@@ -7,7 +7,7 @@
  *  - the home screen reads the queue state without creating a session, so
  *    opening the app never silently starts one;
  *  - the continue button is rendered only when there is something to continue,
- *    sits beside "Iniciar estudos", and says how much is left;
+ *    sits beside "Estudar idiomas", and says how much is left;
  *  - the session screen resumes from the stored position instead of index 0,
  *    saves the bookmark after each answer, and closes the day when it ends;
  *  - answers are recorded through the endpoints that already own each card type,
@@ -58,8 +58,8 @@ assert.match(
 );
 assert.match(
   homePage,
-  /Continuar de onde parou[\s\S]{0,1500}Iniciar estudos/,
-  'continuing should come before starting over, not after it',
+  /Continuar de onde parou[\s\S]{0,1500}Estudar idiomas/,
+  'continuing should come before the plain lessons entry, not after it',
 );
 assert.match(
   homePage,

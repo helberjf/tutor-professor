@@ -32,13 +32,19 @@ assert.doesNotMatch(navbar, /Tutor de idiomas/, 'navbar should not keep the old 
 assert.match(layout, /title: 'Tutor and Professor'/, 'browser metadata should use Tutor and Professor as the app title');
 assert.match(layout, /description: 'Tutor and Professor/, 'browser metadata should describe the new brand');
 
-// The primary CTA opens the study queue itself. It used to land on /study, a
-// page of tabs and five more cards — a third screen of choosing before the first
-// question. /study is still reachable from both navs for planning and notes.
+// The second CTA opens the lessons page, which is where studying a language
+// starts. It used to build a queue (/session) instead: a student who came to
+// study French had to recognise a queue as the way in. The queue is still one
+// click away, from the study area and from "Continuar de onde parou".
 assert.match(
   homePage,
-  /href=\{hasOpenSession \? '\/session\?restart=1' : '\/session'\}[\s\S]*?Iniciar estudos/,
-  'home page primary study CTA should open the study session',
+  /href="\/lesson"[\s\S]*?Estudar idiomas/,
+  'home page study CTA should open the lessons page',
+);
+assert.match(
+  homePage,
+  /href="\/study"[\s\S]*?Página de estudos/,
+  'home page should also reach the study area directly',
 );
 assert.match(
   homePage,

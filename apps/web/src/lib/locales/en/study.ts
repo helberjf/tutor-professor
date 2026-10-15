@@ -22,6 +22,9 @@ export const STUDY_EN: Record<string, string> = {
   'Continuar de onde parou': 'Pick up where you left off',
   'Fila do dia': "Today's queue",
   'Monta uma fila nova': 'Builds a new queue',
+  'Página de estudos': 'Study area',
+  'Estudar idiomas': 'Study languages',
+  'Matérias, aulas e simulados': 'Subjects, lessons and mock exams',
   'Preparando tudo': 'Getting everything ready',
 
   // Onboarding

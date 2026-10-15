@@ -114,6 +114,8 @@ export const CODING_EN: Record<string, string> = {
   'Tópicos estudados': 'Topics studied',
   'Nenhum tópico cadastrado.': 'No topics registered.',
   'Nenhum tópico ainda.': 'No topics yet.',
+  'Todos os tópicos desta matéria já foram estudados.':
+    'Every topic in this subject has been studied.',
   'Crie o primeiro tópico do roteiro.': 'Create the first topic of the outline.',
   'Nenhum tópico disponível para estudar ainda.': 'No topic available to study yet.',
   'Nenhum tópico disponível para gerar questões.': 'No topic available to generate questions.',

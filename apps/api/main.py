@@ -1077,6 +1077,14 @@ def _run_schema_migrations() -> None:
                 conn.execute(text("ALTER TABLE lesson ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
             except Exception:
                 pass
+        # Add target_language column to reviewitem
+        try:
+            conn.execute(text("ALTER TABLE reviewitem ADD COLUMN IF NOT EXISTS target_language TEXT NOT NULL DEFAULT 'English'"))
+        except Exception:
+            try:
+                conn.execute(text("ALTER TABLE reviewitem ADD COLUMN target_language TEXT NOT NULL DEFAULT 'English'"))
+            except Exception:
+                pass
         # Add Google OAuth fields to user records
         try:
             conn.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS google_sub TEXT'))
@@ -1610,7 +1618,11 @@ def is_generated_lesson(lesson: Lesson) -> bool:
 def list_accessible_lessons(session: Session, child_id: int, child_level: int | None = None, target_language: str = "English") -> list[Lesson]:
     """Return all lessons accessible to child_id.
 
-    - Any lesson with child_id is private to that child, regardless of generation metadata.
+    - Any lesson with child_id is private to that child, regardless of generation
+      metadata. Language is not checked here: a lesson written before the child
+      switched languages stays openable, so its questions keep working. What is
+      *offered* — the lesson list and today's lesson — is narrowed by
+      lessons_in_language instead.
     - Shared static lessons are visible only when their target_language matches, and — when the
       lesson declares a level (e.g. seed content tied to a CEFR band) — only when it matches the
       child's current level too. Static lessons without a level (e.g. the intro day-1..5 pack)
@@ -1643,6 +1655,17 @@ def list_accessible_lessons(session: Session, child_id: int, child_level: int | 
     return result
 
 
+def lessons_in_language(lessons: list[Lesson], target_language: str) -> list[Lesson]:
+    """The lessons written in the language the child studies today.
+
+    Access is one question and what to study next is another: a child who moved
+    from English to French was still offered — and quizzed on — the English
+    lessons of their old self, because nothing between the two narrowed them.
+    """
+
+    return [lesson for lesson in lessons if lesson.target_language == target_language]
+
+
 def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int, ChildLessonProgress]:
     progress_items = session.exec(
         select(ChildLessonProgress).where(ChildLessonProgress.child_id == child_id)
@@ -1655,7 +1678,15 @@ def get_child_completed_lesson_map(session: Session, child_id: int) -> dict[int,
 
 
 def get_current_lesson(session: Session, child_id: int, child_level: int | None = None, target_language: str = "English") -> Lesson | None:
-    lessons = list_accessible_lessons(session=session, child_id=child_id, child_level=child_level, target_language=target_language)
+    lessons = lessons_in_language(
+        list_accessible_lessons(
+            session=session,
+            child_id=child_id,
+            child_level=child_level,
+            target_language=target_language,
+        ),
+        target_language,
+    )
     progress_map = get_child_completed_lesson_map(session=session, child_id=child_id)
 
     return next(
@@ -2540,7 +2571,15 @@ def health_check() -> dict[str, datetime | str]:
 def list_all_lessons(request: Request, session: Session = Depends(get_session)) -> list[LessonSummarySchema]:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    lessons = list_accessible_lessons(session=session, child_id=child.id or 0, child_level=child.current_level, target_language=child.target_language)
+    lessons = lessons_in_language(
+        list_accessible_lessons(
+            session=session,
+            child_id=child.id or 0,
+            child_level=child.current_level,
+            target_language=child.target_language,
+        ),
+        child.target_language,
+    )
     progress_map = get_child_completed_lesson_map(session=session, child_id=child.id or 0)
     return [
         LessonSummarySchema(
@@ -2776,7 +2815,12 @@ def complete_lesson(lesson_id: int, request: Request, session: Session = Depends
         raise HTTPException(status_code=404, detail="Lição não encontrada")
 
     lesson_items = get_lesson_items(session=session, lesson_id=lesson.id or 0)
-    seed_review_items_for_lesson(session=session, child_id=child.id or 0, lesson_items=lesson_items)
+    seed_review_items_for_lesson(
+        session=session,
+        child_id=child.id or 0,
+        lesson_items=lesson_items,
+        target_language=lesson.target_language,
+    )
     # Free, lesson-derived questions so the review queue has something to ask
     # about this lesson even if no provider is ever called for it.
     ensure_offline_lesson_questions(session, child=child, lesson=lesson, items=lesson_items)
@@ -2912,12 +2956,26 @@ def get_review_session(
     child_id = child.id or 0
     if vocabulary_only:
         return ReviewSessionSchema(
-            total_due=count_due_review_items(session=session, child_id=child_id),
-            items=build_review_cards(session=session, child_id=child_id, limit=limit),
+            total_due=count_due_review_items(
+                session=session, child_id=child_id, target_language=child.target_language
+            ),
+            items=build_review_cards(
+                session=session,
+                child_id=child_id,
+                limit=limit,
+                target_language=child.target_language,
+            ),
         )
     return ReviewSessionSchema(
-        total_due=count_due_mixed_review_items(session=session, child_id=child_id),
-        items=build_mixed_review_cards(session=session, child_id=child_id, limit=limit),
+        total_due=count_due_mixed_review_items(
+            session=session, child_id=child_id, target_language=child.target_language
+        ),
+        items=build_mixed_review_cards(
+            session=session,
+            child_id=child_id,
+            limit=limit,
+            target_language=child.target_language,
+        ),
     )
 
 
@@ -2960,6 +3018,7 @@ def submit_review_attempt(
                 word_pt=payload.word_pt or "",
                 correct=payload.correct,
                 review_item_id=payload.review_item_id,
+                target_language=child.target_language,
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail="Item de revisão não encontrado.") from exc
@@ -3020,7 +3079,10 @@ def build_progress_for_child(session: Session, child: ChildProfile) -> ProgressS
         vocabulary_learned += len(get_lesson_items(session=session, lesson_id=lesson_id))
 
     review_items = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child.id)
+        select(ReviewItem).where(
+            ReviewItem.child_id == child.id,
+            ReviewItem.target_language == child.target_language,
+        )
     ).all()
     difficult_words = [
         item.word_en
@@ -4828,7 +4890,9 @@ def ensure_offline_lesson_questions(
 
     existing_keys = {question.front_key for question in existing}
     created = 0
-    for question in build_offline_lesson_questions(items):
+    for question in build_offline_lesson_questions(
+        items, base_language=child.base_language
+    ):
         front_key = front_key_for(question.front)
         if front_key in existing_keys:
             continue
@@ -4891,7 +4955,12 @@ def ensure_offline_choice_questions(
     )
     now = datetime.utcnow()
     created = 0
-    for question in build_offline_choice_questions(items, distractor_items=distractors):
+    for question in build_offline_choice_questions(
+        items,
+        distractor_items=distractors,
+        base_language=child.base_language,
+        target_language=lesson.target_language,
+    ):
         question_key = programming_question_key(question.question)
         if question_key in existing_keys:
             continue
@@ -5474,6 +5543,7 @@ def get_study_session_state(
         session,
         child_id=child_id,
         lesson_pending=lesson is not None,
+        target_language=child.target_language,
     )
     state = StudySessionStateSchema(
         due_review=int(counts["due_review"]),
@@ -5539,6 +5609,7 @@ def start_study_session(
         lesson_title=lesson.title if lesson else "",
         lesson_items=lesson_items,
         limit=limit,
+        target_language=child.target_language,
     )
     if not queue:
         # Nothing owed: say so instead of storing an empty session that would be
@@ -11836,6 +11907,21 @@ def build_frontend_redirect(next_path: str | None) -> str:
     return f"{FRONTEND_BASE_URL}{normalize_oauth_next(next_path)}"
 
 
+# Where a Google sign-in lands when nobody asked for a particular page. Signing
+# in with Google skips the registration form, which is where an account says
+# which language it wants explanations in — so a new account goes through the
+# guided first run, where it is asked. Leaving the question alone there keeps
+# the default the profile already has, Portuguese.
+_DEFAULT_OAUTH_LANDINGS = {"/", "/account", "/parents"}
+
+
+def oauth_destination(next_path: str | None, user: User) -> str:
+    normalized = normalize_oauth_next(next_path)
+    if user.onboarding_completed_at is None and normalized in _DEFAULT_OAUTH_LANDINGS:
+        return "/onboarding"
+    return normalized
+
+
 def get_or_create_google_user(profile: dict, session: Session) -> User:
     google_sub = str(profile.get("sub") or "").strip()
     email = str(profile.get("email") or "").strip().lower()
@@ -11986,7 +12072,9 @@ def google_auth_callback(
 
     user = get_or_create_google_user(profile, session)
     next_path = request.cookies.get(GOOGLE_OAUTH_NEXT_COOKIE_NAME)
-    redirect = RedirectResponse(build_frontend_redirect(next_path))
+    redirect = RedirectResponse(
+        build_frontend_redirect(oauth_destination(next_path, user))
+    )
     create_parent_session(response=redirect, session=session, user_id=user.id)
     redirect.delete_cookie(
         key=GOOGLE_OAUTH_STATE_COOKIE_NAME,
@@ -13470,7 +13558,7 @@ def analyze_objective(objective_id: int, request: Request, session: Session = De
     if objective is None:
         raise HTTPException(status_code=404, detail="Objetivo não encontrado.")
     if objective_analysis_service.input_signature(objective) != signature:
-        raise HTTPException(status_code=409, detail="O objetivo mudou durante a análise. Atualize a página e analise novamente.")
+        raise HTTPException(status_code=409, detail="O objetivo mudou durante a análise. Atualize a página e peça a análise de novo.")
     child = session.get(ChildProfile, child_id)
     if child is None:
         raise HTTPException(status_code=404, detail="Perfil não encontrado.")

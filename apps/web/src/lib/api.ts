@@ -300,6 +300,7 @@ export interface LessonQuestion {
   supporting_example: string | null;
   front_translation: string | null;
   supporting_example_translation: string | null;
+  native_front?: string | null;
   created_at: string;
 }
 

@@ -279,6 +279,10 @@ class ReviewItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     word_en: str
     word_pt: str
+    # The language the word was learned in. Without it a child who switched
+    # from English to French kept being asked English words forever, because
+    # the review queue only knew whose card it was, not what it taught.
+    target_language: str = Field(default="English")
     difficulty_score: float = 0.5  # 0.0 to 1.0
     attempt_count: int = 0
     correct_count: int = 0

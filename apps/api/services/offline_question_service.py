@@ -159,6 +159,34 @@ def _build_options(correct: str, pool: Sequence[str], fallback: Sequence[str], s
     return options
 
 
+# The statement of a question is what the student reads to know what is being
+# asked; written in the language they are still learning, it asks two things at
+# once. So it follows the explanations language of the profile, and only the
+# phrase being studied stays in the language being learned.
+DEFAULT_BASE_LANGUAGE = "Portuguese"
+_QUESTION_TEMPLATES = {
+    "Portuguese": {
+        "meaning": 'O que significa "{phrase}"?',
+        "completion": "Complete a frase: {gap}",
+        "production": 'Como se diz "{meaning}"?',
+    },
+    "English": {
+        "meaning": 'What does "{phrase}" mean?',
+        "completion": "Complete the sentence: {gap}",
+        "production": 'How do you say "{meaning}"?',
+    },
+}
+
+
+def question_templates(base_language: str | None) -> dict[str, str]:
+    """The statement wording for a profile, falling back to Portuguese."""
+
+    return _QUESTION_TEMPLATES.get(
+        (base_language or "").strip() or DEFAULT_BASE_LANGUAGE,
+        _QUESTION_TEMPLATES[DEFAULT_BASE_LANGUAGE],
+    )
+
+
 def _blank_out(sentence: str, word: str) -> str | None:
     """Replace `word` inside `sentence` with a gap, or None when it is absent."""
 
@@ -176,6 +204,7 @@ def build_offline_lesson_questions(
     items: Iterable[object],
     *,
     limit: int = MAX_OFFLINE_LESSON_QUESTIONS,
+    base_language: str | None = None,
 ) -> list[OfflineLessonQuestion]:
     """Canonical review questions for a lesson, in a stable order.
 
@@ -184,6 +213,7 @@ def build_offline_lesson_questions(
     """
 
     normalized = normalize_items(items)
+    templates = question_templates(base_language)
     questions: list[OfflineLessonQuestion] = []
     # Two phrases can blank out to the same sentence ("_____ in English?"), which
     # would be both a duplicate row and a question with two right answers. The
@@ -201,7 +231,7 @@ def build_offline_lesson_questions(
     for item in normalized:
         add(
             OfflineLessonQuestion(
-                front=f'O que significa "{item.word_en}"?',
+                front=templates["meaning"].format(phrase=item.word_en),
                 back=item.word_pt,
                 question_type="translation",
                 supporting_example=item.example_en or None,
@@ -214,7 +244,7 @@ def build_offline_lesson_questions(
         if gap:
             produced = add(
                 OfflineLessonQuestion(
-                    front=f"Complete a frase: {gap}",
+                    front=templates["completion"].format(gap=gap),
                     back=item.word_en,
                     question_type="sentence_completion",
                     supporting_example=item.example_en or None,
@@ -225,7 +255,7 @@ def build_offline_lesson_questions(
         if not produced:
             add(
                 OfflineLessonQuestion(
-                    front=f'Como se diz "{item.word_pt}"?',
+                    front=templates["production"].format(meaning=item.word_pt),
                     back=item.word_en,
                     question_type="vocabulary",
                     supporting_example=item.example_en or None,
@@ -238,11 +268,76 @@ def build_offline_lesson_questions(
     return questions[:limit]
 
 
+# "Modo questões" wording. Same rule as the lesson questions: the statement and
+# the explanation are in the student's own language, and the studied language is
+# named, because "em inglês" written for someone learning French is simply wrong.
+_CHOICE_TEMPLATES = {
+    "Portuguese": {
+        "meaning": 'O que significa "{phrase}"?',
+        "production": 'Como se diz "{meaning}" em {language}?',
+        "means": '"{phrase}" quer dizer "{meaning}".',
+        "said": '"{meaning}" se diz "{phrase}".',
+        "example": ' Exemplo: "{example}"',
+    },
+    "English": {
+        "meaning": 'What does "{phrase}" mean?',
+        "production": 'How do you say "{meaning}" in {language}?',
+        "means": '"{phrase}" means "{meaning}".',
+        "said": '"{meaning}" is said "{phrase}".',
+        "example": ' Example: "{example}"',
+    },
+}
+_LANGUAGE_NAMES_IN_SENTENCE = {
+    "Portuguese": {
+        "English": "inglês",
+        "French": "francês",
+        "Spanish": "espanhol",
+        "German": "alemão",
+        "Italian": "italiano",
+        "Russian": "russo",
+    },
+}
+
+
+def is_offline_front(front: str) -> bool:
+    """True for a statement this module wrote.
+
+    Those rows keep the answer in `front_translation` (the word's meaning), so it
+    must never be shown as the question. Statements an AI wrote carry the real
+    translation of the statement there instead.
+    """
+
+    text = " ".join(str(front or "").split())
+    for templates in _QUESTION_TEMPLATES.values():
+        for key in ("meaning", "completion", "production"):
+            prefix = templates[key].split("{", 1)[0]
+            if prefix and text.startswith(prefix):
+                return True
+    return False
+
+
+def choice_templates(base_language: str | None) -> dict[str, str]:
+    return _CHOICE_TEMPLATES.get(
+        (base_language or "").strip() or DEFAULT_BASE_LANGUAGE,
+        _CHOICE_TEMPLATES[DEFAULT_BASE_LANGUAGE],
+    )
+
+
+def language_in_sentence(target_language: str | None, base_language: str | None) -> str:
+    """"francês" for a Portuguese reader, "French" for an English one."""
+
+    name = " ".join(str(target_language or "").split()) or "English"
+    base = (base_language or "").strip() or DEFAULT_BASE_LANGUAGE
+    return _LANGUAGE_NAMES_IN_SENTENCE.get(base, {}).get(name, name)
+
+
 def build_offline_choice_questions(
     items: Iterable[object],
     *,
     distractor_items: Iterable[object] = (),
     limit: int = MAX_OFFLINE_CHOICE_QUESTIONS,
+    base_language: str | None = None,
+    target_language: str | None = None,
 ) -> list[OfflineChoiceQuestion]:
     """Four-option questions for "modo questões", built from the lesson itself.
 
@@ -254,6 +349,8 @@ def build_offline_choice_questions(
     normalized = normalize_items(items)
     if not normalized:
         return []
+    templates = choice_templates(base_language)
+    language = language_in_sentence(target_language, base_language)
 
     known = {item.word_en.casefold() for item in normalized}
     extra = [item for item in normalize_items(distractor_items) if item.word_en.casefold() not in known]
@@ -271,10 +368,12 @@ def build_offline_choice_questions(
         questions.append(question)
 
     for item in normalized:
-        example = f' Exemplo: "{item.example_en}"' if item.example_en else ""
+        example = (
+            templates["example"].format(example=item.example_en) if item.example_en else ""
+        )
         add(
             OfflineChoiceQuestion(
-                question=f'O que significa "{item.word_en}"?',
+                question=templates["meaning"].format(phrase=item.word_en),
                 options=_build_options(
                     item.word_pt,
                     [value for value in pt_pool if value != item.word_pt],
@@ -282,12 +381,13 @@ def build_offline_choice_questions(
                     seed=f"pt:{item.word_en}",
                 ),
                 correct_option=item.word_pt,
-                explanation=f'"{item.word_en}" quer dizer "{item.word_pt}".{example}',
+                explanation=templates["means"].format(phrase=item.word_en, meaning=item.word_pt)
+                + example,
             )
         )
         add(
             OfflineChoiceQuestion(
-                question=f'Como se diz "{item.word_pt}" em inglês?',
+                question=templates["production"].format(meaning=item.word_pt, language=language),
                 options=_build_options(
                     item.word_en,
                     [value for value in en_pool if value != item.word_en],
@@ -295,9 +395,11 @@ def build_offline_choice_questions(
                     seed=f"en:{item.word_pt}",
                 ),
                 correct_option=item.word_en,
-                explanation=(
-                    f'"{item.word_pt}" se diz "{item.word_en}".'
-                    + (f' Exemplo: "{item.example_pt}"' if item.example_pt else "")
+                explanation=templates["said"].format(phrase=item.word_en, meaning=item.word_pt)
+                + (
+                    templates["example"].format(example=item.example_pt)
+                    if item.example_pt
+                    else ""
                 ),
             )
         )

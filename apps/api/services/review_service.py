@@ -8,6 +8,10 @@ from sqlmodel import Session, select
 
 from models.database import LessonItem, LessonQuestion, ReviewItem
 
+# What a card with no language of its own teaches. Every row written before
+# review items carried a language was English, so that is what they answer to.
+DEFAULT_TARGET_LANGUAGE = "English"
+
 
 def _utc_naive(value: datetime) -> datetime:
     if value.tzinfo is None:
@@ -39,10 +43,12 @@ def get_or_create_review_item(
     child_id: int,
     word_en: str,
     word_pt: str,
+    target_language: str = DEFAULT_TARGET_LANGUAGE,
 ) -> ReviewItem:
     statement = select(ReviewItem).where(
         ReviewItem.child_id == child_id,
         ReviewItem.word_en == word_en,
+        ReviewItem.target_language == target_language,
     )
     review_item = session.exec(statement).first()
 
@@ -51,6 +57,7 @@ def get_or_create_review_item(
             child_id=child_id,
             word_en=word_en,
             word_pt=word_pt,
+            target_language=target_language,
             difficulty_score=0.45,
             next_review=datetime.utcnow(),
         )
@@ -66,6 +73,7 @@ def seed_review_items_for_lesson(
     session: Session,
     child_id: int,
     lesson_items: list[LessonItem],
+    target_language: str = DEFAULT_TARGET_LANGUAGE,
 ) -> list[ReviewItem]:
     seeded_items: list[ReviewItem] = []
     for lesson_item in lesson_items:
@@ -74,6 +82,7 @@ def seed_review_items_for_lesson(
             child_id=child_id,
             word_en=lesson_item.word_en,
             word_pt=lesson_item.word_pt,
+            target_language=target_language,
         )
         seeded_items.append(review_item)
 
@@ -87,6 +96,7 @@ def register_review_attempt(
     word_pt: str,
     correct: bool,
     review_item_id: int | None = None,
+    target_language: str = DEFAULT_TARGET_LANGUAGE,
 ) -> ReviewItem:
     review_item = None
     if review_item_id is not None:
@@ -100,6 +110,7 @@ def register_review_attempt(
             child_id=child_id,
             word_en=word_en,
             word_pt=word_pt,
+            target_language=target_language,
         )
 
     now = datetime.utcnow()
@@ -129,11 +140,31 @@ def register_review_attempt(
     return review_item
 
 
-def get_due_review_items(session: Session, child_id: int, limit: int = 5) -> list[ReviewItem]:
+def _child_review_items(
+    session: Session,
+    child_id: int,
+    target_language: str | None,
+) -> list[ReviewItem]:
+    """Every vocabulary card of this child, narrowed to one language when asked.
+
+    ``None`` means "whatever the child has ever learned" and is what callers
+    outside the study queue (statistics, exports) want.
+    """
+
+    statement = select(ReviewItem).where(ReviewItem.child_id == child_id)
+    if target_language:
+        statement = statement.where(ReviewItem.target_language == target_language)
+    return list(session.exec(statement).all())
+
+
+def get_due_review_items(
+    session: Session,
+    child_id: int,
+    limit: int = 5,
+    target_language: str | None = None,
+) -> list[ReviewItem]:
     now = datetime.utcnow()
-    all_items = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child_id)
-    ).all()
+    all_items = _child_review_items(session, child_id, target_language)
     if not all_items:
         return []
 
@@ -148,23 +179,34 @@ def get_due_review_items(session: Session, child_id: int, limit: int = 5) -> lis
     return sorted_items[:limit]
 
 
-def count_due_review_items(session: Session, child_id: int) -> int:
+def count_due_review_items(
+    session: Session,
+    child_id: int,
+    target_language: str | None = None,
+) -> int:
     now = datetime.utcnow()
     statement = select(func.count(ReviewItem.id)).where(
         ReviewItem.child_id == child_id,
         ReviewItem.next_review <= now,
     )
+    if target_language:
+        statement = statement.where(ReviewItem.target_language == target_language)
     return int(session.exec(statement).one())
 
 
-def build_review_cards(session: Session, child_id: int, limit: int = 5) -> list[dict[str, object]]:
-    due_items = get_due_review_items(session=session, child_id=child_id, limit=limit)
+def build_review_cards(
+    session: Session,
+    child_id: int,
+    limit: int = 5,
+    target_language: str | None = None,
+) -> list[dict[str, object]]:
+    due_items = get_due_review_items(
+        session=session, child_id=child_id, limit=limit, target_language=target_language
+    )
     if not due_items:
         return []
 
-    all_items = session.exec(
-        select(ReviewItem).where(ReviewItem.child_id == child_id)
-    ).all()
+    all_items = _child_review_items(session, child_id, target_language)
     rng = random.Random(child_id + len(all_items))
 
     cards: list[dict[str, object]] = []
@@ -210,20 +252,26 @@ def count_due_mixed_review_items(
     child_id: int,
     *,
     now: datetime | None = None,
+    target_language: str | None = None,
 ) -> int:
     reviewed_at = _utc_naive(now or datetime.utcnow())
-    vocabulary_due = session.exec(
-        select(func.count(ReviewItem.id)).where(
-            ReviewItem.child_id == child_id,
-            ReviewItem.next_review <= reviewed_at,
+    vocabulary_statement = select(func.count(ReviewItem.id)).where(
+        ReviewItem.child_id == child_id,
+        ReviewItem.next_review <= reviewed_at,
+    )
+    question_statement = select(func.count(LessonQuestion.id)).where(
+        LessonQuestion.child_id == child_id,
+        LessonQuestion.next_review <= reviewed_at,
+    )
+    if target_language:
+        vocabulary_statement = vocabulary_statement.where(
+            ReviewItem.target_language == target_language
         )
-    ).one()
-    question_due = session.exec(
-        select(func.count(LessonQuestion.id)).where(
-            LessonQuestion.child_id == child_id,
-            LessonQuestion.next_review <= reviewed_at,
+        question_statement = question_statement.where(
+            LessonQuestion.target_language == target_language
         )
-    ).one()
+    vocabulary_due = session.exec(vocabulary_statement).one()
+    question_due = session.exec(question_statement).one()
     return int(vocabulary_due) + int(question_due)
 
 
@@ -233,24 +281,35 @@ def build_mixed_review_cards(
     limit: int = 5,
     *,
     now: datetime | None = None,
+    target_language: str | None = None,
 ) -> list[dict[str, object]]:
-    """Return one priority-sorted, child-owned queue across both language card types."""
+    """Return one priority-sorted, child-owned queue across both language card types.
+
+    ``target_language`` keeps the queue on the language being studied now. A
+    child who moved from English to French should meet French cards, not the
+    English backlog their old lessons left due.
+    """
     if limit <= 0:
         return []
 
     reviewed_at = _utc_naive(now or datetime.utcnow())
-    vocabulary = session.exec(
-        select(ReviewItem).where(
-            ReviewItem.child_id == child_id,
-            ReviewItem.next_review <= reviewed_at,
+    vocabulary_statement = select(ReviewItem).where(
+        ReviewItem.child_id == child_id,
+        ReviewItem.next_review <= reviewed_at,
+    )
+    question_statement = select(LessonQuestion).where(
+        LessonQuestion.child_id == child_id,
+        LessonQuestion.next_review <= reviewed_at,
+    )
+    if target_language:
+        vocabulary_statement = vocabulary_statement.where(
+            ReviewItem.target_language == target_language
         )
-    ).all()
-    questions = session.exec(
-        select(LessonQuestion).where(
-            LessonQuestion.child_id == child_id,
-            LessonQuestion.next_review <= reviewed_at,
+        question_statement = question_statement.where(
+            LessonQuestion.target_language == target_language
         )
-    ).all()
+    vocabulary = session.exec(vocabulary_statement).all()
+    questions = session.exec(question_statement).all()
 
     vocabulary_by_priority = sorted(
         (

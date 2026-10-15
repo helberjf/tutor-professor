@@ -165,7 +165,7 @@ export default function HomePage() {
               </div>
             ) : isAuthenticated ? (
               <div className="mt-1 flex flex-col items-start gap-2.5 sm:mt-6 sm:gap-3">
-                <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-stretch sm:gap-3">
+                <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-3">
                   {/* Continuing comes first: to a student who was already in the
                       middle of a session, it is the only thing on this screen
                       they are looking for. */}
@@ -188,7 +188,7 @@ export default function HomePage() {
                       <span className="absolute inset-0 animate-ping rounded-2xl bg-primary-dark opacity-20" aria-hidden />
                     )}
                     <Link
-                      href={hasOpenSession ? '/session?restart=1' : '/session'}
+                      href="/lesson"
                       className={`relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl px-6 py-2 transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7 ${
                         resumeDestination
                           ? 'border-2 border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
@@ -196,16 +196,34 @@ export default function HomePage() {
                       }`}
                     >
                       <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
-                        <ClipboardList size={26} />
-                        {t("Iniciar estudos")}
+                        <BookOpen size={26} />
+                        {t("Estudar idiomas")}
                       </span>
-                      {resumeDestination && (
-                        <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-slate-400">
-                          {t("Monta uma fila nova")}
-                        </span>
-                      )}
+                      <span
+                        className={`text-[0.7rem] font-bold uppercase tracking-[0.12em] ${
+                          resumeDestination ? 'text-slate-400' : 'text-white/85'
+                        }`}
+                      >
+                        {t("Abrir página de lições")}
+                      </span>
                     </Link>
                   </div>
+                  {/* The queue above is one sitting of cards. This is the study
+                      area itself — subjects, reading, flashcards and simulados —
+                      which until now was only reachable from a small card far
+                      below the fold. */}
+                  <Link
+                    href="/study"
+                    className="inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl border-2 border-teal-200 bg-teal-50 px-6 py-2 text-teal-700 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-14 sm:w-auto sm:px-7"
+                  >
+                    <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
+                      <NotebookPen size={26} />
+                      {t("Página de estudos")}
+                    </span>
+                    <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-teal-600">
+                      {t("Matérias, aulas e simulados")}
+                    </span>
+                  </Link>
                 </div>
                 {queueHint ? (
                   <p className="text-xs font-semibold text-slate-500 sm:text-sm">{queueHint}</p>
