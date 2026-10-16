@@ -43,8 +43,8 @@ assert.match(
 );
 assert.match(
   homePage,
-  /href="\/study"[\s\S]*?Página de estudos/,
-  'home page should also reach the study area directly',
+  /href="\/study\?tab=diverse"[\s\S]*?Página de estudos/,
+  'home page should open the study area on Outras Disciplinas',
 );
 assert.match(
   homePage,
