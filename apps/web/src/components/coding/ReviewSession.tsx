@@ -19,13 +19,14 @@ interface CardState {
   revealed: boolean;
   done: boolean;
   rating: ReviewRating | null;
+  selected: string | null;
 }
 
 export function ReviewSession({ subjectName, cards, onClose }: Props) {
   const curriculum = useCurriculumApi();
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>('flip');
-  const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, rating: null })));
+  const [states, setStates] = useState<CardState[]>(cards.map(() => ({ revealed: false, done: false, rating: null, selected: null })));
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
 
@@ -49,19 +50,33 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
     }),
   );
 
-  async function handleAnswer(rating: ReviewRating) {
+  async function submitRating(rating: ReviewRating, selected: string | null = null) {
     setSubmitting(true);
     try {
       await curriculum.submitCodingReviewAttempt({ review_item_id: card.review_item_id, rating });
     } finally {
       setSubmitting(false);
     }
-    setStates((prev) => prev.map((s, i) => (i === index ? { ...s, done: true, rating } : s)));
+    setStates((prev) => prev.map((s, i) => (i === index ? { ...s, done: true, rating, selected } : s)));
+  }
+
+  function advance() {
     if (index + 1 >= total) {
       setFinished(true);
     } else {
       setIndex((i) => i + 1);
     }
+  }
+
+  async function handleAnswer(rating: ReviewRating) {
+    await submitRating(rating);
+    advance();
+  }
+
+  // Multiple choice: record the attempt, then keep the card on screen with
+  // right/wrong feedback until the person moves on.
+  async function handleChoice(option: string) {
+    await submitRating(option === card.back.slice(0, 120) ? 'knew' : 'unknown', option);
   }
 
   if (finished) {
@@ -90,6 +105,9 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
   }
 
   if (!card) return null;
+
+  const correctChoice = card.back.slice(0, 120);
+  const choiceCorrect = state.selected === correctChoice;
 
   return (
     <div className="space-y-5">
@@ -130,7 +148,7 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
 
         {mode === 'flip' && (
           <>
-            {!state.revealed ? (
+            {!state.revealed && !state.done ? (
               <button
                 type="button"
                 onClick={() => setStates((prev) => prev.map((s, i) => (i === index ? { ...s, revealed: true } : s)))}
@@ -147,6 +165,9 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />
                   )}
                 </div>
+                {state.done ? (
+                  <NextButton last={index + 1 >= total} onClick={advance} />
+                ) : (
                 <div className="mt-4 flex gap-2">
                   <button
                     type="button"
@@ -173,27 +194,63 @@ export function ReviewSession({ subjectName, cards, onClose }: Props) {
                     {submitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} {t("Sabia!")}
                   </button>
                 </div>
+                )}
               </>
             )}
           </>
         )}
 
         {mode === 'choice' && (
-          <div className="mt-5 space-y-2">
-            {choiceOptions[index].map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                disabled={state.done || submitting}
-                onClick={() => handleAnswer(opt === card.back.slice(0, 120) ? 'knew' : 'unknown')}
-                className="w-full rounded-2xl border-2 border-slate-200 px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:border-primary disabled:cursor-default disabled:opacity-50"
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="mt-5 space-y-2">
+              {choiceOptions[index].map((opt) => {
+                const isCorrect = opt === correctChoice;
+                const isSelected = state.selected === opt;
+                let cls = 'flex w-full items-center gap-2 rounded-2xl border-2 px-4 py-3 text-left text-sm font-semibold transition ';
+                if (!state.done) cls += 'border-slate-200 text-slate-700 hover:border-primary disabled:opacity-50';
+                else if (isCorrect) cls += 'border-emerald-400 bg-emerald-50 text-emerald-700';
+                else if (isSelected) cls += 'border-rose-300 bg-rose-50 text-rose-700';
+                else cls += 'border-slate-100 text-slate-400';
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={state.done || submitting}
+                    onClick={() => handleChoice(opt)}
+                    className={`${cls} disabled:cursor-default`}
+                  >
+                    <span className="flex-1">{opt}</span>
+                    {state.done && isCorrect && <CheckCircle2 size={18} className="shrink-0 text-emerald-500" />}
+                    {state.done && isSelected && !isCorrect && <XCircle size={18} className="shrink-0 text-rose-500" />}
+                  </button>
+                );
+              })}
+            </div>
+            {state.done && state.selected !== null && (
+              <div className={`mt-4 rounded-2xl px-4 py-3 text-sm font-semibold ${choiceCorrect ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <p className="font-black">{choiceCorrect ? t("✅ Correto!") : t("❌ Incorreto.")}</p>
+                <p className="mt-1 leading-relaxed">{card.back}</p>
+                {card.code_example && (
+                  <SyntaxCodeBlock code={card.code_example} language="typescript" className="mt-3 p-3" />
+                )}
+              </div>
+            )}
+            {state.done && <NextButton last={index + 1 >= total} onClick={advance} />}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function NextButton({ last, onClick }: { last: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark py-3 font-black text-white hover:bg-primary-dark"
+    >
+      {last ? t("Ver resultado") : t("Próxima")} <ChevronRight size={18} />
+    </button>
   );
 }
