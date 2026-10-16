@@ -108,6 +108,9 @@ export function CodingCurriculum({
   const [summaryError, setSummaryError] = useState('');
   const [aiCredits, setAiCredits] = useState<AICredits | null>(null);
   const [updatingRelevanceId, setUpdatingRelevanceId] = useState<number | null>(null);
+  // Where the student stopped across all subjects: the subject used last and
+  // its first topic not studied yet, shown on the "Minhas Matérias" card.
+  const [resumePoint, setResumePoint] = useState<{ subject: ProgrammingSubject; topic: ProgrammingTopic } | null>(null);
   const initialRestoreDoneRef = useRef(false);
   const subjectLoadRequestRef = useRef(0);
 
@@ -182,6 +185,32 @@ export function CodingCurriculum({
       });
     }
   }, [focusMode, loading, loadingTopics, view]);
+
+  useEffect(() => {
+    if (view.type !== 'subjects' || loading || focusMode === 'flashcards') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // The default list is already page 1 by last use; otherwise ask for it.
+        const recent = subjectSort === 'last_used' && subjectPage.page === 1
+          ? subjects
+          : (await curriculum.getCodingSubjectPage(1, 'last_used')).items;
+        const subject = recent.find((item) => item.last_used_at) ?? null;
+        if (!subject || subject.studied_count >= subject.topic_count) {
+          if (!cancelled) setResumePoint(null);
+          return;
+        }
+        const subjectTopics = await curriculum.getCodingTopics(subject.id);
+        const topic = subjectTopics.find((item) => item.status === 'not_started') ?? null;
+        if (!cancelled) setResumePoint(topic ? { subject, topic } : null);
+      } catch {
+        if (!cancelled) setResumePoint(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  // curriculum is stable per track; reruns follow the list the student sees.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.type, loading, focusMode, subjects, subjectSort, subjectPage.page]);
 
   useEffect(() => {
     setError('');
@@ -466,6 +495,21 @@ export function CodingCurriculum({
             <MetricChip icon={<CheckCircle2 size={18} className="sm:h-5 sm:w-5" />} label={translate("Tópicos estudados")} value={subjectPage.studied_count} tone="green" />
             <MetricChip icon={<Flame size={18} className="sm:h-5 sm:w-5" />} label={translate("Para revisar")} value={subjectPage.due_review_count} tone="orange" />
           </div>
+          {resumePoint && focusMode !== 'flashcards' && (
+            <button
+              type="button"
+              onClick={() => void loadTopics(resumePoint.subject, resumePoint.topic.id)}
+              className="mt-3 flex min-h-12 w-full items-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-left font-black text-white transition hover:bg-primary sm:mt-4"
+            >
+              <PlayCircle size={20} className="shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm leading-5">{translate("Continuar de onde parou")}</span>
+                <span className="block truncate text-xs font-bold leading-4 text-white/85">
+                  {resumePoint.subject.name}: {resumePoint.topic.title}
+                </span>
+              </span>
+            </button>
+          )}
         </section>
 
         {/* LeetCode trainer entry — programming only */}
