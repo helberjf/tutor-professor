@@ -213,7 +213,7 @@ export default function HomePage() {
                       which until now was only reachable from a small card far
                       below the fold. */}
                   <Link
-                    href="/study"
+                    href="/study?tab=diverse"
                     className="inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl border-2 border-teal-200 bg-teal-50 px-6 py-2 text-teal-700 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-14 sm:w-auto sm:px-7"
                   >
                     <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
