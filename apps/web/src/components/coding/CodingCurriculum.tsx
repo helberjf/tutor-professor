@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
+import { useStudyContentScroll } from '@/hooks/use-study-content-scroll';
 import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronLeft, ChevronRight, FileText, Flame, Layers, ListOrdered, Loader2, PlayCircle, Plus, Sparkles, Star, Trash2, Trophy } from 'lucide-react';
 import { api, type AICredits, type CodingReviewCard, type CodingSubjectSort, type CodingSubjectSummary, type ProgrammingSubject, type ProgrammingSubjectPage, type ProgrammingTopic } from '@/lib/api';
 import { rememberStudyLocation } from '@/lib/study-resume';
@@ -113,6 +114,13 @@ export function CodingCurriculum({
   const [resumePoint, setResumePoint] = useState<{ subject: ProgrammingSubject; topic: ProgrammingTopic } | null>(null);
   const initialRestoreDoneRef = useRef(false);
   const subjectLoadRequestRef = useRef(0);
+  // TopicView positions its own header once the dynamic import has rendered.
+  const contentRef = useStudyContentScroll<HTMLDivElement>(
+    `${focusMode}:${view.type}:${'subject' in view ? view.subject.id : ''}`,
+    view.type === 'subjects' ? !loading
+      : view.type === 'topics' ? !loadingTopics
+        : view.type !== 'topic' && view.type !== 'questionsTopic',
+  );
 
   async function openSubjectSummary(subject: ProgrammingSubject, regenerate = false) {
     setLoadingSummary(true);
@@ -477,7 +485,7 @@ export function CodingCurriculum({
 
   if (view.type === 'subjects') {
     return (
-      <div className="space-y-6">
+      <div ref={contentRef} className="scroll-mt-24 space-y-6">
         <section className="app-surface border-primary/30 p-3 md:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
             {general ? `${translate("Disciplina")} · ${disciplineName}` : translate("Programação · Currículo")}
@@ -757,7 +765,7 @@ export function CodingCurriculum({
     const enoughSummaryCredits = aiCredits?.unlimited || (aiCredits?.credits ?? 0) >= summaryCreditCost;
     const statusIcon = (s: string) => s === 'mastered' ? '⭐' : s === 'studied' ? '✅' : '🔘';
     return (
-      <div className="space-y-6">
+      <div ref={contentRef} className="scroll-mt-24 space-y-6">
         <section className="app-surface border-primary/30 p-6">
           <button type="button" onClick={returnToSubjectList} className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary">
             <ArrowLeft size={16} /> {translate("Todas as matérias")}
@@ -1032,14 +1040,16 @@ export function CodingCurriculum({
   if (view.type === 'review') {
     const { subject, cards } = view;
     return (
-      <ReviewSession
-        subjectName={subject.name}
-        cards={cards}
-        onClose={() => {
-          loadSubjects();
-          setView({ type: 'topics', subject });
-        }}
-      />
+      <div ref={contentRef} className="scroll-mt-24">
+        <ReviewSession
+          subjectName={subject.name}
+          cards={cards}
+          onClose={() => {
+            loadSubjects();
+            setView({ type: 'topics', subject });
+          }}
+        />
+      </div>
     );
   }
 
@@ -1047,27 +1057,33 @@ export function CodingCurriculum({
   if (view.type === 'deck') {
     const { subject, returnToTopics } = view;
     return (
-      <FlashcardDeck
-        subjectId={subject.id}
-        subjectName={subject.name}
-        subjectIcon={subject.icon_emoji}
-        onBack={() => {
-          if (returnToTopics) {
-            void loadSubjects();
-          } else {
-            const returnPage = subjectSort === 'last_used' ? 1 : subjectPage.page;
-            void loadSubjects(returnPage, subjectSort);
-          }
-          setView(returnToTopics ? { type: 'topics', subject } : { type: 'subjects' });
-        }}
-        onChanged={loadSubjects}
-      />
+      <div ref={contentRef} className="scroll-mt-24">
+        <FlashcardDeck
+          subjectId={subject.id}
+          subjectName={subject.name}
+          subjectIcon={subject.icon_emoji}
+          onBack={() => {
+            if (returnToTopics) {
+              void loadSubjects();
+            } else {
+              const returnPage = subjectSort === 'last_used' ? 1 : subjectPage.page;
+              void loadSubjects(returnPage, subjectSort);
+            }
+            setView(returnToTopics ? { type: 'topics', subject } : { type: 'subjects' });
+          }}
+          onChanged={loadSubjects}
+        />
+      </div>
     );
   }
 
   // ── LeetCode trainer view ────────────────────────────────────────────────
   if (view.type === 'leetcode') {
-    return <LeetCodeTrainer onBack={returnToSubjectList} />;
+    return (
+      <div ref={contentRef} className="scroll-mt-24">
+        <LeetCodeTrainer onBack={returnToSubjectList} />
+      </div>
+    );
   }
 
   return null;

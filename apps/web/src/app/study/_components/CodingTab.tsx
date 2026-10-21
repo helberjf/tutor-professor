@@ -11,6 +11,7 @@ import type { PomodoroMode } from '@/lib/pomodoro';
 import type { CodingMode } from '../_lib/study-helpers';
 import { PomodoroWidget } from './shared';
 import { t } from '@/lib/i18n';
+import { useStudyContentScroll } from '@/hooks/use-study-content-scroll';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CURRICULUM TAB — programming and "Outras matérias"
@@ -38,6 +39,7 @@ export function CodingTab({
   onSwitchPomodoro: (m: PomodoroMode) => void;
   onRequestNotifications: () => void;
 }) {
+  const examRef = useStudyContentScroll<HTMLDivElement>('exam', codingMode === 'exam');
   return (
     <CurriculumTrackProvider
       track={track}
@@ -117,7 +119,9 @@ export function CodingTab({
             </button>
           </section>
           {codingMode === 'exam' ? (
-            <ExamList />
+            <div ref={examRef} className="scroll-mt-24">
+              <ExamList />
+            </div>
           ) : (
             <CodingCurriculum
               focusMode={codingMode}

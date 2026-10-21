@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStudyContentScroll } from '@/hooks/use-study-content-scroll';
 import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
 import { type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
 import { speakWithBrowserVoice, stopBrowserSpeech } from '@/lib/browser-speech';
@@ -204,12 +205,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   const [regeneratingSummary, setRegeneratingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState('');
 
-  // The topic list can be long, and the page would keep its scroll: opening
-  // topic 24 landed in the middle of the quiz. Start at the header instead,
-  // where the button that opens the reading is.
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [initialTopic.id]);
+  // The page has tabs and a timer above the lesson. Land at the actual header
+  // with “Iniciar estudo”, including when this view loads dynamically.
+  const headerRef = useStudyContentScroll<HTMLDivElement>(
+    `${initialTopic.id}:${initialQuestionPracticeOpen ? 'questions' : 'reading'}`,
+  );
 
   // A different topic must not show the previous topic's sheet.
   useEffect(() => {
@@ -571,7 +571,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="app-surface border-primary/30 p-6">
+      <div ref={headerRef} className="app-surface scroll-mt-24 border-primary/30 p-6">
         <button
           type="button"
           onClick={() => {
