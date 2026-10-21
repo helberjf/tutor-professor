@@ -1340,8 +1340,9 @@ function ReadingStudyModal({
         </header>
 
         {/* Every size below is in `em`, so the reader's choice scales the whole
-            pane proportionally instead of only the body copy. */}
-        <main className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 lg:py-10" style={{ fontSize: `${fontPx}px` }}>
+            pane proportionally instead of only the body copy. A new scroll
+            container starts each step at the top while the modal stays mounted. */}
+        <main className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-8 lg:px-12 lg:py-10" key={`${topicId}:${safeIndex}`} style={{ fontSize: `${fontPx}px` }}>
           {showDeepening ? (
             <section className="mx-auto w-full max-w-[76ch]">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">

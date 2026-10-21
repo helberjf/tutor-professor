@@ -23,6 +23,7 @@ import {
 } from '@/lib/pomodoro';
 
 import { getLocalDateValue, getPomodoroCompletionMessage } from './_lib/study-helpers';
+import { getLastStudyDiscipline } from './_lib/discipline-resume';
 import { EnglishTab } from './_components/EnglishTab';
 import { CreateDisciplineModal } from './_components/CreateDisciplineModal';
 import { OtherSubjectsPicker, type DisciplineSelection } from './_components/OtherSubjectsPicker';
@@ -72,6 +73,8 @@ export default function StudyPage() {
   // The other disciplines (null while loading) and the "Criar nova disciplina" form.
   const [disciplines, setDisciplines] = useState<StudyDiscipline[] | null>(null);
   const [disciplinesNonce, setDisciplinesNonce] = useState(0);
+  const [restoringDiscipline, setRestoringDiscipline] = useState(true);
+  const disciplineNavigationRef = useRef(0);
   const [showCreateDiscipline, setShowCreateDiscipline] = useState(false);
   const [selectedDate, setSelectedDate] = useState(getLocalDateValue);
   const requestedStudyDateRef = useRef<string | null>(null);
@@ -125,6 +128,11 @@ export default function StudyPage() {
         : tab
           ? 'diverse'
           : null;
+    setRestoringDiscipline(resolvedTab === 'diverse' && !(
+      (Number.isInteger(requestedDisciplineId) && requestedDisciplineId > 0)
+      || (Number.isInteger(requestedSubjectId) && requestedSubjectId > 0)
+      || (Number.isInteger(requestedTopicId) && requestedTopicId > 0)
+    ));
     setCurriculumRequest({
       tab: resolvedTab,
       disciplineId: Number.isInteger(requestedDisciplineId) && requestedDisciplineId > 0 ? requestedDisciplineId : null,
@@ -177,6 +185,8 @@ export default function StudyPage() {
   }
 
   function requestCurriculum(tab: 'diverse' | 'coding', disciplineId: number | null) {
+    disciplineNavigationRef.current += 1;
+    setRestoringDiscipline(false);
     setActiveTab(tab);
     setCurriculumRequest((current) => ({
       tab,
@@ -209,6 +219,8 @@ export default function StudyPage() {
   }
 
   function selectStudyTab(tab: StudyTab) {
+    disciplineNavigationRef.current += 1;
+    setRestoringDiscipline(false);
     // A deep link to ?tab=coding from before the module was switched off would
     // otherwise open a tab whose every request answers 403.
     if (tab === 'coding' && !codingEnabled) {
@@ -233,6 +245,23 @@ export default function StudyPage() {
       .catch(() => { if (!cancelled) setDisciplines((current) => current ?? []); });
     return () => { cancelled = true; };
   }, [authState.status, activeTab, disciplinesNonce]);
+
+  useEffect(() => {
+    if (!restoringDiscipline || authState.status !== 'authenticated' || loadingModules || disciplines === null) return;
+    let cancelled = false;
+    const navigation = disciplineNavigationRef.current;
+    api.getStudyResume('curriculum')
+      .then((resume) => {
+        if (cancelled || navigation !== disciplineNavigationRef.current) return;
+        const destination = getLastStudyDiscipline(resume, disciplines, codingEnabled);
+        if (destination) requestCurriculum(destination.tab, destination.disciplineId);
+      })
+      .catch(() => { /* Without history, the first available discipline stays usable. */ })
+      .finally(() => { if (!cancelled) setRestoringDiscipline(false); });
+    return () => { cancelled = true; };
+  // requestCurriculum only commits a validated destination and cancels pending restoration.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState.status, restoringDiscipline, loadingModules, codingEnabled, disciplines]);
 
   // The discipline on screen: the one asked for, else the first one there is.
   const activeDiscipline =
@@ -514,7 +543,7 @@ export default function StudyPage() {
           <OtherSubjectsPicker
             disciplines={disciplines ?? []}
             selectedValue={
-              activeTab === 'coding' ? 'coding' : activeDiscipline ? `discipline:${activeDiscipline.id}` : ''
+              restoringDiscipline ? '' : activeTab === 'coding' ? 'coding' : activeDiscipline ? `discipline:${activeDiscipline.id}` : ''
             }
             codingEnabled={codingEnabled}
             onSelect={selectDiscipline}
@@ -584,7 +613,7 @@ export default function StudyPage() {
             onSwitchPomodoro={switchPomodoro}
             onRequestNotifications={() => void requestNotifications()}
           />
-        ) : activeTab === 'diverse' && disciplines === null ? (
+        ) : activeTab === 'diverse' && (disciplines === null || restoringDiscipline) ? (
           <div className="flex min-h-[30vh] items-center justify-center">
             <Loader2 className="animate-spin text-primary" size={28} />
           </div>
