@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import case, func, inspect, text, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.pool import NullPool
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from database_bootstrap import bootstrap_database
@@ -1438,8 +1439,20 @@ def get_request_user_session(request: Request | None, session: Session) -> UserS
         session.commit()
         return None
 
-    session_record.last_seen_at = datetime.utcnow()
-    session.add(session_record)
+    # A logout/rejection can delete the row after the SELECT. Use a conditional
+    # UPDATE instead of leaving an ORM update pending: flushing that stale object
+    # later would raise StaleDataError rather than reject the revoked session.
+    now = datetime.utcnow()
+    touched = session.exec(
+        update(UserSession)
+        .where(UserSession.id == session_record.id, UserSession.expires_at > now)
+        .values(last_seen_at=now)
+        .execution_options(synchronize_session=False)
+    )
+    if touched.rowcount != 1:
+        session.expunge(session_record)
+        return None
+    set_committed_value(session_record, "last_seen_at", now)
     return session_record
 
 

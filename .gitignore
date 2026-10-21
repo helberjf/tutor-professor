@@ -42,3 +42,13 @@ apps/api/audio_cache/
 # Local secrets (never commit)
 local.secrets
 .vercel
+
+# Playwright: synthetic sessions, recordings and execution evidence
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/e2e/.auth/
+apps/web/evidence-results/
+apps/web/mobile-playwright-report/
+apps/web/mobile-test-results/
+apps/web/e2e/recordings/*
+!apps/web/e2e/recordings/README.md
