@@ -45,7 +45,7 @@ export function OtherSubjectsPicker({
             value={selectedValue}
             disabled={empty}
             onChange={(event) => onSelect(event.target.value as DisciplineSelection)}
-            className="min-h-12 w-full cursor-pointer appearance-none rounded-2xl border-2 border-slate-200 bg-white pl-11 pr-11 text-sm font-bold text-slate-700 outline-none transition hover:border-slate-300 focus:border-primary disabled:cursor-default disabled:opacity-70"
+            className="min-h-14 w-full cursor-pointer appearance-none rounded-2xl border-2 border-primary/40 bg-white pl-11 pr-11 text-base font-black text-slate-700 shadow-sm outline-none transition hover:border-primary focus:border-primary disabled:cursor-default disabled:opacity-70"
           >
             {selectedValue === '' && (
               <option value="">{empty ? translate("Nenhuma disciplina ainda") : translate("Escolha uma disciplina")}</option>

@@ -98,7 +98,7 @@ export function StudyStartSection() {
 
       <Link
         href="/session"
-        className="mt-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-5 py-3 text-white transition hover:scale-[1.01]"
+        className="study-primary-action study-primary-action-prominent mt-4 flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-sky-700 text-white"
       >
         <span className="inline-flex items-center gap-2 text-base font-black sm:text-lg">
           <PlayCircle size={22} />

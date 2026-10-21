@@ -594,7 +594,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               <button
                 type="button"
                 onClick={handleStartReadingStudy}
-                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-primary-dark sm:w-auto"
+                className="study-primary-action study-primary-action-prominent flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-dark text-white hover:bg-sky-800 sm:w-auto"
               >
                 <BookOpen size={16} />
                 {t("Iniciar estudo")}
@@ -604,7 +604,7 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
               type="button"
               onClick={handleStartQuestionPractice}
               disabled={questionActionsDisabled}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-amber-800 disabled:opacity-50 sm:w-auto"
+              className="study-primary-action flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50 sm:w-auto"
             >
               <ClipboardList size={16} />
               {t("Fazer simulado")}
@@ -702,12 +702,12 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             </h2>
             <p className="mt-1 text-xs font-bold text-amber-700">{t("Questões criadas não se repetem neste tópico.")}</p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <button
               type="button"
               onClick={handleStartQuestionPractice}
               disabled={questionActionsDisabled || questions.length === 0}
-              className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-amber-700 px-4 py-2 text-sm font-black text-white hover:bg-amber-800 disabled:opacity-50"
+              className="study-primary-action flex items-center justify-center gap-2 rounded-2xl bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-50"
             >
               <ClipboardList size={15} />
               {t("Fazer simulado")}
