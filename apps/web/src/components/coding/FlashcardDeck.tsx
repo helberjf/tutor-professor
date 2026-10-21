@@ -328,7 +328,7 @@ function StudyTab({ subjectId, subjectName, stats, onFinished, onLogged }: { sub
                 type="button"
                 onClick={start}
                 disabled={loading}
-                className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-primary-dark px-8 py-3 font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                className="study-primary-action study-primary-action-prominent mt-5 inline-flex items-center gap-3 rounded-2xl bg-primary-dark text-white hover:bg-sky-800 disabled:opacity-50"
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} {t("Começar")}
               </button>

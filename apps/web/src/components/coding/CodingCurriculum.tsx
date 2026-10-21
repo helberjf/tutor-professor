@@ -507,11 +507,11 @@ export function CodingCurriculum({
             <button
               type="button"
               onClick={() => void loadTopics(resumePoint.subject, resumePoint.topic.id)}
-              className="mt-3 flex min-h-12 w-full items-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-left font-black text-white transition hover:bg-primary sm:mt-4"
+              className="study-primary-action study-primary-action-prominent mt-3 flex w-full items-center gap-3 rounded-2xl bg-primary-dark text-left text-white hover:bg-sky-800 sm:mt-4"
             >
               <PlayCircle size={20} className="shrink-0" />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm leading-5">{translate("Continuar de onde parou")}</span>
+                <span className="block text-lg leading-6">{translate("Continuar de onde parou")}</span>
                 <span className="block truncate text-xs font-bold leading-4 text-white/85">
                   {resumePoint.subject.name}: {resumePoint.topic.title}
                 </span>
@@ -575,7 +575,7 @@ export function CodingCurriculum({
         <div
           aria-busy={loading}
           aria-live="polite"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           {loading ? (
             Array.from({ length: SUBJECTS_PER_PAGE }, (_, index) => (
@@ -586,7 +586,7 @@ export function CodingCurriculum({
               {subjects.map((subject) => (
                 <div
                   key={subject.id}
-                  className="group cursor-pointer rounded-3xl border-2 border-slate-100 bg-white p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                  className="group min-w-0 cursor-pointer rounded-3xl border-2 border-slate-100 bg-white p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
                   onClick={() => openSubject(subject)}
                 >
                   <div className="mb-3 flex items-start justify-between">
@@ -607,11 +607,11 @@ export function CodingCurriculum({
                   <div
                     role="group"
                     aria-label={`Relevância de ${subject.name}`}
-                    className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-amber-200/70 bg-amber-100/80 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10"
+                    className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200/70 bg-amber-100/80 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <span className="text-xs font-black text-amber-800 dark:text-amber-100">{translate("Relevância")}</span>
-                    <span className="flex items-center">
+                    <span className="flex min-w-0 max-w-full items-center">
                       {Array.from({ length: 5 }, (_, index) => {
                         const level = index + 1;
                         const active = level <= subject.relevance;
@@ -649,12 +649,12 @@ export function CodingCurriculum({
                     </div>
                   )}
                   <div className="mt-4 space-y-2" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         disabled={loadingTopics}
                         onClick={() => openSubject(subject)}
-                        className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary-dark px-3 py-2 text-xs font-black text-white hover:bg-primary-dark disabled:opacity-50"
+                        className="study-primary-action flex min-w-36 flex-[1.4] items-center justify-center gap-2 rounded-2xl bg-primary-dark text-white hover:bg-sky-800 disabled:opacity-50"
                       >
                         {loadingTopics ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -796,11 +796,11 @@ export function CodingCurriculum({
             <button
               type="button"
               onClick={() => openTopic(subject, nextTopic)}
-              className="mt-3 flex min-h-12 w-full items-center gap-2 rounded-2xl bg-primary-dark px-4 py-2 text-left font-black text-white transition hover:bg-primary"
+              className="study-primary-action study-primary-action-prominent mt-3 flex w-full items-center gap-3 rounded-2xl bg-primary-dark text-left text-white hover:bg-sky-800"
             >
               <PlayCircle size={20} className="shrink-0" />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm leading-5">{translate("Continuar de onde parou")}</span>
+                <span className="block text-lg leading-6">{translate("Continuar de onde parou")}</span>
                 <span className="block truncate text-xs font-bold leading-4 text-white/85">{nextTopic.title}</span>
               </span>
             </button>
@@ -974,13 +974,13 @@ export function CodingCurriculum({
             topics.map((topic, idx) => (
               <div
                 key={topic.id}
-                className={`flex cursor-pointer items-center gap-4 rounded-2xl border-2 bg-white px-5 py-4 transition hover:border-primary/40 ${topic.id === newTopicId ? 'border-violet-300 bg-violet-50/60' : 'border-slate-100'}`}
+                className={`flex min-h-[5.5rem] cursor-pointer items-center gap-3 rounded-2xl border-2 bg-white px-4 py-5 shadow-sm transition hover:border-primary hover:shadow-md sm:gap-4 sm:px-5 ${topic.id === newTopicId ? 'border-violet-300 bg-violet-50/60' : 'border-primary/25'}`}
                 onClick={() => openTopic(subject, topic)}
               >
                 <span className="w-5 shrink-0 text-center text-sm font-bold text-slate-400">{idx + 1}</span>
                 <span className="text-lg">{statusIcon(topic.status)}</span>
-                <div className="flex-1">
-                  <p className="font-black text-slate-800">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-lg font-black text-slate-800">
                     {topic.title}
                     {topic.id === newTopicId && (
                       <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">{translate("Novo")}</span>
@@ -991,6 +991,7 @@ export function CodingCurriculum({
                     {!topic.ai_content && ' · sem aula gerada'}
                   </p>
                 </div>
+                <ChevronRight size={22} className="shrink-0 text-primary" aria-hidden="true" />
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id, subject); }}

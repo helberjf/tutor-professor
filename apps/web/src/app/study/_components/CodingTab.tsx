@@ -52,68 +52,68 @@ export function CodingTab({
             <button
               type="button"
               onClick={() => setCodingMode('reading')}
-              className={`flex min-h-12 min-w-0 items-center gap-2.5 rounded-2xl border-2 px-3 py-2 text-left transition ${
+              className={`flex min-h-16 min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left shadow-sm transition hover:shadow-md lg:gap-2 xl:gap-3 ${
                 codingMode === 'reading'
                   ? 'border-primary bg-primary-dark text-white shadow-sm'
                   : 'border-slate-100 bg-white/85 text-slate-600 hover:border-primary/40 hover:bg-white'
               }`}
             >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${codingMode === 'reading' ? 'bg-white/20 text-white' : 'bg-sky-50 text-primary'}`}>
-                <BookOpen size={18} />
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-8 lg:w-8 xl:h-10 xl:w-10 ${codingMode === 'reading' ? 'bg-white/20 text-white' : 'bg-sky-50 text-primary'}`}>
+                <BookOpen size={22} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black sm:text-base">{t("Modo leitura")}</span>
+                <span className="block text-base font-black leading-5">{t("Modo leitura")}</span>
                 <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>{t("Abrir aulas e tópicos")}</span>
               </span>
             </button>
             <button
               type="button"
               onClick={() => setCodingMode('flashcards')}
-              className={`flex min-h-12 min-w-0 items-center gap-2.5 rounded-2xl border-2 px-3 py-2 text-left transition ${
+              className={`flex min-h-16 min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left shadow-sm transition hover:shadow-md lg:gap-2 xl:gap-3 ${
                 codingMode === 'flashcards'
                   ? 'border-violet-500 bg-violet-600 text-white shadow-sm'
                   : 'border-slate-100 bg-white/85 text-slate-600 hover:border-violet-300 hover:bg-white'
               }`}
             >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${codingMode === 'flashcards' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>
-                <Layers size={18} />
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-8 lg:w-8 xl:h-10 xl:w-10 ${codingMode === 'flashcards' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>
+                <Layers size={22} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black sm:text-base">{t("Modo flashcards")}</span>
+                <span className="block text-base font-black leading-5">{t("Modo flashcards")}</span>
                 <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar perguntas por matéria")}</span>
               </span>
             </button>
             <button
               type="button"
               onClick={() => setCodingMode('questions')}
-              className={`flex min-h-12 min-w-0 items-center gap-2.5 rounded-2xl border-2 px-3 py-2 text-left transition ${
+              className={`flex min-h-16 min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left shadow-sm transition hover:shadow-md lg:gap-2 xl:gap-3 ${
                 codingMode === 'questions'
                   ? 'border-amber-500 bg-amber-700 text-white shadow-sm'
                   : 'border-slate-100 bg-white/85 text-slate-600 hover:border-amber-300 hover:bg-white'
               }`}
             >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${codingMode === 'questions' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600'}`}>
-                <ClipboardList size={18} />
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-8 lg:w-8 xl:h-10 xl:w-10 ${codingMode === 'questions' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-600'}`}>
+                <ClipboardList size={22} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black sm:text-base">{t("Modo questões")}</span>
+                <span className="block text-base font-black leading-5">{t("Modo questões")}</span>
                 <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar simulados por tópico")}</span>
               </span>
             </button>
             <button
               type="button"
               onClick={() => setCodingMode('exam')}
-              className={`flex min-h-12 min-w-0 items-center gap-2.5 rounded-2xl border-2 px-3 py-2 text-left transition ${
+              className={`flex min-h-16 min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 text-left shadow-sm transition hover:shadow-md lg:gap-2 xl:gap-3 ${
                 codingMode === 'exam'
                   ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
                   : 'border-slate-100 bg-white/85 text-slate-600 hover:border-indigo-300 hover:bg-white'
               }`}
             >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${codingMode === 'exam' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
-                <GraduationCap size={18} />
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl lg:h-8 lg:w-8 xl:h-10 xl:w-10 ${codingMode === 'exam' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+                <GraduationCap size={22} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black sm:text-base">{t("Modo simulado")}</span>
+                <span className="block text-base font-black leading-5">{t("Modo simulado")}</span>
                 <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>{t("Prova cronometrada com nota no fim")}</span>
               </span>
             </button>
