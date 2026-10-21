@@ -180,6 +180,7 @@ class PhraseGenerationService:
         temperature: float,
         ai_config: AIProviderConfig | None = None,
         timeout_seconds: int | None = None,
+        max_output_tokens: int | None = None,
     ) -> str:
         config = self._resolve_config(ai_config)
         if not config.api_key:
@@ -196,12 +197,16 @@ class PhraseGenerationService:
         else:
             raise RuntimeError(f"Provedor de IA não suportado: {config.provider}")
 
+        budget = {} if max_output_tokens is None else {"max_output_tokens": max_output_tokens}
+        if max_output_tokens is not None and not 1 <= max_output_tokens <= 16000:
+            raise ValueError("max_output_tokens must be between 1 and 16000")
         text = generate(
             system_text=system_text,
             prompt=prompt,
             temperature=temperature,
             config=config,
             timeout_seconds=timeout,
+            **budget,
         )
         # Only after the provider answered: a refused or failed call costs nothing.
         if config.on_success is not None:
@@ -238,6 +243,7 @@ class PhraseGenerationService:
         temperature: float,
         config: AIProviderConfig,
         timeout_seconds: int,
+        max_output_tokens: int | None = None,
     ) -> str:
         payload = {
             "system_instruction": {"parts": [{"text": system_text}]},
@@ -248,6 +254,8 @@ class PhraseGenerationService:
             },
         }
         base_url = (config.base_url or self.api_base_url).rstrip("/")
+        if max_output_tokens is not None:
+            payload["generationConfig"]["maxOutputTokens"] = max_output_tokens
         url = f"{base_url}/models/{config.model}:generateContent"
         try:
             response = requests.post(
@@ -274,6 +282,7 @@ class PhraseGenerationService:
         temperature: float,
         config: AIProviderConfig,
         timeout_seconds: int,
+        max_output_tokens: int | None = None,
     ) -> str:
         base_url = (config.base_url or OPENAI_COMPATIBLE_BASE_URLS[config.provider]).rstrip("/")
         payload = {
@@ -285,6 +294,9 @@ class PhraseGenerationService:
             "temperature": temperature,
             "response_format": {"type": "json_object"},
         }
+        if max_output_tokens is not None:
+            token_field = "max_completion_tokens" if config.provider == "openai" else "max_tokens"
+            payload[token_field] = max_output_tokens
         headers = {
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json",
@@ -321,11 +333,12 @@ class PhraseGenerationService:
         temperature: float,
         config: AIProviderConfig,
         timeout_seconds: int,
+        max_output_tokens: int | None = None,
     ) -> str:
         base_url = (config.base_url or ANTHROPIC_BASE_URL).rstrip("/")
         payload = {
             "model": config.model,
-            "max_tokens": 4000,
+            "max_tokens": max_output_tokens if max_output_tokens is not None else 4000,
             "temperature": temperature,
             "system": system_text,
             "messages": [{"role": "user", "content": prompt}],

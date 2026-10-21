@@ -15,7 +15,8 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = ["test_admin_account_approval.py", "test_tenant_isolation.py", "test_account_modules.py",
            "test_study_session_flow.py", "test_objectives_progress.py", "test_exam_simulado_mode.py",
            "test_password_security.py", "test_study_log.py", "test_ai_credits.py",
-           "test_session_revocation_race.py", "test_account_self_service.py", "test_parallel_requests.py"]
+           "test_session_revocation_race.py", "test_account_self_service.py", "test_parallel_requests.py",
+           "test_chat_context.py", "test_book_generation_limits.py", "test_book_page_requests.py"]
 
 
 def run_child(script):
@@ -61,8 +62,11 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--child":
         run_child(sys.argv[2])
     else:
+        scripts = sys.argv[1:] or SCRIPTS
+        if any(script not in SCRIPTS for script in scripts):
+            raise ValueError("Unapproved legacy script")
         failures = []
-        for script in SCRIPTS:
+        for script in scripts:
             with tempfile.TemporaryDirectory(prefix="tutor-legacy-") as directory:
                 allowed = {"path", "systemroot", "windir", "comspec", "pathext", "temp", "tmp",
                            "userprofile", "localappdata", "appdata", "home", "lang"}
@@ -78,5 +82,5 @@ if __name__ == "__main__":
                 if result.returncode:
                     failures.append(script)
                     print(result.stdout[-4000:] + result.stderr[-4000:])
-        print(f"{len(SCRIPTS) - len(failures)} passed, {len(failures)} failed")
+        print(f"{len(scripts) - len(failures)} passed, {len(failures)} failed")
         sys.exit(bool(failures))
