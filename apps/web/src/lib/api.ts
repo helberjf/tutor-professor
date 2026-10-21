@@ -2283,7 +2283,8 @@ export const api = {
     }),
   getStudyDashboard: () => fetchAPI<StudyDashboard>('/api/study/dashboard'),
   // ── One study queue, resumable ─────────────────────────────────────────────
-  getStudyResume: () => fetchAPI<StudyResume>('/api/study/resume'),
+  getStudyResume: (scope?: 'curriculum') =>
+    fetchAPI<StudyResume>(`/api/study/resume${scope ? `?scope=${scope}` : ''}`),
   saveStudyResume: (payload: StudyResumeUpdatePayload) =>
     fetchAPI<StudyResume>('/api/study/resume', {
       method: 'PUT',

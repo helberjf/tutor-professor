@@ -5480,9 +5480,29 @@ def _validated_resume_context(
 def read_study_resume(
     request: Request,
     session: Session = Depends(get_session),
+    scope: Literal["curriculum"] | None = Query(default=None),
 ) -> StudyResumeSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
+    if scope == "curriculum":
+        # Keep the last discipline available even after a language lesson or
+        # guided session replaces the global bookmark. This lookup writes nothing.
+        tracks = [track for track, module in (("programming", "coding"), ("general", "diverse"))
+                  if _account_module_enabled(request, session, module)]
+        subject = session.exec(
+            select(ProgrammingSubject).where(
+                ProgrammingSubject.child_id == child.id,
+                ProgrammingSubject.track.in_(tracks),
+                ProgrammingSubject.last_used_at.is_not(None),
+            ).order_by(ProgrammingSubject.last_used_at.desc(), ProgrammingSubject.id.desc())
+        ).first()
+        if subject is None:
+            return StudyResumeSchema()
+        result, _, _ = _coding_resume(
+            session, child_id=child.id or 0, kind="coding_subject",
+            context={"subject_id": subject.id}, updated_at=subject.last_used_at,
+        )
+        return result
     record = get_study_resume(session, child.id or 0)
     if record is None:
         return _active_session_resume(session, child.id or 0)
