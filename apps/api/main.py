@@ -78,6 +78,7 @@ from schemas.schemas import (
     BookSummarySchema,
     GenerateBookOutlineRequestSchema,
     GenerateBookPageRequestSchema,
+    GeneratedBookPageDraftSchema,
     StartBookFromOutlineRequestSchema,
     ChatRequestSchema,
     ChatResponseSchema,
@@ -518,6 +519,7 @@ _topic_question_locks_guard = threading.Lock()
 _topic_question_locks: dict[int, threading.Lock] = {}
 _diverse_question_locks_guard = threading.Lock()
 _lesson_question_locks_guard = threading.Lock()
+_book_page_locks_guard = threading.Lock()
 
 
 class _KeyedLockEntry:
@@ -528,6 +530,23 @@ class _KeyedLockEntry:
 
 _diverse_question_locks: dict[tuple[int, date], _KeyedLockEntry] = {}
 _lesson_question_locks: dict[tuple[int, int], _KeyedLockEntry] = {}
+_book_page_locks: dict[int, _KeyedLockEntry] = {}
+
+
+@contextmanager
+def _book_page_lock(book_id: int) -> Iterator[None]:
+    with _book_page_locks_guard:
+        entry = _book_page_locks.setdefault(book_id, _KeyedLockEntry())
+        entry.users += 1
+    entry.lock.acquire()
+    try:
+        yield
+    finally:
+        entry.lock.release()
+        with _book_page_locks_guard:
+            entry.users -= 1
+            if entry.users == 0:
+                _book_page_locks.pop(book_id, None)
 
 
 @contextmanager
@@ -611,6 +630,7 @@ def _generation_lock(session: Session, namespace: str, *parts: object) -> Iterat
             "diverse_question": _diverse_question_lock,
             "topic_question": _topic_question_fallback_lock,
             "topic_flashcard": _topic_flashcard_fallback_lock,
+            "book_page": _book_page_lock,
         }[namespace]
         with fallback(*parts):
             yield
@@ -7208,6 +7228,9 @@ def _tutor_reply(
         message=payload.message,
         history=payload.history,
         session=session,
+        child_id=child.id,
+        target_language=child.target_language,
+        child_level=child.current_level,
     )
 
     # Talking to the tutor is practice, and it used to leave the day's log
@@ -14981,6 +15004,9 @@ def generate_book(
                 pages = session.exec(select(BookPage).where(BookPage.book_id == match.id)).all()
                 return _build_book_schema(match, list(pages))
 
+    if payload.num_pages > 1:
+        raise HTTPException(status_code=400, detail="Crie o roteiro e gere uma página por vez para limitar o uso de IA.")
+
     # ── Generate a new shared book ────────────────────────────────────────────
     try:
         draft = book_generation_service.generate_book(
@@ -15085,53 +15111,80 @@ def generate_and_add_book_page(
     session: Session = Depends(get_session),
 ) -> BookPageSchema:
     session_record = require_parent_session(request, session)
+    child = get_requested_child(request=request, session=session)
+    child_id, age_group = child.id, child_age_group(child)
+    book = session.get(Book, book_id)
+    if book is None or (book.child_id is not None and book.child_id != child_id):
+        raise HTTPException(status_code=404, detail="Livro não encontrado.")
+    saved = session.exec(select(BookPage).where(
+        BookPage.book_id == book_id, BookPage.page_number == payload.page_number,
+    )).first()
+    if saved is not None:
+        return _build_book_page_schema(saved)
+    # Resolving daily credits can commit, so it must precede the advisory lock.
     ai_config = _get_user_ai_config(session_record, session)
     if session_record.user_id is not None and ai_config is None:
         raise HTTPException(status_code=403, detail="Configure uma chave de API de IA na sua conta.")
     if not book_generation_service.is_configured(ai_config):
         raise HTTPException(status_code=503, detail="Chave de API de IA não está configurada.")
-
-    book = session.get(Book, book_id)
-    if book is None:
-        raise HTTPException(status_code=404, detail="Livro não encontrado.")
-    if payload.page_number > book.num_pages:
-        raise HTTPException(status_code=400, detail="Este livro já atingiu o limite de páginas.")
-
-    existing_pages = session.exec(select(BookPage).where(BookPage.book_id == book_id)).all()
-    if len(existing_pages) >= book.num_pages:
-        raise HTTPException(status_code=400, detail="Este livro já está completo.")
-
-    child = get_requested_child(request=request, session=session)
-
-    try:
-        page_draft = book_generation_service.generate_page(
-            level=book.level,
-            outline=payload.outline,
-            page_number=payload.page_number,
-            context_pages=payload.context_pages,
-            target_language=book.target_language,
-            ai_config=ai_config,
-            age_group=child_age_group(child),
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-    vocab_json = json.dumps(page_draft.vocabulary, ensure_ascii=False)
-    page = BookPage(
-        book_id=book.id or 0,
-        page_number=page_draft.page_number,
-        text_en=page_draft.text_en,
-        text_pt=page_draft.text_pt,
-        vocabulary_json=vocab_json,
-    )
-    session.add(page)
-    # Update num_pages to reflect actual generated count
-    existing_count = len(existing_pages)
-    book.num_pages = max(book.num_pages, existing_count + 1)
-    session.add(book)
+    # Release the authentication write before waiting for another generator.
     session.commit()
-    session.refresh(page)
-    return _build_book_page_schema(page)
+    with _generation_lock(session, "book_page", book_id):
+        book = session.get(Book, book_id)
+        if book is None or (book.child_id is not None and book.child_id != child_id):
+            raise HTTPException(status_code=404, detail="Livro não encontrado.")
+        if payload.page_number > book.num_pages:
+            raise HTTPException(status_code=400, detail="Este livro já atingiu o limite de páginas.")
+        existing_pages = list(session.exec(
+            select(BookPage).where(BookPage.book_id == book_id).order_by(BookPage.page_number)
+        ).all())
+        saved = next((page for page in existing_pages if page.page_number == payload.page_number), None)
+        if saved is not None:
+            return _build_book_page_schema(saved)
+        if len(existing_pages) >= book.num_pages:
+            raise HTTPException(status_code=400, detail="Este livro já está completo.")
+        if book.num_pages > 5 or payload.page_number != len(existing_pages) + 1:
+            raise HTTPException(status_code=409, detail="Gere uma página por vez, na ordem, até o limite de 5 páginas.")
+        if any(getattr(payload.outline, key) != getattr(book, key)
+               for key in ("title", "theme", "level", "num_pages", "target_language")):
+            raise HTTPException(status_code=400, detail="O roteiro não corresponde ao livro salvo.")
+
+        context_pages = [GeneratedBookPageDraftSchema(
+            page_number=page.page_number, text_en=page.text_en[:800], text_pt=page.text_pt[:800],
+            vocabulary=[str(word)[:40] for word in _build_book_page_schema(page).vocabulary[:5]],
+        ) for page in existing_pages[-3:]]
+        # A provider hook may commit. Defer it until the page is flushed so that
+        # releasing the advisory lock always exposes the cached page to waiters.
+        on_success = ai_config.on_success if ai_config else None
+        provider_answered = False
+        def note_provider_answer() -> None:
+            nonlocal provider_answered
+            provider_answered = True
+        generation_config = replace(ai_config, on_success=note_provider_answer) if ai_config else None
+        try:
+            page_draft = book_generation_service.generate_page(
+                level=book.level, outline=payload.outline, page_number=payload.page_number,
+                context_pages=context_pages, target_language=book.target_language,
+                ai_config=generation_config, age_group=age_group,
+            )
+        except RuntimeError as exc:
+            # Invalid JSON still used provider tokens. Preserve existing credit
+            # and usage semantics, while a failed provider call costs no credit.
+            if provider_answered and on_success is not None:
+                on_success()
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        page = BookPage(
+            book_id=book.id or 0, page_number=page_draft.page_number,
+            text_en=page_draft.text_en, text_pt=page_draft.text_pt,
+            vocabulary_json=json.dumps(page_draft.vocabulary, ensure_ascii=False),
+        )
+        session.add(page)
+        session.flush()
+        if provider_answered and on_success is not None:
+            on_success()
+        session.commit()
+        session.refresh(page)
+        return _build_book_page_schema(page)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

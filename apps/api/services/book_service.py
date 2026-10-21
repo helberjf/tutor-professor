@@ -82,8 +82,7 @@ class BookGenerationService:
         )
 
         last_error: Exception | None = None
-        if max_retries is None:
-            max_retries = int(os.getenv("BOOK_GENERATION_MAX_RETRIES", "3"))
+        max_retries = 1  # A failed generation needs an explicit new user request.
         for attempt in range(1, max_retries + 1):
             prompt = self._build_prompt(
                 level=level,
@@ -108,6 +107,7 @@ class BookGenerationService:
                     temperature=0.7 + (attempt - 1) * 0.1,
                     ai_config=active_config,
                     timeout_seconds=self.timeout_seconds,
+                    max_output_tokens=min(4000, 400 + 700 * num_pages),
                 )
                 data = json.loads(self._strip_fences(raw_text))
                 draft = GeneratedBookDraftSchema.model_validate(data)
@@ -249,6 +249,7 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             raw_text = self.text_generation_service.generate_json_text(
                 system_text=system_text, prompt=prompt, temperature=0.7, ai_config=active_config,
                 timeout_seconds=self.timeout_seconds,
+                max_output_tokens=1800,
             )
             data = json.loads(self._strip_fences(raw_text))
         except json.JSONDecodeError:
@@ -256,28 +257,28 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
         except Exception as exc:
             raise RuntimeError(f"Erro ao gerar roteiro: {exc}") from exc
 
-        raw_outlines = data.get("page_outlines", [])
-        page_outlines = [
-            BookOutlinePageSchema(
-                page_number=int(p.get("page_number", i + 1)),
-                scene=str(p.get("scene", "")).strip()[:400],
-                key_vocabulary=[str(v)[:40] for v in p.get("key_vocabulary", [])[:5]],
+        try:
+            raw_outlines = data.get("page_outlines", [])
+            page_outlines = [
+                BookOutlinePageSchema(
+                    page_number=int(p.get("page_number", i + 1)),
+                    scene=str(p.get("scene", "")).strip()[:400],
+                    key_vocabulary=[str(v)[:40] for v in p.get("key_vocabulary", [])[:5]],
+                )
+                for i, p in enumerate(raw_outlines[:num_pages])
+            ]
+            return BookOutlineSchema(
+                title=str(data.get("title", "")).strip()[:200] or "My Story",
+                theme=str(data.get("theme", theme or "adventure")).strip()[:80],
+                synopsis=str(data.get("synopsis", "")).strip()[:600],
+                characters=[str(c)[:60] for c in data.get("characters", [])[:6]],
+                page_outlines=page_outlines,
+                level=level,
+                num_pages=num_pages,
+                target_language=target_language,
             )
-            for i, p in enumerate(raw_outlines[:num_pages])
-        ]
-        if not page_outlines:
-            raise RuntimeError("IA não gerou páginas no roteiro.")
-
-        return BookOutlineSchema(
-            title=str(data.get("title", "")).strip()[:200] or "My Story",
-            theme=str(data.get("theme", theme or "adventure")).strip()[:80],
-            synopsis=str(data.get("synopsis", "")).strip()[:600],
-            characters=[str(c)[:60] for c in data.get("characters", [])[:6]],
-            page_outlines=page_outlines,
-            level=level,
-            num_pages=num_pages,
-            target_language=target_language,
-        )
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise RuntimeError("IA retornou um roteiro incompleto ou inválido. Tente novamente manualmente.") from exc
 
     def generate_page(
         self,
@@ -349,20 +350,19 @@ Return ONLY this exact JSON structure with {num_pages} page objects:
             "Return ONLY valid JSON, no markdown, no extra keys."
         )
         last_error: Exception | None = None
-        for attempt in range(1, 3):
+        for attempt in range(1, 2):
             try:
                 raw_text = self.text_generation_service.generate_json_text(
                     system_text=system_text, prompt=prompt,
                     temperature=0.65 + (attempt - 1) * 0.1,
                     ai_config=active_config, timeout_seconds=self.timeout_seconds,
+                    max_output_tokens=1000,
                 )
                 data = json.loads(self._strip_fences(raw_text))
-                return GeneratedBookPageDraftSchema(
-                    page_number=page_number,
-                    text_en=str(data.get("text_en", "")).strip() or "...",
-                    text_pt=str(data.get("text_pt", "")).strip() or "...",
-                    vocabulary=[str(v)[:40] for v in data.get("vocabulary", [])[:5]],
-                )
+                page = GeneratedBookPageDraftSchema.model_validate(data)
+                if page.page_number != page_number or not page.text_en.strip() or not page.text_pt.strip():
+                    raise ValueError("A IA retornou uma página incompleta ou fora da sequência.")
+                return page
             except Exception as exc:
                 last_error = exc
         raise RuntimeError(f"Erro ao gerar página {page_number}: {last_error}") from last_error
