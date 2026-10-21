@@ -21,5 +21,6 @@ assert.match(topicView, /flex flex-wrap items-start justify-between gap-x-3 lg:f
 assert.match(topicView, /order-last basis-full[^"]*lg:order-none lg:mt-0 lg:basis-auto/, 'below lg the controls wrap under the title; on lg they sit beside it');
 assert.match(topicView, /lg:hidden">\s*\{safeIndex \+ 1\} de \{total\}/, 'on a computer the step count joins the subject line instead of its own row');
 assert.match(topicView, /function buildSpeakableReadingText\(step: ReadingStudyStep\): string \{\s*if \(step.type === 'section'\) \{\s*return \[\s*`Parte/, 'the audio must start at the part, not repeat the topic title');
-assert.match(topicView, /window\.scrollTo\(\{ top: 0[^}]*\}\);\s*\}, \[initialTopic\.id\]\);/, 'opening a topic must start at its header, not keep the list scroll');
+assert.match(topicView, /useStudyContentScroll<HTMLDivElement>\([^;]*initialTopic\.id[^;]*initialQuestionPracticeOpen/, 'opening a topic or changing its study mode must position the lesson header');
+assert.match(topicView, /ref=\{headerRef\} className="app-surface scroll-mt-24/, 'the lesson header must stay below the fixed navigation');
 console.log('topic reading mobile layout checks passed');
