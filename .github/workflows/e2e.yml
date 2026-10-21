@@ -1,0 +1,73 @@
+name: E2E Playwright
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      browser:
+        description: Navegador
+        type: choice
+        default: chromium
+        options: [chromium, firefox, webkit]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            apps/api/requirements.txt
+            scripts/e2e/requirements.txt
+      - run: pnpm install --frozen-lockfile
+      - run: python -m pip install -r ../../scripts/e2e/requirements.txt
+      - name: Install browser and OS dependencies
+        run: pnpm exec playwright install --with-deps "${{ inputs.browser || 'chromium' }}"
+      - name: Verify isolation guards
+        run: pnpm test:e2e:safety
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Browser regression
+        run: pnpm exec playwright test --project="${{ inputs.browser || 'chromium' }}"
+      - name: Mobile smoke
+        if: ${{ (inputs.browser || 'chromium') == 'chromium' }}
+        run: pnpm test:e2e:mobile -- --output=mobile-test-results --reporter=list,html
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: mobile-playwright-report
+      - name: Upload reports, traces, screenshots and videos
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-${{ inputs.browser || 'chromium' }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+            apps/web/mobile-playwright-report/
+            apps/web/mobile-test-results/
+          retention-days: 7

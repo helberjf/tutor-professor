@@ -168,7 +168,7 @@ Installation needs HTTPS, which the Vercel deployment already provides.
 | AI | Configurable provider layer, Gemini as the default path |
 | TTS | Kokoro-compatible service plus browser fallback; audio cached in a private Supabase Storage bucket |
 | Deployment | Vercel for web and API (`pdx1`, next to the database), Docker/VPS path kept in `docs/DEPLOY-VPS.md` |
-| Tests | Python unittest-style scripts, Node assertion scripts, TypeScript check |
+| Tests | Playwright E2E (TypeScript), Python unittest-style scripts, Node assertion scripts, TypeScript check |
 
 ## Architecture
 
@@ -353,6 +353,10 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 For the deployed flow, the runtime backend route can resolve the tunnel URL dynamically.
 
 ## Testing and Verification
+
+Browser E2E tests, protected Codegen, isolated test data and GitHub Actions are
+documented in [docs/testing.md](docs/testing.md). From `apps/web`, run
+`pnpm test:e2e:safety`, `pnpm test:e2e`, or `pnpm e2e:codegen` to record a new flow.
 
 Useful checks:
 

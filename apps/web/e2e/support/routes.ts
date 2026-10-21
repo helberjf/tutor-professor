@@ -1,0 +1,36 @@
+export type RouteCase = { path: string; access: 'public' | 'student' | 'admin'; heading?: RegExp; kind?: string; destination?: string };
+
+// Explicit expectations: a loader, a generic error or a login redirect is not a
+// successful visit to a student's page. Keep this list in sync with App Router.
+export const routes: RouteCase[] = [
+  { path: '/', access: 'public', heading: /Vamos aprender tudo do seu jeito/ },
+  { path: '/login', access: 'public', heading: /Entrar na sua conta/ },
+  { path: '/register', access: 'public', heading: /^Criar conta$/ },
+  { path: '/forgot-password', access: 'public', heading: /Esqueci minha senha/ },
+  { path: '/reset-password', access: 'public', heading: /Link incompleto/ },
+  { path: '/verify-email', access: 'public', heading: /Link inválido ou expirado/ },
+  { path: '/offline', access: 'public', heading: /Sistema temporariamente indisponível/ },
+  { path: '/connect', access: 'admin', heading: /Conecte este aparelho ao seu backend/ },
+  { path: '/account', access: 'student', heading: /Configurações da conta/ },
+  { path: '/parents', access: 'student', heading: /Configurações da conta/, destination: '/account' },
+  { path: '/onboarding', access: 'student', heading: /Quem vai estudar/ },
+  { path: '/admin', access: 'admin', heading: /Dashboard administrativo/ },
+  { path: '/admin/accounts', access: 'admin', heading: /Aprovação de contas/ },
+  { path: '/admin/users', access: 'admin', heading: /Usuários e autorização de IA/ },
+  { path: '/admin/learn', access: 'admin', heading: /Aprender React & TypeScript/ },
+  { path: '/dashboard', access: 'student', heading: /Resumo de estudos/ },
+  { path: '/study', access: 'student', heading: /3 frases por dia/ },
+  { path: '/lesson', access: 'student', heading: /Good morning|Thank you|See you later/ },
+  { path: '/lesson/history', access: 'student', heading: /Suas aventuras em/ },
+  { path: '/quiz', access: 'student', kind: 'quiz' },
+  { path: '/review', access: 'student', heading: /Nada pendente para revisar/ },
+  { path: '/quick-review', access: 'student', heading: /Nenhuma palavra para revisar/ },
+  { path: '/session', access: 'student', kind: 'session' },
+  { path: '/diverse', access: 'student', heading: /Crie sua primeira disciplina/, destination: '/study?tab=diverse' },
+  { path: '/objectives', access: 'student', heading: /^Objetivos$/ },
+  { path: '/study-log', access: 'student', heading: /Controle de estudos/ },
+  { path: '/activity-log', access: 'student', kind: 'activity' },
+  { path: '/exams', access: 'student', heading: /^Simulados$/ },
+  { path: '/books', access: 'student', heading: /Livros Pequenos/ },
+  { path: '/chat', access: 'student', heading: /Converse com o tutor/ },
+];
