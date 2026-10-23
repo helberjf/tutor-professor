@@ -1379,6 +1379,13 @@ export interface ProgrammingTopic {
   updated_at: string;
   flashcard_count: number;
   has_summary?: boolean;
+  /** Where the reader stopped and which steps they starred, by step index. */
+  reading_progress?: TopicReadingProgress | null;
+}
+
+export interface TopicReadingProgress {
+  step_index: number;
+  favorites: number[];
 }
 
 export interface ProgrammingFlashcard {
@@ -2173,7 +2180,7 @@ export function createCurriculumApi(base: string, disciplineId: number | null = 
       fetchAPI<ProgrammingTopic>(`${base}/subjects/${subjectId}/topics`, { method: 'POST', body: JSON.stringify(payload) }),
     generateCodingTopic: (subjectId: number) =>
       fetchAPI<ProgrammingTopic>(`${base}/subjects/${subjectId}/topics/generate`, { method: 'POST' }),
-    updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object }) =>
+    updateCodingTopic: (id: number, payload: { title?: string; order_index?: number; status?: string; notes?: string; ai_content?: object; reading_progress?: TopicReadingProgress }) =>
       fetchAPI<ProgrammingTopic>(`${base}/topics/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     deleteCodingTopic: (id: number) =>
       fetchAPI<void>(`${base}/topics/${id}`, { method: 'DELETE' }),

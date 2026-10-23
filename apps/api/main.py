@@ -195,6 +195,7 @@ from schemas.schemas import (
     TopicAIContentSchema,
     UpdateProgrammingFlashcardSchema,
     UpdateProgrammingSubjectSchema,
+    TopicReadingProgressSchema,
     UpdateProgrammingTopicSchema,
     DiverseDaySchema,
     DiverseDayUpdateSchema,
@@ -8081,7 +8082,17 @@ def _programming_topic_schema(session: Session, topic: ProgrammingTopic) -> Prog
         updated_at=topic.updated_at,
         flashcard_count=flashcard_count,
         has_summary=bool((topic.summary or "").strip()),
+        reading_progress=_topic_reading_progress(topic),
     )
+
+
+def _topic_reading_progress(topic: ProgrammingTopic) -> Optional[TopicReadingProgressSchema]:
+    # A malformed stored value must not break the whole topic response; the
+    # reader simply starts over.
+    try:
+        return TopicReadingProgressSchema.model_validate(topic.reading_progress) if topic.reading_progress else None
+    except ValueError:
+        return None
 
 
 def _programming_question_schema(question: ProgrammingQuestion) -> ProgrammingQuestionSchema:
@@ -9094,7 +9105,15 @@ def update_coding_topic(
         topic.notes = payload.notes
     if payload.ai_content is not None:
         topic.ai_content = payload.ai_content
-    topic.updated_at = datetime.utcnow()
+    if payload.reading_progress is not None:
+        progress = payload.reading_progress
+        topic.reading_progress = {
+            "step_index": progress.step_index,
+            "favorites": sorted(set(progress.favorites)),
+        }
+    # Turning a page is not editing the topic, so it must not reorder "recent".
+    if payload.model_dump(exclude_unset=True).keys() - {"reading_progress"}:
+        topic.updated_at = datetime.utcnow()
     session.add(topic)
 
     # Saying "já estudei isto" is a deliberate act of studying, and it used to
@@ -10819,6 +10838,8 @@ def generate_coding_topic_content(
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     topic.ai_content = content.model_dump(exclude_none=True)
+    # New content means new steps: an old position or star would point elsewhere.
+    topic.reading_progress = None
     topic.updated_at = datetime.utcnow()
     session.add(topic)
     existing_fcs = session.exec(select(ProgrammingFlashcard).where(ProgrammingFlashcard.topic_id == topic_id)).all()

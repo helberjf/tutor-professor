@@ -2243,6 +2243,24 @@ async def run() -> None:
         )
         assert_status(old_topic_flashcard_response, 201, "create old coding topic flashcard")
 
+        bookmark_response = await client.put(
+            f"/api/coding/topics/{coding_topic['id']}",
+            headers=child_headers,
+            json={"reading_progress": {"step_index": 5, "favorites": [8, 2, 2]}},
+        )
+        assert_status(bookmark_response, 200, "save the reading bookmark")
+        bookmarked_topic = bookmark_response.json()
+        if bookmarked_topic["reading_progress"] != {"step_index": 5, "favorites": [2, 8]}:
+            raise AssertionError(f"expected a deduplicated, sorted bookmark, got {bookmarked_topic['reading_progress']}")
+        if bookmarked_topic["updated_at"] != coding_topic["updated_at"]:
+            raise AssertionError("turning a page must not count as editing the topic")
+        invalid_bookmark_response = await client.put(
+            f"/api/coding/topics/{coding_topic['id']}",
+            headers=child_headers,
+            json={"reading_progress": {"step_index": -1, "favorites": []}},
+        )
+        assert_status(invalid_bookmark_response, 422, "reject a negative reading position")
+
         captured_topic_generation: dict[str, str] = {}
         original_generate_topic_ai_content = main.generate_topic_ai_content
         try:
@@ -2292,6 +2310,8 @@ async def run() -> None:
         regenerated_topic = regenerated_topic_response.json()
         if regenerated_topic["flashcard_count"] != 5:
             raise AssertionError(f"expected regenerated topic to report five new flashcards, got {regenerated_topic}")
+        if regenerated_topic["reading_progress"] is not None:
+            raise AssertionError("new lesson content must drop a bookmark that pointed at the old steps")
         if captured_topic_generation.get("user_context") != "refazer flashcards para iniciantes":
             raise AssertionError(f"expected regeneration context to reach AI service, got {captured_topic_generation}")
 

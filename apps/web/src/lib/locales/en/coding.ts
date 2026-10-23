@@ -220,6 +220,15 @@ export const CODING_EN: Record<string, string> = {
   'TSX / React': 'TSX / React',
 
   // Reading / deepening
+  'Continuar estudo': 'Continue studying',
+  'Recomeçar do início': 'Start over from the beginning',
+  'Etapas favoritas': 'Favorite steps',
+  'Favoritar esta etapa': 'Add this step to favorites',
+  'Remover dos favoritos': 'Remove from favorites',
+  'Copiar texto desta etapa': 'Copy the text of this step',
+  'Texto copiado': 'Text copied',
+  'Não consegui copiar automaticamente; selecione o texto e copie.': "Couldn't copy automatically; select the text and copy it.",
+  'Resposta correta': 'Correct answer',
   'Aprofundar com IA': 'Go deeper with AI',
   'Aprofundar este assunto com IA': 'Go deeper into this subject with AI',
   'Aprofundamento com IA': 'Going deeper with AI',

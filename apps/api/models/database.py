@@ -440,6 +440,11 @@ class ProgrammingTopic(SQLModel, table=True):
     # it is generated once and reread instead of costing an AI call per visit.
     summary: Optional[str] = Field(default=None, sa_column=Column(Text))
     summary_updated_at: Optional[datetime] = Field(default=None)
+    # Where the reader stopped in the lesson and which steps they starred:
+    # {"step_index": 5, "favorites": [2, 8]}. Indices point into
+    # ai_content's sections followed by its quiz, and are cleared whenever the
+    # content is regenerated.
+    reading_progress: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON, nullable=True))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
