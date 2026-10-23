@@ -63,7 +63,7 @@ export function CodingTab({
               </span>
               <span className="min-w-0">
                 <span className="block text-base font-black leading-5">{t("Modo leitura")}</span>
-                <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>{t("Abrir aulas e tópicos")}</span>
+                <span className={`mt-0.5 hidden text-xs font-semibold leading-4 sm:block ${codingMode === 'reading' ? 'text-white/80' : 'text-slate-500'}`}>{t("Abrir aulas e tópicos")}</span>
               </span>
             </button>
             <button
@@ -80,7 +80,7 @@ export function CodingTab({
               </span>
               <span className="min-w-0">
                 <span className="block text-base font-black leading-5">{t("Modo flashcards")}</span>
-                <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar perguntas por matéria")}</span>
+                <span className={`mt-0.5 hidden text-xs font-semibold leading-4 sm:block ${codingMode === 'flashcards' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar perguntas por matéria")}</span>
               </span>
             </button>
             <button
@@ -97,7 +97,7 @@ export function CodingTab({
               </span>
               <span className="min-w-0">
                 <span className="block text-base font-black leading-5">{t("Modo questões")}</span>
-                <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar simulados por tópico")}</span>
+                <span className={`mt-0.5 hidden text-xs font-semibold leading-4 sm:block ${codingMode === 'questions' ? 'text-white/80' : 'text-slate-500'}`}>{t("Treinar simulados por tópico")}</span>
               </span>
             </button>
             <button
@@ -114,7 +114,7 @@ export function CodingTab({
               </span>
               <span className="min-w-0">
                 <span className="block text-base font-black leading-5">{t("Modo simulado")}</span>
-                <span className={`hidden truncate text-xs font-semibold sm:block ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>{t("Prova cronometrada com nota no fim")}</span>
+                <span className={`mt-0.5 hidden text-xs font-semibold leading-4 sm:block ${codingMode === 'exam' ? 'text-white/80' : 'text-slate-500'}`}>{t("Prova cronometrada com nota no fim")}</span>
               </span>
             </button>
           </section>

@@ -21,6 +21,9 @@ interface Props {
   onTopicUpdated: (topic: ProgrammingTopic) => void;
   /** Keeps the caller's copy of the topic current without a full reload. */
   onReadingProgressChange?: (topicId: number, progress: TopicReadingProgress) => void;
+  /** The following lesson in the subject, or null on the last one. */
+  nextTopicTitle?: string | null;
+  onOpenNextTopic?: () => void;
 }
 
 type QuizState = { answered: boolean; selected: string; correct: boolean }[];
@@ -189,7 +192,7 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
   return drafts;
 }
 
-export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated, onReadingProgressChange }: Props) {
+export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated, onReadingProgressChange, nextTopicTitle = null, onOpenNextTopic }: Props) {
   const curriculum = useCurriculumApi();
   const general = useCurriculumTrack() === 'general';
   const [topic, setTopic] = useState(initialTopic);
@@ -660,6 +663,8 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   const favoriteReadingSteps = readingProgress.favorites
     .filter((index) => index < readingStudySteps.length)
     .map((index) => ({ index, step: readingStudySteps[index] }));
+  // Lessons are titled "02. ...", so the number says where the button goes.
+  const nextTopicNumber = nextTopicTitle?.match(/^\s*(\d+)[.)]/)?.[1] ?? '';
 
   const statusLabel =
     topic.status === 'mastered' ? t("⭐ Dominado") : topic.status === 'studied' ? t("✅ Estudado") : t("🔘 Não iniciado");
@@ -756,6 +761,19 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
                 className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2 text-sm font-black text-white hover:bg-emerald-800 sm:w-auto"
               >
                 {topic.status === 'studied' ? <><Star size={14} /> {t("Dominar")}</> : <><CheckCircle2 size={14} /> {t("Estudado")}</>}
+              </button>
+            )}
+            {nextTopicTitle && onOpenNextTopic && (
+              <button
+                type="button"
+                onClick={onOpenNextTopic}
+                disabled={generating || generatingAdditionalFlashcards || generatingQuestions}
+                title={nextTopicTitle}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 border-slate-200 px-4 py-2 text-sm font-black text-slate-600 hover:border-primary hover:bg-sky-50 hover:text-primary disabled:opacity-50 sm:w-auto"
+              >
+                {t("Próximo tópico")}
+                {nextTopicNumber && ` · ${nextTopicNumber}`}
+                <ChevronRight size={16} />
               </button>
             )}
           </div>
