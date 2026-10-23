@@ -221,6 +221,7 @@ export const CODING_EN: Record<string, string> = {
 
   // Reading / deepening
   'Continuar estudo': 'Continue studying',
+  'Próximo tópico': 'Next topic',
   'Recomeçar do início': 'Start over from the beginning',
   'Etapas favoritas': 'Favorite steps',
   'Favoritar esta etapa': 'Add this step to favorites',

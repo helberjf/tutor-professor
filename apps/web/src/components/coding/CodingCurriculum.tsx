@@ -1023,9 +1023,16 @@ export function CodingCurriculum({
   // ── Topic detail view ────────────────────────────────────────────────────
   if (view.type === 'topic' || view.type === 'questionsTopic') {
     const { subject, topic } = view;
+    const nextTopic = topics[topics.findIndex((item) => item.id === topic.id) + 1] ?? null;
     return (
       <TopicView
+        // A new topic must start with fresh state, not the previous lesson's.
+        key={topic.id}
         topic={topic}
+        nextTopicTitle={nextTopic?.title ?? null}
+        onOpenNextTopic={() => {
+          if (nextTopic) setView({ type: view.type, subject, topic: nextTopic });
+        }}
         subjectName={subject.name}
         initialQuestionPracticeOpen={view.type === 'questionsTopic'}
         onBack={() => setView({ type: 'topics', subject })}
