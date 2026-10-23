@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStudyContentScroll } from '@/hooks/use-study-content-scroll';
-import { ArrowLeft, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
-import { type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicSummary } from '@/lib/api';
+import { ArrowLeft, BookOpen, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Copy, FileText, Loader2, Plus, RotateCcw, Sparkles, Star, Trash2, Upload, Volume2, X } from 'lucide-react';
+import { type AIQuizQuestion, type ProgrammingFlashcard, type ProgrammingQuestion, type ProgrammingQuestionAttemptResult, type ProgrammingTopic, type TopicReadingProgress, type TopicSummary } from '@/lib/api';
 import { speakWithBrowserVoice, stopBrowserSpeech } from '@/lib/browser-speech';
 import { PracticeQuestionsModal } from '@/components/questions/PracticeQuestionsModal';
 import { DeepeningMarkdown } from './DeepeningMarkdown';
@@ -19,6 +19,8 @@ interface Props {
   initialQuestionPracticeOpen?: boolean;
   onBack: () => void;
   onTopicUpdated: (topic: ProgrammingTopic) => void;
+  /** Keeps the caller's copy of the topic current without a full reload. */
+  onReadingProgressChange?: (topicId: number, progress: TopicReadingProgress) => void;
 }
 
 type QuizState = { answered: boolean; selected: string; correct: boolean }[];
@@ -35,6 +37,43 @@ type ReadingStudyStep =
 const READING_FONT_STEPS = [14, 16, 18, 21, 24] as const;
 const DEFAULT_READING_FONT_INDEX = 1;
 const READING_FONT_STORAGE_KEY = 'english-kids-tutor.reading-font-index';
+// Turning pages quickly should cost one request, not one per click.
+const READING_PROGRESS_SAVE_DELAY_MS = 800;
+
+function normalizeReadingProgress(progress: TopicReadingProgress | null | undefined, total: number): TopicReadingProgress {
+  const stepIndex = progress?.step_index ?? 0;
+  return {
+    // Content can be shorter than when the position was saved; start over then.
+    step_index: Number.isInteger(stepIndex) && stepIndex > 0 && stepIndex < total ? stepIndex : 0,
+    favorites: [...new Set(progress?.favorites ?? [])]
+      .filter((index) => Number.isInteger(index) && index >= 0 && index < total)
+      .sort((a, b) => a - b),
+  };
+}
+
+function readingStepLabel(step: ReadingStudyStep): string {
+  return step.type === 'section'
+    ? `${t("Parte")} ${step.sectionIndex + 1}: ${step.section.title}`
+    : `${t("Questão")} ${step.quizIndex + 1}: ${step.question.question}`;
+}
+
+// Plain text, so it pastes cleanly into notes; code keeps a Markdown fence.
+function buildCopyableReadingText(step: ReadingStudyStep, language: string): string {
+  if (step.type === 'section') {
+    const parts = [step.section.title, step.section.body];
+    if (step.section.code_example) {
+      parts.push(`\`\`\`${language.toLowerCase()}\n${step.section.code_example}\n\`\`\``);
+    }
+    return parts.join('\n\n');
+  }
+
+  return [
+    step.question.question,
+    step.question.options.map((option) => `- ${option}`).join('\n'),
+    `${t("Resposta correta")}: ${step.question.correct_option}`,
+    step.question.explanation,
+  ].join('\n\n');
+}
 
 function readStoredReadingFontIndex(): number {
   if (typeof window === 'undefined') return DEFAULT_READING_FONT_INDEX;
@@ -150,7 +189,7 @@ function parseFlashcardImport(raw: string): FlashcardDraft[] {
   return drafts;
 }
 
-export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated }: Props) {
+export function TopicView({ topic: initialTopic, subjectName, initialQuestionPracticeOpen = false, onBack, onTopicUpdated, onReadingProgressChange }: Props) {
   const curriculum = useCurriculumApi();
   const general = useCurriculumTrack() === 'general';
   const [topic, setTopic] = useState(initialTopic);
@@ -188,6 +227,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
   const [additionalFlashcardSuccess, setAdditionalFlashcardSuccess] = useState('');
   const [showReadingStudy, setShowReadingStudy] = useState(false);
   const [readingStepIndex, setReadingStepIndex] = useState(0);
+  // Kept apart from `topic`: a status or notes response must not roll back a
+  // page turn that is still waiting to be saved.
+  const [readingProgress, setReadingProgress] = useState<TopicReadingProgress>({ step_index: 0, favorites: [] });
+  const pendingReadingProgress = useRef<{ topicId: number; progress: TopicReadingProgress } | null>(null);
+  const readingProgressTimer = useRef<number | null>(null);
   const [questionPracticeOpen, setQuestionPracticeOpen] = useState(initialQuestionPracticeOpen);
   const [showQuestionGenerationForm, setShowQuestionGenerationForm] = useState(false);
   const [questionGenerationContext, setQuestionGenerationContext] = useState('');
@@ -267,6 +311,42 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     ];
   }, [topic.ai_content]);
 
+  const flushReadingProgress = useCallback(() => {
+    if (readingProgressTimer.current !== null) {
+      window.clearTimeout(readingProgressTimer.current);
+      readingProgressTimer.current = null;
+    }
+    const pending = pendingReadingProgress.current;
+    if (!pending) return;
+    pendingReadingProgress.current = null;
+    // Losing a bookmark is never worth interrupting the lesson for.
+    void curriculum.updateCodingTopic(pending.topicId, { reading_progress: pending.progress }).catch(() => undefined);
+  }, [curriculum]);
+
+  const saveReadingProgress = useCallback((progress: TopicReadingProgress, immediately = false) => {
+    setReadingProgress(progress);
+    onReadingProgressChange?.(topic.id, progress);
+    pendingReadingProgress.current = { topicId: topic.id, progress };
+    if (readingProgressTimer.current !== null) window.clearTimeout(readingProgressTimer.current);
+    if (immediately) flushReadingProgress();
+    else readingProgressTimer.current = window.setTimeout(flushReadingProgress, READING_PROGRESS_SAVE_DELAY_MS);
+  }, [flushReadingProgress, onReadingProgressChange, topic.id]);
+
+  // Leaving the topic mid-lesson still saves the page being read.
+  useEffect(() => flushReadingProgress, [flushReadingProgress]);
+
+  function handleReadingStepChange(index: number) {
+    setReadingStepIndex(index);
+    saveReadingProgress({ ...readingProgress, step_index: index });
+  }
+
+  function toggleReadingFavorite(index: number) {
+    const favorites = readingProgress.favorites.includes(index)
+      ? readingProgress.favorites.filter((item) => item !== index)
+      : [...readingProgress.favorites, index].sort((a, b) => a - b);
+    saveReadingProgress({ ...readingProgress, favorites }, true);
+  }
+
   const loadTopicFlashcards = useCallback(async (topicId: number): Promise<boolean> => {
     const requestId = ++flashcardLoadRequestId.current;
     setLoadingFc(true);
@@ -337,12 +417,16 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
 
   useEffect(() => {
     setReadingStepIndex(0);
+    setReadingProgress(normalizeReadingProgress(topic.reading_progress, readingStudySteps.length));
     setShowReadingStudy(false);
     setQuestionPracticeOpen(initialQuestionPracticeOpen);
     setShowQuestionGenerationForm(false);
     setQuestionGenerationContext('');
     setQuestionGenerationError('');
     setQuestionGenerationSuccess('');
+    // The saved position is read once per topic; later responses carrying it
+    // must not overwrite page turns made since.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuestionPracticeOpen, topic.id]);
 
   async function handleGenerate(context?: string) {
@@ -360,6 +444,9 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
         : await curriculum.generateCodingTopicContent(topic.id);
       setTopic(updated);
       onTopicUpdated(updated);
+      // New content has new steps; the server already dropped the old bookmark.
+      pendingReadingProgress.current = null;
+      setReadingProgress({ step_index: 0, favorites: [] });
       await loadTopicFlashcards(topic.id);
       setShowRegenerateContext(false);
       setRegenerateContext('');
@@ -539,14 +626,21 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     );
   }
 
-  function handleStartReadingStudy() {
+  function handleStartReadingStudy(index = savedReadingStepIndex) {
     if (!topic.ai_content || readingStudySteps.length === 0) return;
-    setReadingStepIndex(0);
+    handleReadingStepChange(Math.min(Math.max(index, 0), readingStudySteps.length - 1));
     setShowReadingStudy(true);
+  }
+
+  function handleCloseReadingStudy() {
+    setShowReadingStudy(false);
+    flushReadingProgress();
   }
 
   function handleFinishReadingStudy() {
     setShowReadingStudy(false);
+    // A finished lesson starts from the top next time; stars stay.
+    saveReadingProgress({ ...readingProgress, step_index: 0 }, true);
     if (topic.status === 'not_started') {
       void handleSetStatus('studied');
     }
@@ -561,6 +655,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
     }
     setQuestionPracticeOpen(true);
   }
+
+  const savedReadingStepIndex = readingProgress.step_index < readingStudySteps.length ? readingProgress.step_index : 0;
+  const favoriteReadingSteps = readingProgress.favorites
+    .filter((index) => index < readingStudySteps.length)
+    .map((index) => ({ index, step: readingStudySteps[index] }));
 
   const statusLabel =
     topic.status === 'mastered' ? t("⭐ Dominado") : topic.status === 'studied' ? t("✅ Estudado") : t("🔘 Não iniciado");
@@ -593,11 +692,23 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             {topic.ai_content && readingStudySteps.length > 0 && (
               <button
                 type="button"
-                onClick={handleStartReadingStudy}
+                onClick={() => handleStartReadingStudy()}
                 className="study-primary-action study-primary-action-prominent flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-dark text-white hover:bg-sky-800 sm:w-auto"
               >
                 <BookOpen size={16} />
-                {t("Iniciar estudo")}
+                {savedReadingStepIndex > 0
+                  ? `${t("Continuar estudo")} · ${savedReadingStepIndex + 1} de ${readingStudySteps.length}`
+                  : t("Iniciar estudo")}
+              </button>
+            )}
+            {topic.ai_content && savedReadingStepIndex > 0 && (
+              <button
+                type="button"
+                onClick={() => handleStartReadingStudy(0)}
+                className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 hover:text-primary"
+              >
+                <RotateCcw size={14} />
+                {t("Recomeçar do início")}
               </button>
             )}
             <button
@@ -649,6 +760,30 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
             )}
           </div>
         </div>
+
+        {favoriteReadingSteps.length > 0 && (
+          <div className="mt-5 border-t border-slate-200 pt-4">
+            <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-600">
+              <Star size={13} fill="currentColor" />
+              {t("Etapas favoritas")}
+            </p>
+            <ul className="mt-2 flex flex-col gap-1.5">
+              {favoriteReadingSteps.map(({ index, step }) => (
+                <li key={index}>
+                  <button
+                    type="button"
+                    onClick={() => handleStartReadingStudy(index)}
+                    className="flex min-h-11 w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-left text-sm font-bold text-slate-700 hover:border-amber-300 hover:bg-amber-100"
+                  >
+                    <span className="shrink-0 text-xs font-black text-amber-600">{index + 1}/{readingStudySteps.length}</span>
+                    <span className="min-w-0 flex-1 truncate">{readingStepLabel(step)}</span>
+                    <ChevronRight size={16} className="shrink-0 text-amber-500" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {topic.ai_content && showRegenerateContext && (
@@ -1075,9 +1210,11 @@ export function TopicView({ topic: initialTopic, subjectName, initialQuestionPra
           steps={readingStudySteps}
           currentIndex={readingStepIndex}
           quizState={quizState}
-          onStepChange={setReadingStepIndex}
+          favorites={readingProgress.favorites}
+          onStepChange={handleReadingStepChange}
+          onToggleFavorite={toggleReadingFavorite}
           onQuizAnswer={handleQuizAnswer}
-          onClose={() => setShowReadingStudy(false)}
+          onClose={handleCloseReadingStudy}
           onFinish={handleFinishReadingStudy}
         />
       )}
@@ -1117,7 +1254,9 @@ function ReadingStudyModal({
   steps,
   currentIndex,
   quizState,
+  favorites,
   onStepChange,
+  onToggleFavorite,
   onQuizAnswer,
   onClose,
   onFinish,
@@ -1128,7 +1267,9 @@ function ReadingStudyModal({
   steps: ReadingStudyStep[];
   currentIndex: number;
   quizState: QuizState;
+  favorites: number[];
   onStepChange: (index: number) => void;
+  onToggleFavorite: (index: number) => void;
   onQuizAnswer: (qIdx: number, option: string, question: AIQuizQuestion) => void;
   onClose: () => void;
   onFinish: () => void;
@@ -1142,6 +1283,7 @@ function ReadingStudyModal({
   const [deepeningError, setDeepeningError] = useState('');
   const [deepeningLoading, setDeepeningLoading] = useState(false);
   const [deepeningCopied, setDeepeningCopied] = useState(false);
+  const [stepCopy, setStepCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   // Starts at the default and syncs from storage after mount: reading localStorage
   // during render would make the server and client markup disagree.
   const [fontIndex, setFontIndex] = useState(DEFAULT_READING_FONT_INDEX);
@@ -1161,7 +1303,14 @@ function ReadingStudyModal({
     setDeepeningAnswer('');
     setDeepeningError('');
     setDeepeningCopied(false);
+    setStepCopy('idle');
   }, [safeIndex]);
+
+  useEffect(() => {
+    if (stepCopy === 'idle') return;
+    const timer = window.setTimeout(() => setStepCopy('idle'), 2500);
+    return () => window.clearTimeout(timer);
+  }, [stepCopy]);
 
   useEffect(() => {
     if (!deepeningCopied) return;
@@ -1231,6 +1380,18 @@ function ReadingStudyModal({
     await navigator.clipboard.writeText(deepeningAnswer);
     setDeepeningCopied(true);
   }
+
+  async function handleCopyCurrentStep() {
+    if (!step) return;
+    try {
+      await navigator.clipboard.writeText(buildCopyableReadingText(step, subjectName));
+      setStepCopy('copied');
+    } catch {
+      setStepCopy('failed');
+    }
+  }
+
+  const isFavorite = favorites.includes(safeIndex);
 
   function goPrevious() {
     if (!isFirst) onStepChange(safeIndex - 1);
@@ -1322,15 +1483,51 @@ function ReadingStudyModal({
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t("Fechar estudo")}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl lg:h-10 lg:w-10"
-            >
-              <X size={18} />
-            </button>
+            {/* Star and copy sit beside close so the mobile controls row keeps
+                its labelled buttons on one line. */}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => onToggleFavorite(safeIndex)}
+                aria-pressed={isFavorite}
+                aria-label={isFavorite ? t("Remover dos favoritos") : t("Favoritar esta etapa")}
+                title={isFavorite ? t("Remover dos favoritos") : t("Favoritar esta etapa")}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition sm:h-11 sm:w-11 sm:rounded-2xl lg:h-10 lg:w-10 ${
+                  isFavorite
+                    ? 'border-amber-300 bg-amber-50 text-amber-500 hover:bg-amber-100'
+                    : 'border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-amber-500'
+                }`}
+              >
+                <Star size={17} fill={isFavorite ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCopyCurrentStep()}
+                aria-label={stepCopy === 'copied' ? t("Texto copiado") : t("Copiar texto desta etapa")}
+                title={stepCopy === 'copied' ? t("Texto copiado") : t("Copiar texto desta etapa")}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition sm:h-11 sm:w-11 sm:rounded-2xl lg:h-10 lg:w-10 ${
+                  stepCopy === 'copied'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-600'
+                    : 'border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-primary'
+                }`}
+              >
+                {stepCopy === 'copied' ? <Check size={17} /> : <Copy size={17} />}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t("Fechar estudo")}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 sm:h-11 sm:w-11 sm:rounded-2xl lg:h-10 lg:w-10"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
+          {stepCopy === 'failed' && (
+            <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 lg:mt-2">
+              {t("Não consegui copiar automaticamente; selecione o texto e copie.")}
+            </p>
+          )}
           {speechError && (
             <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 lg:mt-2">{speechError}</p>
           )}

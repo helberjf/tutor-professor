@@ -513,6 +513,12 @@ def _validate_table_shape(
         raise _schema_error(table_name, "has different check constraints")
 
 
+_LATER_OPTIONAL_COLUMNS = {
+    "objective": {"study_scope", "study_analysis", "analysis_workflow"},
+    "programmingtopic": {"reading_progress"},
+}
+
+
 def _validate_known_shape(
     bind: Engine | Connection, expected_tables: dict[str, TableShape]
 ) -> None:
@@ -527,14 +533,14 @@ def _validate_known_shape(
     for table_name in sorted(expected_tables):
         expected = expected_tables[table_name]
         actual = _actual_table_shape(bind, table_name)
-        if table_name == "objective":
-            # These optional fields arrived in 0040/0041. Recognize the exact
-            # previous create_all shape (including a partially applied add),
-            # while retaining every other strict type/constraint check.
-            absent_analysis_columns = {"study_scope", "study_analysis", "analysis_workflow"} - set(actual.columns)
-            if absent_analysis_columns:
-                expected = replace(expected, columns={name: shape for name, shape in expected.columns.items()
-                                                       if name not in absent_analysis_columns})
+        # These optional fields arrived after the baseline (objective in
+        # 0040/0041, programmingtopic in 0043). Recognize the exact previous
+        # create_all shape (including a partially applied add), while
+        # retaining every other strict type/constraint check.
+        absent_optional_columns = _LATER_OPTIONAL_COLUMNS.get(table_name, set()) - set(actual.columns)
+        if absent_optional_columns:
+            expected = replace(expected, columns={name: shape for name, shape in expected.columns.items()
+                                                   if name not in absent_optional_columns})
         _validate_table_shape(
             table_name,
             expected,

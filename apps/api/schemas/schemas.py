@@ -826,6 +826,11 @@ class UpdateProgrammingSubjectSchema(BaseModel):
     relevance: Optional[int] = Field(default=None, ge=1, le=5)
 
 
+class TopicReadingProgressSchema(BaseModel):
+    step_index: int = Field(default=0, ge=0, le=500)
+    favorites: list[int] = Field(default_factory=list, max_length=500)
+
+
 class ProgrammingTopicSchema(FromAttributesModel):
     id: int
     subject_id: int
@@ -838,6 +843,7 @@ class ProgrammingTopicSchema(FromAttributesModel):
     updated_at: datetime
     flashcard_count: int = 0
     has_summary: bool = False
+    reading_progress: Optional[TopicReadingProgressSchema] = None
 
 
 class CreateProgrammingTopicSchema(BaseModel):
@@ -860,6 +866,7 @@ class UpdateProgrammingTopicSchema(BaseModel):
     status: Optional[Literal["not_started", "studied", "mastered"]] = None
     notes: Optional[str] = Field(default=None, max_length=5000)
     ai_content: Optional[Dict[str, Any]] = None
+    reading_progress: Optional[TopicReadingProgressSchema] = None
 
 
 class GenerateProgrammingTopicContentSchema(BaseModel):

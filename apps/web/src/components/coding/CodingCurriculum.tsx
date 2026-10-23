@@ -1033,6 +1033,10 @@ export function CodingCurriculum({
           setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
           loadSubjects();
         }}
+        onReadingProgressChange={(topicId, progress) => {
+          // Only the bookmark changed, so the subject list needs no reload.
+          setTopics((prev) => prev.map((t) => (t.id === topicId ? { ...t, reading_progress: progress } : t)));
+        }}
       />
     );
   }
