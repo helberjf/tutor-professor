@@ -11,6 +11,7 @@ import { SummarySheetModal } from './SummarySheetModal';
 import { SyntaxCodeBlock } from './SyntaxCodeBlock';
 import { appendGeneratedFlashcards, syncTopicFlashcardCount } from './topic-flashcard-state';
 import { t } from '@/lib/i18n';
+import { PomodoroCorner } from '@/components/pomodoro-corner';
 import { useCurriculumApi, useCurriculumTrack } from './curriculum-context';
 
 interface Props {
@@ -1427,7 +1428,8 @@ function ReadingStudyModal({
       aria-labelledby="reading-study-title"
       className="fixed inset-0 z-[60] flex min-h-[100dvh] items-stretch justify-center bg-slate-950/80 sm:items-center sm:p-3 lg:p-4"
     >
-      <div className="flex h-[100dvh] min-h-0 w-full flex-col dialog-sheet text-slate-900 shadow-2xl sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
+      <div className="relative flex h-[100dvh] min-h-0 w-full flex-col dialog-sheet text-slate-900 shadow-2xl sm:h-[calc(100dvh-1.5rem)] sm:rounded-3xl lg:h-[calc(100dvh-2rem)]">
+        <PomodoroCorner embedded />
         {/* Phones stack title, controls and progress; on a computer the title,
             the step count and the controls share one row so the lesson keeps
             the height. */}
