@@ -25,12 +25,16 @@ function readCorner(): CornerState | null {
 }
 
 /** Contagem minúscula e quase invisível no canto superior direito enquanto o pomodoro roda. */
-export function PomodoroCorner() {
+export function PomodoroCorner({ embedded = false }: { embedded?: boolean }) {
   const [corner, setCorner] = useState<CornerState | null>(null);
 
   useEffect(() => {
     const tick = () => {
-      const next = readCorner();
+      // A leitura mostra o seu próprio contador dentro do cartão; o global some.
+      const next =
+        !embedded && document.querySelector('[aria-labelledby="reading-study-title"]')
+          ? null
+          : readCorner();
       setCorner((prev) =>
         prev?.seconds === next?.seconds && prev?.mode === next?.mode ? prev : next,
       );
@@ -38,14 +42,14 @@ export function PomodoroCorner() {
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [embedded]);
 
   if (!corner) return null;
 
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed right-1.5 top-px z-[9999] select-none font-mono text-[9px] leading-none tabular-nums text-slate-500/60 [text-shadow:0_0_2px_rgba(15,23,42,0.35)] dark:text-slate-300/50"
+      className={`pointer-events-none z-[9999] select-none font-mono text-[18px] leading-none ${embedded ? 'absolute right-2 top-0' : 'fixed right-1.5 top-px'} tabular-nums text-slate-500/60 [text-shadow:0_0_2px_rgba(15,23,42,0.35)] dark:text-slate-300/50`}
     >
       {corner.mode === 'break' ? '☕ ' : ''}
       {formatTimer(corner.seconds)}
