@@ -11,6 +11,7 @@ import { ThemeScript } from '@/components/theme-script';
 import { LocaleProvider } from '@/components/locale-provider';
 import { LocaleScript } from '@/components/locale-script';
 import { SkipLink } from '@/components/skip-link';
+import { PomodoroCorner } from '@/components/pomodoro-corner';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://tutorprofessor.vercel.app'),
@@ -122,6 +123,7 @@ export default function RootLayout({
               </AuthGate>
             </Suspense>
             <BottomNav />
+            <PomodoroCorner />
           </ThemeProvider>
         </LocaleProvider>
       </body>
