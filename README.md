@@ -1,455 +1,237 @@
 # Tutor and Professor
 
-Tutor and Professor is a full-stack personal tutoring app for anyone who wants to study — a language, a school subject, or programming. It combines short lessons, quizzes, spaced repetition, AI-generated practice, text-to-speech, account controls, and study tools. Content is written for the age band on the profile, from a six-year-old to an adult, which is also what keeps the extra content rules in place when the learner is a minor.
+A full-stack study platform built with **Next.js, TypeScript, FastAPI and PostgreSQL**. It brings lessons, practice questions, spaced repetition and study planning into one account, with persisted sessions that let learners resume where they stopped.
 
-The project was built as a practical engineering exercise: a real product surface, a typed frontend, a Python API, persistent data, AI integration, runtime backend routing, auth, tests, and deployment constraints.
+AI generation extends the learning material; curated lessons and deterministic practice provide a path that does not require an AI provider call.
 
-## Live Demo
+**Explore:** [Live application](https://tutorprofessor.vercel.app) · [Architecture](#architecture) · [Run locally](#run-locally) · [Engineering tradeoffs](#engineering-tradeoffs) · [Tests](#tests-and-verification) · [Code tour](#code-tour)
 
-- Frontend: https://tutorprofessor.vercel.app
-- Backend model: the Next.js frontend and the FastAPI API both run on Vercel; the database is PostgreSQL on Supabase. Only the Kokoro voice service may still run on a local machine behind a tunnel, and the app falls back to browser speech when it is off. See `docs/deploy-vercel-supabase.md`.
+## At a glance
 
-## What This Project Demonstrates
-
-- Full-stack product thinking: learner-facing lessons plus account and admin workflows.
-- Typed React/Next.js frontend with reusable API client and runtime connection handling.
-- FastAPI backend with SQLModel models, Pydantic schemas, auth, and domain services.
-- AI workflows with validation, retry-safe behavior, and safeguards against malformed generated content.
-- Spaced repetition and review flows for vocabulary, lesson questions, coding flashcards, and study topics.
-- Local-first deployment using Vercel plus Cloudflare Tunnel, including recovery from stale tunnel URLs.
-- Automated tests for backend services, AI output validation, UI state helpers, and deployment edge cases.
-
-## Core Features
-
-### Studying
-
-- **One study queue.** "Iniciar estudos" builds a session — today's lesson first,
-  then what review is due, then the questions still owed — and drops straight
-  into the first card. The queue is stored, so **"Continuar de onde parou"** on
-  the home screen resumes the exact card you stopped at, after a reload, a
-  closed app, or a day later. `GET /api/study/session` only reads: opening the
-  app never starts a session by itself.
-- **Nothing already mastered comes back.** A question answered right twice, with
-  the last answer also right, retires. The same rule runs on both sides
-  (`services/study_queue_service.py` and `lib/question-queue.ts`), and "Refazer
-  todas" is there for whoever wants the whole topic again.
-- **A guided first run.** `/onboarding` asks who is studying and which language,
-  then places the student with a five-question test instead of starting everyone
-  at level 1. The test needs no content and no AI, so it works in the account's
-  first minute.
-- **Objectives you can measure.** `/objectives` holds what the learner is working
-  towards, and under each one the list of what has to be studied to get there.
-  Checking an item moves a percentage of reach that is computed from that list
-  and nothing else — items carry a weight, so "ler um capítulo" and "terminar o
-  curso" do not count the same. Reaching 100% is logged as a milestone in the
-  daily feed, and unchecking an item takes the badge back, because the number
-  always describes the current list.
-- **A plan for the objective, not just a list.** "Criar plano" drafts a strategy
-  for one goal: the biggest bottleneck, the priorities in order, what not to do
-  yet and the shortest path. The learner writes "sobre você" and may include a
-  summary of their recorded study, shown word for word before anything reaches
-  the AI. Nothing is stored until the draft is reviewed, and each accepted
-  priority becomes an ordinary objective, so the plan's percentage and its
-  "próximo passo" come from the same checklists. "Revisar plano" sends the
-  current progress back to the AI; a revision can reorder, add and archive, but
-  never removes finished work. Without an AI key, ready-made models
-  (`apps/api/content/plan-templates/`) give the same flow for free.
-- **Objectives linked to what you study.** Choose a discipline and one or more
-  curriculum topics or study-log subjects. "Analisar objetivo" compares the
-  objective with the selected study history, answers and reviews, then keeps an
-  AI estimate of what remains, knowledge gaps and an ordered action plan with
-  completion criteria. Choosing a subject selects its topics automatically;
-  bulk selection also works with search results, up to 60 linked topics.
-  The goal form links recorded studies without asking for manual task items;
-  objectives without a checklist show their AI study assessment directly.
-  Relevant history is read in full, including old records and long text, using
-  bounded batches and summary consolidation over resumable requests. Each
-  request makes at most one provider call with a 45-second timeout; a durable
-  snapshot retains validated checkpoints across connection failures and retries.
-  An expiring claim prevents overlapping steps, and the previous diagnosis is
-  preserved until every batch and the final assessment succeed. One job reserves
-  one platform credit and records usage once, so the last available credit can
-  finish its whole history. An
-  empty history shows insufficient evidence rather than an invented percentage.
-  The estimate stays separate from checklist progress; editing the goal or its
-  study links marks the previous analysis as outdated. Optional analysis after
-  creation saves the objective first, so a provider failure keeps it available
-  for another attempt.
-- **The day closes by studying.** Finishing a session (or any logged activity)
-  marks the day as studied; writing a note about it stays optional.
-- **The audience is whoever is studying.** The profile carries an age band
-  (4-6 through 18+) and every generator reads it from `services/audience.py`, so
-  an adult gets adult examples and a child still gets the content rules a child
-  needs. Nothing in the product assumes one or the other.
-- Daily lessons with target-language vocabulary, examples, and mini activities.
-- Quizzes with scoring and friendly feedback.
-- Mixed review sessions combining vocabulary and lesson-generated questions.
-- Audio playback through a local TTS provider with browser speech fallback.
-- Progress tracking, streaks, level analysis, and daily activity logs.
-
-### Content That Works Without AI
-
-- A curated English pack of **30 lessons × 8 phrases** (levels 1–4, A1 to A2),
-  each phrase with a translation, an example sentence, and a word-by-word
-  breakdown. The source of truth is `scripts/english_core_pack_data.py`; run
-  `python scripts/build_english_core_pack.py` to regenerate the seed files and
-  `python scripts/init_db.py` to load them.
-- Review questions and four-option practice questions are **derived from the
-  lesson itself** (`services/offline_question_service.py`) — deterministic, free,
-  and immediate. `POST /api/study/questions/ensure` fills an empty topic, and the
-  questions panel calls it before it would show an empty state.
-- `POST /api/study/questions/prefetch` tops a topic up **after** the response has
-  already been sent: free questions first, and a provider call only when a key
-  and credit are actually there. Nobody waits on a spinner for a question.
-
-### Account Area
-
-- Account registration and login. `SIGNUP_MODE=manual` (the default) holds a new account in the administrator's queue; `SIGNUP_MODE=open` lets a verified e-mail address in on its own.
-- E-mail verification, forgotten-password reset, password change and sign-out-everywhere, all self-service. Both e-mail flows answer identically for an address that exists and one that does not, so they cannot be used to find out who has an account.
-- Optional modules per account: the programming curriculum, flashcard decks and LeetCode trainer ship switched off and are turned on in the account area. The gate is one middleware over route families rather than a check repeated in thirty endpoints.
-- Data rights without asking anybody: `GET /api/account/export` downloads everything stored about the account, `POST /api/account/delete` erases it.
-- Password policy enforced on both sides: the signup form shows a live strength meter and requirement checklist, and `services/password_policy.py` applies the same rules on the API, so a direct HTTP call cannot skip them.
-- Login has a brute-force brake: after `MAX_FAILED_LOGINS` wrong passwords the account is locked for `LOGIN_LOCK_MINUTES` and answers 429 with `Retry-After`. The lock clears itself, and a successful login resets the counter.
-- Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP's current floor) and a per-password random salt. The hash records its own iteration count, and an older 260,000-iteration hash is upgraded in place on the next successful login.
-- Account dashboard for students, progress, settings, and AI provider configuration.
-- Student profile management, including target language, age band and audio preferences.
-- AI-powered lesson, question, book, and flashcard generation.
-
-### Admin Area
-
-- Admin dashboard at `/admin` with counters for the approval queue, approved accounts, recent signups, and AI authorizations.
-- Account approval at `/admin/accounts`: every signup waits in a queue and only reaches the app once approved. Rejecting an account drops its open sessions immediately, and a rejection can be reversed later.
-- AI access is a second, independent switch: approving an account grants no AI, and revoking AI leaves the account working. Both are set from the same queue card.
-- AI credits meter the administrator's own key at one credit per successful generation. A call the provider never answered is free, and an account using its own API key is never metered. Accounts can be topped up, zeroed, or marked unlimited.
-- Per-account AI authorization at `/admin/users`, plus the internal learning content editor at `/admin/learn`.
-
-### Plans and Billing
-
-- Plans live in `apps/api/services/billing_service.py` rather than in a table: a price changes through a reviewable deploy, not a row edited in production. An account with no subscription row is on the free plan, so signup creates nothing and the app runs with billing switched off.
-- One `Entitlement` decides everything: how many students a plan allows, and how much AI it includes. The AI allowance is credited into the balance the administrator already controlled, so there is one meter instead of two competing ones, and hand-granted credits are never taken away.
-- A 14-day trial needs no payment gateway at all. Paying does, and says so plainly rather than pretending to have taken the money.
-- `past_due` keeps working: a card that failed this morning should not take a student's lesson away before the gateway has finished retrying.
-- `POST /api/billing/webhook` verifies an HMAC signature over the raw body and ignores repeated deliveries by event id — the retry every gateway sends must not extend a period twice.
-- Every generation writes a usage line with an estimated cost in millionths of a currency unit, so "what did this account cost this month" has an answer. See `docs/saas-operacao.md`.
-
-### Installable App (PWA)
-
-- Installable on phone, tablet and desktop: web app manifest, maskable icons, and an `apple-touch-icon` so iPhone and iPad get the real icon instead of a page thumbnail.
-- Opens without browser chrome (`display: standalone`), with both the standardised and the legacy `apple-mobile-web-app-capable` meta so iOS before 17 also goes full screen.
-- A small service worker caches the app shell and immutable `/_next/static/` assets, and shows `public/offline.html` when a navigation fails with no network. It never touches the backend or any `/api/` route, so the runtime backend URL is always read fresh.
-- Icons are generated from the app's own brand mark: `python scripts/generate-pwa-icons.py`.
-
-**Installing it**
-
-- iPhone / iPad: open the site in Safari (it must be Safari), tap Share, then "Adicionar a Tela de Início".
-- Android / Chrome: the browser offers "Instalar app", or use the menu's "Adicionar à tela inicial".
-- Desktop Chrome / Edge: the install icon appears at the right of the address bar.
-
-Installation needs HTTPS, which the Vercel deployment already provides.
-
-### Study Modes
-
-- Objectives with a weighted study checklist and a percentage of reach, summarised on the dashboard.
-- Study plans that turn a goal into ordered objectives, drafted by AI or from ready-made models.
-- General study dashboard with planning, notes, distractions, and pomodoro count.
-- Diverse subject study mode for custom topics and AI-generated questions.
-- Programming curriculum with subjects, topics, generated explanations, quizzes, and flashcards.
-- Coding review and deck-style flashcard study with scheduling state.
-- LeetCode-style method trainer.
-
-## Tech Stack
-
-| Layer | Technology |
+| Area | What the project demonstrates |
 | --- | --- |
-| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
-| Backend | FastAPI, SQLModel, Pydantic, SQLAlchemy |
-| Database | PostgreSQL: Supabase in production, local on port 5433 for development |
-| Migrations | Alembic through `database_bootstrap.py`, which also keeps Supabase's public Data API locked out of the tables |
-| AI | Configurable provider layer, Gemini as the default path |
-| TTS | Kokoro-compatible service plus browser fallback; audio cached in a private Supabase Storage bucket |
-| Deployment | Vercel for web and API (`pdx1`, next to the database), Docker/VPS path kept in `docs/DEPLOY-VPS.md` |
-| Tests | Playwright E2E (TypeScript), Python unittest-style scripts, Node assertion scripts, TypeScript check |
+| Learning workflow | Lessons, review scheduling, quizzes, programming topics and a persisted study queue |
+| Full-stack development | Typed React UI, Python API, relational models, migrations and reusable domain services |
+| Account boundaries | Registration, approval, account/student ownership checks, admin controls and session revocation |
+| AI integration | Configurable providers, validated generated content, credits and generation coordination |
+| Product behavior | Progress, objectives, study plans, audio, installable PWA and recovery states |
+| Verification | Python/Node checks and isolated Playwright flows against a local frontend and API |
+
+The application includes SaaS foundations such as plans, entitlements, trials and usage records. **Paid checkout is not integrated with a payment gateway yet.**
+
+## A short product walkthrough
+
+1. Sign in and choose a learner profile. New accounts require administrator approval under the default `SIGNUP_MODE=manual` configuration.
+2. Start a study session: the queue combines the day's lesson, due review and pending questions.
+3. Answer a few cards, leave the page and return. The saved session supports continuing from the previous position.
+4. Open objectives and study planning to connect daily work with a broader goal.
+5. Review the account area for modules, learner settings and AI configuration; administrators manage account approval and AI authorization separately.
+
+The deployed architecture documented by this repository uses Vercel for the web/API and Supabase PostgreSQL. The optional Kokoro voice service may depend on a local tunnel; browser speech provides a fallback. A local API is an alternative development mode, not a requirement of the hosted architecture.
 
 ## Architecture
 
-```text
-Browser (PWA)
-  |
-  | Next.js app on Vercel
-  v
-FastAPI API on Vercel (serverless, pdx1)
-  |
-  +-- PostgreSQL on Supabase (RLS on, Data API roles revoked)
-  +-- Supabase Storage (private audio cache, signed URLs)
-  +-- AI generation services (Gemini by default)
-  +-- Kokoro TTS, reached through a tunnel, with browser fallback
-  +-- Review and study scheduling services
+```mermaid
+flowchart TD
+    Browser[Browser / installed PWA] --> Web[Next.js + React + TypeScript]
+    Web --> API[FastAPI application]
+    API --> DB[(PostgreSQL / Supabase)]
+    API --> AI[Configurable AI providers]
+    API --> Audio[Private audio storage]
+    API --> TTS[Kokoro TTS]
+    Browser --> Speech[Browser speech fallback]
 ```
 
-### Key Design Decisions
+| Layer | Implementation |
+| --- | --- |
+| Web | Next.js 15, React 19, TypeScript and Tailwind CSS |
+| API | FastAPI, Pydantic, SQLModel and SQLAlchemy |
+| Data | PostgreSQL; local Compose uses port `5433`; Alembic migrations through `database_bootstrap.py` |
+| AI | Provider configuration and domain-specific generation/validation services |
+| Audio | Kokoro-compatible TTS, browser speech fallback and optional private Supabase Storage cache |
+| Deployment | Vercel web/API configuration, with Docker/VPS and local tunnel alternatives |
 
-- The browser only talks to our API. Supabase's public Data API is closed on every table (row level security with no policies plus revoked grants), so a leaked publishable key reads nothing.
-- Runtime backend state: the frontend can still discover a backend URL at runtime, which is what the local and tunnel setups use.
-- Safe connection fallback: read-only API calls can recover from stale saved backend URLs by refreshing the global runtime backend state.
-- Token plus cookie auth: cookies support same-site local flows, while bearer tokens support cross-domain mobile usage.
-- Validated AI writes: generated lessons, questions, topics, and flashcards are checked before being persisted so invalid or partial AI output does not corrupt study state.
-- Bootstrap before serving: the backend validates and upgrades legacy database schemas before accepting traffic.
+The browser calls the application API rather than querying Supabase tables directly. The bootstrap contains database access restrictions, while account authorization is enforced in API routes and helpers. Frontend route checks are not the security boundary.
 
-## Repository Layout
+### Learning and AI flows
 
-```text
-english-kids-tutor/
-  apps/
-    api/                  FastAPI backend
-      content/            Seed content, inside the deployable unit
-        lessons/          Seed lesson JSON
-        quizzes/          Seed quiz JSON
-        stories/          Story content
-        admin-learn/      Admin learning modules
-    web/                  Next.js frontend
-  docs/                   Architecture, setup, deployment notes
-  infra/cloudflare/       Cloudflare Tunnel config example
-  scripts/                Local automation and test scripts
-  docker-compose.yml      Optional containerized services
+- **Persisted study state:** lessons, review items and pending questions feed a queue; the API stores session progress so navigation and reloads do not need to rebuild the learner's position.
+- **Practice without generation:** the curated English pack and [offline question service](apps/api/services/offline_question_service.py) produce deterministic questions from lesson material. Here, "offline" means no AI call; it does not mean the full application works without a network connection.
+- **Validated generation:** services check generated structure and required content before persistence. For example, [flashcard validation](apps/api/services/ai_flashcard_service.py) rejects malformed batches and duplicate card fronts.
+- **Concurrent generation:** selected read/check/insert paths use transaction-scoped PostgreSQL advisory locks; SQLite paths use process-local fallbacks. The lock lifetime and the surrounding transaction matter.
+- **Account controls:** approval, enabled modules, AI authorization and credits are separate concepts. An approved account does not automatically receive unrestricted AI access.
+
+## Engineering tradeoffs
+
+These notes explain choices visible in the current code and their consequences. Linked comments and services record the rationale where available; possible replacements below are discussion points, not claims that comparative benchmarks were performed.
+
+| Choice | Benefit | Cost or boundary; when to revisit |
+| --- | --- | --- |
+| Next.js frontend + separate FastAPI backend in one repository | TypeScript UI and Python domain services can evolve together while retaining distinct deployment units. | Contracts, authentication and cross-origin configuration cross two runtimes. Shared schemas or generated clients could reduce drift as the API grows. |
+| Curated/deterministic practice alongside AI | Existing lessons remain useful without spending credits or depending on provider availability. [The service explains this decision](apps/api/services/offline_question_service.py). | Template-derived questions offer less variety; generated material still needs validation and editorial review. Use AI where the extra variation improves the learning task. |
+| Persisted sessions and review state | Learners can resume across reloads and devices; progress is a server-side product concept. | More state transitions and ownership checks must remain consistent. Session-resume and account-isolation tests are especially valuable here. |
+| PostgreSQL coordination for selected generation paths and rate limits | Shared state can coordinate multiple API instances without introducing another service. See [rate limiting](apps/api/services/rate_limit.py) and `_generation_lock` in [main.py](apps/api/main.py). | Locks and counter writes add database work. The limiter uses a weighted-window approximation and allows a request if its database check fails; SQLite fallbacks are process-local. These behaviors need consideration when scaling or tightening abuse controls. |
+| Serverless API with migrations kept outside request startup | Avoiding schema work on Vercel startup reduces cold-start work and keeps DDL out of ordinary requests. | Deployment must apply migrations in advance, and long AI operations must respect function duration limits. A worker/job service is a possible next step for work that must outlive a request. |
+| Plans defined in code, with entitlements separated from checkout | Plan changes are versioned and reviewable; the free product works without a gateway. This rationale is documented in [billing_service.py](apps/api/services/billing_service.py). | Price/limit changes require deployment. The checkout provider integration and its reconciliation flows remain future work. |
+| Small PWA cache that bypasses API routes | Static assets and an offline page improve installation/recovery without caching account data or stale backend-discovery responses. | Study actions still need the API; this is not a fully offline learning client. See [the service worker](apps/web/public/sw.js). |
+
+## Run locally
+
+**Tooling:** Python 3.11+, Node.js 22.18+, pnpm 10 and Docker with Compose. The Node/pnpm versions match the documented E2E environment. Use a local development database.
+
+```bash
+git clone https://github.com/helberjf/tutor-professor.git
+cd tutor-professor
 ```
 
-## Running Locally
-
-### Fast Path on Windows
-
-From the repository root:
+### Windows launcher
 
 ```powershell
 .\start-project.cmd
 ```
 
-To start backend, frontend, and Cloudflare Tunnel together:
+The launcher prepares example environment files when missing, checks dependencies, starts the local PostgreSQL service and launches the API/web processes. Review [the launcher](scripts/start-project.ps1) and configure `apps/api/.env` for your local account before using admin or external-provider features.
 
-```powershell
-.\start-project.cmd -WithTunnel
+### Manual setup
+
+The commands below use a POSIX shell. On Windows, activate the virtual environment with `.venv\Scripts\Activate.ps1` and use `Copy-Item` for the file copies.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r apps/api/requirements.txt
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env.local
+docker compose up -d db
 ```
 
-For the deployed Vercel frontend plus local backend flow, use:
+Set `ADMIN_EMAIL` in `apps/api/.env` to the local administrator account you will create. Keep `APP_ENV=development` for this local setup; use a generated, private `SESSION_SECRET` for a deployed environment. The API rejects placeholder secrets outside development.
 
-```powershell
-.\ativar-tudo.cmd
-```
+Run migrations, then start the API:
 
-That script starts FastAPI, opens a Cloudflare Tunnel, and publishes the current backend URL so the Vercel frontend can find it.
-The Windows launchers also ensure the local PostgreSQL container is running before the API starts.
-
-### Backend Manually
-
-```powershell
+```bash
 cd apps/api
-python -m pip install -r requirements.txt
 python database_bootstrap.py
-python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+python -m uvicorn main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-Backend health check:
+In another terminal, with the virtual environment active, create the administrator from the repository root. The script prompts for a password when one is not supplied:
 
-```powershell
-Invoke-WebRequest http://127.0.0.1:8001/health
+```bash
+python scripts/create-admin-user.py --email admin@example.com
 ```
 
-### Frontend Manually
+Use the same email in `ADMIN_EMAIL`. To load the checked-in static lesson content into the local database:
 
-```powershell
+```bash
+python scripts/init_db.py
+```
+
+Start the frontend in another terminal:
+
+```bash
 cd apps/web
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Local URLs:
+| Service | Local address |
+| --- | --- |
+| Web | http://localhost:3000 |
+| API health | http://localhost:8001/health |
+| API documentation | http://localhost:8001/docs |
+| PostgreSQL | `127.0.0.1:5433` |
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8001
-- PostgreSQL: `127.0.0.1:5433` (keeps the default `5432` free for other local projects)
+Use the local administrator to approve new accounts. AI keys, SMTP, OAuth and Kokoro configuration are optional integrations with their own setup requirements; an empty key does not provide a live AI service.
 
-### Local PostgreSQL
+<details>
+<summary>Environment and alternative deployment paths</summary>
 
-This project uses a dedicated local PostgreSQL instance on host port `5433`.
-That avoids collisions with another PostgreSQL server that may already be
-running on the default `5432` port.
+Start with [apps/api/.env.example](apps/api/.env.example) and [apps/web/.env.example](apps/web/.env.example). Important settings include:
 
-```powershell
-docker compose up db -d
-python scripts/migrate_sqlite_to_postgres.py --postgres-url "postgresql://kids_tutor:kids_tutor_secret@127.0.0.1:5433/kids_tutor"
-```
+| Setting | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Local PostgreSQL or the chosen deployment connection |
+| `SESSION_SECRET` | Session protection; unique secret outside development |
+| `ADMIN_EMAIL` | Account recognized as administrator |
+| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontend API location for local development |
+| `GEMINI_API_KEY` / provider settings | Optional generated content |
+| `TTS_PROVIDER`, `KOKORO_URL` | Optional voice service |
+| `PARENT_COOKIE_SECURE`, `PARENT_COOKIE_SAMESITE` | Cookie behavior appropriate to the deployment |
 
-The migration script backs up `apps/api/kids_tutor.sqlite`, migrates from a
-working copy, refuses to copy into a non-empty PostgreSQL database by default,
-and verifies row counts before reporting success.
+The [Vercel + Supabase guide](docs/deploy-vercel-supabase.md) covers runtime versus migration database connections, audio storage and serverless behavior. Run migrations through the documented session-compatible connection before deploying code that requires them. The [VPS guide](docs/DEPLOY-VPS.md) covers container deployment.
 
-## Runtime Backend Connection
+For the alternative local API/tunnel workflow, `.\start-project.cmd -WithTunnel` or `.\ativar-tudo.cmd` starts the relevant local services. The `/connect` page and runtime backend state support changing tunnel URLs without a frontend redeploy. See [the tunnel guide](docs/cloudflare-tunnel.md) and [Portuguese walkthrough](guia.md).
 
-The deployed frontend needs a reachable backend URL. There are two supported paths:
+The legacy SQLite-to-PostgreSQL migration utility is [scripts/migrate_sqlite_to_postgres.py](scripts/migrate_sqlite_to_postgres.py); it is not required for a fresh PostgreSQL installation.
 
-1. Automatic: run `.\ativar-tudo.cmd`, which publishes the current tunnel URL.
-2. Manual: open `/connect` in the deployed frontend and paste the Cloudflare Tunnel URL.
+</details>
 
-Example:
+## Tests and verification
 
-```text
-https://tutorprofessor.vercel.app/connect
-```
+The [testing guide](docs/testing.md) documents isolated Playwright execution, synthetic accounts, Codegen and CI. The E2E runner starts its own local frontend/API and disposable SQLite database, with external network access blocked. It does not use real AI, email, OAuth or payment services.
 
-The app stores the backend URL per browser and can also read a shared runtime state from the Vercel API. This avoids redeploying the frontend every time a temporary Cloudflare URL changes.
-
-## Environment Variables
-
-### Backend
-
-Create `apps/api/.env` or use the local secret flow documented in `local.secrets.example`.
-
-```env
-APP_HOST=0.0.0.0
-APP_PORT=8001
-DATABASE_URL=postgresql://kids_tutor:kids_tutor_secret@127.0.0.1:5433/kids_tutor
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tutorprofessor.vercel.app,https://english-tutor-kid.vercel.app
-SESSION_SECRET=change-me
-
-GEMINI_API_KEY=your-key
-GEMINI_MODEL=gemini-3.1-flash-lite
-
-TTS_PROVIDER=kokoro
-KOKORO_URL=http://127.0.0.1:8880/v1/audio/speech
-
-PARENT_COOKIE_SECURE=true
-PARENT_COOKIE_SAMESITE=none
-
-# The single administrator: the account with this e-mail owns /admin and never
-# waits in its own approval queue. ADMIN_PASSWORD_HASH is an optional recovery
-# password so the administrator can sign in even if the stored one is lost.
-ADMIN_EMAIL=admin@yourdomain.com
-ADMIN_PASSWORD_HASH=
-
-# Brute-force brake on login. Defaults shown; the lock clears itself.
-MAX_FAILED_LOGINS=5
-LOGIN_LOCK_MINUTES=15
-```
-
-### Creating the Administrator Account
-
-`ADMIN_EMAIL` names the administrator, but the account itself still has to exist
-in the database. Create it (or reset its password) with:
+From the repository root, with the backend virtual environment active:
 
 ```bash
-python scripts/create-admin-user.py --email admin@yourdomain.com
+python -m pip install -r scripts/e2e/requirements.txt
+python scripts/e2e/run_legacy.py
 ```
 
-The script prints the `ADMIN_PASSWORD_HASH` line to store in the environment.
-Then sign in at `/login` with that e-mail and open `/admin`.
+Then, from `apps/web`:
 
-### Frontend
-
-For local development:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
+```bash
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm typecheck
+pnpm test:e2e:safety
+pnpm test:e2e
 ```
 
-For the deployed flow, the runtime backend route can resolve the tunnel URL dynamically.
+Do not start `e2e:env` before `test:e2e`: the runner owns its environment and refuses occupied test ports. If the Python executable is not discovered automatically, configure `E2E_PYTHON` as described in the testing guide.
 
-## Testing and Verification
+Additional entry points include `pnpm test:e2e:mobile`, `pnpm test:e2e:build`, `pnpm test:e2e:report` and `pnpm e2e:codegen`. Mobile mode is Chromium device emulation, not a physical-device result.
 
-Browser E2E tests, protected Codegen, isolated test data and GitHub Actions are
-documented in [docs/testing.md](docs/testing.md). From `apps/web`, run
-`pnpm test:e2e:safety`, `pnpm test:e2e`, or `pnpm e2e:codegen` to record a new flow.
+Useful evidence to inspect:
 
-Useful checks:
+- [Tenant isolation checks](scripts/test_tenant_isolation.py) and [account approval checks](scripts/test_admin_account_approval.py).
+- [Study session behavior](scripts/test_study_session_flow.py) and [study resume tests](scripts/test_study_resume.py).
+- [AI flashcard validation tests](scripts/test_ai_flashcard_service.py).
+- [Playwright suites](apps/web/e2e), [CI](.github/workflows/ci.yml) and [E2E workflow](.github/workflows/e2e.yml).
+- [Recorded testing results](docs/testing-results.md), with the scope and date of each recorded run.
 
-```powershell
-cd apps/web
-pnpm exec tsc --noEmit
-```
+SQLite-based E2E tests do not validate PostgreSQL advisory locking, hosted database access policy or real provider behavior. Those require targeted integration checks. Test files and workflow definitions describe coverage; refer to actual run results for pass/fail evidence.
 
-```powershell
-python scripts/test_language_ai_questions.py
-python scripts/test_programming_ai_flashcards.py
-python scripts/test_ai_flashcard_service.py
-python scripts/test_admin_account_approval.py
-python scripts/test_ai_credits.py
-python scripts/test_password_security.py
-python scripts/test_tenant_isolation.py
-python scripts/test_objectives_progress.py
-python scripts/test_study_plan.py
-python scripts/test_objective_deletion_foreign_keys.py
-python scripts/test_objective_study_analysis.py
-python scripts/test_objective_full_history.py
-python scripts/test_objective_analysis_jobs.py
-python scripts/test_objective_job_deletion.py
-python scripts/test_migration_0041_objective_workflow.py
-python scripts/test_account_modules.py
-python scripts/test_account_self_service.py
-python scripts/test_billing_and_usage.py
-```
+## Current limitations and next improvements
 
-`test_tenant_isolation.py` is the one to run after touching any route. Besides
-driving two accounts against each other over HTTP, it audits every registered
-route: a data route that does not resolve its tenant through a known helper, or
-an `/api/admin` route that never reaches an admin check, turns it red. Adding an
-endpoint that answers with whatever id it was handed fails the build instead of
-shipping quietly.
+- **Payments:** plans, trials, entitlements, usage and a signed webhook handler exist; the paid checkout path still returns a not-configured response. A gateway integration and reconciliation tests are needed before accepting payments.
+- **Authentication deployment:** the repository currently documents a Google sign-in callback-cookie problem between separate `.vercel.app` domains. Email/password login is the documented alternative; custom-domain or redirect-code handling needs deployment verification.
+- **Long-running AI work:** serverless requests have duration limits. Selected workflows checkpoint state, but durable background execution is a separate design concern.
+- **Maintainability:** `apps/api/main.py` contains many routes and cross-cutting concerns. Extracting cohesive routers while preserving ownership checks and tests would make changes easier to review.
+- **Operational evidence:** generation cost records are estimates. Provider token usage, PostgreSQL concurrency tests, load measurements and restore drills would strengthen the operational story.
+- **Documentation:** some older architecture/setup notes still describe the earlier SQLite and tunnel-only design. The current stack, example files and deployment configuration take precedence.
 
-```powershell
-node apps/web/scripts/test-api-offline-fallback.mjs
-node apps/web/scripts/test-pwa-manifest-and-sw.mjs
-node apps/web/scripts/test-runtime-backend-state.mjs
-node apps/web/scripts/test-lesson-question-state.mjs
-node apps/web/scripts/test-diverse-question-state.mjs
-node apps/web/scripts/test-objectives-ui.mjs
-node apps/web/scripts/test-objective-plan-ui.mjs
-```
+## Code tour
 
-The test suite is a mix of service-level tests, API behavior checks, and lightweight frontend state tests. It focuses on high-risk areas: AI output validation, concurrent/stale generation flows, runtime backend selection, and review state consistency.
+For a focused technical review, follow one user action through these files:
 
-## Engineering Highlights
+1. [Study queue service](apps/api/services/study_queue_service.py) and [frontend queue rules](apps/web/src/lib/question-queue.ts) — what is due, pending or mastered.
+2. [Models](apps/api/models/database.py) and [API routes](apps/api/main.py) — persisted sessions, ownership and state transitions.
+3. [Flashcard validation](apps/api/services/ai_flashcard_service.py) and [deterministic question generation](apps/api/services/offline_question_service.py) — generated versus derived practice.
+4. [Runtime backend selection](apps/web/src/lib/api-config.ts) and [runtime state](apps/web/src/lib/runtime-backend.ts) — deployment configuration and stale connection recovery.
+5. [Database bootstrap](apps/api/database_bootstrap.py), [rate limiter](apps/api/services/rate_limit.py) and [billing domain](apps/api/services/billing_service.py) — operational and product tradeoffs.
 
-- Runtime backend freshness: the app chooses the newest backend state when multiple storage sources disagree.
-- Stale tunnel recovery: safe read-only frontend requests can retry against the latest global backend URL.
-- Cross-domain auth support: token auth complements cookies for Vercel-to-tunnel and mobile browser scenarios.
-- AI validation before persistence: generated batches are checked for count, identity, ownership, and schema before database writes.
-- Atomic generation paths: invalid AI output should fail without partial database rows.
-- Local database resilience: startup bootstrap handles legacy local schemas before serving requests.
-- Honest UX states: loading, empty, offline, retry, and recovery states are part of the product flow.
+## More documentation
 
-## Trade-offs and Current Limitations
+- [SaaS implementation status](TODO-SAAS.md) and [operations](docs/saas-operacao.md).
+- [Vercel + Supabase deployment](docs/deploy-vercel-supabase.md) and [Docker/VPS deployment](docs/DEPLOY-VPS.md).
+- [Testing guide](docs/testing.md) and [recorded results](docs/testing-results.md).
+- [Feature analysis](docs/analise-melhorias-funcionalidades.md).
+- [Privacy](docs/privacidade.md) and [terms](docs/termos.md) drafts, awaiting legal review.
 
-- Vercel does not run migrations. Run `database_bootstrap.py` against the Supabase session pooler before pushing code that needs a new one.
-- Google sign-in is broken across the two `.vercel.app` domains (the callback cookie lands on the API's domain); e-mail login is unaffected. A custom domain or a one-time code on the redirect fixes it.
-- Only the Kokoro voice may still depend on a local machine and a tunnel; when it is unreachable the app uses browser speech.
-- Some tests are script-based rather than a single unified test runner.
-- No payment gateway is wired in. Plans, limits, trials, usage and the webhook all work; what is missing is the checkout call in `start_checkout` and the credentials.
-- Rate limiting counts in process memory, so the effective ceiling multiplies by the number of uvicorn workers. Fine for one worker, which is the current deployment; move it to a shared store before scaling out.
-- The per-generation AI cost is an estimate until the provider layer reports token counts.
-- `apps/api/main.py` is one large module. The route audit in `scripts/test_tenant_isolation.py` keeps the security properties honest, but splitting it into routers is still owed.
-- The app has grown beyond the original English-only scope into a broader personal tutor, so naming and documentation are being updated accordingly.
-
-## Suggested Interview Walkthrough
-
-If you are reviewing the project, start here:
-
-1. Open the live frontend and note the local-backend requirement.
-2. Read `apps/web/src/lib/api-config.ts` and `apps/web/src/lib/runtime-backend.ts` for runtime backend resolution.
-3. Read `apps/api/main.py` around auth, lessons, review, and AI generation routes.
-4. Inspect service modules under `apps/api/services/` for validation and domain logic.
-5. Run `pnpm exec tsc --noEmit` and one or two scripts under `scripts/` or `apps/web/scripts/`.
-
-## Documentation
-
-- `TODO-SAAS.md`: what is done and what is left to run this as a product.
-- `docs/analise-melhorias-funcionalidades.md`: prioritized feature improvement analysis (Portuguese).
-- `docs/deploy-vercel-supabase.md`: hosting the database on Supabase and the API on Vercel, and what changes when the request has a time limit.
-- `docs/saas-operacao.md`: operating it for other people — configuration, plans, cost per account, logs, backups, data rights.
-- `docs/privacidade.md` and `docs/termos.md`: privacy policy and terms drafts, written from what the software actually does and awaiting legal review.
-- `docs/architecture.md`: broader architecture notes.
-- `docs/setup-local.md`: local setup details.
-- `docs/cloudflare-tunnel.md`: named tunnel setup.
-- `docs/vercel-deploy.md`: Vercel deployment notes.
-- `guia.md`: Portuguese guide for running Vercel frontend with local backend.
+Several detailed guides are in Portuguese; this README is the English entry point.
 
 ## License
 
-MIT
+MIT, as stated by the project.
