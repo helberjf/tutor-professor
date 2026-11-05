@@ -52,3 +52,8 @@ apps/web/mobile-playwright-report/
 apps/web/mobile-test-results/
 apps/web/e2e/recordings/*
 !apps/web/e2e/recordings/README.md
+
+# Local AI assistant files
+.claude/
+.openclaw/
+docs/superpowers/
