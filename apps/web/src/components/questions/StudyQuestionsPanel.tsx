@@ -49,7 +49,7 @@ export function StudyQuestionsPanel({
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
   const [practiceOpen, setPracticeOpen] = useState(false);
-  const [replayAll, setReplayAll] = useState(false);
+  const [practiceList, setPracticeList] = useState<StudyQuestion[]>([]);
   const [showContextForm, setShowContextForm] = useState(false);
   const [context, setContext] = useState('');
   const loadRequestRef = useRef(0);
@@ -187,7 +187,12 @@ export function StudyQuestionsPanel({
         };
 
   const pendingCount = countPending(questions);
-  const practiceList = buildPracticeQueue(questions, { includeMastered: replayAll });
+  function startPractice(replayAll: boolean) {
+    // Keep the current question and its explanation stable while saved attempts
+    // update the pending queue. Rebuild only when starting another session.
+    setPracticeList(buildPracticeQueue(questions, { includeMastered: replayAll }));
+    setPracticeOpen(true);
+  }
   const countLabel = loading ? '...' : loadError ? 'erro' : String(questions.length);
   const busy = loading || generating;
   const hasQuestions = questions.length > 0;
@@ -211,10 +216,7 @@ export function StudyQuestionsPanel({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={() => {
-              setReplayAll(false);
-              setPracticeOpen(true);
-            }}
+            onClick={() => startPractice(false)}
             disabled={busy || pendingCount === 0}
             className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-black text-white disabled:opacity-50 ${palette.primary}`}
           >
@@ -224,10 +226,7 @@ export function StudyQuestionsPanel({
           {hasQuestions && (
             <button
               type="button"
-              onClick={() => {
-                setReplayAll(true);
-                setPracticeOpen(true);
-              }}
+              onClick={() => startPractice(true)}
               disabled={busy}
               className={`flex min-h-11 items-center justify-center gap-2 rounded-2xl border-2 bg-white px-4 py-2 text-sm font-black disabled:opacity-50 ${palette.secondary}`}
             >

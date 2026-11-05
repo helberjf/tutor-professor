@@ -77,6 +77,7 @@ class FixtureOptions(BaseModel):
     status: Literal["approved", "pending", "rejected"] = "approved"
     onboarding_completed: bool = True
     seed_exam: bool = False
+    seed_grammar: bool = False
 
 
 @main.app.post("/__e2e__/fixtures", include_in_schema=False)
@@ -101,6 +102,19 @@ def fixture(options: FixtureOptions, x_e2e_run: str = Header(default="")):
         session.add(child)
         session.commit()
         session.refresh(child)
+        if options.seed_grammar:
+            from sqlmodel import select
+            from models.database import Lesson, StudyQuestion
+            lesson = session.exec(select(Lesson)).first()
+            for prompt, choices, correct, explanation in [
+                ("Complete: I ___ a student.", ["am", "is", "are", "be"], "am", "O sujeito I usa am no presente do verbo to be."),
+                ("Complete: She ___ apples.", ["likes", "like", "liking", "liked"], "likes", "No presente simples, she pede o verbo com s."),
+            ]:
+                session.add(StudyQuestion(child_id=child.id, area="english", subject_name="Inglês - Gramática",
+                    topic_key=f"grammar:{lesson.id}", topic_title=f"Gramática: {lesson.title}", question=prompt,
+                    question_key=main.programming_question_key(prompt), options=choices,
+                    correct_option=correct, explanation=explanation))
+            session.commit()
         if options.seed_exam:
             from models.database import Exam, ExamQuestion
             exam = Exam(child_id=child.id, code="E2E", name="Saudações E2E", question_count=2,

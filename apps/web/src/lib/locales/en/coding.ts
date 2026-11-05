@@ -1,11 +1,22 @@
 /** Programming curriculum, flashcards, question mode, mock exams, objectives and the activity log. */
 export const CODING_EN: Record<string, string> = {
+  'O que falta para seus objetivos': 'What remains to reach your goals',
+  'Não foi possível atualizar seus objetivos.': 'Could not refresh your goals.',
+  'Faltam {count} de {total} etapas planejadas.': '{count} of {total} planned steps remaining.',
+  'Estimativa da IA com base nos estudos salvos': 'AI estimate based on saved study activity',
+  'Analise este objetivo em Objetivos para ver o que falta estudar.': 'Analyze this goal in Goals to see what remains to study.',
+  'Próximas etapas': 'Next steps',
+  'Ver todas as etapas pendentes': 'Show all remaining steps',
+  'Todas as etapas planejadas foram concluídas.': 'All planned steps are complete.',
+  'Análise desatualizada. Atualize em Objetivos.': 'Analysis is out of date. Refresh it in Goals.',
+  'Ver todos os objetivos': 'Show all goals',
   // Curriculum
   'Programação · Currículo': 'Programming · Curriculum',
   'Outras disciplinas': 'Other disciplines',
   'Outras Disciplinas': 'Other disciplines',
   'Disciplinas': 'Disciplines',
   'Disciplina': 'Discipline',
+  'Selecione onde continuar seus estudos.': 'Choose where to continue learning.',
   'Abrir lista de disciplinas': 'Open the discipline list',
   'Escolha uma disciplina': 'Pick a discipline',
   'Nenhuma disciplina ainda': 'No disciplines yet',

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Layers, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Code2, Layers, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import type { StudyDiscipline } from '@/lib/api';
 import { t as translate } from '@/lib/i18n';
@@ -14,41 +14,48 @@ export type DisciplineSelection = 'coding' | `discipline:${number}` | '';
  * here, and each holds its own subjects the way programming holds Python.
  */
 export function OtherSubjectsPicker({
-  disciplines, selectedValue, codingEnabled, onSelect, onCreateDiscipline, onDeleteDiscipline,
+  disciplines, selectedValue, codingEnabled, loading = false, onSelect, onCreateDiscipline, onDeleteDiscipline,
 }: {
   disciplines: StudyDiscipline[];
   selectedValue: DisciplineSelection;
   codingEnabled: boolean;
+  loading?: boolean;
   onSelect: (value: DisciplineSelection) => void;
   onCreateDiscipline: () => void;
   /** Present when the selected entry is a discipline that can be removed. */
   onDeleteDiscipline?: () => void;
 }) {
   const empty = disciplines.length === 0 && !codingEnabled;
+  const selected = disciplines.find((item) => selectedValue === `discipline:${item.id}`);
   return (
-    <div className="mb-6 rounded-[1.1rem] border-2 border-slate-100 bg-white/80 p-3 sm:rounded-[1.4rem] sm:p-4">
+    <div className="discipline-picker mb-6 rounded-3xl p-4 sm:p-5">
       <label
         htmlFor="other-subjects-picker"
-        className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-400"
+        className="mb-1 block text-sm font-black text-slate-800"
       >
-        {translate("Abrir lista de disciplinas")}
+        {translate("Disciplina")}
       </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <p id="discipline-picker-hint" className="mb-4 text-sm font-medium text-slate-500">
+        {translate("Selecione onde continuar seus estudos.")}
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">
-          <Layers
-            size={18}
-            aria-hidden
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-          />
+          <span aria-hidden className="discipline-picker-icon pointer-events-none absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-xl">
+            {loading ? <Loader2 size={20} className="animate-spin" />
+              : selected?.icon_emoji || (selectedValue === 'coding' ? <Code2 size={22} /> : <Layers size={22} />)}
+          </span>
           <select
             id="other-subjects-picker"
+            aria-label={translate("Abrir lista de disciplinas")}
+            aria-describedby="discipline-picker-hint"
+            aria-busy={loading}
             value={selectedValue}
-            disabled={empty}
+            disabled={empty || loading}
             onChange={(event) => onSelect(event.target.value as DisciplineSelection)}
-            className="min-h-14 w-full cursor-pointer appearance-none rounded-2xl border-2 border-primary/40 bg-white pl-11 pr-11 text-base font-black text-slate-700 shadow-sm outline-none transition hover:border-primary focus:border-primary disabled:cursor-default disabled:opacity-70"
+            className="discipline-picker-select min-h-16 w-full min-w-0 cursor-pointer appearance-none truncate rounded-2xl py-5 pl-16 pr-12 text-base font-black outline-none transition disabled:cursor-default sm:text-lg"
           >
             {selectedValue === '' && (
-              <option value="">{empty ? translate("Nenhuma disciplina ainda") : translate("Escolha uma disciplina")}</option>
+              <option value="">{loading ? translate("Carregando") : empty ? translate("Nenhuma disciplina ainda") : translate("Escolha uma disciplina")}</option>
             )}
             {disciplines.map((discipline) => (
               <option key={discipline.id} value={`discipline:${discipline.id}`}>
@@ -60,18 +67,19 @@ export function OtherSubjectsPicker({
           <ChevronDown
             size={18}
             aria-hidden
-            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-primary"
           />
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onCreateDiscipline}
-            className="flex min-h-12 flex-1 shrink-0 items-center justify-center gap-2 rounded-2xl bg-primary-dark px-5 text-sm font-black text-white transition hover:bg-primary sm:flex-none"
+            aria-label={translate("Criar nova disciplina")}
+            className="discipline-picker-create flex min-h-12 flex-1 shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold transition sm:flex-none"
           >
-            {translate("Criar nova disciplina")} <Plus size={18} />
+            <Plus size={18} /> {translate("Nova disciplina")}
           </button>
-          {onDeleteDiscipline && (
+          {onDeleteDiscipline && !loading && (
             <button
               type="button"
               onClick={onDeleteDiscipline}

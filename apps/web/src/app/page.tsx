@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, NotebookPen, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
+import { ArrowRight, BarChart3, BookOpen, Bot, Brain, ClipboardList, Flame, Layers, Library, LogIn, NotebookPen, PlayCircle, Sparkles, Target, UserPlus, WifiOff, Zap } from 'lucide-react';
 
 import { ApiError, api, type LevelAnalysis, type Progress, type StudyResume, type StudySessionState } from '@/lib/api';
 import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBaseUrlChange } from '@/lib/api-config';
@@ -105,8 +105,8 @@ export default function HomePage() {
 
         {/* Hero */}
         <section className="relative overflow-hidden rounded-[1.75rem] border-2 border-slate-100 bg-white p-4 text-left shadow-[0_18px_50px_rgba(15,23,42,0.10)] sm:p-7 md:p-10">
-          <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center md:gap-6">
-            <div>
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-center lg:gap-8">
+            <div className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-2.5 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-sky-700 ring-1 ring-sky-100 sm:px-3 sm:py-2">
                 <Sparkles size={15} /> {t("Seu tutor pessoal")}
               </span>
@@ -119,23 +119,6 @@ export default function HomePage() {
                 : t("Escolha uma trilha, mantenha o ritmo e continue aprendendo com foco.")}
             </p>
             </div>
-
-            {/* Progress pills — authenticated only */}
-            {isAuthenticated && progress && (
-              <div className="hidden flex-wrap gap-2 md:flex md:justify-end">
-                <span className="rounded-full bg-sky-50 px-3 py-2 text-sm font-bold text-sky-700 ring-1 ring-sky-100">
-                  🔥 {progress.streak_count} dias seguidos
-                </span>
-                <span className="rounded-full bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 ring-1 ring-amber-100">
-                  💬 {progress.vocabulary_learned} frases aprendidas
-                </span>
-                {progress.themes_completed > 0 && (
-                  <span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 ring-1 ring-emerald-100">
-                    🏆 {progress.themes_completed} {t("temas concluídos")}
-                  </span>
-                )}
-              </div>
-            )}
 
             {/* CTA principal */}
             {serverMissing ? (
@@ -164,64 +147,48 @@ export default function HomePage() {
                 </Link>
               </div>
             ) : isAuthenticated ? (
-              <div className="mt-1 flex flex-col items-start gap-2.5 sm:mt-6 sm:gap-3">
-                <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-stretch sm:gap-3">
+              <div className="min-w-0 space-y-3">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                   {/* Continuing comes first: to a student who was already in the
                       middle of a session, it is the only thing on this screen
                       they are looking for. */}
                   {resumeDestination && (
                     <Link
                       href={resumeDestination.href}
-                      className="relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl bg-gradient-to-r from-emerald-500 to-sky-500 px-6 py-2 text-white shadow-[0_14px_34px_rgba(16,185,129,0.26)] transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7"
+                      className="home-study-action home-study-action-primary sm:col-span-2"
                     >
-                      <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
-                        <PlayCircle size={26} />
-                        {t("Continuar de onde parou")}
+                      <PlayCircle size={28} className="shrink-0" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-lg font-black">{t("Continuar de onde parou")}</span>
+                        <span className="mt-1 line-clamp-2 break-words text-sm font-medium leading-5 text-white/85" title={resumeDestination.label}>
+                          {resumeDestination.label}
+                        </span>
                       </span>
-                      <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-white/85">
-                        {resumeDestination.label}
-                      </span>
+                      <ArrowRight size={20} className="shrink-0" aria-hidden />
                     </Link>
                   )}
-                  <div className="relative inline-flex w-full sm:w-auto">
-                    {!resumeDestination && (
-                      <span className="absolute inset-0 animate-ping rounded-2xl bg-primary-dark opacity-20" aria-hidden />
-                    )}
                     <Link
                       href="/lesson"
-                      className={`relative inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl px-6 py-2 transition hover:scale-[1.02] sm:min-h-14 sm:w-auto sm:px-7 ${
-                        resumeDestination
-                          ? 'border-2 border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:bg-sky-50'
-                          : 'bg-gradient-to-r from-sky-500 to-emerald-500 text-white shadow-[0_14px_34px_rgba(14,165,233,0.24)]'
-                      }`}
+                      className="home-study-action"
                     >
-                      <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
-                        <BookOpen size={26} />
-                        {t("Estudar idiomas")}
-                      </span>
-                      <span
-                        className={`text-[0.7rem] font-bold uppercase tracking-[0.12em] ${
-                          resumeDestination ? 'text-slate-400' : 'text-white/85'
-                        }`}
-                      >
-                        {t("Abrir página de lições")}
+                      <BookOpen size={24} className="shrink-0 text-primary" aria-hidden />
+                      <span className="min-w-0">
+                        <span className="block text-base font-black">{t("Estudar idiomas")}</span>
+                        <span className="mt-1 block text-sm font-medium leading-5 text-slate-500">{t("Abrir página de lições")}</span>
                       </span>
                     </Link>
-                  </div>
                   {/* The queue above is one sitting of cards. This is the study
                       area itself — subjects, reading, flashcards and simulados —
                       which until now was only reachable from a small card far
                       below the fold. */}
                   <Link
                     href="/study?tab=diverse"
-                    className="inline-flex min-h-[3.25rem] w-full flex-col items-center justify-center rounded-2xl border-2 border-teal-200 bg-teal-50 px-6 py-2 text-teal-700 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-14 sm:w-auto sm:px-7"
+                    className="home-study-action"
                   >
-                    <span className="inline-flex items-center gap-2 text-lg font-black sm:text-xl">
-                      <NotebookPen size={26} />
-                      {t("Página de estudos")}
-                    </span>
-                    <span className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-teal-600">
-                      {t("Matérias, aulas e simulados")}
+                    <Layers size={24} className="shrink-0 text-primary" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block text-base font-black">{t("Página de estudos")}</span>
+                      <span className="mt-1 block text-sm font-medium leading-5 text-slate-500">{t("Matérias, aulas e simulados")}</span>
                     </span>
                   </Link>
                 </div>

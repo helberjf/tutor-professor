@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ClipboardList, Loader2 } from 'lucide-react';
+import { ClipboardList, Loader2, SpellCheck2 } from 'lucide-react';
 
 import { StudyQuestionsPanel } from '@/components/questions/StudyQuestionsPanel';
 import { api, type LessonSummary } from '@/lib/api';
@@ -17,7 +18,7 @@ const SUBJECT_NAME = "Inglês";
  * simulado built from it. Lessons are the only stable English topic, so the
  * lesson id is what the saved questions are keyed by.
  */
-export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: string }) {
+export function EnglishQuestionsSection({ studyLanguage, mode = 'all' }: { studyLanguage: string; mode?: 'all' | 'grammar' }) {
   const language = studyLanguageInSentence(studyLanguage);
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -25,6 +26,7 @@ export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: stri
   // A flag rather than the message: the message names the language, which can
   // arrive after the lessons failed to load.
   const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -35,7 +37,7 @@ export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: stri
         const loaded = await api.getAllLessons();
         if (!active) return;
         setLessons(loaded);
-        setSelectedId((current) => current ?? loaded[0]?.id ?? null);
+        setSelectedId((current) => loaded.some((lesson) => lesson.id === current) ? current : loaded[0]?.id ?? null);
       } catch {
         if (active) setLoadFailed(true);
       } finally {
@@ -45,13 +47,13 @@ export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: stri
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadNonce]);
 
   const selected = lessons.find((lesson) => lesson.id === selectedId) ?? null;
 
   return (
     <div className="space-y-6">
-    <section id="english-questions" className="app-surface scroll-mt-24 border-sky-100 p-5 md:p-7">
+    {mode === 'all' && <section id="english-questions" className="app-surface scroll-mt-24 border-sky-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
         <ClipboardList size={18} className="text-sky-600" />
         <h2 className="text-xl font-black text-slate-800">{t("Modo questões")}</h2>
@@ -104,11 +106,11 @@ export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: stri
           )}
         </div>
       )}
-    </section>
+    </section>}
 
     <section id="english-grammar" className="app-surface scroll-mt-24 border-violet-100 p-5 md:p-7">
       <div className="flex items-center gap-2">
-        <ClipboardList size={18} className="text-violet-600" />
+        <SpellCheck2 size={18} className="text-violet-600" />
         <h2 className="text-xl font-black text-slate-800">{t("Modo gramática")}</h2>
       </div>
       <p className="mt-1 text-sm font-bold text-slate-500">
@@ -120,13 +122,20 @@ export function EnglishQuestionsSection({ studyLanguage }: { studyLanguage: stri
           <Loader2 className="animate-spin" size={16} /> {t("Carregando lições")}
         </p>
       ) : loadFailed ? (
-        <p role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
-          {tf("Não foi possível carregar as lições de {language}.", { language })}
-        </p>
+        <div role="alert" className="mt-5 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+          <p>{tf("Não foi possível carregar as lições de {language}.", { language })}</p>
+          <button type="button" onClick={() => setReloadNonce((value) => value + 1)}
+            className="mt-3 min-h-11 rounded-xl border-2 border-rose-300 px-4 hover:bg-rose-100">
+            {t("Tentar novamente")}
+          </button>
+        </div>
       ) : lessons.length === 0 ? (
-        <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
-          {tf("Nenhuma lição de {language} ainda. Gere uma lição para poder praticar gramática.", { language })}
-        </p>
+        <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">
+          <p>{tf("Nenhuma lição de {language} ainda. Gere uma lição para poder praticar gramática.", { language })}</p>
+          <Link href="/lesson" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-primary-dark px-4 text-white hover:bg-primary">
+            {t("Abrir página de lições")}
+          </Link>
+        </div>
       ) : (
         <div className="mt-5 space-y-4">
           <label className="block">

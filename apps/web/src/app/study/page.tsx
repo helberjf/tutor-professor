@@ -172,6 +172,8 @@ export default function StudyPage() {
   function setStudyUrlTab(slug: string | null, disciplineId: number | null = null) {
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
+    // Anchors belong to the language sections, not the discipline being picked.
+    url.hash = '';
     if (!slug || slug === 'english') {
       url.searchParams.delete('tab');
     } else {
@@ -232,7 +234,19 @@ export default function StudyPage() {
   }
 
   function selectDiverseOverview() {
-    requestCurriculum('diverse', curriculumRequest.disciplineId);
+    if (activeTab === 'coding' || activeTab === 'diverse') return;
+    if (curriculumRequest.tab === 'coding' && codingEnabled) {
+      requestCurriculum('coding', null);
+    } else if (curriculumRequest.tab === 'diverse' && activeDiscipline) {
+      requestCurriculum('diverse', activeDiscipline.id);
+    } else {
+      // Entering from the language/dashboard tab must restore history too,
+      // just as opening /study?tab=diverse does after a reload.
+      disciplineNavigationRef.current += 1;
+      setActiveTab('diverse');
+      setStudyUrlTab('diverse');
+      setRestoringDiscipline(true);
+    }
   }
 
   // ── Load the disciplines for the picker ─────────────────────────────────────
@@ -257,7 +271,9 @@ export default function StudyPage() {
         if (destination) requestCurriculum(destination.tab, destination.disciplineId);
       })
       .catch(() => { /* Without history, the first available discipline stays usable. */ })
-      .finally(() => { if (!cancelled) setRestoringDiscipline(false); });
+      .finally(() => {
+        if (!cancelled && navigation === disciplineNavigationRef.current) setRestoringDiscipline(false);
+      });
     return () => { cancelled = true; };
   // requestCurriculum only commits a validated destination and cancels pending restoration.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -546,6 +562,7 @@ export default function StudyPage() {
               restoringDiscipline ? '' : activeTab === 'coding' ? 'coding' : activeDiscipline ? `discipline:${activeDiscipline.id}` : ''
             }
             codingEnabled={codingEnabled}
+            loading={disciplines === null || restoringDiscipline}
             onSelect={selectDiscipline}
             onCreateDiscipline={() => setShowCreateDiscipline(true)}
             onDeleteDiscipline={

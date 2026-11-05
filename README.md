@@ -144,6 +144,8 @@ pnpm dev
 
 Use the local administrator to approve new accounts. AI keys, SMTP, OAuth and Kokoro configuration are optional integrations with their own setup requirements; an empty key does not provide a live AI service.
 
+The configured Gemini default is `gemini-3.1-flash-lite`; provider and model choices can be changed in the account settings.
+
 <details>
 <summary>Environment and alternative deployment paths</summary>
 

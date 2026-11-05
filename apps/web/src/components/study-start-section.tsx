@@ -25,7 +25,7 @@ const studyActions = [
     tone: 'text-emerald-700 bg-emerald-50 border-emerald-100',
   },
   {
-    href: '/study?tab=english#english-grammar',
+    href: '/grammar',
     title: "Gramática",
     description: "Treine estruturas das frases de {language}.",
     icon: SpellCheck2,

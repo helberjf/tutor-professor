@@ -81,7 +81,7 @@ export function ObjectiveCard({ objective, onChanged, onDeleted }: Props) {
   }
 
   return (
-    <article className="rounded-[1.6rem] border-2 border-slate-100 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] sm:p-5">
+    <article id={`objective-${objective.id}`} className="scroll-mt-24 rounded-[1.6rem] border-2 border-slate-100 bg-white p-4 shadow-[0_18px_50px_rgba(15,23,42,0.06)] sm:p-5">
       <header className="flex flex-wrap items-start gap-3">
         <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-50 text-xl">
           {objective.icon_emoji || '🎯'}

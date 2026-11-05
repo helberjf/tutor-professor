@@ -5,6 +5,7 @@ import { Bell, ChevronDown, Pause, Play, RotateCcw, Timer } from 'lucide-react';
 
 import { DashboardOverview } from '@/components/dashboard-overview';
 import { StudyStatisticsPanel } from '@/components/study-statistics-panel';
+import { ObjectivesProgressCard } from '@/components/objectives-progress-card';
 import type { StudyDashboard } from '@/lib/api';
 import { formatTimer, type PomodoroMode } from '@/lib/pomodoro';
 
@@ -143,6 +144,7 @@ export function PomodoroWidget({
 export function DashboardTab({ dashboard, pomodoroState }: { dashboard: StudyDashboard | null; pomodoroState: { completedByDate: Record<string, number> } }) {
   return (
     <div className="space-y-6">
+      <ObjectivesProgressCard />
       <DashboardOverview dashboard={dashboard} pomodoroState={pomodoroState} />
       <StudyStatisticsPanel />
     </div>

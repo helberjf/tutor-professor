@@ -20,6 +20,7 @@ export const routes: RouteCase[] = [
   { path: '/admin/learn', access: 'admin', heading: /Aprender React & TypeScript/ },
   { path: '/dashboard', access: 'student', heading: /Resumo de estudos/ },
   { path: '/study', access: 'student', heading: /3 frases por dia/ },
+  { path: '/grammar', access: 'student', heading: /^Gramática$/ },
   { path: '/lesson', access: 'student', heading: /Good morning|Thank you|See you later/ },
   { path: '/lesson/history', access: 'student', heading: /Suas aventuras em/ },
   { path: '/quiz', access: 'student', kind: 'quiz' },

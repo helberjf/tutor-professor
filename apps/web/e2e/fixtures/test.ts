@@ -5,7 +5,7 @@ import { protectContext } from '../support/network';
 export interface Account {
   id: number; email: string; password: string; child_id: number; child_name: string; token: string;
 }
-type Options = { status?: 'approved' | 'pending' | 'rejected'; onboarding_completed?: boolean; seed_exam?: boolean };
+type Options = { status?: 'approved' | 'pending' | 'rejected'; onboarding_completed?: boolean; seed_exam?: boolean; seed_grammar?: boolean };
 type Fixtures = {
   account: Account;
   createAccount: (options?: Options) => Promise<Account>;

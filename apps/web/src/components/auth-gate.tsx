@@ -41,7 +41,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     };
     const sendToLogin = () => {
       setStatus('redirecting');
-      router.replace(`/login?next=${encodeURIComponent(currentPath)}`);
+      router.replace(`/login?next=${encodeURIComponent(currentPath + window.location.hash)}`);
     };
 
     // getUserMe responde com o perfil da última visita quando existe um, e a

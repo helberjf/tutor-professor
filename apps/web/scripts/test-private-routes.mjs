@@ -27,6 +27,7 @@ const privatePaths = [
   '/chat',
   '/dashboard',
   '/diverse',
+  '/grammar',
   '/lesson',
   '/lesson/history',
   '/parents',

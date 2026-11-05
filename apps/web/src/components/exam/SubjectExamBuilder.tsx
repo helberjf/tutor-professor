@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ClipboardList, Loader2 } from 'lucide-react';
+import { ClipboardList, GraduationCap, Loader2 } from 'lucide-react';
 
 import { api, type ExamSource, type ExamSourceArea } from '@/lib/api';
 import { useStudyLanguage } from '@/hooks/use-study-language';
@@ -93,14 +93,18 @@ export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <section className="rounded-3xl border-2 border-indigo-100 bg-indigo-50/40 p-5">
-      <h3 className="flex items-center gap-2 text-lg font-black text-slate-800">
-        <ClipboardList size={18} className="text-indigo-500" />
-        {t("Simulado de uma matéria")}
-      </h3>
-      <p className="mt-1 text-sm font-medium text-slate-500">
-        {t("Qualquer matéria que já tem questões vira uma prova cronometrada. Gerou questões novas? Atualize o simulado para incluir.")}
-      </p>
+    <section className="rounded-3xl border border-[var(--line-strong)] bg-[var(--surface-strong)] p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700">
+          <GraduationCap size={24} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-lg font-black text-slate-800">{t("Simulado de uma matéria")}</h3>
+          <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+            {t("Qualquer matéria que já tem questões vira uma prova cronometrada. Gerou questões novas? Atualize o simulado para incluir.")}
+          </p>
+        </div>
+      </div>
 
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -115,8 +119,8 @@ export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
           {t("Nenhuma matéria tem questões ainda. Gere questões em Estudar e volte aqui para montar o simulado.")}
         </p>
       ) : (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="min-w-0 flex-1 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        <div className="mt-5 grid min-w-0 gap-4 border-t border-[var(--line-soft)] pt-5 sm:grid-cols-[minmax(0,1fr)_10rem] xl:grid-cols-[minmax(0,1fr)_10rem_auto] xl:items-end">
+          <label className="min-w-0 text-sm font-bold text-slate-700">
             {t("Matéria")}
             <select
               value={selectedKey}
@@ -139,7 +143,7 @@ export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
               })}
             </select>
           </label>
-          <label className="text-xs font-black uppercase tracking-[0.12em] text-slate-500 sm:w-36">
+          <label className="min-w-0 text-sm font-bold text-slate-700">
             {t("Questões por prova")}
             <select
               value={questionCount}
@@ -157,7 +161,7 @@ export function SubjectExamBuilder({ onCreated }: { onCreated: () => void }) {
             type="button"
             onClick={() => void buildExam()}
             disabled={busy || !selected}
-            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 font-black text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-6 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50 sm:col-span-2 xl:col-span-1"
           >
             {busy ? <Loader2 size={18} className="animate-spin" /> : <ClipboardList size={18} />}
             {selected?.exam_id !== null && selected?.exam_id !== undefined ? t("Atualizar simulado") : t("Criar simulado")}

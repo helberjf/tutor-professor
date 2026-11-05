@@ -18,6 +18,10 @@ export function useRequireAuth(): AuthState {
 
   useEffect(() => {
     let cancelled = false;
+    const sendToLogin = () => {
+      const destination = window.location.pathname + window.location.search + window.location.hash;
+      router.push(`/login?next=${encodeURIComponent(destination)}`);
+    };
 
     // getUserMe pode responder com o perfil da última visita e conferir em
     // paralelo. Quando essa conferência recusa a sessão, é por aqui que a tela
@@ -31,7 +35,7 @@ export function useRequireAuth(): AuthState {
       }
       if (!isSessionRejection(error)) return;
       setState({ status: 'unauthenticated' });
-      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+      sendToLogin();
     });
 
     api
@@ -47,7 +51,7 @@ export function useRequireAuth(): AuthState {
         }
         // 401 or offline → redirect to login
         setState({ status: 'unauthenticated' });
-        router.push(`/login?next=${encodeURIComponent(pathname)}`);
+        sendToLogin();
       });
 
     return () => {

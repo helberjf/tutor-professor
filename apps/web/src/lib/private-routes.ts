@@ -7,6 +7,7 @@ const PRIVATE_PATH_PREFIXES = [
   '/dashboard',
   '/diverse',
   '/exams',
+  '/grammar',
   '/lesson',
   '/objectives',
   '/onboarding',
