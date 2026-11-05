@@ -5,7 +5,7 @@ túnel. O caminho da VPS ([DEPLOY-VPS.md](DEPLOY-VPS.md)) continua válido e usa
 código — a diferença é só quais variáveis de ambiente estão ligadas.
 
 > **Antes de começar:** o plano Hobby da Vercel proíbe uso comercial nos termos deles.
-> Se a intenção é cobrar dos usuários (veja [TODO-SAAS.md](../TODO-SAAS.md)), isso é
+> Se a intenção é cobrar dos usuários (veja [TODO-SAAS.md](TODO-SAAS.md)), isso é
 > uma decisão contratual sua, não um impedimento técnico.
 
 ---

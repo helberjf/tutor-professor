@@ -224,7 +224,7 @@ For a focused technical review, follow one user action through these files:
 
 ## More documentation
 
-- [SaaS implementation status](TODO-SAAS.md) and [operations](docs/saas-operacao.md).
+- [SaaS implementation status](docs/TODO-SAAS.md) and [operations](docs/saas-operacao.md).
 - [Vercel + Supabase deployment](docs/deploy-vercel-supabase.md) and [Docker/VPS deployment](docs/DEPLOY-VPS.md).
 - [Testing guide](docs/testing.md) and [recorded results](docs/testing-results.md).
 - [Feature analysis](docs/analise-melhorias-funcionalidades.md).
