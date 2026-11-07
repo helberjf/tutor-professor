@@ -199,6 +199,55 @@ async def run() -> None:
             "approved account reaches the app",
         )
 
+        streak_url = f"/api/admin/users/{family_id}/study-streaks"
+        assert_status(await family_client.get(streak_url), 403, "only admins can read streaks")
+        assert_status(
+            await admin_client.get("/api/admin/users/0/study-streaks"), 404, "unknown streak account"
+        )
+        today = main.activity_today()
+        yesterday = today - main.timedelta(days=1)
+        with main.Session(main.engine) as session:
+            profiles = session.exec(
+                main.select(main.ChildProfile.id).where(main.ChildProfile.user_id == family_id)
+            ).all()
+            active = main.ChildProfile(user_id=family_id, name="Ativo", age_group="18+")
+            inactive = main.ChildProfile(user_id=family_id, name="Inativo", age_group="18+")
+            session.add(active)
+            session.add(inactive)
+            session.flush()
+            for profile, day in (
+                (active, today),
+                (active, yesterday),
+                (inactive, today - main.timedelta(days=3)),
+            ):
+                session.add(main.StudyDay(child_id=profile.id, study_date=day, studied_text="Estudo"))
+            active_id, inactive_id = active.id, inactive.id
+            session.commit()
+
+        streak_response = await admin_client.get(streak_url)
+        assert_status(streak_response, 200, "admin reads streaks by profile")
+        streaks = {row["profile_id"]: row for row in streak_response.json()}
+        require(set(streaks) == {active_id, inactive_id, *profiles}, "only owned profiles")
+        require(
+            streaks[active_id] == {
+                "profile_id": active_id,
+                "profile_name": "Ativo",
+                "streak_days": 2,
+                "last_study_date": today.isoformat(),
+            },
+            f"expected two consecutive study days, got {streaks[active_id]}",
+        )
+        require(
+            streaks[inactive_id]["streak_days"] == 0
+            and streaks[inactive_id]["last_study_date"] == (today - main.timedelta(days=3)).isoformat(),
+            "expired streak retains the last study date",
+        )
+        for profile_id in profiles:
+            require(
+                streaks[profile_id]["streak_days"] == 0 and streaks[profile_id]["last_study_date"] is None,
+                "profile without activity has no streak or study date",
+            )
+
         # New accounts already use the global Gemini configuration. Approval
         # only controls when they may enter the app.
         ai_settings = (await family_client.get("/api/ai/settings")).json()
@@ -316,7 +365,8 @@ async def run() -> None:
         require(deletion["status"] == "deleted", f"expected deletion status, got {deletion}")
         require(
             deletion["removed"].get("User") == 1
-            and deletion["removed"].get("ChildProfile") == 1,
+            and deletion["removed"].get("ChildProfile") == len(profiles) + 2
+            and deletion["removed"].get("StudyDay") == 3,
             f"expected the account and its child data removed, got {deletion}",
         )
         assert_status(

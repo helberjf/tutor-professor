@@ -15365,6 +15365,47 @@ def admin_list_users(
     return [row for row in rows if row["status"] == status]
 
 
+class AdminStudyStreak(BaseModel):
+    profile_id: int
+    profile_name: str
+    streak_days: int
+    last_study_date: date | None
+
+
+@app.get("/api/admin/users/{user_id}/study-streaks", response_model=list[AdminStudyStreak])
+def admin_list_user_study_streaks(
+    user_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> list[AdminStudyStreak]:
+    _require_admin(request, session)
+    user = session.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    profiles = session.exec(
+        select(ChildProfile.id, ChildProfile.name)
+        .where(ChildProfile.user_id == user_id)
+        .order_by(ChildProfile.name, ChildProfile.id)
+    ).all()
+    coding_enabled = is_module_enabled(user.enabled_modules, "coding")
+    yesterday = activity_today() - timedelta(days=1)
+    streaks = []
+    for profile_id, profile_name in profiles:
+        streak_days, last_study_date = compute_study_streak(
+            session, profile_id, coding_enabled=coding_enabled
+        )
+        streaks.append(
+            AdminStudyStreak(
+                profile_id=profile_id,
+                profile_name=profile_name,
+                streak_days=streak_days if last_study_date and last_study_date >= yesterday else 0,
+                last_study_date=last_study_date,
+            )
+        )
+    return streaks
+
+
 def _build_admin_recent_notifications(users: list[User], limit: int = 5) -> list[dict]:
     """Build the admin feed from account state already stored on each user."""
 

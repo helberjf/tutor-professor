@@ -1085,6 +1085,13 @@ export interface AdminUser {
   ai_credits: AICredits;
 }
 
+export interface AdminStudyStreak {
+  profile_id: number;
+  profile_name: string;
+  streak_days: number;
+  last_study_date: string | null;
+}
+
 export type AdminNotificationType =
   | 'account_approval_requested'
   | 'account_approved'
@@ -2605,6 +2612,9 @@ export const api = {
   adminCheck: () => fetchAPI<{ is_admin: boolean; email: string }>('/api/admin/check'),
   adminSystemHealth: () =>
     fetchAPI<{ status: string; database: string; timestamp: string }>('/api/admin/health'),
+  adminListUserStudyStreaks: (userId: number) =>
+    fetchAPI<AdminStudyStreak[]>(`/api/admin/users/${userId}/study-streaks`),
+
   adminListUsers: (status?: AccountStatus) =>
     fetchAPI<AdminUser[]>(status ? `/api/admin/users?status=${status}` : '/api/admin/users'),
   adminOverview: () => fetchAPI<AdminOverview>('/api/admin/overview'),

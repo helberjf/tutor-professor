@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, Loader2, RotateCcw } from 'lucide-react';
 
-import { api, type AccountStatus, type AdminUser, type AIProvider } from '@/lib/api';
-import { t } from '@/lib/i18n';
+import { api, type AccountStatus, type AdminStudyStreak, type AdminUser, type AIProvider } from '@/lib/api';
+import { getActiveLocale, t, tf } from '@/lib/i18n';
 
 // Mirrors the badge on /admin/accounts so the two lists read the same way.
 const ACCOUNT_STATUS_BADGE: Record<AccountStatus, { label: string; className: string }> = {
@@ -20,6 +20,59 @@ function LoadingRows() {
         <div key={item} className="h-32 animate-pulse rounded-2xl border-2 border-slate-100 bg-slate-50" />
       ))}
     </div>
+  );
+}
+
+function UserStudyStreaks({ userId }: { userId: number }) {
+  const [streaks, setStreaks] = useState<AdminStudyStreak[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api.adminListUserStudyStreaks(userId).then(
+      (rows) => { if (active) setStreaks(rows); },
+      () => { if (active) setFailed(true); },
+    );
+    return () => { active = false; };
+  }, [userId]);
+
+  if (failed) return <p role="alert">{t("Não foi possível carregar as sequências de estudo.")}</p>;
+  if (!streaks) return <p role="status">{t("Carregando sequências de estudo…")}</p>;
+  if (!streaks.length) return <p>{t("Esta conta ainda não tem perfis.")}</p>;
+
+  return (
+    <ul className="space-y-2">
+      {streaks.map(({ profile_id, profile_name, streak_days, last_study_date }) => (
+        <li key={profile_id} className="rounded-xl bg-slate-50 px-3 py-2">
+          <p className="break-words font-bold">{profile_name}</p>
+          <p>{tf(streak_days === 1 ? "{days} dia consecutivo" : "{days} dias consecutivos", { days: streak_days })}</p>
+          <p className="text-slate-600">
+            {last_study_date
+              ? tf("Último estudo em {date}", {
+                  date: new Date(last_study_date).toLocaleDateString(getActiveLocale(), { timeZone: 'UTC' }),
+                })
+              : t("Nenhum estudo registrado.")}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function UserStudyStreakDetails({ userId }: { userId: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="mt-4 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary className="cursor-pointer font-bold">{t("Sequência de estudos")}</summary>
+      {open && (
+        <div className="mt-2">
+          <UserStudyStreaks userId={userId} />
+        </div>
+      )}
+    </details>
   );
 }
 
@@ -259,6 +312,8 @@ export function AdminUsersPanel() {
                     : t("Sem autorização")}
               </span>
             </div>
+
+            <UserStudyStreakDetails userId={user.id} />
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-black text-slate-700">
