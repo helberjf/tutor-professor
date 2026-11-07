@@ -248,6 +248,17 @@ async def run() -> None:
                 "profile without activity has no streak or study date",
             )
 
+        for profile_id in (active_id, inactive_id, *profiles):
+            headers = {"X-Child-ID": str(profile_id)}
+            expected_days = streaks[profile_id]["streak_days"]
+            for endpoint in ("/api/progress", "/api/study/dashboard"):
+                response = await family_client.get(endpoint, headers=headers)
+                assert_status(response, 200, f"learner reads their own streak from {endpoint}")
+                require(
+                    response.json().get("study_streak_count") == expected_days,
+                    f"expected {expected_days} active study days from {endpoint}, got {response.text}",
+                )
+
         # New accounts already use the global Gemini configuration. Approval
         # only controls when they may enter the app.
         ai_settings = (await family_client.get("/api/ai/settings")).json()

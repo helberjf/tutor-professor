@@ -2287,7 +2287,7 @@ export const api = {
     fetchAPI<{ status: string }>(`/api/lesson/complete?lesson_id=${id}`, {
       method: 'POST',
     }),
-  getProgress: () => fetchAPI<Progress>('/api/progress'),
+  getProgress: () => fetchAPI<Progress & { study_streak_count: number }>('/api/progress'),
   getChildLevel: () => fetchAPI<LevelAnalysis>('/api/child/level'),
   /** Pin the level by hand, or pass null to follow the automatic ladder again. */
   setChildLevel: (level: number | null) =>

@@ -247,6 +247,10 @@ class ProgressSchema(BaseModel):
     difficult_words: List[str]
 
 
+class StudyProgressSchema(ProgressSchema):
+    study_streak_count: int
+
+
 class StudyDayUpdateSchema(BaseModel):
     plan_text: Optional[str] = Field(default=None, max_length=2000)
     studied_text: Optional[str] = Field(default=None, max_length=3000)

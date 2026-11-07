@@ -140,6 +140,7 @@ from schemas.schemas import (
     UserRegisterSchema,
     UserResponseSchema,
     ProgressSchema,
+    StudyProgressSchema,
     QuizQuestionSchema,
     QuizAnswerSchema,
     QuizSchema,
@@ -3332,11 +3333,30 @@ def compute_study_streak(
     return streak, study_dates[0]
 
 
-@app.get("/api/progress", response_model=ProgressSchema)
-def get_progress(request: Request, session: Session = Depends(get_session)) -> ProgressSchema:
+def compute_active_study_streak(
+    session: Session,
+    child_id: int,
+    *,
+    coding_enabled: bool,
+) -> tuple[int, date | None]:
+    streak_days, last_study_date = compute_study_streak(
+        session, child_id, coding_enabled=coding_enabled
+    )
+    yesterday = activity_today() - timedelta(days=1)
+    if last_study_date is None or last_study_date < yesterday:
+        return 0, last_study_date
+    return streak_days, last_study_date
+
+
+@app.get("/api/progress", response_model=StudyProgressSchema)
+def get_progress(request: Request, session: Session = Depends(get_session)) -> StudyProgressSchema:
     require_parent_session(request, session)
     child = get_requested_child(request=request, session=session)
-    return build_progress_for_child(session=session, child=child)
+    streak_days, _ = compute_active_study_streak(
+        session, child.id or 0, coding_enabled=account_has_coding_enabled(request, session)
+    )
+    progress = build_progress_for_child(session=session, child=child)
+    return StudyProgressSchema(**progress.model_dump(), study_streak_count=streak_days)
 
 
 @app.get("/api/study/dashboard", response_model=StudyDashboardSchema)
@@ -3353,7 +3373,7 @@ def get_study_dashboard(request: Request, session: Session = Depends(get_session
         .limit(30)
     ).all()
     coding_enabled = account_has_coding_enabled(request, session)
-    streak_count, last_study_date = compute_study_streak(
+    streak_count, last_study_date = compute_active_study_streak(
         session=session, child_id=child_id, coding_enabled=coding_enabled
     )
     activity_counts = count_activities_by_date(
@@ -15389,17 +15409,16 @@ def admin_list_user_study_streaks(
         .order_by(ChildProfile.name, ChildProfile.id)
     ).all()
     coding_enabled = is_module_enabled(user.enabled_modules, "coding")
-    yesterday = activity_today() - timedelta(days=1)
     streaks = []
     for profile_id, profile_name in profiles:
-        streak_days, last_study_date = compute_study_streak(
+        streak_days, last_study_date = compute_active_study_streak(
             session, profile_id, coding_enabled=coding_enabled
         )
         streaks.append(
             AdminStudyStreak(
                 profile_id=profile_id,
                 profile_name=profile_name,
-                streak_days=streak_days if last_study_date and last_study_date >= yesterday else 0,
+                streak_days=streak_days,
                 last_study_date=last_study_date,
             )
         )

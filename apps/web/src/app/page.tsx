@@ -9,9 +9,10 @@ import { getApiConnectionDetails, refreshRuntimeBackendConfig, subscribeToApiBas
 import { t } from '@/lib/i18n';
 
 type HomeStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'server_missing';
+type HomeProgress = Awaited<ReturnType<typeof api.getProgress>>;
 
 export default function HomePage() {
-  const [progress, setProgress] = useState<Progress | null>(null);
+  const [progress, setProgress] = useState<HomeProgress | null>(null);
   const [level, setLevel] = useState<LevelAnalysis | null>(null);
   // What is still open in the study queue, so the first screen can offer to
   // continue it instead of asking the student to find their way back to it.
@@ -237,13 +238,13 @@ export default function HomePage() {
 
             {/* Stats row */}
             <div className="mt-3 grid grid-cols-3 gap-1 divide-x divide-slate-100 sm:mt-4 sm:gap-3">
-              <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
+              <Link href="/dashboard" className="flex flex-col items-center gap-0.5 rounded-lg px-1 text-center hover:bg-orange-50 dark:hover:bg-orange-950/30 sm:gap-1 sm:px-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-orange-100 sm:h-8 sm:w-8">
-                  <Flame size={16} className="text-orange-600" />
+                  <Flame size={16} className="text-orange-600" aria-hidden />
                 </div>
-                <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.streak_count}</p>
-                <p className="text-xs font-semibold text-slate-400">{t("Dias")}</p>
-              </div>
+                <p className="text-lg font-black text-slate-800 sm:text-xl">{progress.study_streak_count ?? '—'}</p>
+                <p className="text-xs font-semibold text-slate-600">{t("Dias seguidos")}</p>
+              </Link>
               <div className="flex flex-col items-center gap-0.5 px-1 text-center sm:gap-1 sm:px-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100 sm:h-8 sm:w-8">
                   <Target size={16} className="text-emerald-600" />
