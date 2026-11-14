@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-filas-bullmq",
+  "title": "Filas com BullMQ e Redis",
+  "category": "typescript",
+  "description": "Fila persistente com BullMQ 6 e Redis: contrato tipado entre produtor e worker, retries, erros permanentes, jobs atrasados, idempotência e desligamento seguro.",
+  "sections": [
+    {
+      "title": "Conexão e fila no Redis",
+      "body": "Com o BullMQ, a fila mora no Redis. Produtor e worker são processos independentes, podem estar em máquinas diferentes, e os jobs sobrevivem se o worker cair. No BullMQ 6, o `ioredis` virou dependência opcional: instale-o e, em projetos ESM, passe a instância já criada. `maxRetriesPerRequest: null` é obrigatório para workers. `defaultJobOptions` vale para todo job da fila: tentativas, backoff e limpeza automática.",
+      "code_example": "// docker run -d -p 127.0.0.1:6379:6379 redis:7.4-alpine --maxmemory-policy noeviction\n// npm install bullmq ioredis\nimport { Queue } from 'bullmq';\nimport { Redis } from 'ioredis';\n\n// No BullMQ 6 o ioredis é opcional: em ESM, passe a instância pronta\nconst connection = new Redis({\n  host: '127.0.0.1',\n  port: 6379,\n  maxRetriesPerRequest: null, // obrigatório para workers\n});\n\nconst queue = new Queue('notificacoes', {\n  connection,\n  defaultJobOptions: {\n    attempts: 3,\n    backoff: { type: 'exponential', delay: 500 }, // 500ms, 1s, 2s...\n    removeOnComplete: { count: 100 }, // sem limpeza, o Redis guarda tudo para sempre\n    removeOnFail: { count: 500 },\n  },\n});\n\nawait queue.add('enviar-email', { to: 'ana@ex.com', subject: 'Oi', body: 'Olá!' });\n\n// Quem cria a conexão fecha a conexão\nawait queue.close();\nawait connection.quit();"
+    },
+    {
+      "title": "Contrato tipado entre produtor e worker",
+      "body": "Produtor e worker costumam rodar em processos (ou repositórios) diferentes, então o contrato entre eles precisa ser explícito: um mapa de nome do job para o formato dos dados e do resultado. `queue.add` sozinho aceita qualquer combinação de nome e dados da união. O wrapper `enqueue<K>` amarra os dois: escolheu `'enviar-email'`, então `data` tem que ser `{ to, subject, body }`. Linhas com `@ts-expect-error` viram testes de tipo: se uma chamada errada passar a compilar, o `tsc` falha.",
+      "code_example": "// jobs.ts: o contrato entre produtor e worker\nexport interface JobDataMap {\n  'enviar-email': { to: string; subject: string; body: string };\n  'gerar-relatorio': { userId: string; mes: string };\n}\nexport interface JobResultMap {\n  'enviar-email': { messageId: string };\n  'gerar-relatorio': { url: string; linhas: number };\n}\nexport type JobName = keyof JobDataMap; // 'enviar-email' | 'gerar-relatorio'\n\nexport type NotificacoesQueue = Queue<JobDataMap[JobName], JobResultMap[JobName], JobName>;\n\n// O nome escolhido (K) define o formato obrigatório de `data`\nexport function enqueue<K extends JobName>(\n  queue: NotificacoesQueue,\n  name: K,\n  data: JobDataMap[K],\n  opts?: JobsOptions,\n) {\n  return queue.add(name, data, opts);\n}\n\nenqueue(queue, 'gerar-relatorio', { userId: 'u1', mes: '2026-10' }); // ✅\n\n// @ts-expect-error: 'enviar-email' exige { to, subject, body }\nenqueue(queue, 'enviar-email', { userId: 'u1', mes: '2026-10' });\n\n// @ts-expect-error: job que não existe no contrato\nenqueue(queue, 'apagar-tudo', {});"
+    },
+    {
+      "title": "Worker com handlers tipados",
+      "body": "Um mapped type gera, para cada nome de job, a assinatura exata do handler. Esquecer um handler ou devolver o resultado no formato errado vira erro de compilação. A função `dispatch` precisa ser genérica em `K`: sem isso, o TypeScript vê \"um dos handlers\" e \"um dos jobs\" e não consegue garantir que combinam (o problema da correlated union). Com `K`, os dois lados dependem da mesma variável. `concurrency: 3` deixa este processo rodar até 3 jobs ao mesmo tempo.",
+      "code_example": "import { UnrecoverableError, Worker, type Job } from 'bullmq';\n\n// Para cada nome K: recebe o job de K e devolve o resultado de K\ntype Handlers = {\n  [K in JobName]: (job: Job<JobDataMap[K], JobResultMap[K], K>) => Promise<JobResultMap[K]>;\n};\n\nconst handlers: Handlers = {\n  'enviar-email': async (job) => {\n    const { to } = job.data; // TS sabe que é { to, subject, body }\n    if (!to.includes('@')) throw new UnrecoverableError(`endereço inválido: ${to}`);\n    return { messageId: `msg-${job.id}` };\n  },\n  'gerar-relatorio': async (job) => {\n    await job.updateProgress(50); // vira evento \"progress\"\n    return { url: `/relatorios/${job.data.userId}/${job.data.mes}.pdf`, linhas: 42 };\n  },\n};\n\n// Genérica em K: o handler escolhido e o job dependem do mesmo nome\nfunction dispatch<K extends JobName>(job: Job<JobDataMap[K], JobResultMap[K], K>) {\n  const handler = handlers[job.name];\n  return handler(job);\n}\n\nconst worker = new Worker<JobDataMap[JobName], JobResultMap[JobName], JobName>(\n  'notificacoes',\n  (job) => dispatch(job),\n  { connection, concurrency: 3 }, // até 3 jobs ao mesmo tempo neste processo\n);"
+    },
+    {
+      "title": "Retry, erro permanente, delay e idempotência",
+      "body": "`job.attemptsMade` conta as tentativas que já falharam, então vale 0 na primeira execução. `UnrecoverableError` faz o job falhar na hora, sem gastar as tentativas restantes. `delay` deixa o job invisível para o worker até o tempo passar, e o retry com backoff usa esse mesmo mecanismo: entre uma tentativa e outra, o job aparece como \"delayed\". Um `jobId` fixo garante idempotência: enquanto o job existir no Redis, um segundo `add` com o mesmo id não cria cópia. Útil contra reenvios de HTTP e cliques duplos.",
+      "code_example": "// attemptsMade = tentativas que JÁ falharam (0 na primeira execução)\nif (to.startsWith('instavel') && job.attemptsMade < 2) {\n  throw new Error('timeout no SMTP'); // falha na 1ª e na 2ª, passa na 3ª\n}\n\n// Erro permanente: falha na hora, sem gastar as tentativas restantes\nthrow new UnrecoverableError('endereço inválido');\n\n// Job atrasado: só fica disponível para o worker depois de 3s\nawait enqueue(queue, 'enviar-email', lembrete, { delay: 3_000 });\n\n// Idempotência: mesmo jobId = mesmo job (enquanto ele existir no Redis)\nawait enqueue(queue, 'gerar-relatorio', dados, { jobId: 'relatorio-u2-2026-10' });\nawait enqueue(queue, 'gerar-relatorio', dados, { jobId: 'relatorio-u2-2026-10' });\n// → 7 chamadas de add no exemplo, 6 jobs distintos\n\n// Saída real do worker:\n// ▶ enviar-email#3 (tentativa 1)\n// ✖ enviar-email#3 falhou de vez após 1 tentativa(s): endereço inválido: sem-arroba\n// ↻ enviar-email#2 falhou (timeout no SMTP); tentativa 1/3, vai tentar de novo\n// ↻ enviar-email#2 falhou (timeout no SMTP); tentativa 2/3, vai tentar de novo\n// ✔ enviar-email#2 → {\"messageId\":\"msg-2\"}"
+    },
+    {
+      "title": "Eventos e desligamento seguro",
+      "body": "`worker.on(...)` mostra o que este processo fez. `QueueEvents` mostra o que aconteceu na fila inteira, vindo de qualquer worker ou produtor, e precisa de conexão própria porque fica bloqueado lendo um stream do Redis. O listener de `error` é obrigatório: sem ele, uma queda do Redis derruba o processo. No deploy o processo recebe SIGTERM: `worker.close()` para de pegar jobs novos e espera os que estão rodando, em vez de interromper no meio.",
+      "code_example": "// Eventos deste processo\nworker.on('completed', (job, result) => console.log(`✔ ${job.name}#${job.id}`, result));\nworker.on('failed', (job, err) => {\n  if (!job) return; // pode vir undefined\n  const max = job.opts.attempts ?? 1;\n  const definitivo = err instanceof UnrecoverableError || job.attemptsMade >= max;\n  console.log(definitivo ? 'falhou de vez' : 'vai tentar de novo', err.message);\n});\n// Sem este listener, uma queda do Redis derruba o processo\nworker.on('error', (err) => console.error('erro no worker:', err.message));\n\n// Eventos da fila inteira, vindos de qualquer processo (conexão própria)\nconst events = new QueueEvents('notificacoes', {\n  connection: new Redis({ maxRetriesPerRequest: null }),\n});\nevents.on('retries-exhausted', ({ jobId, attemptsMade }) =>\n  console.log(`#${jobId} esgotou as tentativas (${attemptsMade})`),\n);\n\n// Graceful shutdown: no deploy o processo recebe SIGTERM\nprocess.once('SIGTERM', async () => {\n  await worker.close(); // para de pegar jobs e espera os que estão rodando\n  await connection.quit();\n  process.exit(0);\n});"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Por que a conexão do worker precisa de `maxRetriesPerRequest: null`?",
+      "options": [
+        "O worker fica bloqueado esperando jobs no Redis, e o ioredis não pode desistir desses comandos",
+        "Para o BullMQ tentar cada job infinitas vezes",
+        "Para desativar o backoff exponencial",
+        "Porque o Redis não aceita conexões com retry"
+      ],
+      "correct_option": "O worker fica bloqueado esperando jobs no Redis, e o ioredis não pode desistir desses comandos",
+      "explanation": "O worker usa comandos bloqueantes para esperar jobs. Com um limite de tentativas por comando, o ioredis desistiria deles e o worker pararia de receber jobs. Isso não tem relação com as tentativas do job, que vêm de `attempts`."
+    },
+    {
+      "id": 2,
+      "question": "Qual o valor de `job.attemptsMade` durante a primeira execução de um job?",
+      "options": [
+        "0",
+        "1",
+        "3",
+        "undefined"
+      ],
+      "correct_option": "0",
+      "explanation": "`attemptsMade` conta as tentativas que já falharam, e na primeira execução nenhuma falhou ainda. Por isso o worker do módulo exibe `job.attemptsMade + 1` como número da tentativa atual."
+    },
+    {
+      "id": 3,
+      "question": "O que acontece quando o handler lança `UnrecoverableError` num job com `attempts: 3`?",
+      "options": [
+        "O job falha na hora, sem usar as tentativas restantes",
+        "O BullMQ tenta mais 3 vezes",
+        "O job volta para o fim da fila sem contar tentativa",
+        "O worker é encerrado"
+      ],
+      "correct_option": "O job falha na hora, sem usar as tentativas restantes",
+      "explanation": "`UnrecoverableError` avisa o BullMQ de que o erro não se resolve com nova tentativa, como um e-mail inválido. O job vai direto para os falhos, e o evento `failed` recebe esse erro."
+    },
+    {
+      "id": 4,
+      "question": "Dois `queue.add` usam o mesmo `jobId`, e o primeiro job ainda está no Redis. O que acontece?",
+      "options": [
+        "A fila mantém um job só: o segundo add não cria cópia",
+        "O segundo add lança um erro",
+        "O segundo add substitui os dados do primeiro",
+        "São criados dois jobs com ids diferentes"
+      ],
+      "correct_option": "A fila mantém um job só: o segundo add não cria cópia",
+      "explanation": "O `jobId` identifica o job no Redis. Se ele já existe, o add devolve o job existente: no exemplo do módulo, 7 chamadas de add geraram 6 jobs. Depois que o job é removido (por exemplo, por `removeOnComplete`), o mesmo id pode ser usado de novo."
+    },
+    {
+      "id": 5,
+      "question": "Por que a função `dispatch` do worker é genérica em `K`?",
+      "options": [
+        "Para o TypeScript saber que o handler escolhido e o job dependem do mesmo nome, e aceitar a chamada sem cast",
+        "Para o worker rodar mais rápido",
+        "Porque o BullMQ exige um processor genérico",
+        "Para aceitar jobs com nomes fora do contrato"
+      ],
+      "correct_option": "Para o TypeScript saber que o handler escolhido e o job dependem do mesmo nome, e aceitar a chamada sem cast",
+      "explanation": "Sem `K`, `handlers[job.name]` é \"algum handler\" e `job` é \"algum job\", e o TypeScript não consegue provar que combinam. Com `K`, os dois tipos derivam da mesma variável, e a chamada é aceita sem `as`."
+    }
+  ]
+}

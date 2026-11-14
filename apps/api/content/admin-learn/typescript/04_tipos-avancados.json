@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-tipos-avancados",
+  "title": "Tipos Avançados",
+  "category": "typescript",
+  "description": "Mapped types, conditional types com infer, template literal types, indexed access e branded types: ferramentas para derivar tipos em vez de repeti-los.",
+  "sections": [
+    {
+      "title": "Mapped types",
+      "body": "Um mapped type percorre as chaves de outro tipo e gera um tipo novo: `{ [K in keyof T]: ... }`. É assim que `Partial`, `Readonly` e `Record` são implementados. Os modificadores `?` e `readonly` podem ser adicionados ou removidos com `-`. Com `as`, dá para renomear ou filtrar chaves: mapear uma chave para `never` remove ela do resultado.",
+      "code_example": "// Assim Partial e Readonly são feitos por dentro\ntype MeuPartial<T> = { [K in keyof T]?: T[K] };\ntype MeuReadonly<T> = { readonly [K in keyof T]: T[K] };\n\n// O sinal de menos remove modificadores: tira readonly e ? de tudo\ntype Completo<T> = { -readonly [K in keyof T]-?: T[K] };\n\ninterface Config {\n  readonly porta?: number;\n  readonly host?: string;\n}\ntype ConfigCompleta = Completo<Config>; // { porta: number; host: string }\n\n// Remapeando chaves com `as`\ntype Getters<T> = {\n  [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K];\n};\ntype UserGetters = Getters<{ nome: string; idade: number }>;\n// { getNome: () => string; getIdade: () => number }\n\n// Filtrando chaves: mapear para `never` remove a chave\ntype SoStrings<T> = { [K in keyof T as T[K] extends string ? K : never]: T[K] };\ntype Textos = SoStrings<{ nome: string; idade: number; email: string }>;\n// { nome: string; email: string }"
+    },
+    {
+      "title": "Conditional types e infer",
+      "body": "`T extends U ? X : Y` é um if no nível dos tipos. Com `infer`, você captura uma parte do tipo dentro da condição, como o conteúdo de uma Promise ou o retorno de uma função: é assim que `ReturnType` e `Awaited` funcionam. Quando `T` é uma união, a condição roda para cada membro separadamente (é distributiva), o que permite filtrar membros, como faz o `NonNullable`.",
+      "code_example": "// T extends U ? X : Y é um \"if\" no nível dos tipos\ntype EhString<T> = T extends string ? 'sim' : 'não';\ntype A = EhString<'oi'>; // 'sim'\ntype B = EhString<42>;   // 'não'\n\n// infer captura um pedaço do tipo dentro da condição\ntype ElementoDe<T> = T extends readonly (infer E)[] ? E : never;\ntype N = ElementoDe<number[]>; // number\n\ntype Desembrulha<T> = T extends Promise<infer U> ? Desembrulha<U> : T;\ntype Texto = Desembrulha<Promise<Promise<string>>>; // string (como o Awaited nativo)\n\n// É assim que o ReturnType nativo funciona\ntype Retorno<F> = F extends (...args: never[]) => infer R ? R : never;\ntype X = Retorno<() => { ok: boolean }>; // { ok: boolean }\n\n// Em uniões, a condição é distributiva: roda para cada membro\ntype SemNulos<T> = T extends null | undefined ? never : T;\ntype Y = SemNulos<string | null | undefined>; // string (como o NonNullable)"
+    },
+    {
+      "title": "Template literal types",
+      "body": "Template literal types montam strings no nível dos tipos. Combinar uniões gera todas as combinações, e helpers como `Capitalize` transformam o texto. Com `infer` e recursão, dá para extrair partes de uma string, como os parâmetros de uma rota `/users/:id`. Assim o compilador sabe quais params cada rota exige.",
+      "code_example": "type Metodo = 'get' | 'post';\ntype Recurso = 'users' | 'posts';\ntype Permissao = `${Metodo}:${Recurso}`;\n// 'get:users' | 'get:posts' | 'post:users' | 'post:posts'\n\ntype Evento = 'click' | 'focus';\ntype Handler = `on${Capitalize<Evento>}`; // 'onClick' | 'onFocus'\n\n// Extraindo os parâmetros de uma rota com infer recursivo\ntype Params<Rota extends string> =\n  Rota extends `${string}:${infer P}/${infer Resto}`\n    ? P | Params<`/${Resto}`>\n    : Rota extends `${string}:${infer P}`\n      ? P\n      : never;\n\ntype P1 = Params<'/users/:userId/posts/:postId'>; // 'userId' | 'postId'\n\nfunction montarUrl<R extends string>(rota: R, params: Record<Params<R>, string>): string {\n  return rota.replace(/:(\\w+)/g, (_, nome: string) => params[nome as Params<R>]);\n}\n\nconsole.log(montarUrl('/users/:userId/posts/:postId', { userId: '1', postId: '9' }));\n// '/users/1/posts/9'\n\n// @ts-expect-error: falta postId\nmontarUrl('/users/:userId/posts/:postId', { userId: '1' });"
+    },
+    {
+      "title": "Indexed access e as const",
+      "body": "`Tipo['chave']` busca o tipo de uma propriedade, e `Tipo[number]` busca o tipo dos elementos de um array. Com um array `as const`, uma única lista serve de valor em runtime e de união de literais no tipo, sem duplicar nada. Um mapa `nome → dados` com uma função genérica `<K extends keyof Mapa>(nome: K, dados: Mapa[K])` amarra os dois argumentos: é a base dos jobs tipados do BullMQ.",
+      "code_example": "// Um array `as const` vira a fonte da verdade, em runtime E no tipo\nconst PAPEIS = ['admin', 'editor', 'leitor'] as const;\ntype Papel = (typeof PAPEIS)[number]; // 'admin' | 'editor' | 'leitor'\n\nfunction isPapel(x: string): x is Papel {\n  return (PAPEIS as readonly string[]).includes(x);\n}\n\n// Indexed access: navega dentro de um tipo\ninterface Pedido {\n  id: string;\n  itens: { sku: string; qtd: number }[];\n  cliente: { nome: string; endereco: { cidade: string } };\n}\ntype Item = Pedido['itens'][number];                   // { sku: string; qtd: number }\ntype Cidade = Pedido['cliente']['endereco']['cidade']; // string\n\n// Mapa \"nome → dados\" + generic: a base dos jobs tipados do BullMQ (módulo 10)\ninterface Eventos {\n  'user.criado': { id: string; email: string };\n  'pedido.pago': { pedidoId: string; valor: number };\n}\n\nfunction publicar<K extends keyof Eventos>(nome: K, dados: Eventos[K]): void {\n  console.log(nome, dados);\n}\n\npublicar('pedido.pago', { pedidoId: 'p1', valor: 99.9 }); // ✅\n// @ts-expect-error: dados de outro evento\npublicar('user.criado', { pedidoId: 'p1', valor: 99.9 });\n\nconsole.log(isPapel('admin'), isPapel('root')); // true false"
+    },
+    {
+      "title": "Branded types",
+      "body": "Para o TypeScript, `UserId` e `PedidoId` declarados como `string` são o mesmo tipo, e trocar um pelo outro compila sem erro. Um branded type cruza a string com uma marca que só existe no compilador. O valor só ganha a marca passando por uma função que valida, e daí em diante não dá para misturar IDs. Em runtime continua sendo uma string comum, sem custo nenhum.",
+      "code_example": "// Todo ID é string: nada impede passar um PedidoId onde se espera um UserId\ndeclare const marca: unique symbol;\ntype Brand<T, Nome extends string> = T & { readonly [marca]: Nome };\n\ntype UserId = Brand<string, 'UserId'>;\ntype PedidoId = Brand<string, 'PedidoId'>;\n\n// O jeito \"oficial\" de criar um UserId passa pela validação\nfunction toUserId(raw: string): UserId {\n  if (!/^u_[a-z0-9]+$/.test(raw)) throw new Error(`UserId inválido: ${raw}`);\n  return raw as UserId;\n}\n\nfunction buscarUsuario(id: UserId): string {\n  return `buscando ${id}`;\n}\n\nconst userId = toUserId('u_123');\nconst pedidoId = 'p_999' as PedidoId;\n\nbuscarUsuario(userId);   // ✅\n// @ts-expect-error: PedidoId não é UserId\nbuscarUsuario(pedidoId);\n// @ts-expect-error: string crua também não serve\nbuscarUsuario('u_123');\n\n// Em runtime é só uma string: a marca existe apenas para o compilador\nconsole.log(userId.toUpperCase()); // 'U_123'"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "O que `type X<T> = { [K in keyof T]?: T[K] }` produz?",
+      "options": [
+        "Um tipo com as mesmas chaves de T, todas opcionais, como o `Partial`",
+        "Um tipo com só as chaves opcionais de T",
+        "Uma união das chaves de T",
+        "Uma cópia de T com tudo readonly"
+      ],
+      "correct_option": "Um tipo com as mesmas chaves de T, todas opcionais, como o `Partial`",
+      "explanation": "O mapped type percorre cada chave `K` de `T`, mantém o tipo `T[K]` e adiciona `?`. Essa é exatamente a definição do `Partial` nativo."
+    },
+    {
+      "id": 2,
+      "question": "Em `T extends Promise<infer U> ? U : T`, o que `infer U` faz?",
+      "options": [
+        "Captura o tipo de dentro da Promise para usar no ramo verdadeiro",
+        "Cria uma variável em runtime",
+        "Força T a ser uma Promise",
+        "Desembrulha a Promise em runtime"
+      ],
+      "correct_option": "Captura o tipo de dentro da Promise para usar no ramo verdadeiro",
+      "explanation": "`infer` declara uma variável de tipo que o TypeScript preenche ao comparar `T` com o padrão. Se `T` for `Promise<string>`, `U` vira `string`."
+    },
+    {
+      "id": 3,
+      "question": "Qual o resultado de `` `${'get' | 'post'}:${'users' | 'posts'}` ``?",
+      "options": [
+        "Uma união com as 4 combinações, de 'get:users' a 'post:posts'",
+        "Só 'get:users'",
+        "string",
+        "Um erro de compilação"
+      ],
+      "correct_option": "Uma união com as 4 combinações, de 'get:users' a 'post:posts'",
+      "explanation": "Template literal types distribuem sobre uniões: cada membro da esquerda combina com cada membro da direita, gerando 2 × 2 = 4 literais."
+    },
+    {
+      "id": 4,
+      "question": "Como obter a união `'admin' | 'editor'` a partir de `const PAPEIS = ['admin', 'editor'] as const`?",
+      "options": [
+        "`(typeof PAPEIS)[number]`",
+        "`keyof PAPEIS`",
+        "`typeof PAPEIS`",
+        "`PAPEIS[number]`"
+      ],
+      "correct_option": "`(typeof PAPEIS)[number]`",
+      "explanation": "`typeof PAPEIS` é a tupla readonly `['admin', 'editor']`, e indexar por `number` dá o tipo dos elementos. Sem o `as const`, o resultado seria só `string`. `PAPEIS[number]` não funciona porque `PAPEIS` é um valor, não um tipo."
+    },
+    {
+      "id": 5,
+      "question": "Para que servem branded types como `UserId`?",
+      "options": [
+        "Impedir que valores com o mesmo tipo base, como string, sejam trocados por engano",
+        "Criptografar IDs em runtime",
+        "Deixar a string mais leve na memória",
+        "Gerar IDs únicos automaticamente"
+      ],
+      "correct_option": "Impedir que valores com o mesmo tipo base, como string, sejam trocados por engano",
+      "explanation": "A marca só existe para o compilador. Ela torna `UserId` e `PedidoId` incompatíveis, embora em runtime os dois sejam strings."
+    }
+  ]
+}

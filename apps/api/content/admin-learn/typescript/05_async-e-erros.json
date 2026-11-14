@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-async-e-erros",
+  "title": "Async e Tratamento de Erros",
+  "category": "typescript",
+  "description": "Promises tipadas, paralelismo com Promise.all e allSettled, erros como unknown, classes de erro, o padrão Result e cancelamento com AbortSignal.",
+  "sections": [
+    {
+      "title": "Promises e async/await tipados",
+      "body": "Uma função `async` sempre devolve uma Promise, e o tipo de retorno é `Promise<T>`. `await` desembrulha o valor, e `Awaited<T>` faz o mesmo no nível dos tipos. Esquecer o `await` é um bug comum: o TypeScript avisa quando você usa o valor, mas não quando a Promise é simplesmente ignorada. Uma Promise solta que rejeita vira `unhandledRejection`, e o Node encerra o processo.",
+      "code_example": "import { setTimeout as sleep } from 'node:timers/promises';\n\ninterface User { id: number; nome: string }\n\n// async sempre devolve Promise: o tipo de retorno é Promise<User>\nasync function buscarUser(id: number): Promise<User> {\n  await sleep(100); // simula I/O (banco, API)\n  return { id, nome: 'Ana' };\n}\n\nconst user = await buscarUser(1); // user: User (top-level await em ESM)\nconsole.log(user.nome);           // 'Ana'\n\n// Awaited desembrulha o tipo de dentro da Promise\ntype U = Awaited<ReturnType<typeof buscarUser>>; // User\n\n// Esquecer o await é um bug comum, e o TS pega quando você usa o valor\nconst semAwait = buscarUser(2);\n// @ts-expect-error: Promise<User> não tem .nome\nconsole.log(semAwait.nome);\n\n// Promise \"solta\" que rejeita vira unhandledRejection e derruba o processo.\n// Ou dê await, ou trate com .catch:\nbuscarUser(3).catch((err: unknown) => console.error(err));"
+    },
+    {
+      "title": "Sequencial, paralelo e allSettled",
+      "body": "Dois `await` seguidos rodam em sequência: o tempo total é a soma. Operações independentes devem rodar juntas com `Promise.all`, que leva o tempo da mais lenta e preserva o tipo de cada posição da tupla. Se uma falhar, `Promise.all` rejeita inteiro. `Promise.allSettled` espera todas e devolve uma união discriminada por `status`. `Promise.race` resolve com a primeira que terminar.",
+      "code_example": "import { setTimeout as sleep } from 'node:timers/promises';\n\nasync function buscar<T>(valor: T, ms: number): Promise<T> {\n  await sleep(ms);\n  return valor;\n}\n\n// Sequencial: ~300ms (o segundo só começa quando o primeiro termina)\nlet t = Date.now();\nconst a = await buscar('user', 100);\nconst b = await buscar(42, 200);\nconsole.log('sequencial', Date.now() - t, 'ms');\n\n// Paralelo: ~200ms. Promise.all preserva o tipo de cada posição\nt = Date.now();\nconst [user, total] = await Promise.all([buscar('user', 100), buscar(42, 200)]);\n//     ^ string  ^ number\nconsole.log('paralelo', Date.now() - t, 'ms');\n\n// Promise.all rejeita inteiro se UMA falhar. allSettled espera todas:\nconst resultados = await Promise.allSettled([\n  buscar('ok', 50),\n  Promise.reject(new Error('fora do ar')),\n]);\nfor (const r of resultados) {\n  if (r.status === 'fulfilled') console.log('ok:', r.value); // união discriminada\n  else console.log('falhou:', (r.reason as Error).message);\n}\n\n// Promise.race: a primeira que terminar (com sucesso ou erro) decide\nconsole.log(await Promise.race([buscar('A', 100), buscar('B', 50)])); // 'B'"
+    },
+    {
+      "title": "Erros: unknown, classes próprias e cause",
+      "body": "Com `strict`, a variável do `catch` é `unknown`, porque em JavaScript qualquer valor pode ser lançado. Cheque com `instanceof` antes de usar. Classes de erro próprias carregam dados (como o status HTTP) e permitem tratar cada caso. Ao relançar, passe o erro original em `{ cause }` para não perder a stack de onde o problema começou.",
+      "code_example": "// Com \"strict\", a variável do catch é unknown: cheque antes de usar\ntry {\n  JSON.parse('{ inválido');\n} catch (err) {\n  // @ts-expect-error: err é unknown, não dá para ler .message direto\n  console.log(err.message);\n  if (err instanceof SyntaxError) console.log('JSON quebrado');\n}\n\n// Classes de erro próprias carregam contexto e permitem instanceof\nclass HttpError extends Error {\n  readonly status: number;\n  constructor(status: number, message: string, options?: ErrorOptions) {\n    super(message, options);\n    this.name = 'HttpError';\n    this.status = status;\n  }\n}\n\nasync function carregarPerfil(id: string) {\n  try {\n    throw new Error('ECONNRESET'); // simula a falha de rede original\n  } catch (err) {\n    // `cause` encadeia o erro original sem perder a stack dele\n    throw new HttpError(502, `falha ao carregar perfil ${id}`, { cause: err });\n  }\n}\n\ntry {\n  await carregarPerfil('u1');\n} catch (err) {\n  if (err instanceof HttpError) {\n    console.log(err.status, err.message, '←', (err.cause as Error).message);\n    // 502 falha ao carregar perfil u1 ← ECONNRESET\n  }\n}"
+    },
+    {
+      "title": "O padrão Result",
+      "body": "Exceções não aparecem na assinatura da função: nada obriga quem chama a tratá-las. Para erros de negócio esperados (validação, regra violada), devolva uma união `{ ok: true; value } | { ok: false; error }`. O tipo obriga a checar `ok` antes de acessar o valor, e o erro pode ser uma união de literais. Use `throw` para bugs e falhas inesperadas, e `Result` para falhas que fazem parte do fluxo.",
+      "code_example": "import { readFile } from 'node:fs/promises';\n\ntype Result<T, E = Error> = { ok: true; value: T } | { ok: false; error: E };\n\n// Erros esperados viram valor de retorno: quem chama é OBRIGADO a tratar\nfunction parseIdade(texto: string): Result<number, 'vazio' | 'nao-numerico' | 'fora-da-faixa'> {\n  if (texto.trim() === '') return { ok: false, error: 'vazio' };\n  const n = Number(texto);\n  if (!Number.isInteger(n)) return { ok: false, error: 'nao-numerico' };\n  if (n < 0 || n > 150) return { ok: false, error: 'fora-da-faixa' };\n  return { ok: true, value: n };\n}\n\nconst r = parseIdade('42');\nif (r.ok) console.log(r.value + 1); // r.value: number → 43\nelse console.log(r.error);          // r.error: 'vazio' | 'nao-numerico' | 'fora-da-faixa'\n\n// Adaptador: transforma uma função que lança em uma que devolve Result\nasync function tentar<T>(fn: () => Promise<T>): Promise<Result<T>> {\n  try {\n    return { ok: true, value: await fn() };\n  } catch (err) {\n    return { ok: false, error: err instanceof Error ? err : new Error(String(err)) };\n  }\n}\n\nconst lido = await tentar(() => readFile('nao-existe.txt', 'utf8'));\nif (!lido.ok) console.log('não deu:', lido.error.message);\n// não deu: ENOENT: no such file or directory, open '.../nao-existe.txt'\n\n// Regra prática: throw para bugs e falhas inesperadas;\n// Result para erros de negócio que fazem parte do fluxo."
+    },
+    {
+      "title": "Timeouts e cancelamento com AbortSignal",
+      "body": "Toda operação de I/O deveria ter um limite de tempo. `AbortSignal.timeout(ms)` cria um sinal que aborta sozinho, `AbortController` deixa você abortar quando quiser, e `AbortSignal.any` combina sinais. `fetch`, `timers/promises`, streams e o BullMQ aceitam signal. O motivo do cancelamento fica em `signal.reason`; algumas APIs rejeitam com um `AbortError` genérico, como mostra o exemplo.",
+      "code_example": "import { setTimeout as sleep } from 'node:timers/promises';\n\n// Funções que aceitam AbortSignal podem ser canceladas de fora\nasync function tarefaLenta(signal?: AbortSignal): Promise<string> {\n  await sleep(5_000, undefined, { signal }); // timers/promises respeita o signal\n  return 'terminou';\n}\n\n// AbortSignal.timeout: aborta sozinho depois de N ms\nconst porTempo = AbortSignal.timeout(200);\ntry {\n  await tarefaLenta(porTempo);\n} catch (err) {\n  // O timer rejeita com AbortError; o motivo real fica em signal.reason\n  console.log((err as Error).name, '| motivo:', (porTempo.reason as Error).name);\n  // AbortError | motivo: TimeoutError\n}\n\n// AbortController: você decide quando cancelar (usuário desistiu, SIGTERM...)\nconst controller = new AbortController();\nsetTimeout(() => controller.abort(new Error('cancelado pelo usuário')), 100);\ntry {\n  await tarefaLenta(controller.signal);\n} catch {\n  console.log('motivo:', (controller.signal.reason as Error).message);\n}\n\n// Combine sinais: aborta no que acontecer primeiro\nconst ambos = AbortSignal.any([new AbortController().signal, AbortSignal.timeout(50)]);\nawait tarefaLenta(ambos).catch(() => console.log('abortado pelo timeout de 50ms'));\n\n// fetch aceita o mesmo signal: await fetch(url, { signal: AbortSignal.timeout(2_000) })"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Duas chamadas independentes levam 100ms e 200ms. Quanto levam `await a(); await b();` e `await Promise.all([a(), b()])`?",
+      "options": [
+        "~300ms e ~200ms",
+        "~200ms e ~300ms",
+        "~300ms nos dois casos",
+        "~200ms nos dois casos"
+      ],
+      "correct_option": "~300ms e ~200ms",
+      "explanation": "Em sequência, a segunda só começa quando a primeira termina: 100 + 200. Com `Promise.all`, as duas começam juntas e o tempo é o da mais lenta. No exemplo do módulo, os tempos medidos foram ~326ms e ~202ms."
+    },
+    {
+      "id": 2,
+      "question": "Com `strict` ligado, qual o tipo da variável do `catch`?",
+      "options": [
+        "unknown",
+        "Error",
+        "any",
+        "never"
+      ],
+      "correct_option": "unknown",
+      "explanation": "`useUnknownInCatchVariables` faz parte do `strict`, então o erro capturado é `unknown`. Em JavaScript qualquer valor pode ser lançado (`throw 'texto'`, `throw 42`), por isso é preciso checar antes de ler `.message`."
+    },
+    {
+      "id": 3,
+      "question": "Quando preferir `Promise.allSettled` a `Promise.all`?",
+      "options": [
+        "Quando você quer o resultado de todas, mesmo que algumas falhem",
+        "Quando todas precisam dar certo para continuar",
+        "Quando só importa a primeira que terminar",
+        "Quando as Promises dependem umas das outras"
+      ],
+      "correct_option": "Quando você quer o resultado de todas, mesmo que algumas falhem",
+      "explanation": "`Promise.all` rejeita na primeira falha e descarta o resto. `allSettled` espera todas e devolve `{ status: 'fulfilled', value }` ou `{ status: 'rejected', reason }` para cada uma."
+    },
+    {
+      "id": 4,
+      "question": "Qual a vantagem de devolver `Result<T, E>` em vez de lançar exceção?",
+      "options": [
+        "O tipo obriga quem chama a tratar o erro antes de acessar o valor",
+        "É mais rápido que try/catch",
+        "Dispensa testes",
+        "Captura também os bugs inesperados"
+      ],
+      "correct_option": "O tipo obriga quem chama a tratar o erro antes de acessar o valor",
+      "explanation": "A exceção é invisível na assinatura. Com `Result`, o valor só fica acessível depois de checar `ok`, e os erros possíveis aparecem no tipo."
+    },
+    {
+      "id": 5,
+      "question": "O que `AbortSignal.timeout(2000)` faz?",
+      "options": [
+        "Cria um sinal que aborta sozinho depois de 2 segundos, cancelando quem o recebeu",
+        "Pausa o código por 2 segundos",
+        "Repete a operação a cada 2 segundos",
+        "Cancela todas as Promises do processo"
+      ],
+      "correct_option": "Cria um sinal que aborta sozinho depois de 2 segundos, cancelando quem o recebeu",
+      "explanation": "O sinal é abortado após o tempo, com um `TimeoutError` em `signal.reason`. Qualquer API que aceite `signal` (fetch, timers, streams) interrompe o que estava fazendo."
+    }
+  ]
+}

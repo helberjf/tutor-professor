@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-com-typescript",
+  "title": "Node.js com TypeScript: Projeto e Runtime",
+  "category": "typescript",
+  "description": "Rodar TypeScript direto no Node 24, configurar o tsconfig, módulos ESM, variáveis de ambiente validadas com Zod e leitura de arquivos com tipos seguros.",
+  "sections": [
+    {
+      "title": "TypeScript direto no Node",
+      "body": "O Node 24 executa arquivos `.ts` sem ts-node nem build: ele apaga as anotações de tipo e roda o JavaScript que sobra. Isso tem duas consequências. Primeiro, o Node não checa tipos: rode `tsc --noEmit` no CI e antes do commit. Segundo, só vale sintaxe que pode ser apagada sem gerar código: nada de `enum`, `namespace` ou parameter properties (`constructor(private x)`).",
+      "code_example": "# Node 24+ executa .ts direto: ele apaga os tipos e roda o JavaScript que sobra\nnode src/index.ts\n\n# O Node NÃO checa tipos. Quem checa é o tsc (rode no CI e antes do commit):\nnpx tsc --noEmit\n\n# package.json\n{\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"node --watch src/index.ts\",\n    \"start\": \"node src/index.ts\",\n    \"typecheck\": \"tsc --noEmit\",\n    \"test\": \"node --test\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^7.0.0\",\n    \"@types/node\": \"^24.0.0\"\n  }\n}\n\n# Sintaxe que o Node NÃO aceita, porque gera código em vez de só sumir:\n#   enum Cor { Azul }                   → type Cor = 'azul' | 'verde'\n#   namespace Utils { }                 → use módulos (import/export)\n#   constructor(private x: number) {}   → declare o campo e atribua no construtor"
+    },
+    {
+      "title": "tsconfig para Node",
+      "body": "Com `module: NodeNext`, o TypeScript segue as mesmas regras de módulo do Node. `strict` e `noUncheckedIndexedAccess` pegam a maior parte dos bugs de null e de índice. `noEmit`, `allowImportingTsExtensions` e `erasableSyntaxOnly` combinam com o type stripping. `verbatimModuleSyntax` obriga `import type` em imports só de tipo, para que nenhum import fique pendurado depois que os tipos somem.",
+      "code_example": "// tsconfig.json para um projeto Node 24 que roda .ts direto\n{\n  \"compilerOptions\": {\n    \"target\": \"ES2023\",\n    \"module\": \"NodeNext\",           // segue as regras de módulo do próprio Node\n    \"moduleResolution\": \"NodeNext\",\n    \"types\": [\"node\"],              // tipos de process, fs, Buffer...\n\n    \"strict\": true,                  // null checks, catch como unknown, etc.\n    \"noUncheckedIndexedAccess\": true, // arr[0] e obj[chave] podem ser undefined\n\n    \"noEmit\": true,                     // o Node roda o .ts; o tsc só checa\n    \"allowImportingTsExtensions\": true, // import './db.ts'\n    \"erasableSyntaxOnly\": true,         // proíbe enum, namespace, parameter properties\n    \"verbatimModuleSyntax\": true,       // obriga `import type` para imports só de tipo\n\n    \"skipLibCheck\": true\n  },\n  \"include\": [\"src\"]\n}\n\n// Vai gerar um build em JS? Troque noEmit/allowImportingTsExtensions por\n// \"outDir\": \"dist\" e \"rewriteRelativeImportExtensions\": true."
+    },
+    {
+      "title": "Módulos ESM no Node",
+      "body": "Com `\"type\": \"module\"` no package.json, cada arquivo é um módulo ESM. Imports relativos levam a extensão (`./db.ts`), e módulos nativos usam o prefixo `node:`. `__dirname` e `__filename` não existem: use `import.meta.dirname` e `import.meta.filename`. Top-level await é liberado, e `import.meta.main` diz se o arquivo foi executado direto ou importado.",
+      "code_example": "// Imports relativos levam a extensão .ts: o Node não adivinha extensão\nimport { createQueue } from './queue.ts';\n// import type some na execução (verbatimModuleSyntax exige quando é só tipo)\nimport type { Job } from 'bullmq';\n// Módulos nativos com o prefixo node:\nimport { readFile } from 'node:fs/promises';\nimport path from 'node:path';\n\n// __dirname e __filename não existem em ESM. Use import.meta:\nconst pastaAtual = import.meta.dirname;\nconsole.log(path.basename(import.meta.filename)); // 's3.ts'\n\n// Top-level await: liberado em módulos ESM\nconst texto = await readFile(path.join(pastaAtual, 'queue.ts'), 'utf8');\nconsole.log(texto.length > 0); // true\n\n// Rodar algo só quando o arquivo é executado direto (não importado)\nif (import.meta.main) {\n  const fila = createQueue('emails');\n  console.log(`fila ${fila.nome} criada`);\n}\n\nexport function descreverJob(job: Job): string {\n  return `${job.name}#${job.id}`;\n}"
+    },
+    {
+      "title": "Variáveis de ambiente validadas",
+      "body": "`process.env` é um saco de `string | undefined`. Espalhar `process.env.PORT` pelo código traz conversões repetidas e erros que só aparecem em produção. Valide tudo uma vez, na inicialização, com um schema Zod: converta tipos (`z.coerce.number()`), defina defaults e falhe com uma mensagem clara se faltar algo. O resto do código importa um objeto `env` já tipado. O Node lê arquivos `.env` sozinho com `--env-file`.",
+      "code_example": "import { z } from 'zod';\n\n// O Node carrega o .env sozinho: node --env-file=.env src/index.ts\n\nconst EnvSchema = z.object({\n  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),\n  PORT: z.coerce.number().int().positive().default(3000), // \"3000\" → 3000\n  REDIS_URL: z.url(),\n  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),\n});\n\n// Valida UMA vez, na inicialização: config errada e o processo nem sobe\nconst parsed = EnvSchema.safeParse(process.env);\nif (!parsed.success) {\n  console.error('Variáveis de ambiente inválidas:\\n' + z.prettifyError(parsed.error));\n  process.exit(1);\n}\n\nexport const env = parsed.data;\n// env.PORT: number (já convertido), env.NODE_ENV: 'development' | 'test' | 'production'\n// No resto do código: import { env } from './env.ts', nunca process.env.ALGO solto\nconsole.log(env.PORT + 1, env.NODE_ENV);"
+    },
+    {
+      "title": "Arquivos e caminhos",
+      "body": "Use as versões com Promise de `node:fs/promises` e monte caminhos com `path.join`, nunca concatenando com `/`. `JSON.parse` devolve `any`, e o que vem de disco, rede ou banco precisa de validação antes de virar tipo. Com Zod, o schema é a fonte da verdade: `z.infer` gera o tipo, e `parse` garante que os dados batem com ele.",
+      "code_example": "import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';\nimport path from 'node:path';\nimport { z } from 'zod';\n\nconst dataDir = path.join(import.meta.dirname, 'data'); // nunca monte caminhos com '/' na mão\n\nconst TarefaSchema = z.object({ id: z.number(), titulo: z.string(), feita: z.boolean() });\ntype Tarefa = z.infer<typeof TarefaSchema>; // o tipo sai do schema: uma fonte só\n\nasync function salvar(tarefas: Tarefa[]): Promise<void> {\n  await mkdir(dataDir, { recursive: true });\n  await writeFile(path.join(dataDir, 'tarefas.json'), JSON.stringify(tarefas, null, 2));\n}\n\nasync function carregar(): Promise<Tarefa[]> {\n  const texto = await readFile(path.join(dataDir, 'tarefas.json'), 'utf8');\n  // JSON.parse devolve any: valide antes de confiar\n  return z.array(TarefaSchema).parse(JSON.parse(texto));\n}\n\nawait salvar([{ id: 1, titulo: 'Estudar filas', feita: false }]);\nconst tarefas = await carregar();\nconsole.log(tarefas[0]?.titulo);     // 'Estudar filas' (tarefas[0] pode ser undefined)\nconsole.log(await readdir(dataDir)); // [ 'tarefas.json' ]"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "O que o Node 24 faz quando você roda `node app.ts`?",
+      "options": [
+        "Remove as anotações de tipo e executa o JavaScript que sobra, sem checar tipos",
+        "Compila com o tsc e só executa se não houver erros",
+        "Converte o arquivo para .js no disco",
+        "Recusa o arquivo sem uma flag experimental"
+      ],
+      "correct_option": "Remove as anotações de tipo e executa o JavaScript que sobra, sem checar tipos",
+      "explanation": "O type stripping só apaga tipos. Um erro de tipo não impede a execução: quem acusa é o `tsc --noEmit`."
+    },
+    {
+      "id": 2,
+      "question": "Por que `enum` não funciona com o type stripping do Node?",
+      "options": [
+        "Porque enum gera código JavaScript, e o Node só sabe apagar tipos",
+        "Porque enums foram removidos do TypeScript",
+        "Porque o Node não suporta objetos",
+        "Porque enum só funciona em CommonJS"
+      ],
+      "correct_option": "Porque enum gera código JavaScript, e o Node só sabe apagar tipos",
+      "explanation": "Um enum vira um objeto em runtime, e o Node teria de gerar esse código. Uma união de literais (`type Cor = 'azul' | 'verde'`) resolve o mesmo problema e some por completo."
+    },
+    {
+      "id": 3,
+      "question": "Em ESM no Node, como importar o arquivo local `db.ts`?",
+      "options": [
+        "`import { db } from './db.ts'`",
+        "`import { db } from './db'`",
+        "`const { db } = require('./db')`",
+        "`import { db } from 'db'`"
+      ],
+      "correct_option": "`import { db } from './db.ts'`",
+      "explanation": "O resolvedor ESM do Node não adivinha extensões. Com `allowImportingTsExtensions`, o TypeScript aceita o `.ts` no caminho."
+    },
+    {
+      "id": 4,
+      "question": "Por que validar `process.env` com um schema na inicialização?",
+      "options": [
+        "Para o app falhar ao subir se a config estiver errada, e ter valores já tipados e convertidos no resto do código",
+        "Para esconder as variáveis dos logs",
+        "Porque o Node não lê variáveis sem schema",
+        "Para deixar o acesso às variáveis mais rápido"
+      ],
+      "correct_option": "Para o app falhar ao subir se a config estiver errada, e ter valores já tipados e convertidos no resto do código",
+      "explanation": "Uma `REDIS_URL` faltando deveria derrubar o deploy na hora, não o primeiro job horas depois. E `env.PORT` já é `number`, sem `Number(...)` espalhado pelo código."
+    },
+    {
+      "id": 5,
+      "question": "O que substitui `__dirname` em módulos ESM?",
+      "options": [
+        "`import.meta.dirname`",
+        "`process.cwd()`",
+        "`require.main.path`",
+        "`module.dirname`"
+      ],
+      "correct_option": "`import.meta.dirname`",
+      "explanation": "`process.cwd()` é a pasta de onde o processo foi iniciado, não a do arquivo. `import.meta.dirname` (e `import.meta.filename`) são o equivalente direto em ESM."
+    }
+  ]
+}

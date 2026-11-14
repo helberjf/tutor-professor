@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-filas-avancadas",
+  "title": "Filas Avançadas com BullMQ",
+  "category": "typescript",
+  "description": "Jobs recorrentes com job schedulers, rate limiting, prioridade, deduplicação, flows pai e filhos, operação da fila e sandboxed processors para CPU pesada.",
+  "sections": [
+    {
+      "title": "Jobs recorrentes",
+      "body": "`upsertJobScheduler` cria ou atualiza um agendamento pelo id, então rodá-lo a cada boot da aplicação não duplica nada. Use `pattern` para cron (com `tz` para o fuso horário) ou `every` para intervalos fixos. Cada disparo vira um job comum na fila, com retry e backoff, e o worker não muda. `getJobSchedulers` lista os agendamentos e `removeJobScheduler` desliga um deles.",
+      "code_example": "import { Queue } from 'bullmq';\nimport { Redis } from 'ioredis';\n\nconst connection = new Redis({ maxRetriesPerRequest: null });\nconst queue = new Queue('relatorios', { connection });\n\n// Cria OU atualiza o agendamento pelo id: rodar isso a cada boot não duplica nada\nawait queue.upsertJobScheduler(\n  'resumo-diario',                                    // id do agendamento\n  { pattern: '0 8 * * *', tz: 'America/Sao_Paulo' },  // cron: todo dia às 8h\n  { name: 'gerar-resumo', data: { tipo: 'diario' } }, // modelo de cada job gerado\n);\n\n// Intervalo fixo em vez de cron\nawait queue.upsertJobScheduler('limpeza', { every: 15 * 60_000 }, { name: 'limpar-temporarios' });\n\nconst agendamentos = await queue.getJobSchedulers();\nconsole.log(agendamentos.map((a) => `${a.key} → próximo em ${new Date(a.next!).toISOString()}`));\n\nawait queue.removeJobScheduler('limpeza'); // para de gerar jobs\n// O worker não muda nada: cada disparo vira um job comum na fila"
+    },
+    {
+      "title": "Rate limiting",
+      "body": "APIs externas têm limite de requisições. A opção `limiter: { max, duration }` do worker limita quantos jobs a fila processa por intervalo, somando todos os workers, não por processo. Quando a API responde 429, use o limite dinâmico: `queue.rateLimit(ms)` segura a fila, e lançar `Worker.RateLimitError()` devolve o job para a espera sem gastar tentativa.",
+      "code_example": "import { Queue, Worker, type Job } from 'bullmq';\nimport { Redis } from 'ioredis';\n\nconst connection = new Redis({ maxRetriesPerRequest: null });\nconst queue = new Queue('chamadas-api', { connection });\n\n// No máximo 10 jobs por segundo NESTA fila, somando todos os workers\nconst worker = new Worker('chamadas-api', processar, {\n  connection,\n  concurrency: 5,\n  limiter: { max: 10, duration: 1_000 },\n});\n\n// Limite dinâmico: a API externa respondeu 429 Too Many Requests\nasync function processar(job: Job<{ url: string }>) {\n  const res = await fetch(job.data.url);\n  if (res.status === 429) {\n    const esperaMs = Number(res.headers.get('retry-after') ?? 60) * 1_000;\n    await queue.rateLimit(esperaMs); // segura a fila inteira por esse tempo\n    throw Worker.RateLimitError();   // devolve o job para a fila SEM gastar tentativa\n  }\n  if (!res.ok) throw new Error(`HTTP ${res.status}`); // erro comum: conta tentativa\n  return res.json();\n}"
+    },
+    {
+      "title": "Prioridade e deduplicação",
+      "body": "Em `priority`, 1 é a prioridade mais alta. Jobs sem prioridade são processados antes dos priorizados, e prioridade tem um pequeno custo, então use só quando precisar. `deduplication: { id }` ignora novos adds com o mesmo id enquanto o primeiro job existir. Com `ttl`, a janela dura só esse tempo, útil para eventos repetidos em rajada. No exemplo, o segundo add devolveu o job que já existia.",
+      "code_example": "const queue = new Queue('emails', { connection });\n\n// priority: 1 é a mais alta. Jobs SEM prioridade passam na frente dos priorizados\nawait queue.add('email', { para: 'comum@ex.com' }, { priority: 10 });\nawait queue.add('email', { para: 'vip@ex.com' }, { priority: 1 });\n\n// Deduplicação: enquanto o primeiro job existir (esperando ou rodando),\n// adds com o mesmo id de deduplicação são ignorados\nconst j1 = await queue.add('reindexar', { produtoId: 42 }, { deduplication: { id: 'reindexar-42' } });\nconst j2 = await queue.add('reindexar', { produtoId: 42 }, { deduplication: { id: 'reindexar-42' } });\nconsole.log(j1.id === j2.id); // true: o segundo add devolveu o job que já existia\n\n// Com ttl: ignora repetições só durante 5s (\"o usuário salvou 10 vezes seguidas\")\nawait queue.add('sincronizar', { userId: 'u1' }, { deduplication: { id: 'sync-u1', ttl: 5_000 } });\n\nconsole.log(await queue.getJobCounts('waiting', 'prioritized'));\n// { waiting: 2, prioritized: 2 }  → reindexar e sincronizar; os dois emails priorizados\n\n// jobId fixo vs deduplication: com jobId, o id do job é o seu e o conflito dura\n// enquanto o job existir no Redis (até concluído). deduplication mantém ids\n// normais e controla só a repetição, com ttl se você quiser."
+    },
+    {
+      "title": "Flows: jobs pai e filhos",
+      "body": "O `FlowProducer` cria uma árvore de jobs, que pode envolver filas diferentes. Os filhos rodam primeiro, em paralelo, e o pai só entra na fila quando todos terminam. No pai, `job.getChildrenValues()` devolve os resultados dos filhos. É o padrão para dividir um trabalho grande (consultar várias fontes) e juntar no final (montar o relatório).",
+      "code_example": "const flow = new FlowProducer({ connection });\n\n// O pai só roda depois que TODOS os filhos terminarem\nconst arvore = await flow.add({\n  name: 'montar-relatorio',\n  queueName: 'relatorios',\n  data: { mes: '2026-10' },\n  children: [\n    { name: 'vendas', queueName: 'consultas', data: { fonte: 'vendas' } },\n    { name: 'estoque', queueName: 'consultas', data: { fonte: 'estoque' } },\n  ],\n});\n\nconst consultas = new Worker('consultas', async (job) => ({ fonte: job.data.fonte, linhas: 100 }), {\n  connection,\n});\n\nconst relatorios = new Worker('relatorios', async (job) => {\n  // Resultados dos filhos, indexados pela chave de cada um no Redis\n  const filhos = await job.getChildrenValues<{ fonte: string; linhas: number }>();\n  const total = Object.values(filhos).reduce((soma, f) => soma + f.linhas, 0);\n  return { mes: job.data.mes, total };\n}, { connection });\n\n// events: um QueueEvents('relatorios') com conexão própria, como no módulo anterior\nconsole.log(await arvore.job.waitUntilFinished(events)); // { mes: '2026-10', total: 200 }"
+    },
+    {
+      "title": "Operação e sandboxed processors",
+      "body": "Em produção você precisa enxergar e operar a fila. `getJobCounts` alimenta métricas e alertas, `getFailed` com `job.retry()` reprocessa a dead letter, `pause`/`resume` seguram a fila num incidente e `clean` remove histórico antigo. Um job fica stalled quando o worker morre ou trava o event loop e para de renovar o lock: o BullMQ devolve o job para a fila. Para CPU pesada, passe ao Worker o caminho de um arquivo processor: com `useWorkerThreads`, ele roda em outra thread.",
+      "code_example": "// ── s5.ts ──\n// queue e connection: os mesmos das seções anteriores\n// Quantos jobs em cada estado: base para métricas e alertas\nconsole.log(await queue.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed'));\n\n// Reprocessar a \"dead letter\": jobs que falharam de vez\nfor (const job of await queue.getFailed(0, 99)) {\n  console.log(job.id, job.failedReason, job.attemptsMade);\n  await job.retry(); // volta para a fila de espera\n}\n\n// Pausar (manutenção do SMTP, incidente) e retomar\nawait queue.pause();\nawait queue.resume();\n\n// Limpar concluídos com mais de 1h, até 1000 por vez\nawait queue.clean(60 * 60_000, 1_000, 'completed');\n\n// Job \"stalled\": o worker morreu ou travou o event loop e parou de renovar o lock.\n// O BullMQ percebe e devolve o job para a fila sozinho.\n// Para CPU pesada, use um processor em arquivo separado (sandboxed),\n// que roda em outra thread e não trava o worker:\nconst imagens = new Worker('imagens', new URL('./redimensionar.ts', import.meta.url), {\n  connection,\n  useWorkerThreads: true,\n});\n\n// ── redimensionar.ts ──\nimport type { SandboxedJob } from 'bullmq';\n\n// Roda em outra thread: CPU pesada aqui não trava o worker principal\nexport default async function (job: SandboxedJob<{ arquivo: string }>) {\n  await job.updateProgress(50);\n  return { arquivo: job.data.arquivo, largura: 800 };\n}"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Por que é seguro chamar `upsertJobScheduler` toda vez que a aplicação sobe?",
+      "options": [
+        "Ele cria ou atualiza o agendamento pelo id, sem duplicar",
+        "Ele apaga todos os jobs da fila antes",
+        "O BullMQ ignora a chamada depois da primeira execução do processo",
+        "Porque agendamentos só valem até o processo reiniciar"
+      ],
+      "correct_option": "Ele cria ou atualiza o agendamento pelo id, sem duplicar",
+      "explanation": "O id identifica o agendamento no Redis. Chamar de novo com o mesmo id atualiza a configuração (um cron novo, por exemplo) em vez de criar um segundo agendamento."
+    },
+    {
+      "id": 2,
+      "question": "O que `limiter: { max: 10, duration: 1000 }` garante?",
+      "options": [
+        "No máximo 10 jobs processados por segundo nessa fila, somando todos os workers",
+        "10 jobs por segundo em cada worker",
+        "No máximo 10 jobs na fila ao mesmo tempo",
+        "10 tentativas por job"
+      ],
+      "correct_option": "No máximo 10 jobs processados por segundo nessa fila, somando todos os workers",
+      "explanation": "O limite do BullMQ é global por fila e fica no Redis. Com 5 workers, os 5 juntos respeitam os mesmos 10 jobs por segundo."
+    },
+    {
+      "id": 3,
+      "question": "Um job tem `priority: 5` e outro não tem prioridade. Qual o BullMQ processa primeiro?",
+      "options": [
+        "O job sem prioridade",
+        "O job com priority 5",
+        "Os dois ao mesmo tempo, sempre",
+        "Depende de qual foi adicionado primeiro"
+      ],
+      "correct_option": "O job sem prioridade",
+      "explanation": "Prioridade 0 (o padrão) significa sem prioridade, e esses jobs passam na frente dos priorizados. Entre os priorizados, número menor roda antes."
+    },
+    {
+      "id": 4,
+      "question": "Num flow, quando o job pai roda?",
+      "options": [
+        "Depois que todos os filhos terminam",
+        "Antes dos filhos, para distribuir o trabalho",
+        "Ao mesmo tempo que os filhos",
+        "Só se algum filho falhar"
+      ],
+      "correct_option": "Depois que todos os filhos terminam",
+      "explanation": "O pai fica em `waiting-children` até cada filho concluir. Aí ele entra na fila e pode ler os resultados com `getChildrenValues`."
+    },
+    {
+      "id": 5,
+      "question": "O que é um job stalled?",
+      "options": [
+        "Um job ativo cujo worker parou de renovar o lock, e que o BullMQ devolve para a fila",
+        "Um job que esgotou as tentativas",
+        "Um job atrasado com delay",
+        "Um job que está esperando os filhos"
+      ],
+      "correct_option": "Um job ativo cujo worker parou de renovar o lock, e que o BullMQ devolve para a fila",
+      "explanation": "O worker renova periodicamente o lock de cada job ativo. Se o processo morre ou o event loop trava (CPU pesada no processor), o lock expira e o BullMQ considera o job travado e o reprocessa."
+    }
+  ]
+}

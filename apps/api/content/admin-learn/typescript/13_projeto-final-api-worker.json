@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-projeto-final",
+  "title": "Projeto Final: API + Worker + Redis",
+  "category": "typescript",
+  "description": "Juntando o curso: uma API Fastify que enfileira relatórios, um worker BullMQ que os gera, status consultável, idempotência, graceful shutdown e docker compose com vários workers.",
+  "sections": [
+    {
+      "title": "Arquitetura",
+      "body": "O cliente pede um relatório pela API, que valida, enfileira e responde na hora. Um ou mais workers, em processos separados, pegam o job no Redis, processam e gravam o resultado. O cliente consulta o status pela API até o relatório ficar pronto. Cada arquivo do projeto aplica um módulo do curso: env validado, contrato tipado, rotas com Zod, worker com handlers tipados e testes.",
+      "code_example": "cliente ──POST /relatorios──▶ API (Fastify) ──queue.add──▶ Redis ◀──busca jobs── Worker(s)\n   │                                │                         ▲                     │\n   │◀── 202 { id, status } ─────────┘                         └── estado/resultado ─┘\n   │\n   └──GET /relatorios/:id──▶ API ──queue.getJob(id)──▶ Redis\n                                  ◀── { status: 'pronto', resultado } ou { status, progresso }\n\nsrc/\n  env.ts       variáveis de ambiente validadas com zod      (módulo 6)\n  jobs.ts      contrato: JobDataMap, JobResultMap, fila     (módulo 10)\n  api.ts       buildApp(queue): rotas que enfileiram e consultam (módulo 8)\n  server.ts    processo da API: listen + graceful shutdown\n  worker.ts    processo do worker: handlers + graceful shutdown\n  api.test.ts  testes com inject e Redis de teste            (módulo 12)\ndocker-compose.yml   redis + api + worker"
+    },
+    {
+      "title": "Config e contrato compartilhados",
+      "body": "API e worker importam os mesmos dois arquivos. `env.ts` valida as variáveis uma vez, com defaults para desenvolvimento. `jobs.ts` define o contrato tipado, a conexão e as opções padrão da fila. `removeOnComplete` usa `age`, em segundos: o resultado fica consultável por 24h e depois sai do Redis. O nome da fila é um parâmetro, o que facilita usar uma fila isolada nos testes.",
+      "code_example": "// ── env.ts ──\nimport { z } from 'zod';\n\nexport const env = z\n  .object({\n    PORT: z.coerce.number().int().positive().default(3000),\n    REDIS_URL: z.url().default('redis://127.0.0.1:6379'),\n    WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),\n  })\n  .parse(process.env);\n\n// ── jobs.ts ──\nimport { Queue, type JobsOptions } from 'bullmq';\nimport { Redis } from 'ioredis';\nimport { env } from './env.ts';\n\nexport const QUEUE = 'relatorios';\n\nexport interface JobDataMap { 'gerar-relatorio': { userId: string; mes: string } }\nexport interface JobResultMap { 'gerar-relatorio': { url: string; linhas: number } }\nexport type JobName = keyof JobDataMap;\nexport type RelatoriosQueue = Queue<JobDataMap[JobName], JobResultMap[JobName], JobName>;\n\nexport const createConnection = () => new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });\n\nexport function createQueue(connection: Redis, nome = QUEUE): RelatoriosQueue {\n  return new Queue<JobDataMap[JobName], JobResultMap[JobName], JobName>(nome, {\n    connection,\n    defaultJobOptions: {\n      attempts: 3,\n      backoff: { type: 'exponential', delay: 1_000 },\n      removeOnComplete: { age: 24 * 60 * 60 }, // em segundos: o resultado fica 24h consultável\n      removeOnFail: { age: 7 * 24 * 60 * 60 },\n    },\n  });\n}\n\nexport function enqueue<K extends JobName>(queue: RelatoriosQueue, name: K, data: JobDataMap[K], opts?: JobsOptions) {\n  return queue.add(name, data, opts);\n}"
+    },
+    {
+      "title": "A API: enfileirar e consultar",
+      "body": "`POST /relatorios` valida o corpo, enfileira com um `jobId` derivado dos dados e responde 202 Accepted com o header `Location` apontando para o status. Pedir o mesmo relatório de novo devolve o mesmo job: idempotência sem tabela extra. `GET /relatorios/:id` lê o estado do job no Redis e devolve o resultado quando está pronto, o motivo quando falhou ou o progresso enquanto roda.",
+      "code_example": "import Fastify from 'fastify';\nimport { z } from 'zod';\nimport { enqueue, type RelatoriosQueue } from './jobs.ts';\n\nconst PedidoRelatorio = z.object({\n  userId: z.string().regex(/^[a-z0-9_]+$/),\n  mes: z.string().regex(/^\\d{4}-\\d{2}$/, 'use AAAA-MM'),\n});\n\nexport function buildApp(queue: RelatoriosQueue) {\n  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });\n\n  app.post('/relatorios', async (request, reply) => {\n    const parsed = PedidoRelatorio.safeParse(request.body);\n    if (!parsed.success) return reply.code(400).send({ erro: z.flattenError(parsed.error).fieldErrors });\n\n    const { userId, mes } = parsed.data;\n    // jobId determinístico: pedir o mesmo relatório de novo devolve o job existente\n    const job = await enqueue(queue, 'gerar-relatorio', { userId, mes }, { jobId: `relatorio-${userId}-${mes}` });\n\n    // 202 Accepted: \"recebi e vou processar\". O cliente consulta o status depois.\n    return reply.code(202).header('location', `/relatorios/${job.id}`).send({ id: job.id, status: 'na-fila' });\n  });\n\n  app.get<{ Params: { id: string } }>('/relatorios/:id', async (request, reply) => {\n    const job = await queue.getJob(request.params.id);\n    if (!job) return reply.code(404).send({ erro: 'relatório não encontrado' });\n\n    const estado = await job.getState(); // 'waiting' | 'active' | 'delayed' | 'completed' | 'failed' | ...\n    if (estado === 'completed') return { id: job.id, status: 'pronto', resultado: job.returnvalue };\n    if (estado === 'failed') return { id: job.id, status: 'falhou', motivo: job.failedReason };\n    return { id: job.id, status: estado, progresso: job.progress };\n  });\n\n  return app;\n}"
+    },
+    {
+      "title": "O worker",
+      "body": "O worker é um processo à parte, com handlers tipados pelo mapped type e o `dispatch` genérico do módulo de BullMQ. O handler reporta progresso, que aparece na rota de status. A concorrência vem do env, os listeners de `failed` e `error` evitam falhas silenciosas e o graceful shutdown termina os jobs em andamento antes de sair.",
+      "code_example": "import { Worker, type Job } from 'bullmq';\nimport { setTimeout as sleep } from 'node:timers/promises';\nimport { env } from './env.ts';\nimport { QUEUE, createConnection, type JobDataMap, type JobName, type JobResultMap } from './jobs.ts';\n\ntype Handlers = {\n  [K in JobName]: (job: Job<JobDataMap[K], JobResultMap[K], K>) => Promise<JobResultMap[K]>;\n};\n\nconst handlers: Handlers = {\n  'gerar-relatorio': async (job) => {\n    for (const pct of [25, 50, 75, 100]) {\n      await sleep(300); // consulta pesada ao banco, simulada\n      await job.updateProgress(pct);\n    }\n    return { url: `/arquivos/${job.data.userId}-${job.data.mes}.pdf`, linhas: 1234 };\n  },\n};\n\nfunction dispatch<K extends JobName>(job: Job<JobDataMap[K], JobResultMap[K], K>) {\n  return handlers[job.name](job);\n}\n\nconst connection = createConnection();\nconst worker = new Worker<JobDataMap[JobName], JobResultMap[JobName], JobName>(QUEUE, (job) => dispatch(job), {\n  connection,\n  concurrency: env.WORKER_CONCURRENCY,\n});\n\nworker.on('completed', (job) => console.log(`✔ ${job.name}#${job.id}`));\nworker.on('failed', (job, err) => console.error(`✖ ${job?.name}#${job?.id}: ${err.message}`));\nworker.on('error', (err) => console.error('erro no worker:', err.message));\n\nfor (const sinal of ['SIGINT', 'SIGTERM'] as const) {\n  process.once(sinal, async () => {\n    await worker.close(); // termina os jobs em andamento antes de sair\n    await connection.quit();\n    process.exit(0);\n  });\n}\nconsole.log(`worker ouvindo \"${QUEUE}\" com concorrência ${env.WORKER_CONCURRENCY}`);"
+    },
+    {
+      "title": "Subindo tudo com docker compose",
+      "body": "`server.ts` sobe a API com graceful shutdown. No compose, API e worker usam a mesma imagem com comandos diferentes, e o Node roda os `.ts` direto, sem etapa de build. Como o TypeScript só serve para checar tipos, `npm ci --omit=dev` basta na imagem. `--scale worker=3` sobe três workers dividindo a mesma fila sem mudar uma linha de código: esse é o ganho de separar API e processamento.",
+      "code_example": "// ── server.ts ──\nimport { buildApp } from './api.ts';\nimport { env } from './env.ts';\nimport { createConnection, createQueue } from './jobs.ts';\n\nconst connection = createConnection();\nconst app = buildApp(createQueue(connection));\nawait app.listen({ port: env.PORT, host: '0.0.0.0' });\n\nfor (const sinal of ['SIGINT', 'SIGTERM'] as const) {\n  process.once(sinal, async () => {\n    await app.close(); // termina as requisições em andamento\n    await connection.quit();\n    process.exit(0);\n  });\n}\n\n# docker-compose.yml\nservices:\n  redis:\n    image: redis:7.4-alpine\n    command: [\"redis-server\", \"--maxmemory-policy\", \"noeviction\"]\n  api:\n    build: .\n    command: [\"node\", \"src/server.ts\"]\n    environment: { REDIS_URL: \"redis://redis:6379\", PORT: \"3000\" }\n    ports: [\"3000:3000\"]\n    depends_on: [redis]\n  worker:\n    build: .\n    command: [\"node\", \"src/worker.ts\"]\n    environment: { REDIS_URL: \"redis://redis:6379\", WORKER_CONCURRENCY: \"5\" }\n    depends_on: [redis]\n\n# Dockerfile (o mesmo para api e worker)\nFROM node:24-alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm ci --omit=dev\nCOPY src ./src\n\n# Subir com 3 workers dividindo a fila:\n#   docker compose up --build --scale worker=3\n# Testar:\n#   curl -X POST localhost:3000/relatorios -H 'content-type: application/json' -d '{\"userId\":\"u1\",\"mes\":\"2026-10\"}'\n#   curl localhost:3000/relatorios/relatorio-u1-2026-10"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Por que `POST /relatorios` responde 202 em vez de 200 ou 201?",
+      "options": [
+        "Porque o pedido foi aceito para processamento assíncrono, mas o relatório ainda não está pronto",
+        "Porque o relatório já foi criado",
+        "Porque houve um erro de validação",
+        "Porque 202 é o padrão do Fastify para POST"
+      ],
+      "correct_option": "Porque o pedido foi aceito para processamento assíncrono, mas o relatório ainda não está pronto",
+      "explanation": "202 Accepted significa recebido e em processamento. O header `Location` diz ao cliente onde consultar o resultado depois."
+    },
+    {
+      "id": 2,
+      "question": "Para que serve o `jobId` `relatorio-${userId}-${mes}`?",
+      "options": [
+        "Pedir o mesmo relatório de novo devolve o job existente em vez de criar outro",
+        "Deixar o job mais rápido",
+        "Ordenar os jobs por usuário",
+        "Criptografar os dados do job"
+      ],
+      "correct_option": "Pedir o mesmo relatório de novo devolve o job existente em vez de criar outro",
+      "explanation": "O id é derivado dos dados do pedido. Enquanto o job existir no Redis (até 24h depois de concluído, pelo `removeOnComplete`), um pedido repetido devolve o mesmo job e o mesmo resultado."
+    },
+    {
+      "id": 3,
+      "question": "Por que API e worker são processos separados?",
+      "options": [
+        "Escalam e falham de forma independente: dá para ter 1 API e 5 workers, e um worker travado não derruba a API",
+        "Porque o Fastify e o BullMQ não podem rodar juntos",
+        "Para usar menos memória no total",
+        "Porque o Redis exige isso"
+      ],
+      "correct_option": "Escalam e falham de forma independente: dá para ter 1 API e 5 workers, e um worker travado não derruba a API",
+      "explanation": "A API precisa responder rápido, e o worker faz o trabalho pesado. Separados, cada um tem seus recursos, sua escala e seu deploy, e um não trava o outro."
+    },
+    {
+      "id": 4,
+      "question": "O que `docker compose up --scale worker=3` faz?",
+      "options": [
+        "Sobe 3 containers de worker consumindo a mesma fila e dividindo os jobs",
+        "Cria 3 filas diferentes",
+        "Processa cada job 3 vezes",
+        "Sobe 3 APIs atrás de um balanceador"
+      ],
+      "correct_option": "Sobe 3 containers de worker consumindo a mesma fila e dividindo os jobs",
+      "explanation": "Cada job é entregue a um único worker. Com 3 processos, o trabalho se divide entre eles sem nenhuma mudança no código."
+    },
+    {
+      "id": 5,
+      "question": "Por que usar `removeOnComplete: { age: 24 * 60 * 60 }` em vez de remover o job na hora?",
+      "options": [
+        "Para a rota de status ainda conseguir ler o resultado por 24 horas",
+        "Porque o BullMQ não consegue remover jobs na hora",
+        "Para o job rodar de novo no dia seguinte",
+        "Para economizar memória no Redis"
+      ],
+      "correct_option": "Para a rota de status ainda conseguir ler o resultado por 24 horas",
+      "explanation": "Removido na hora, o job sumiria antes de o cliente consultar, e o GET responderia 404. Com `age` em segundos, o resultado fica disponível por um dia e depois é limpo automaticamente."
+    }
+  ]
+}

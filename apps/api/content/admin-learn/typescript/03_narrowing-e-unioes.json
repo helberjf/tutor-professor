@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-narrowing-e-unioes",
+  "title": "Narrowing e Uniões Discriminadas",
+  "category": "typescript",
+  "description": "Como o TypeScript estreita tipos pelo fluxo do código: typeof, in, instanceof, type guards, uniões discriminadas, checagem exaustiva com never e satisfies.",
+  "sections": [
+    {
+      "title": "Narrowing com typeof, in e instanceof",
+      "body": "Uma variável do tipo `string | number` só permite o que é comum aos dois. Quando o código checa o tipo com `typeof`, `in` ou `instanceof`, o TypeScript acompanha o fluxo e estreita o tipo dentro de cada ramo. Depois de um `return`, o que sobra é o resto da união. Truthiness (`if (nome)`) também estreita, mas lembre que `0` e `''` são falsy.",
+      "code_example": "function formatar(valor: string | number | Date): string {\n  if (typeof valor === 'string') return valor.trim();     // valor: string\n  if (typeof valor === 'number') return valor.toFixed(2); // valor: number\n  return valor.toISOString();                             // sobrou: Date\n}\n\ninterface Gato { miar(): string }\ninterface Cachorro { latir(): string }\n\nfunction falar(animal: Gato | Cachorro): string {\n  if ('miar' in animal) return animal.miar(); // in: checa se a propriedade existe\n  return animal.latir();                      // aqui só pode ser Cachorro\n}\n\nfunction mensagem(err: unknown): string {\n  if (err instanceof Error) return err.message; // instanceof: checa a classe\n  return String(err);\n}\n\n// Truthiness também estreita, mas cuidado: 0 e '' são falsy\nfunction saudacao(nome?: string): string {\n  return nome ? `Olá, ${nome}` : 'Olá, visitante';\n}\n\nconsole.log(formatar(3.14159));               // '3.14'\nconsole.log(falar({ miar: () => 'miau' }));   // 'miau'\nconsole.log(mensagem(new Error('falhou')));   // 'falhou'\nconsole.log(saudacao(''));                    // 'Olá, visitante'"
+    },
+    {
+      "title": "Type guards e assertion functions",
+      "body": "Quando a checagem é mais complexa, encapsule-a numa função com retorno `x is Tipo` (type predicate). É o jeito certo de validar `unknown`, como o resultado de `JSON.parse`. O TypeScript confia na sua função: se a checagem estiver errada, o tipo mente. Uma assertion function (`asserts x is T`) lança erro em vez de devolver boolean, e estreita o tipo dali em diante.",
+      "code_example": "interface User { id: number; name: string }\n\n// Type predicate: se retornar true, o TS passa a tratar x como User\nfunction isUser(x: unknown): x is User {\n  return (\n    typeof x === 'object' && x !== null &&\n    'id' in x && typeof x.id === 'number' &&\n    'name' in x && typeof x.name === 'string'\n  );\n}\n\nconst dados: unknown = JSON.parse('{\"id\": 1, \"name\": \"Ana\"}');\nif (isUser(dados)) {\n  console.log(dados.name.toUpperCase()); // ✅ dados: User → 'ANA'\n}\n\n// Assertion function: lança se falhar; depois da chamada, o tipo fica estreito\nfunction assertDefined<T>(valor: T, msg: string): asserts valor is NonNullable<T> {\n  if (valor === undefined || valor === null) throw new Error(msg);\n}\n\nconst porta = process.env.PORT;             // string | undefined\nassertDefined(porta, 'PORT não definida');\nconsole.log(Number(porta) + 1);             // ✅ porta: string\n\n// Desde o TS 5.5, predicates simples são inferidos sozinhos\nconst ids: number[] = [1, undefined, 3].filter((n) => n !== undefined);\nconsole.log(ids); // [ 1, 3 ]"
+    },
+    {
+      "title": "Uniões discriminadas",
+      "body": "Uma união discriminada tem uma propriedade comum com um tipo literal diferente em cada membro (`metodo: 'pix' | 'cartao' | 'boleto'`). Checar essa propriedade num `switch` ou `if` estreita o objeto inteiro, liberando os campos daquele caso. É a melhor forma de modelar estados: o tipo proíbe combinações impossíveis, como estar carregando e com erro ao mesmo tempo.",
+      "code_example": "type Pagamento =\n  | { metodo: 'pix'; chave: string }\n  | { metodo: 'cartao'; numero: string; parcelas: number }\n  | { metodo: 'boleto'; vencimento: Date };\n\nfunction descrever(p: Pagamento): string {\n  switch (p.metodo) { // 'metodo' é o discriminante\n    case 'pix':\n      return `Pix para ${p.chave}`;      // p: { metodo: 'pix'; chave: string }\n    case 'cartao':\n      return `Cartão em ${p.parcelas}x`; // p.parcelas só existe aqui\n    case 'boleto':\n      return `Boleto até ${p.vencimento.toLocaleDateString('pt-BR')}`;\n  }\n}\n\nconsole.log(descrever({ metodo: 'cartao', numero: '4111...', parcelas: 3 })); // 'Cartão em 3x'\n\n// Modelando estados sem combinações impossíveis\ntype Estado<T> =\n  | { status: 'carregando' }\n  | { status: 'sucesso'; dados: T }\n  | { status: 'erro'; erro: Error };\n\nfunction render(e: Estado<string[]>): string {\n  if (e.status === 'sucesso') return e.dados.join(', ');\n  if (e.status === 'erro') return `Erro: ${e.erro.message}`;\n  return 'Carregando...';\n}\n// Com { carregando: boolean; dados?: T; erro?: Error } daria para ter\n// carregando: true E erro ao mesmo tempo. Aqui, o tipo não deixa.\nconsole.log(render({ status: 'sucesso', dados: ['a', 'b'] })); // 'a, b'"
+    },
+    {
+      "title": "Checagem exaustiva com never",
+      "body": "Depois de tratar todos os casos de uma união, o que sobra no `default` tem tipo `never`. Passar esse valor para `assertNever(x: never)` transforma esquecimento em erro de compilação: quando alguém adicionar um caso novo à união, todo switch que não o trata para de compilar. Sem isso, o código cairia em silêncio num caminho que devolve `undefined`.",
+      "code_example": "function assertNever(x: never): never {\n  throw new Error(`Caso não tratado: ${JSON.stringify(x)}`);\n}\n\ntype Forma =\n  | { tipo: 'circulo'; raio: number }\n  | { tipo: 'quadrado'; lado: number };\n\nfunction area(f: Forma): number {\n  switch (f.tipo) {\n    case 'circulo':\n      return Math.PI * f.raio ** 2;\n    case 'quadrado':\n      return f.lado ** 2;\n    default:\n      return assertNever(f); // f: never, porque todos os casos foram tratados\n  }\n}\n\n// Alguém adicionou um caso novo e esqueceu de tratar:\ntype Forma2 = Forma | { tipo: 'triangulo'; base: number; altura: number };\n\nfunction area2(f: Forma2): number {\n  switch (f.tipo) {\n    case 'circulo':\n      return Math.PI * f.raio ** 2;\n    case 'quadrado':\n      return f.lado ** 2;\n    default:\n      // @ts-expect-error: 'triangulo' não foi tratado, então f não é never\n      return assertNever(f);\n  }\n}\n// O compilador aponta o esquecimento ANTES de rodar. Sem o assertNever,\n// area2 devolveria undefined em silêncio para triângulos.\nconsole.log(area({ tipo: 'quadrado', lado: 3 })); // 9"
+    },
+    {
+      "title": "satisfies: validar sem perder o tipo",
+      "body": "Anotar `const x: Tipo = ...` alarga o valor para o tipo anotado: as chaves reais e os literais se perdem. `satisfies Tipo` checa se o valor é compatível, mas mantém o tipo inferido. Use em objetos de configuração, mapas de rotas e tabelas, quando você quer a validação e também o autocomplete das chaves exatas.",
+      "code_example": "type Rota = { metodo: 'GET' | 'POST'; caminho: `/${string}` };\n\n// Anotação: o tipo vira Record<string, Rota> e as chaves reais se perdem\nconst rotas1: Record<string, Rota> = {\n  listar: { metodo: 'GET', caminho: '/users' },\n};\nconsole.log(rotas1.qualquerCoisa); // compila, e em runtime é undefined\n\n// satisfies: valida contra o tipo, mas mantém o tipo inferido\nconst rotas = {\n  listar: { metodo: 'GET', caminho: '/users' },\n  criar: { metodo: 'POST', caminho: '/users' },\n} satisfies Record<string, Rota>;\n\nconst metodo: 'GET' = rotas.listar.metodo; // literal preservado, não string\n// @ts-expect-error: com satisfies, chave inexistente é erro\nconsole.log(rotas.qualquerCoisa);\n\nconst invalidas = {\n  // @ts-expect-error: 'PATCH' não é um método permitido em Rota\n  editar: { metodo: 'PATCH', caminho: '/users' },\n} satisfies Record<string, Rota>;"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Em `function f(v: string | number) { if (typeof v === 'string') return; ... }`, qual o tipo de `v` depois do `if`?",
+      "options": [
+        "number",
+        "string | number",
+        "string",
+        "never"
+      ],
+      "correct_option": "number",
+      "explanation": "O TypeScript segue o fluxo de controle: se `v` fosse string, a função já teria retornado. O que sobra da união é `number`."
+    },
+    {
+      "id": 2,
+      "question": "O que o retorno `x is User` faz numa função?",
+      "options": [
+        "Diz ao TypeScript que, quando a função retornar true, `x` pode ser tratado como `User`",
+        "Converte `x` para `User` em tempo de execução",
+        "Valida o objeto automaticamente a partir da interface",
+        "Lança um erro se `x` não for `User`"
+      ],
+      "correct_option": "Diz ao TypeScript que, quando a função retornar true, `x` pode ser tratado como `User`",
+      "explanation": "Um type predicate só informa o compilador. A checagem de verdade é o código dentro da função: se ele estiver errado, o TypeScript vai confiar num tipo falso. Interfaces não existem em runtime, então nada é validado automaticamente."
+    },
+    {
+      "id": 3,
+      "question": "O que torna uma união 'discriminada'?",
+      "options": [
+        "Todos os membros têm uma propriedade em comum com um tipo literal diferente em cada um",
+        "Os membros não têm nenhuma propriedade em comum",
+        "Ela é declarada com a palavra-chave `discriminated`",
+        "Ela só pode ter dois membros"
+      ],
+      "correct_option": "Todos os membros têm uma propriedade em comum com um tipo literal diferente em cada um",
+      "explanation": "A propriedade comum (como `status` ou `tipo`) é o discriminante. Checar o valor dela estreita o objeto inteiro para o membro correspondente."
+    },
+    {
+      "id": 4,
+      "question": "Para que serve chamar `assertNever(x)` no `default` de um switch?",
+      "options": [
+        "Fazer o compilador acusar erro quando algum caso da união não for tratado",
+        "Deixar o switch mais rápido",
+        "Ignorar valores inesperados em runtime",
+        "Converter o valor para `never`"
+      ],
+      "correct_option": "Fazer o compilador acusar erro quando algum caso da união não for tratado",
+      "explanation": "Se todos os casos foram tratados, `x` é `never` e a chamada compila. Se faltar um caso, `x` ainda tem o tipo desse caso, que não é atribuível a `never`, e o tsc aponta o erro."
+    },
+    {
+      "id": 5,
+      "question": "Qual a diferença entre `const r: Rotas = {...}` e `const r = {...} satisfies Rotas`?",
+      "options": [
+        "Os dois checam contra `Rotas`, mas `satisfies` mantém o tipo inferido, com chaves e literais exatos",
+        "`satisfies` não faz checagem nenhuma",
+        "A anotação mantém os literais e `satisfies` os alarga",
+        "Não há diferença"
+      ],
+      "correct_option": "Os dois checam contra `Rotas`, mas `satisfies` mantém o tipo inferido, com chaves e literais exatos",
+      "explanation": "A anotação troca o tipo do valor pelo tipo anotado. `satisfies` só verifica a compatibilidade e preserva o que foi inferido, então `r.listar.metodo` continua `'GET'` em vez de `'GET' | 'POST'`."
+    }
+  ]
+}

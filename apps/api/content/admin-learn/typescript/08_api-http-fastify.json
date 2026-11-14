@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-api-http",
+  "title": "API HTTP com Fastify",
+  "category": "typescript",
+  "description": "Uma API HTTP em TypeScript com Fastify: rotas tipadas, validação com Zod, plugins, tratamento central de erros, testes com inject e graceful shutdown.",
+  "sections": [
+    {
+      "title": "Servidor e rotas tipadas",
+      "body": "O Fastify é um framework HTTP rápido e com bons tipos. Uma rota devolve um objeto, e ele vira JSON. Os generics da rota (`Params`, `Querystring`, `Body`, `Headers`) tipam o que chega no `request`. Valores de query e params chegam sempre como string. Com `logger: true`, cada requisição gera um log estruturado em JSON.",
+      "code_example": "import Fastify from 'fastify';\n\nconst app = Fastify({ logger: true }); // logs estruturados em JSON (pino)\n\napp.get('/health', async () => ({ status: 'ok' })); // o objeto devolvido vira JSON\n\n// Generics da rota tipam params, querystring, body e headers\napp.get<{ Params: { id: string }; Querystring: { detalhes?: string } }>(\n  '/users/:id',\n  async (request, reply) => {\n    const { id } = request.params;                      // id: string\n    const detalhes = request.query.detalhes === 'true'; // query sempre chega como string\n    if (id === '0') return reply.code(404).send({ erro: 'usuário não encontrado' });\n    const user = { id, nome: 'Ana' };\n    return detalhes ? { ...user, email: 'ana@ex.com' } : user;\n  },\n);\n\nawait app.listen({ port: 3000, host: '127.0.0.1' });\n// curl localhost:3000/users/1?detalhes=true → {\"id\":\"1\",\"nome\":\"Ana\",\"email\":\"ana@ex.com\"}"
+    },
+    {
+      "title": "Validação com Zod",
+      "body": "O generic `Body` só informa o tipo ao compilador e não checa nada em runtime. Sem schema, `request.body` é `unknown`, como deve ser. Valide com `safeParse` e responda 400 com os erros por campo quando falhar. Depois disso, `parsed.data` está validado e tipado, e `z.infer` evita escrever o mesmo tipo duas vezes.",
+      "code_example": "import Fastify from 'fastify';\nimport { z } from 'zod';\n\nconst app = Fastify();\n\nconst CriarUserSchema = z.object({\n  nome: z.string().min(2),\n  email: z.email(),\n  idade: z.number().int().min(18).optional(),\n});\ntype CriarUser = z.infer<typeof CriarUserSchema>; // { nome: string; email: string; idade?: number }\n\napp.post('/users', async (request, reply) => {\n  // request.body chega como unknown: nunca confie no que veio da rede\n  const parsed = CriarUserSchema.safeParse(request.body);\n  if (!parsed.success) {\n    return reply.code(400).send({ erro: 'dados inválidos', campos: z.flattenError(parsed.error).fieldErrors });\n  }\n  const user: CriarUser = parsed.data; // daqui em diante: validado E tipado\n  return reply.code(201).send({ id: crypto.randomUUID(), ...user });\n});\n\nconst ruim = await app.inject({ method: 'POST', url: '/users', payload: { nome: 'A', email: 'x' } });\nconsole.log(ruim.statusCode, ruim.json());\n// 400 { erro: 'dados inválidos', campos: { nome: [ 'Too small: ...' ], email: [ 'Invalid email address' ] } }\n\nconst bom = await app.inject({ method: 'POST', url: '/users', payload: { nome: 'Ana', email: 'ana@ex.com' } });\nconsole.log(bom.statusCode); // 201"
+    },
+    {
+      "title": "Plugins, hooks e declaration merging",
+      "body": "Plugins agrupam rotas e dependências com escopo próprio e são registrados com um prefixo (`/users`). Hooks como `onRequest` rodam em toda requisição, o lugar certo para log, autenticação e métricas. Ao pendurar algo na instância com `decorate`, avise o TypeScript com `declare module 'fastify'` e `interface FastifyInstance`. É declaration merging, recurso que as interfaces têm e os type aliases não.",
+      "code_example": "import Fastify, { type FastifyPluginAsync } from 'fastify';\n\n// Declaration merging: avisa ao TS o que você pendurou na instância\ndeclare module 'fastify' {\n  interface FastifyInstance {\n    config: { appName: string };\n  }\n}\n\n// Um plugin agrupa rotas, hooks e dependências, com escopo próprio\nconst usersRoutes: FastifyPluginAsync = async (app) => {\n  app.get('/', async () => [{ id: 1, nome: 'Ana' }]);\n  app.get<{ Params: { id: string } }>('/:id', async (req) => ({ id: req.params.id }));\n};\n\nconst app = Fastify();\napp.decorate('config', { appName: 'tutor-api' });\n\n// Hook: roda em toda requisição (log, autenticação, métricas)\napp.addHook('onRequest', async (request) => {\n  request.log.info({ url: request.url }, 'requisição recebida');\n});\n\nawait app.register(usersRoutes, { prefix: '/users' }); // GET /users e GET /users/:id\napp.get('/', async () => ({ app: app.config.appName })); // tipado graças ao declare module\n\nconsole.log((await app.inject('/users/7')).json()); // { id: '7' }\nconsole.log((await app.inject('/')).json());        // { app: 'tutor-api' }"
+    },
+    {
+      "title": "Tratamento central de erros",
+      "body": "Nas rotas, só lance erros. Um `setErrorHandler` decide o formato de todas as respostas de erro. Uma classe como `HttpError` carrega o status para erros esperados (404, 409). Qualquer outra coisa é bug: registre o detalhe no log e responda um 500 genérico, sem vazar stack, SQL ou endereços internos para o cliente.",
+      "code_example": "import Fastify from 'fastify';\n\nclass HttpError extends Error {\n  readonly statusCode: number;\n  constructor(statusCode: number, message: string) {\n    super(message);\n    this.statusCode = statusCode;\n  }\n}\n\nconst app = Fastify();\n\napp.get<{ Params: { id: string } }>('/pedidos/:id', async (req) => {\n  if (req.params.id !== '1') throw new HttpError(404, 'pedido não encontrado'); // só lançar\n  return { id: '1', total: 99.9 };\n});\n\napp.get('/bug', async () => {\n  throw new Error('conexão com o banco recusada em 10.0.0.5:5432'); // detalhe interno\n});\n\n// Um lugar só decide o formato de TODAS as respostas de erro\napp.setErrorHandler((error, request, reply) => {\n  if (error instanceof HttpError) {\n    return reply.code(error.statusCode).send({ erro: error.message });\n  }\n  request.log.error(error); // o detalhe vai para o log...\n  return reply.code(500).send({ erro: 'erro interno' }); // ...e não vaza para o cliente\n});\n\nconst r1 = await app.inject('/pedidos/2');\nconsole.log(r1.statusCode, r1.json()); // 404 { erro: 'pedido não encontrado' }\nconst r2 = await app.inject('/bug');\nconsole.log(r2.statusCode, r2.json()); // 500 { erro: 'erro interno' }"
+    },
+    {
+      "title": "Testes com inject e graceful shutdown",
+      "body": "Uma fábrica `buildApp()` permite usar a mesma app em produção e nos testes. `app.inject()` simula requisições sem abrir porta: é rápido, isolado e roda com `node --test`. Em produção, `import.meta.main` sobe o servidor só quando o arquivo é executado direto. No SIGTERM, `app.close()` para de aceitar conexões e termina as requisições em andamento.",
+      "code_example": "// ── app.ts ──\nimport Fastify from 'fastify';\n\n// Fábrica: a mesma app serve para produção e para testes\nexport function buildApp() {\n  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });\n  app.get('/health', async () => ({ status: 'ok' }));\n  return app;\n}\n\n// Só sobe o servidor quando este arquivo é executado direto\nif (import.meta.main) {\n  const app = buildApp();\n  await app.listen({ port: Number(process.env.PORT ?? 3000), host: '0.0.0.0' });\n\n  // Graceful shutdown: para de aceitar conexões e termina as que estão em andamento\n  for (const sinal of ['SIGINT', 'SIGTERM'] as const) {\n    process.once(sinal, async () => {\n      await app.close();\n      process.exit(0);\n    });\n  }\n}\n\n// ── app.test.ts ──\nimport assert from 'node:assert/strict';\nimport { test } from 'node:test';\nimport { buildApp } from './app.ts';\n\n// inject() simula a requisição sem abrir porta: rápido e isolado\ntest('GET /health responde ok', async () => {\n  const app = buildApp();\n  const res = await app.inject({ method: 'GET', url: '/health' });\n\n  assert.equal(res.statusCode, 200);\n  assert.deepEqual(res.json(), { status: 'ok' });\n  await app.close();\n});"
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Numa rota Fastify sem schema nem generic, qual o tipo de `request.body`?",
+      "options": [
+        "unknown",
+        "any",
+        "object",
+        "string"
+      ],
+      "correct_option": "unknown",
+      "explanation": "O Fastify não sabe o que o cliente mandou, então tipa como `unknown`. Isso obriga você a validar antes de usar, que é o comportamento seguro."
+    },
+    {
+      "id": 2,
+      "question": "Por que validar o body com Zod em vez de só usar `app.post<{ Body: User }>`?",
+      "options": [
+        "O generic só informa o tipo ao compilador; quem garante que os dados reais têm esse formato é a validação em runtime",
+        "O generic deixa a rota mais lenta",
+        "Zod é obrigatório no Fastify",
+        "O generic não funciona com POST"
+      ],
+      "correct_option": "O generic só informa o tipo ao compilador; quem garante que os dados reais têm esse formato é a validação em runtime",
+      "explanation": "Tipos somem em runtime. O cliente pode mandar qualquer JSON, e sem validação o código trataria dados inválidos como `User`."
+    },
+    {
+      "id": 3,
+      "question": "Para que serve `declare module 'fastify' { interface FastifyInstance { config: ... } }`?",
+      "options": [
+        "Declaration merging: avisa o TypeScript sobre a propriedade adicionada com decorate",
+        "Cria a propriedade em runtime",
+        "Instala um plugin do Fastify",
+        "Sobrescreve todos os tipos do Fastify"
+      ],
+      "correct_option": "Declaration merging: avisa o TypeScript sobre a propriedade adicionada com decorate",
+      "explanation": "Interfaces com o mesmo nome se mesclam. A declaração só acrescenta `config` ao tipo da instância. Em runtime, quem cria a propriedade é o `decorate`."
+    },
+    {
+      "id": 4,
+      "question": "Qual a vantagem de `app.inject()` nos testes?",
+      "options": [
+        "Simula requisições HTTP sem abrir porta, de forma rápida e isolada",
+        "Testa a API em produção",
+        "Gera os testes automaticamente",
+        "Desliga a validação durante os testes"
+      ],
+      "correct_option": "Simula requisições HTTP sem abrir porta, de forma rápida e isolada",
+      "explanation": "O inject passa a requisição por todo o ciclo do Fastify (hooks, validação, handler, error handler) sem rede de verdade, então os testes são rápidos e não brigam por porta."
+    },
+    {
+      "id": 5,
+      "question": "Por que o error handler responde 'erro interno' para erros desconhecidos em vez da mensagem real?",
+      "options": [
+        "Para não vazar detalhes internos ao cliente; o detalhe completo vai para o log",
+        "Porque o Fastify não permite mensagens personalizadas",
+        "Para a resposta ficar menor",
+        "Porque erros desconhecidos não têm mensagem"
+      ],
+      "correct_option": "Para não vazar detalhes internos ao cliente; o detalhe completo vai para o log",
+      "explanation": "Mensagens de erros inesperados costumam ter endereços de banco, SQL ou caminhos de arquivo. O cliente recebe um 500 genérico, e quem investiga lê o log."
+    }
+  ]
+}

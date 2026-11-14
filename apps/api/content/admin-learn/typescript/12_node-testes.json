@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-testes",
+  "title": "Testes com node:test",
+  "category": "typescript",
+  "description": "Testes com o runner nativo do Node: asserções, mocks de funções, relógio falso para retry e backoff, teste de integração com Redis e organização da suíte.",
+  "sections": [
+    {
+      "title": "node:test e assert",
+      "body": "O Node tem um test runner nativo: `node --test` encontra arquivos como `*.test.ts` sozinho e roda cada um num processo separado. Use `describe` e `test` para organizar, e `node:assert/strict` para as asserções. `equal` compara valores, `deepEqual` compara estruturas e `rejects` verifica que uma Promise falha com o erro esperado.",
+      "code_example": "// backoff.test.ts: rode com `node --test` (acha os *.test.ts sozinho)\nimport assert from 'node:assert/strict';\nimport { describe, test } from 'node:test';\n\nfunction calcularBackoff(base: number, tentativa: number): number {\n  return base * 2 ** (tentativa - 1);\n}\n\ndescribe('calcularBackoff', () => {\n  test('dobra a cada tentativa', () => {\n    assert.equal(calcularBackoff(100, 1), 100);\n    assert.equal(calcularBackoff(100, 2), 200);\n    assert.equal(calcularBackoff(100, 3), 400);\n  });\n\n  test('deepEqual compara estrutura, não referência', () => {\n    assert.deepEqual([1, 2, 3].map((t) => calcularBackoff(10, t)), [10, 20, 40]);\n  });\n\n  test('rejects verifica código async que deve falhar', async () => {\n    await assert.rejects(Promise.reject(new Error('timeout no SMTP')), /timeout/);\n  });\n});"
+    },
+    {
+      "title": "Testando a lógica do worker sem Redis",
+      "body": "Handlers grandes, que falam direto com SMTP, banco e Redis, são difíceis de testar. Extraia a regra de negócio para uma função que recebe as dependências por parâmetro: o handler do worker só repassa `job.data`. Nos testes, `mock.fn` cria uma dependência falsa que registra cada chamada, com os argumentos, para você verificar o que aconteceu (ou o que não aconteceu).",
+      "code_example": "import { UnrecoverableError } from 'bullmq';\nimport assert from 'node:assert/strict';\nimport { mock, test } from 'node:test';\n\n// A regra de negócio recebe as dependências por parâmetro: testável sem Redis nem SMTP\ninterface Smtp { send(to: string, subject: string): Promise<string> }\n\nexport async function enviarEmail(data: { to: string; subject: string }, smtp: Smtp) {\n  if (!data.to.includes('@')) throw new UnrecoverableError(`endereço inválido: ${data.to}`);\n  return { messageId: await smtp.send(data.to, data.subject) };\n}\n// No worker, o handler só repassa: 'enviar-email': (job) => enviarEmail(job.data, smtpReal)\n\ntest('envia e devolve o messageId', async () => {\n  const send = mock.fn<Smtp['send']>(async () => 'msg-1');\n  const resultado = await enviarEmail({ to: 'ana@ex.com', subject: 'Oi' }, { send });\n\n  assert.deepEqual(resultado, { messageId: 'msg-1' });\n  assert.equal(send.mock.callCount(), 1);\n  assert.deepEqual(send.mock.calls[0]?.arguments, ['ana@ex.com', 'Oi']);\n});\n\ntest('endereço inválido nem chama o SMTP, e não terá retry', async () => {\n  const send = mock.fn<Smtp['send']>(async () => 'nunca');\n  await assert.rejects(enviarEmail({ to: 'sem-arroba', subject: 'Oi' }, { send }), UnrecoverableError);\n  assert.equal(send.mock.callCount(), 0);\n});"
+    },
+    {
+      "title": "Relógio falso para retry e backoff",
+      "body": "Testar um backoff de 1s e 2s esperando de verdade deixa a suíte lenta. `t.mock.timers.enable` troca o `setTimeout` por um relógio falso, e `tick(ms)` avança o tempo na hora. Promises ainda precisam de um ciclo do event loop para andar, então o teste usa um `flush` com `setImmediate`, que continua real. O teste do exemplo cobre 3 segundos de espera em poucos milissegundos.",
+      "code_example": "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\n\n// Código a testar: tenta de novo com backoff exponencial\nasync function comRetry<T>(fn: () => Promise<T>, tentativas: number, baseMs: number): Promise<T> {\n  for (let i = 1; ; i++) {\n    try {\n      return await fn();\n    } catch (err) {\n      if (i >= tentativas) throw err;\n      await new Promise((resolve) => setTimeout(resolve, baseMs * 2 ** (i - 1)));\n    }\n  }\n}\n\n// Deixa as Promises pendentes andarem (setImmediate continua real)\nconst flush = () => new Promise((resolve) => setImmediate(resolve));\n\ntest('espera 1s e depois 2s entre as tentativas, sem esperar de verdade', async (t) => {\n  t.mock.timers.enable({ apis: ['setTimeout'] }); // relógio falso só neste teste\n\n  let chamadas = 0;\n  const instavel = async () => {\n    chamadas++;\n    if (chamadas < 3) throw new Error('falhou');\n    return 'ok';\n  };\n\n  const resultado = comRetry(instavel, 3, 1_000);\n\n  await flush();\n  assert.equal(chamadas, 1);   // 1ª tentativa falhou; agora espera 1s\n  t.mock.timers.tick(999);\n  await flush();\n  assert.equal(chamadas, 1);   // ainda não deu 1s\n  t.mock.timers.tick(1);\n  await flush();\n  assert.equal(chamadas, 2);   // 2ª tentativa falhou; agora espera 2s\n  t.mock.timers.tick(2_000);\n  assert.equal(await resultado, 'ok');\n  assert.equal(chamadas, 3);   // o teste levou milissegundos, não 3 segundos\n});"
+    },
+    {
+      "title": "Teste de integração com Redis",
+      "body": "Teste unitário não pega erro de configuração: conexão errada, opção inexistente, serialização. Um teste de integração sobe Queue, Worker e QueueEvents contra um Redis de teste e verifica o caminho completo com `job.waitUntilFinished`. Use um nome de fila único por execução e limpe tudo no `after` (`obliterate`, `close`, `quit`) para que os testes não interfiram entre si.",
+      "code_example": "import { Queue, QueueEvents, Worker } from 'bullmq';\nimport { Redis } from 'ioredis';\nimport assert from 'node:assert/strict';\nimport { after, before, test } from 'node:test';\n\n// Precisa de um Redis de teste rodando (ex.: docker compose up -d redis)\nconst nomeFila = `teste-${process.pid}-${Date.now()}`; // fila única: execuções não se atropelam\nconst conexoes: Redis[] = [];\nconst conectar = () => {\n  const c = new Redis({ maxRetriesPerRequest: null });\n  conexoes.push(c);\n  return c;\n};\n\nlet queue: Queue;\nlet events: QueueEvents;\nlet worker: Worker;\n\nbefore(async () => {\n  queue = new Queue(nomeFila, { connection: conectar() });\n  events = new QueueEvents(nomeFila, { connection: conectar() });\n  worker = new Worker(nomeFila, async (job) => ({ dobro: job.data.n * 2 }), { connection: conectar() });\n  await events.waitUntilReady();\n});\n\nafter(async () => {\n  await worker.close();\n  await events.close();\n  await queue.obliterate({ force: true }); // não deixa lixo no Redis\n  await queue.close();\n  await Promise.all(conexoes.map((c) => c.quit()));\n});\n\ntest('o job sai do produtor, passa pelo worker e volta com o resultado', async () => {\n  const job = await queue.add('dobrar', { n: 21 });\n  const resultado = await job.waitUntilFinished(events, 5_000);\n  assert.deepEqual(resultado, { dobro: 42 });\n});"
+    },
+    {
+      "title": "Organizando a suíte",
+      "body": "Deixe scripts prontos para rodar tudo, rodar em modo watch e medir cobertura. `test.skip`, `test.todo` e `{ only: true }` (com `--test-only`) ajudam no dia a dia. Numa app com filas, escreva muitos testes unitários das regras dos handlers, alguns de integração com Redis real e poucos de ponta a ponta. No CI, suba o Redis num container e rode `typecheck` e `test`.",
+      "code_example": "# package.json\n\"scripts\": {\n  \"test\": \"node --test\",\n  \"test:watch\": \"node --test --watch\",\n  \"test:cov\": \"node --test --experimental-test-coverage\"\n}\n\n// Marcando testes\ntest.skip('ainda não implementado', () => {});\ntest.todo('cobrir o caso de 429 da API externa');\ntest('rode só este', { only: true }, () => {}); // com: node --test --test-only\n\n// Pirâmide de testes para uma app com filas:\n//  - muitos unitários: regras de negócio dos handlers, com dependências falsas (rápidos)\n//  - alguns de integração: Queue + Worker + Redis real (pegam erro de configuração)\n//  - poucos ponta a ponta: API → fila → worker → resultado, como no projeto final\n//\n// No CI: suba o Redis como serviço (docker), rode `npm run typecheck` e `npm test`."
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Como rodar os testes com o runner nativo do Node 24?",
+      "options": [
+        "`node --test`, que encontra arquivos como `*.test.ts` sozinho",
+        "`npm install jest` e `npx jest`",
+        "`node test.ts --all`",
+        "`tsc --test`"
+      ],
+      "correct_option": "`node --test`, que encontra arquivos como `*.test.ts` sozinho",
+      "explanation": "Sem argumentos, `node --test` procura arquivos de teste (como `*.test.ts`) a partir da pasta atual. Com o type stripping, não precisa de configuração extra para TypeScript."
+    },
+    {
+      "id": 2,
+      "question": "Por que extrair a regra de negócio do worker para uma função que recebe dependências?",
+      "options": [
+        "Para testá-la sem Redis nem SMTP real, passando dependências falsas",
+        "Para o worker rodar mais rápido",
+        "Porque o BullMQ não aceita funções grandes",
+        "Para evitar o uso de generics"
+      ],
+      "correct_option": "Para testá-la sem Redis nem SMTP real, passando dependências falsas",
+      "explanation": "Com as dependências por parâmetro, o teste passa um `mock.fn` no lugar do SMTP e verifica chamadas e resultados em milissegundos, sem nenhum serviço externo."
+    },
+    {
+      "id": 3,
+      "question": "O que `t.mock.timers.tick(1000)` faz?",
+      "options": [
+        "Avança o relógio falso em 1 segundo e dispara na hora os timers vencidos",
+        "Espera 1 segundo de verdade",
+        "Limita o teste a 1 segundo",
+        "Repete o teste a cada segundo"
+      ],
+      "correct_option": "Avança o relógio falso em 1 segundo e dispara na hora os timers vencidos",
+      "explanation": "Com o relógio falso ativo, nenhum `setTimeout` dispara sozinho. `tick` move o tempo e executa os timers vencidos, então testar esperas longas fica instantâneo."
+    },
+    {
+      "id": 4,
+      "question": "Por que o teste de integração usa um nome de fila único?",
+      "options": [
+        "Para que execuções paralelas, ou dados de execuções anteriores, não interfiram",
+        "Porque o BullMQ não permite repetir nomes",
+        "Para deixar o Redis mais rápido",
+        "Para o worker de produção processar os jobs de teste"
+      ],
+      "correct_option": "Para que execuções paralelas, ou dados de execuções anteriores, não interfiram",
+      "explanation": "Duas execuções na mesma fila poderiam pegar os jobs uma da outra. Com nome único, mais a limpeza no `after`, cada execução tem seu próprio espaço."
+    },
+    {
+      "id": 5,
+      "question": "O que `job.waitUntilFinished(queueEvents)` faz?",
+      "options": [
+        "Espera o job terminar e devolve o resultado, ou rejeita se ele falhar",
+        "Bloqueia o worker até o job terminar",
+        "Cancela o job se ele demorar",
+        "Processa o job no mesmo processo"
+      ],
+      "correct_option": "Espera o job terminar e devolve o resultado, ou rejeita se ele falhar",
+      "explanation": "Ele escuta os eventos globais da fila pelo QueueEvents até ver o job concluído ou falho. Por isso o QueueEvents precisa estar pronto (`waitUntilReady`) antes do add."
+    }
+  ]
+}

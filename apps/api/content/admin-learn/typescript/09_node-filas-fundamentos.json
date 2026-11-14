@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-filas-fundamentos",
+  "title": "Filas em Node.js: Fundamentos",
+  "category": "typescript",
+  "description": "Por que usar filas e como construir do zero uma fila de jobs tipada, com concorrência, retry com backoff exponencial e dead letter.",
+  "sections": [
+    {
+      "title": "Por que filas?",
+      "body": "Se a rota de cadastro envia o e-mail de boas-vindas dentro da requisição, o usuário espera o SMTP responder, e se o SMTP cair o cadastro falha junto. Com uma fila, a rota só registra o trabalho (um job) e responde na hora. Um worker, em outro processo, executa os jobs no ritmo dele e tenta de novo quando algo falha. A fila também absorve picos: 10 mil cadastros viram 10 mil jobs esperando, não 10 mil conexões simultâneas ao SMTP.",
+      "code_example": "// ❌ Sem fila: a requisição espera o SMTP (lento) e falha junto com ele\napp.post('/cadastro', async (req, res) => {\n  const user = await db.users.create(req.body);\n  await enviarEmailBoasVindas(user.email); // 2s... ou erro 500\n  res.status(201).json(user);\n});\n\n// ✅ Com fila: a rota só registra o trabalho e responde na hora\napp.post('/cadastro', async (req, res) => {\n  const user = await db.users.create(req.body);\n  fila.add('boas-vindas', { to: user.email, subject: 'Bem-vindo!' });\n  res.status(201).json(user);\n});\n\n// Um worker executa os jobs no ritmo dele e tenta de novo se falhar.\n// Vocabulário: job (o trabalho), produtor (quem enfileira),\n// worker (quem executa), concorrência, retry, dead letter."
+    },
+    {
+      "title": "Job e fila tipados com generics",
+      "body": "Uma fila não sabe o que é um e-mail. Com generics, quem usa diz o tipo dos dados do job (`T`) e do resultado do processamento (`R`). Passando um mapa de eventos para `EventEmitter<...>`, o `.on()` e o `.emit()` também ficam tipados: os parâmetros do listener são inferidos e um nome de evento errado não compila.",
+      "code_example": "import { EventEmitter } from 'node:events';\n\nexport interface Job<T> {\n  readonly id: number;\n  readonly name: string;\n  readonly data: T; // o payload: cada fila define o seu\n  attempts: number;\n  status: 'waiting' | 'active' | 'completed' | 'failed';\n  lastError?: string;\n}\n\nexport type Processor<T, R> = (job: Job<T>) => Promise<R>;\n\n// Mapa \"nome do evento → argumentos do listener\"\nexport interface QueueEvents<T, R> {\n  completed: [job: Job<T>, result: R];\n  retrying: [job: Job<T>, error: Error, delayMs: number];\n  failed: [job: Job<T>, error: Error];\n  drained: [];\n}\n\nexport class MemoryQueue<T, R = void> extends EventEmitter<QueueEvents<T, R>> {\n  // ... implementação nas próximas seções\n}\n\n// Uso: MemoryQueue<dados do job, resultado do processor>\nconst fila = new MemoryQueue<{ to: string }, string>(enviarEmail, { concurrency: 2 });\n\nfila.on('completed', (job, messageId) => console.log(job.data.to, messageId)); // tipos inferidos\n// fila.on('complete', ...)  // ❌ Erro: esse evento não existe"
+    },
+    {
+      "title": "Concorrência: o loop do consumidor",
+      "body": "`add` coloca o job no fim do array e volta na hora: o produtor nunca espera o processamento. `#pump` inicia jobs enquanto houver vaga de concorrência, sem `await`, para que vários rodem juntos. Quando um termina, abre uma vaga e `#pump` puxa o próximo. O resultado de cada tentativa vira uma união discriminada: depois de checar `outcome.ok`, o TypeScript sabe se você tem `result` ou `error`. Campos com `#` são privados também em tempo de execução.",
+      "code_example": "// Dentro de MemoryQueue<T, R>\nreadonly #waiting: Job<T>[] = [];\n#active = 0;\n\nadd(name: string, data: T): Job<T> {\n  const job: Job<T> = { id: this.#nextId++, name, data, attempts: 0, status: 'waiting' };\n  this.#waiting.push(job);\n  this.#pump(); // tenta começar agora\n  return job;   // o produtor não espera o processamento\n}\n\n#pump(): void {\n  while (this.#active < this.#concurrency) {\n    const job = this.#waiting.shift(); // FIFO: o primeiro que entrou sai primeiro\n    if (!job) return;\n    void this.#run(job); // sem await: vários jobs rodando juntos\n  }\n}\n\nasync #run(job: Job<T>): Promise<void> {\n  this.#active++;\n  job.status = 'active';\n  job.attempts++;\n\n  // União discriminada: checar `ok` diz ao TS qual dos lados você tem\n  let outcome: { ok: true; result: R } | { ok: false; error: Error };\n  try {\n    outcome = { ok: true, result: await this.#processor(job) };\n  } catch (err) {\n    // Em JS dá para lançar qualquer coisa: normalize para Error\n    outcome = { ok: false, error: err instanceof Error ? err : new Error(String(err)) };\n  }\n  this.#active--;\n\n  if (outcome.ok) {\n    job.status = 'completed';\n    this.emit('completed', job, outcome.result);\n  } else {\n    this.#handleFailure(job, outcome.error);\n  }\n\n  this.#pump(); // abriu uma vaga: puxa o próximo\n}"
+    },
+    {
+      "title": "Retry com backoff exponencial e dead letter",
+      "body": "Serviços externos falham por instantes, e tentar de novo na hora só piora. Por isso a espera dobra a cada falha: base × 2^(tentativas − 1). Com base de 100ms, a fila espera 100ms após a 1ª falha e 200ms após a 2ª. Quando as tentativas acabam, o job vai para a dead letter: uma lista dos jobs que falharam de vez, guardada para análise ou reprocessamento manual.",
+      "code_example": "#handleFailure(job: Job<T>, error: Error): void {\n  job.lastError = error.message;\n\n  if (job.attempts >= this.#maxAttempts) {\n    job.status = 'failed';\n    this.#deadLetter.push(job); // guarda para análise\n    this.emit('failed', job, error);\n    return;\n  }\n\n  // 100ms, 200ms, 400ms... dá tempo de o serviço externo se recuperar\n  const delayMs = this.#backoffMs * 2 ** (job.attempts - 1);\n  job.status = 'waiting';\n  this.#scheduledRetries++;\n  this.emit('retrying', job, error, delayMs);\n\n  setTimeout(() => {\n    this.#scheduledRetries--;\n    this.#waiting.push(job);\n    this.#pump();\n  }, delayMs);\n}\n\n// Saída real com { concurrency: 2, maxAttempts: 3, backoffMs: 100 }:\n// ↻ job 3 falhou (timeout no SMTP); nova tentativa em 100ms\n// ↻ job 3 falhou (timeout no SMTP); nova tentativa em 200ms\n// ✔ job 3 enviado → msg-3\n// ✖ job 5 foi para a dead letter após 3 tentativas: endereço inválido"
+    },
+    {
+      "title": "Erros permanentes e os limites da fila em memória",
+      "body": "Nem todo erro merece retry: um endereço sem @ continua inválido na 3ª tentativa. Uma classe de erro própria deixa o processor avisar a fila para não tentar de novo. E a fila em memória tem limites sérios: se o processo cair, todos os jobs pendentes se perdem; só um processo consome; não há agendamento nem painel. É por isso que, em produção, a fila mora num banco como o Redis, assunto do próximo módulo.",
+      "code_example": "// Um tipo de erro que significa \"não adianta tentar de novo\"\nexport class PermanentError extends Error {}\n\n// Na fila: erro permanente vai direto para a dead letter\n#handleFailure(job: Job<T>, error: Error): void {\n  job.lastError = error.message;\n  const semRetry = error instanceof PermanentError;\n\n  if (semRetry || job.attempts >= this.#maxAttempts) {\n    job.status = 'failed';\n    this.#deadLetter.push(job);\n    this.emit('failed', job, error);\n    return;\n  }\n  // ... backoff como antes\n}\n\n// No processor: quem conhece o domínio decide o que é permanente\nasync function enviarEmail(job: Job<EmailJob>): Promise<string> {\n  if (!job.data.to.includes('@')) throw new PermanentError('endereço inválido');\n  return smtp.send(job.data); // timeout aqui continua com retry\n}\n\n// Limites que continuam: os jobs só existem na memória deste processo.\n// Caiu o processo, sumiu a fila. Próximo passo: BullMQ + Redis."
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Qual a principal vantagem de mover o envio de e-mail da rota HTTP para uma fila?",
+      "options": [
+        "A rota responde na hora, e o envio pode ser repetido se falhar, sem afetar o usuário",
+        "O e-mail é enviado mais rápido",
+        "O código passa a ser síncrono",
+        "Dispensa tratar erros no envio"
+      ],
+      "correct_option": "A rota responde na hora, e o envio pode ser repetido se falhar, sem afetar o usuário",
+      "explanation": "A rota só registra o trabalho e responde. Quem envia é o worker, que pode tentar de novo com backoff. O envio em si não fica mais rápido: ele só deixa de bloquear e de derrubar a requisição."
+    },
+    {
+      "id": 2,
+      "question": "Com `backoffMs = 100` e backoff exponencial, quanto a fila espera depois da 2ª falha de um job?",
+      "options": [
+        "200ms",
+        "100ms",
+        "300ms",
+        "400ms"
+      ],
+      "correct_option": "200ms",
+      "explanation": "A espera é base × 2^(tentativas − 1). Depois da 1ª falha: 100 × 2⁰ = 100ms. Depois da 2ª: 100 × 2¹ = 200ms. Dobrar a espera dá tempo ao serviço externo de se recuperar."
+    },
+    {
+      "id": 3,
+      "question": "Por que a classe estende `EventEmitter<QueueEvents<T, R>>` em vez de só `EventEmitter`?",
+      "options": [
+        "Para que `.on()` e `.emit()` tenham nomes de eventos e argumentos checados pelo compilador",
+        "Para os eventos serem emitidos mais rápido",
+        "Porque o Node exige um tipo genérico",
+        "Para os eventos funcionarem entre processos"
+      ],
+      "correct_option": "Para que `.on()` e `.emit()` tenham nomes de eventos e argumentos checados pelo compilador",
+      "explanation": "O mapa de eventos diz quais eventos existem e quais argumentos cada um recebe. Assim, em `fila.on('completed', (job, messageId) => ...)` os tipos são inferidos, e um nome errado como `'complete'` não compila. Em tempo de execução nada muda."
+    },
+    {
+      "id": 4,
+      "question": "Por que `#pump` chama `void this.#run(job)` sem `await`?",
+      "options": [
+        "Para iniciar vários jobs em paralelo, até o limite de concorrência",
+        "Para ignorar os erros do job",
+        "Porque `#run` não retorna Promise",
+        "Para o job rodar em outra thread"
+      ],
+      "correct_option": "Para iniciar vários jobs em paralelo, até o limite de concorrência",
+      "explanation": "Com `await`, o loop esperaria cada job terminar antes de iniciar o próximo, e a concorrência seria sempre 1. O `void` deixa claro que a Promise é ignorada de propósito. Os erros não se perdem: `#run` já os trata no try/catch."
+    },
+    {
+      "id": 5,
+      "question": "Qual a maior limitação de uma fila em memória?",
+      "options": [
+        "Se o processo cair, todos os jobs pendentes se perdem",
+        "Ela não aceita generics",
+        "Ela não suporta concorrência",
+        "Ela só processa um tipo de job"
+      ],
+      "correct_option": "Se o processo cair, todos os jobs pendentes se perdem",
+      "explanation": "Os jobs existem só na memória do processo: um deploy, um crash ou falta de memória apaga tudo o que estava esperando. Ela também não deixa vários processos dividirem o trabalho. Uma fila persistente, como o BullMQ com Redis, resolve as duas coisas."
+    }
+  ]
+}

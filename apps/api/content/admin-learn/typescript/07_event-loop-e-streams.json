@@ -1,0 +1,95 @@
+{
+  "slug": "typescript-node-event-loop-e-streams",
+  "title": "Event Loop, Eventos e Streams",
+  "category": "typescript",
+  "description": "Como o event loop decide o que roda, EventEmitter tipado com once e on, streams com pipeline, backpressure e worker_threads para trabalho pesado de CPU.",
+  "sections": [
+    {
+      "title": "O event loop",
+      "body": "O JavaScript do Node roda numa thread só. O código síncrono roda até o fim, depois rodam as microtasks (Promises, `queueMicrotask`) e o `process.nextTick`, e só então os timers e callbacks de I/O. Em módulos ESM as promises vêm antes do nextTick; em CommonJS é o contrário. A consequência prática: código síncrono pesado trava tudo. Um timer de 0ms espera o loop terminar, e o mesmo vale para requisições e jobs.",
+      "code_example": "// O JavaScript roda numa thread só. O event loop decide o que roda a seguir.\nsetTimeout(() => console.log('E. setTimeout (fila de timers)'), 0);\nPromise.resolve().then(() => console.log('C. promise (microtask)'));\nprocess.nextTick(() => console.log('D. process.nextTick'));\nconsole.log('A. síncrono');\n\n// Código síncrono pesado trava TUDO: nenhum timer, request ou job anda\nfunction travar(ms: number): void {\n  const fim = Date.now() + ms;\n  while (Date.now() < fim) { /* ocupando a thread */ }\n}\nconst antes = Date.now();\nsetTimeout(() => console.log(`F. timer de 0ms rodou após ${Date.now() - antes}ms`), 0);\ntravar(300);\nconsole.log('B. síncrono, depois de travar 300ms');\n\n// Saída (Node 24, ESM):\n// A. síncrono\n// B. síncrono, depois de travar 300ms\n// C. promise (microtask)\n// D. process.nextTick      ← em ESM vem DEPOIS da promise; em CommonJS, antes\n// E. setTimeout (fila de timers)\n// F. timer de 0ms rodou após 300ms   ← \"0ms\" é o mínimo, não uma garantia"
+    },
+    {
+      "title": "EventEmitter tipado",
+      "body": "Passar um mapa de eventos para `EventEmitter<...>` tipa nomes e argumentos, como na fila do módulo de fundamentos. O `once` de `node:events` transforma o próximo evento numa Promise, e o `on` transforma eventos num async iterator para usar com `for await`, encerrado por um AbortSignal. Um evento `'error'` emitido sem nenhum listener lança a exceção e derruba o processo.",
+      "code_example": "import { EventEmitter, on, once } from 'node:events';\n\ninterface PedidoEventos {\n  criado: [pedido: { id: string; total: number }];\n  cancelado: [id: string, motivo: string];\n}\n\nconst pedidos = new EventEmitter<PedidoEventos>();\n\npedidos.on('cancelado', (id, motivo) => console.log(`#${id} cancelado: ${motivo}`));\n// @ts-expect-error: o evento 'pago' não existe no mapa\npedidos.on('pago', () => {});\n\n// once() devolve uma Promise com os argumentos do PRÓXIMO evento\nsetTimeout(() => pedidos.emit('criado', { id: 'p1', total: 50 }), 10);\nconst [pedido] = await once(pedidos, 'criado');\nconsole.log('primeiro pedido:', pedido.id); // 'p1'\n\n// on() transforma eventos em um async iterator\nconst ac = new AbortController();\nsetTimeout(() => pedidos.emit('cancelado', 'p2', 'sem estoque'), 10);\nsetTimeout(() => ac.abort(), 50);\ntry {\n  for await (const [id] of on(pedidos, 'cancelado', { signal: ac.signal })) {\n    console.log('via for await:', id); // 'p2'\n  }\n} catch {\n  // abortar o signal encerra o loop com AbortError\n}\n\n// Cuidado: emitir 'error' sem nenhum listener lança a exceção e derruba o processo"
+    },
+    {
+      "title": "Streams e pipeline",
+      "body": "Streams processam dados em pedaços, com memória constante, não importa se o arquivo tem 5 KB ou 5 GB. Encadeie etapas com `pipeline` de `node:stream/promises`: ele propaga erros, fecha todos os streams se uma etapa falhar e devolve uma Promise. Para ler linha a linha, `readline` com `for await` também é streaming.",
+      "code_example": "import { createReadStream, createWriteStream } from 'node:fs';\nimport { createInterface } from 'node:readline';\nimport { pipeline } from 'node:stream/promises';\nimport { createGzip } from 'node:zlib';\n\n// Um log de 5 GB não cabe na memória. Streams processam em pedaços (chunks),\n// com uso de memória constante, não importa o tamanho do arquivo.\nawait pipeline(\n  createReadStream('access.log'),\n  createGzip(),\n  createWriteStream('access.log.gz'),\n);\n// pipeline cuida dos erros e fecha todos os streams, mesmo se uma etapa falhar\n\n// Ler linha a linha, também em streaming\nconst linhas = createInterface({ input: createReadStream('access.log'), crlfDelay: Infinity });\nlet erros = 0;\nfor await (const linha of linhas) {\n  if (linha.endsWith(' 500')) erros++;\n}\nconsole.log(`${erros} respostas 500`); // '2 respostas 500'"
+    },
+    {
+      "title": "Transform, async generators e backpressure",
+      "body": "Um async generator vira fonte de stream com `Readable.from`, e um `Transform` em `objectMode` converte objetos no caminho. Backpressure é o que impede a memória de explodir: quando o destino é mais lento, a fonte espera. No exemplo, o destino leva 100ms por item e o pipeline inteiro respeita esse ritmo. Escrevendo na mão, `write()` devolve false quando o buffer enche e você deve esperar o evento `'drain'`. O `pipeline` faz isso por você.",
+      "code_example": "import { Readable, Transform, Writable } from 'node:stream';\nimport { pipeline } from 'node:stream/promises';\n\n// Fonte: um async generator vira stream (páginas de uma API, linhas do banco...)\nasync function* gerarPedidos() {\n  for (let i = 1; i <= 3; i++) yield { id: i, total: i * 10 };\n}\n\n// Transform em objectMode: recebe objetos, devolve outra coisa\nconst paraCsv = new Transform({\n  objectMode: true,\n  transform(pedido: { id: number; total: number }, _encoding, callback) {\n    callback(null, `${pedido.id};${pedido.total}\\n`);\n  },\n});\n\n// Destino lento: simula um banco que leva 100ms por escrita\nconst destinoLento = new Writable({\n  highWaterMark: 1, // buffer pequeno para a backpressure aparecer logo\n  write(chunk: Buffer, _encoding, callback) {\n    process.stdout.write(`gravando ${chunk.toString()}`);\n    setTimeout(callback, 100); // só libera o próximo quando chamar callback\n  },\n});\n\nconst inicio = Date.now();\nawait pipeline(Readable.from(gerarPedidos()), paraCsv, destinoLento);\nconsole.log(`levou ~${Math.round((Date.now() - inicio) / 100) * 100}ms`); // ~300ms: a fonte esperou o destino\n\n// Sem pipeline: write() devolve false quando o buffer enche, e você deveria\n// esperar o evento 'drain' antes de escrever de novo. Ignorar isso = memória\n// crescendo sem limite. pipeline e for await fazem esse controle por você."
+    },
+    {
+      "title": "worker_threads para CPU pesada",
+      "body": "I/O não trava o event loop, mas cálculo pesado (hash, compressão, imagem, PDF) trava. `worker_threads` roda JavaScript em outra thread com o próprio event loop, e as duas threads conversam por mensagens. No exemplo, o arquivo roda a si mesmo como worker e o loop principal continua respondendo enquanto o cálculo acontece. Em filas, o BullMQ oferece isso por job com sandboxed processors.",
+      "code_example": "import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';\n\n// Trabalho pesado de CPU (hash, imagem, PDF) trava o event loop.\n// worker_threads roda JS em outra thread, com o próprio event loop.\nfunction fibonacci(n: number): number {\n  return n < 2 ? n : fibonacci(n - 1) + fibonacci(n - 2);\n}\n\nif (isMainThread) {\n  const inicio = Date.now();\n  const batidas = setInterval(() => console.log(`event loop livre aos ${Date.now() - inicio}ms`), 250);\n\n  // O mesmo arquivo roda como worker, recebendo workerData\n  const worker = new Worker(new URL(import.meta.url), { workerData: 38 });\n  const resultado = await new Promise<number>((resolve, reject) => {\n    worker.once('message', resolve);\n    worker.once('error', reject);\n  });\n\n  clearInterval(batidas);\n  console.log('fibonacci(38) =', resultado);\n} else {\n  parentPort?.postMessage(fibonacci(workerData as number));\n}\n// Enquanto a outra thread calcula, as \"batidas\" continuam: o event loop não travou.\n// Em filas, o BullMQ faz isso por job com sandboxed processors (módulo 11)."
+    }
+  ],
+  "quiz": [
+    {
+      "id": 1,
+      "question": "Uma rota executa um loop síncrono de 2 segundos. O que acontece com o resto do servidor?",
+      "options": [
+        "Todas as outras requisições, timers e callbacks ficam parados até o loop terminar",
+        "Só aquela requisição fica lenta",
+        "O Node move o loop para outra thread automaticamente",
+        "As outras requisições recebem erro 503"
+      ],
+      "correct_option": "Todas as outras requisições, timers e callbacks ficam parados até o loop terminar",
+      "explanation": "Existe uma thread só para o JavaScript. Enquanto ela está presa no loop, o event loop não avança. No exemplo do módulo, um timer de 0ms só rodou depois de 300ms de código síncrono."
+    },
+    {
+      "id": 2,
+      "question": "Por que usar `pipeline` de `node:stream/promises` em vez de encadear `.pipe()`?",
+      "options": [
+        "pipeline propaga erros, fecha todos os streams numa falha e devolve uma Promise",
+        "pipeline é a única forma de ler arquivos",
+        "`.pipe()` não funciona com arquivos grandes",
+        "pipeline carrega o arquivo inteiro na memória para ser mais rápido"
+      ],
+      "correct_option": "pipeline propaga erros, fecha todos os streams numa falha e devolve uma Promise",
+      "explanation": "Com `.pipe()`, um erro no meio pode deixar streams abertos e vazar recursos. `pipeline` trata erro e limpeza em todas as etapas e se integra com `await`."
+    },
+    {
+      "id": 3,
+      "question": "O que é backpressure?",
+      "options": [
+        "O mecanismo que faz a fonte esperar quando o destino não consome no mesmo ritmo",
+        "Um erro lançado quando o arquivo é grande demais",
+        "A compressão automática de streams",
+        "A prioridade entre streams diferentes"
+      ],
+      "correct_option": "O mecanismo que faz a fonte esperar quando o destino não consome no mesmo ritmo",
+      "explanation": "Sem backpressure, uma fonte rápida encheria a memória com dados que o destino ainda não processou. O sinal é o `write()` devolvendo false e o evento `'drain'`."
+    },
+    {
+      "id": 4,
+      "question": "O que `await once(emitter, 'pronto')` devolve?",
+      "options": [
+        "Uma Promise que resolve com os argumentos do próximo evento 'pronto'",
+        "A lista de todos os eventos 'pronto' já emitidos",
+        "Um listener que roda uma vez por segundo",
+        "O número de listeners de 'pronto'"
+      ],
+      "correct_option": "Uma Promise que resolve com os argumentos do próximo evento 'pronto'",
+      "explanation": "`once` de `node:events` registra um listener temporário e resolve com o array de argumentos do próximo evento. Se o emitter emitir `'error'` antes, a Promise rejeita."
+    },
+    {
+      "id": 5,
+      "question": "Quando usar `worker_threads`?",
+      "options": [
+        "Para trabalho pesado de CPU, que travaria o event loop",
+        "Para toda chamada de banco de dados",
+        "Para ler arquivos mais rápido",
+        "Para substituir async/await"
+      ],
+      "correct_option": "Para trabalho pesado de CPU, que travaria o event loop",
+      "explanation": "I/O já é assíncrono e não precisa de thread extra. Uma worker thread vale a pena quando o próprio JavaScript demora, como em cálculo, compressão ou processamento de imagem."
+    }
+  ]
+}
